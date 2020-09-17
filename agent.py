@@ -44,8 +44,9 @@ class GenCo(Agent):
             if pd > self.total_capacity:
                 # Additional capacity needed!
                 print("Demand will be higher than capacity. Building a new unit...")
-                new_unit = gen.Generator(id_num = 135, gtype='unit_1')
-                self.portfolio[135] = new_unit
+                unit_id = self.model.id_register.get_next_available_id()
+                new_unit = gen.Generator(id_num=unit_id, gtype='unit_1')
+                self.portfolio[unit_id] = new_unit
                 return
 
     def set_current_step(self):
