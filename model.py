@@ -3,18 +3,29 @@ from mesa.time import RandomActivation
 from agent import GenCo
 import yaml
 
+# import local modules
+import id_register
+
 portfolio = {100: {'gtype': 'unit_1'}, 101: {'gtype': 'unit_1'}}
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
     def __init__(self, n, unit_data_file, demand_data_file):
+        # Parameters
         self.num_agents = n
         self.current_step = -1
         self.future_vis = 3  # Number of time steps agents can see into the future
-        self.schedule = RandomActivation(self)
+
+        # Load default unit data and demand profile
         self.load_unit_data(unit_data_file)
         self.set_true_demand_profile(demand_data_file)
         self.set_demand_visibility_window()
+
+        # Set up a public register of unit IDs
+        self.id_register = id_register.ID_register()
+
+        # Define the agent schedule, using randomly-ordered agent activation
+        self.schedule = RandomActivation(self)
         # Create agents
         for i in range(self.num_agents):
             gc = GenCo(i, self, portfolio)
