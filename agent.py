@@ -47,6 +47,7 @@ class GenCo(Agent):
                 unit_id = self.model.id_register.get_next_available_id()
                 new_unit = gen.Generator(id_num=unit_id, gtype='unit_1')
                 self.portfolio[unit_id] = new_unit
+                self.model.id_register.add_unit(self.unique_id, unit_id)
                 return
 
     def set_current_step(self):
