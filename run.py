@@ -5,8 +5,8 @@ from model import GridModel
 import yaml
 
 # User inputs
-unit_data_file = '/home/kbiegel/gamba/simplified_units.yml'
-demand_data_file = '/home/kbiegel/gamba/simplified_demand.yml'
+unit_data_file = '/home/kbiegel/abce/simplified_units.yml'
+demand_data_file = '/home/kbiegel/abce/simplified_demand.yml'
 
 # Run the model
 if __name__ == '__main__':

@@ -3,7 +3,6 @@ from mesa.time import RandomActivation
 import yaml
 
 # import local modules
-import WIP_Project
 import generator as gen
 
 class GenCo(Agent):
