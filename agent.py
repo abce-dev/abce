@@ -10,14 +10,18 @@ class GenCo(Agent):
     def __init__(self, genco_id, model, existing_portfolio):
         super().__init__(genco_id, model)
         self.set_up_portfolio(existing_portfolio)
+        self.model = model
 
     def set_up_portfolio(self, existing_portfolio):
         self.portfolio = dict()
-        for unit_id in existing_portfolio.keys():
-            gtype = existing_portfolio[unit_id]['gtype']
+        for unit_num in existing_portfolio.keys():
+            gtype = existing_portfolio[unit_num]['gtype']
+            unit_id = self.model.id_register.get_next_available_id()
             new_unit = gen.Generator(id_num=unit_id, gtype=gtype)
             new_unit.completion = [1]
             self.portfolio[unit_id] = new_unit
+            self.model.id_register.add_unit(self.unique_id, unit_id)
+            
 
     def step(self):
         self.set_current_step()

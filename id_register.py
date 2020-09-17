@@ -17,8 +17,9 @@ class ID_register(object):
         '''
         while self.next_id in self.register:
             self.next_id += 1
-        if self.next_id > min(self.register):
-            self.next_id = max(self.register) + 1
+        if self.register != []:
+            if self.next_id > min(self.register):
+                self.next_id = max(self.register) + 1
 
     def get_next_available_id(self):
         assigned_id = self.next_id
