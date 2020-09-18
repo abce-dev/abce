@@ -5,7 +5,7 @@ import yaml
 
 # import local modules
 import id_register
-
+import demand_history
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
@@ -22,6 +22,9 @@ class GridModel(Model):
 
         # Set up a public register of unit IDs
         self.id_register = id_register.ID_register()
+
+        # Set up a public demand-history data series
+        self.demand_history = demand_history.DemandHistory(self.prev_demand[0])
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
@@ -41,6 +44,7 @@ class GridModel(Model):
     def set_true_demand_profile(self, filename):
         demand_file = open(filename)
         demand = yaml.load(demand_file, Loader=yaml.FullLoader)
+        self.prev_demand = demand['past_demand']
         self.true_demand_profile = demand['demand']
 
     def set_demand_visibility_window(self):
@@ -48,6 +52,9 @@ class GridModel(Model):
 
     def step(self):
         ''' Advance the model by one step. '''
+        # Move next future demand data point to the historical register
+        if self.current_step != -1:
+            self.demand_history.add_data(self.demand_NTF[0])
         self.current_step += 1
         self.set_demand_visibility_window()
         self.schedule.step()
