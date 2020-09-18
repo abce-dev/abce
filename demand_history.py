@@ -5,6 +5,8 @@ import pandas as pd
 
 class DemandHistory(object):
     def __init__(self, init_data):
+        ''' 
+        '''
         if not isinstance(init_data, list):
             init_data = [init_data]
         period = list(range(len(init_data)))
@@ -13,8 +15,5 @@ class DemandHistory(object):
 
 
     def add_data(self, new_demand_point):
-        #new_period = self.register.index[-1] + 1
-        #print(new_period)
         self.register = self.register.append({'demand': new_demand_point},
                                              ignore_index=True)
-        print(self.register)
