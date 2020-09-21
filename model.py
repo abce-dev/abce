@@ -29,7 +29,7 @@ class GridModel(Model):
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
         # load the sample agent portfolio
-        portfolio = yaml.load(open('./a1_portfolio.yml', 'r'), Loader=yaml.FullLoader)
+        portfolio = yaml.load(open('./portfolio.yml', 'r'), Loader=yaml.FullLoader)
         # Create agents
         for i in range(self.num_agents):
             gc = GenCo(i, self, portfolio)
