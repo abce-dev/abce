@@ -71,7 +71,7 @@ class GenCo(Agent):
         for unit_num in existing_portfolio.keys():
             gtype = existing_portfolio[unit_num]['gtype']
             unit_id = self.model.id_register.get_next_available_id()
-            new_unit = gen.Generator(id_num=unit_id, gtype=gtype)
+            new_unit = gen.Generator(id_num=unit_id, gtype=gtype, completion=1)
             new_unit.completion = [1]
             self.portfolio[unit_id] = new_unit
             self.model.id_register.add_unit(self.unique_id, unit_id)
@@ -108,7 +108,7 @@ class GenCo(Agent):
         self.get_demand_forecast()
         #self.forecast_demand()
         self.evaluate_current_capacity()
-        self.evaluate_new_project()
+        self.assess_supply_adequacy()
 
     def evaluate_current_capacity(self):
         """Sum up all current generation capacity owned by this agent.
@@ -134,7 +134,7 @@ class GenCo(Agent):
             self.total_capacity += self.portfolio[unit].capacity
         print(f'Total capacity currently installed = {self.total_capacity}.')
 
-    def evaluate_new_project(self):
+    def assess_supply_adequacy(self):
         """Determine whether future demand exceeds future supply.
 
         Detailed Description
