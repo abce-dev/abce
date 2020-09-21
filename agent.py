@@ -115,9 +115,10 @@ class GenCo(Agent):
 
         Detailed Description
         --------------------
-        This function resets known total capacity owned to zero. Then it
-        loops over all units owned and sums up the capacity of each,
-        updating the `self.total_capacity` variable.
+        This function sums up the total capacity of all generation units
+        owned by the utility, including both in-service units and units
+        under construction ('wip' status). This value can then be used to
+        determine whether additional capacity investments are needed.
 
         Parameters
         ----------
