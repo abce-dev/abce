@@ -34,15 +34,26 @@ class Generator(object):
             self.update_xtr_expenses()
 
     def update_xtr_progress(self):
-        ''' Update the total % completion to date of the project.
-            If this period's progress would put completion at or over 100%,
-                set the project to completed ('in_service' status).
+        """Update the total % completion to date of the project.
 
-            Current behavior: increment completion by 100% (i.e. unit is
-                completed 1 period after it is started)
-        '''
-        # Force one-period completion
-        new_completion = self.completion[-1] + 0.5
+            Detailed Description
+            --------------------
+            Increment the unit's construction completion progress for the most
+            recent period. If this additional progress would put completion
+            at or over 100%, set the project to completed ('in_service' status)
+
+            The unit adds incremental progress linearly, at a rate of
+            (1 / self.xtr_lead_time) per time period.
+
+            Parameters
+            ----------
+            none
+
+            Returns
+            -------
+            None
+        """
+        new_completion = self.completion[-1] + (1/self.xtr_lead_time)
         self.completion.append(new_completion)
         # Cleanup, and status update when project finishes
         if self.completion[-1] >= 1:
@@ -53,13 +64,13 @@ class Generator(object):
             print(f'Project {self.id} at {self.completion[-1]} completion')
 
     def update_xtr_expenses(self):
-        ''' Incur construction expenses related to most recent project progress.
+        """Incur construction expenses related to most recent project progress.
 
             Current behavior:
              - Incremental cost is a linear function of total cost and incremental completion
                    for previous period.
              - Assumes no schedule slip or cost
-        '''
+        """
         new_expenditures = (self.total_overnight_cost) * (self.completion[-1] - self.completion[-2])
         self.xtr_expenditures.append(new_expenditures)
 
