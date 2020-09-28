@@ -30,17 +30,17 @@ class GridModel(Model):
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
         # load the sample agent portfolio
-        portfolio = yaml.load(open('./portfolio.yml', 'r'), Loader=yaml.FullLoader)
+        c_portfolio = pd.read_csv('./c_portfolio.csv', index_col='agent', skipinitialspace=True)
+
         # Create agents
         for i in range(self.num_agents):
-            gc = GenCo(i, self, portfolio)
+            gc = GenCo(i, self, c_portfolio.loc[i+1])
             self.schedule.add(gc)
 
     def load_unit_data(self, filename):
         unit_file = open(filename)
         self.unit_data = yaml.load(unit_file, Loader=yaml.FullLoader)
         self.unit_data = pd.DataFrame.from_dict(self.unit_data, orient='index')
-        print(self.unit_data)
         self.unit_types = self.unit_data.index
 
     def set_true_demand_profile(self, filename):

@@ -2,6 +2,7 @@ from mesa import Agent, Model
 from mesa.time import RandomActivation
 import yaml
 import math
+import pandas as pd
 
 # import local modules
 import generator as gen
@@ -68,13 +69,14 @@ class GenCo(Agent):
            None
         """
         self.portfolio = dict()
-        for unit_num in existing_portfolio.keys():
-            gtype = existing_portfolio[unit_num]['gtype']
-            unit_id = self.model.id_register.get_next_available_id()
-            new_unit = gen.Generator(world_model=self.model, id_num=unit_id, gtype=gtype, completion=1)
-            new_unit.completion = [1]
-            self.portfolio[unit_id] = new_unit
-            self.model.id_register.add_unit(self.unique_id, unit_id)
+        for i in range(len(existing_portfolio.index)):
+            unit_data = pd.Series(existing_portfolio.iloc[i].transpose())
+            for j in range(unit_data['num_copies']):
+                unit_id = self.model.id_register.get_next_available_id()
+                new_unit = gen.Generator(world_model=self.model, id_num=unit_id, gtype=unit_data['gtype'], completion=1)
+                self.portfolio[unit_id] = new_unit
+                self.model.id_register.add_unit(self.unique_id, unit_id)
+
 
     def step(self):
         """Controller function to activate all agent behaviors at each time step.
