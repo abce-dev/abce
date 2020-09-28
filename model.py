@@ -29,8 +29,9 @@ class GridModel(Model):
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
-        # load the sample agent portfolio
-        c_portfolio = pd.read_csv('./c_portfolio.csv', index_col='agent', skipinitialspace=True)
+
+        # Load the agents' starting portfolios
+        c_portfolio = pd.read_csv('./portfolios.csv', index_col='agent', skipinitialspace=True)
 
         # Create agents
         for i in range(self.num_agents):
