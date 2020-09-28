@@ -2,6 +2,7 @@ from mesa import Agent, Model
 from mesa.time import RandomActivation
 from agent import GenCo
 import yaml
+import pandas as pd
 
 # import local modules
 import id_register
@@ -38,8 +39,9 @@ class GridModel(Model):
     def load_unit_data(self, filename):
         unit_file = open(filename)
         self.unit_data = yaml.load(unit_file, Loader=yaml.FullLoader)
-        self.unit_types = list(self.unit_data.keys())
-        self.unit_data_types = list(self.unit_data[self.unit_types[0]].keys())
+        self.unit_data = pd.DataFrame.from_dict(self.unit_data, orient='index')
+        print(self.unit_data)
+        self.unit_types = self.unit_data.index
 
     def set_true_demand_profile(self, filename):
         demand_file = open(filename)

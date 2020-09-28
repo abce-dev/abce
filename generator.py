@@ -3,13 +3,13 @@ import yaml
 import mesa
 
 class Generator(object):
-    def __init__(self, id_num, gtype, completion=0):
+    def __init__(self, world_model, id_num, gtype, completion=0):
         # Universal identification number, public knowledge
         self.id = id_num
+        self.model = world_model # System model to which agents and generators belong
         # Set up unit type, and get parameters from the units.yml file
         self.type = gtype
-        units = yaml.load(open('./simplified_units.yml', 'r'), Loader=yaml.FullLoader)
-        unit = units[self.type]
+        unit = world_model.unit_data.loc[self.type]
         self.capacity = unit['capacity']
         self.overnight_cost = unit['overnight_cost']
         self.xtr_lead_time = unit['xtr_lead_time']
@@ -23,8 +23,8 @@ class Generator(object):
             self.status = 'in_service'
         else:
             self.status = 'wip'
-        self.xtr_expenditures = list()
-        self.total_overnight_cost = 10.0
+            self.proj_completion_date = self.model.current_step + self.xtr_lead_time
+        self.xtr_expenditures = list() # Blank list of periodic construction capital expenses
 
     def step(self):
         if self.status == 'in_service':
@@ -71,7 +71,7 @@ class Generator(object):
                    for previous period.
              - Assumes no schedule slip or cost
         """
-        new_expenditures = (self.total_overnight_cost) * (self.completion[-1] - self.completion[-2])
+        new_expenditures = (self.overnight_cost) * (self.completion[-1] - self.completion[-2])
         self.xtr_expenditures.append(new_expenditures)
 
     def decrement_remaining_life(self):

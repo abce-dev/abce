@@ -71,7 +71,7 @@ class GenCo(Agent):
         for unit_num in existing_portfolio.keys():
             gtype = existing_portfolio[unit_num]['gtype']
             unit_id = self.model.id_register.get_next_available_id()
-            new_unit = gen.Generator(id_num=unit_id, gtype=gtype, completion=1)
+            new_unit = gen.Generator(world_model=self.model, id_num=unit_id, gtype=gtype, completion=1)
             new_unit.completion = [1]
             self.portfolio[unit_id] = new_unit
             self.model.id_register.add_unit(self.unique_id, unit_id)
@@ -165,7 +165,7 @@ class GenCo(Agent):
                 #   by the per-unit capacity of the unit_1 type.
                 # To be replaced when unit choice behaviors are modeled in
                 #   more detail.
-                num_new_units = int(math.ceil((pd - self.total_capacity) / float(self.model.unit_data['unit_1']['capacity'])))
+                num_new_units = int(math.ceil((pd - self.total_capacity) / float(self.model.unit_data.loc['unit_1', 'capacity'])))
                 self.build_new_units(num_new_units)
                 return
 
@@ -188,7 +188,7 @@ class GenCo(Agent):
         """
         for i in range(num_new_units):
             unit_id = self.model.id_register.get_next_available_id()
-            new_unit = gen.Generator(id_num=unit_id, gtype='unit_1')
+            new_unit = gen.Generator(world_model=self.model, id_num=unit_id, gtype='unit_1')
             self.portfolio[unit_id] = new_unit
             self.model.id_register.add_unit(self.unique_id, unit_id)
 
