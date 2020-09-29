@@ -1,6 +1,7 @@
 # A class for generation units
 import yaml
 import mesa
+import financial_statement as fs
 
 class Generator(object):
     def __init__(self, world_model, id_num, gtype, completion=0):
@@ -21,10 +22,16 @@ class Generator(object):
         self.completion = list([completion])
         if self.completion[-1] == 1:
             self.status = 'in_service'
+            self.proj_completion_date = 0
         else:
             self.status = 'wip'
             self.proj_completion_date = self.model.current_step + self.xtr_lead_time
         self.xtr_expenditures = list() # Blank list of periodic construction capital expenses
+
+        # Initialize own FinancialStatement object
+        self.fs = fs.FinancialStatement(self)
+
+
 
     def step(self):
         if self.status == 'in_service':
@@ -32,6 +39,7 @@ class Generator(object):
         if self.status == 'wip':
             self.update_xtr_progress()
             self.update_xtr_expenses()
+        self.fs.step()
 
     def update_xtr_progress(self):
         """Update the total % completion to date of the project.
@@ -54,6 +62,12 @@ class Generator(object):
             None
         """
         new_completion = self.completion[-1] + (1/self.xtr_lead_time)
+        self.completion.append(new_completion)
+        # Simple prediction of construction time remaining:
+        # Divide total quantity of progress left to complete (1 - current_completion) by
+        #   difference between current completion and last period's completion
+        #   (i.e. simple linear extrapolation of most recent completion rate)
+        self.proj_completion_date = (1 - self.completion[-1]) / (self.completion[-1] - self.completion[-2])
         self.completion.append(new_completion)
         # Cleanup, and status update when project finishes
         if self.completion[-1] >= 1:
