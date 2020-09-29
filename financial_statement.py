@@ -15,7 +15,7 @@ class FinancialStatement(object):
         column_names = ['capacity', 'revenue', 'op_cost', 'EBITDA']
         init_zeroes = np.zeros((40,4))
         self.fsdata = pd.DataFrame(data = init_zeroes, columns = column_names)
-        self.fsdata['capacity'].iloc[self.current_step + self.generator.proj_completion_date:] = 2
+        self.fsdata['capacity'].iloc[self.generator.proj_completion_date:] = self.generator.capacity
 
 
     def step(self):
@@ -26,4 +26,6 @@ class FinancialStatement(object):
         # Update projections out to max time horizon
         self.current_step = self.generator.model.current_step
         # Project capacity
-        self.fsdata['capacity'].iloc[int(self.current_step + self.generator.proj_completion_date):] = self.generator.capacity
+        self.fsdata['capacity'].iloc[int(self.generator.proj_completion_date):] = self.generator.capacity
+        if self.generator.id == 103 or self.generator.id == 104:
+            print(self.fsdata.iloc[self.current_step:self.current_step + 5])

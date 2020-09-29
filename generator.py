@@ -67,7 +67,7 @@ class Generator(object):
         # Divide total quantity of progress left to complete (1 - current_completion) by
         #   difference between current completion and last period's completion
         #   (i.e. simple linear extrapolation of most recent completion rate)
-        self.proj_completion_date = (1 - self.completion[-1]) / (self.completion[-1] - self.completion[-2])
+        self.proj_completion_date = (1 - self.completion[-1]) / (self.completion[-1] - self.completion[-2]) + self.model.current_step
         self.completion.append(new_completion)
         # Cleanup, and status update when project finishes
         if self.completion[-1] >= 1:
