@@ -51,7 +51,7 @@ class GenCo(Agent):
            initial portfolio. The structure of the starting portfolio is still
            under development.
 
-           For each unit detected in the `existing_portfolio` dictionary,
+           For each unit detected in the `existing_portfolio` DataFrame,
            this function determines its generator type, and sets its unit ID
            according to the next available ID number as provided by the
            model's id_register object. A new unit of the appropriate type is
@@ -59,10 +59,25 @@ class GenCo(Agent):
 
            Parameters
            ----------
-           existing_portfolio : dict of dicts
-               A dict of dicts (as extracted from a yaml file) describing the
-               number, types, and attributes of assets in the GenCo's
-               starting portfolio at time t=0.
+           existing_portfolio : pandas DataFrame
+               A pandas DataFrame containing at least the following data items:
+               gtype : str
+                   The type of generator. Must correspond to a specified type
+                   in the units.yml file used for the simulation.
+               num_copies : int
+                   The number of identical copies of this unit type to create.
+
+               Optional data items (to be implemented):
+               archetype_id : int
+                   Optional reference to a nonstandard implementation of a 
+                   generation unit. If not specified or set to 0, the default
+                   specifications for the `gtype` generation unit will be
+                   used. Reference to an external table of alternate unit
+                   specs (to be implemented).
+               remaining_life : int
+                   Number of remaining simulation periods before this unit
+                   must be retired.
+
 
            Returns
            -------
@@ -158,8 +173,8 @@ class GenCo(Agent):
         None
 
         """
-        for pd in self.demand_forecast:
-            if pd > self.total_capacity:
+        for pd_demand in self.demand_forecast:
+            if pd_demand > self.total_capacity:
                 # Additional capacity needed!
                 print("Demand will be higher than current capacity. Building additional capacity...")
                 # Calculate number of new units required
@@ -167,7 +182,7 @@ class GenCo(Agent):
                 #   by the per-unit capacity of the unit_1 type.
                 # To be replaced when unit choice behaviors are modeled in
                 #   more detail.
-                num_new_units = int(math.ceil((pd - self.total_capacity) / float(self.model.unit_data.loc['unit_1', 'capacity'])))
+                num_new_units = int(math.ceil((pd_demand - self.total_capacity) / float(self.model.unit_data.loc['unit_1', 'capacity'])))
                 self.build_new_units(num_new_units)
                 return
 
