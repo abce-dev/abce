@@ -14,11 +14,12 @@ class GridModel(Model):
         # Parameters
         self.num_agents = n
         self.current_step = -1
-        self.future_vis = 3  # Number of time steps agents can see into the future
+        self.future_vis = 4  # Number of time steps agents can see into the future
+        self.tax_rate = 0.265 # Corporate tax rate
 
         # Load default unit data and demand profile
         self.load_unit_data(unit_data_file)
-        self.set_true_demand_profile(demand_data_file)
+        self.get_true_market_data(demand_data_file)
         self.set_demand_visibility_window()
 
         # Set up a public register of unit IDs
@@ -44,11 +45,12 @@ class GridModel(Model):
         self.unit_data = pd.DataFrame.from_dict(self.unit_data, orient='index')
         self.unit_types = self.unit_data.index
 
-    def set_true_demand_profile(self, filename):
-        demand_file = open(filename)
-        demand = yaml.load(demand_file, Loader=yaml.FullLoader)
-        self.prev_demand = demand['past_demand']
-        self.true_demand_profile = demand['demand']
+    def get_true_market_data(self, filename):
+        market_file = open(filename)
+        market_data = yaml.load(market_file, Loader=yaml.FullLoader)
+        self.prev_demand = market_data['past_demand']
+        self.true_demand_profile = market_data['demand']
+        self.eprices = market_data['prices']
 
     def set_demand_visibility_window(self):
         self.demand_NTF = self.true_demand_profile[self.current_step:self.current_step + self.future_vis]
