@@ -29,7 +29,7 @@ class Generator(object):
         self.xtr_expenditures = list() # Blank list of periodic construction capital expenses
 
         # Initialize own FinancialStatement object
-        self.fs = fs.FinancialStatement(self)
+        self.fs = fs.GeneratorFS(model=self.model, generator=self)
 
 
 
@@ -68,7 +68,6 @@ class Generator(object):
         #   difference between current completion and last period's completion
         #   (i.e. simple linear extrapolation of most recent completion rate)
         self.proj_completion_date = (1 - self.completion[-1]) / (self.completion[-1] - self.completion[-2]) + self.model.current_step
-        self.completion.append(new_completion)
         # Cleanup, and status update when project finishes
         if self.completion[-1] >= 1:
             self.completion[-1] = 1
@@ -85,7 +84,7 @@ class Generator(object):
                    for previous period.
              - Assumes no schedule slip or cost
         """
-        new_expenditures = (self.overnight_cost) * (self.completion[-1] - self.completion[-2])
+        new_expenditures = (float(self.overnight_cost)) * (self.completion[-1] - self.completion[-2])
         self.xtr_expenditures.append(new_expenditures)
 
     def decrement_remaining_life(self):
