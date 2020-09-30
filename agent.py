@@ -43,6 +43,7 @@ class GenCo(Agent):
         self.set_up_portfolio(existing_portfolio)
         self.model = model
         self.fs = fs.AgentFS(self.model, self)
+        self.tax_rate = self.model.tax_rate
 
     def set_up_portfolio(self, existing_portfolio):
         """Set up Generator units for each asset in GenCo's assigned portfolio
@@ -90,7 +91,7 @@ class GenCo(Agent):
             unit_data = pd.Series(existing_portfolio.iloc[i].transpose())
             for j in range(unit_data['num_copies']):
                 unit_id = self.model.id_register.get_next_available_id()
-                new_unit = gen.Generator(world_model=self.model, id_num=unit_id, gtype=unit_data['gtype'], completion=1)
+                new_unit = gen.Generator(world_model=self.model, agent=self, id_num=unit_id, gtype=unit_data['gtype'], completion=1)
                 self.portfolio[unit_id] = new_unit
                 self.model.id_register.add_unit(self.unique_id, unit_id)
 
@@ -164,9 +165,6 @@ class GenCo(Agent):
         demand will be higher than current supply, the agent will start new
         construction projects in order to compensate.
 
-        Once a single period with forecasted unmet demand is detected, this
-        function will not examine further future periods.
-
         Parameters
         ----------
         none
@@ -176,25 +174,18 @@ class GenCo(Agent):
         None
 
         """
-        for pd_demand in self.demand_forecast:
-            if pd_demand > self.total_capacity:
-                # Additional capacity needed!
-                print("Demand will be higher than current capacity. Building additional capacity...")
-                # Calculate number of new units required
-                # Current: divide predicted unserved demand (pd - current capacity)
-                #   by the per-unit capacity of the unit_1 type.
-                # To be replaced when unit choice behaviors are modeled in
-                #   more detail.
-                num_new_units = int(math.ceil((pd_demand - self.total_capacity) / float(self.model.unit_data.loc['unit_1', 'capacity'])))
-                self.build_new_units(num_new_units)
-                return
+        supply_surplus = list(self.fs.fsdata['capacity'].iloc[self.current_step+1:self.current_step + len(self.demand_forecast)+1] - self.demand_forecast)
+        if not all(s > 0 for s in supply_surplus):
+            new_units = int(math.ceil((-min(supply_surplus) / float(self.model.unit_data.loc['unit_1', 'capacity']))))
+            self.build_new_units(new_units)
+            return
 
-    def build_new_units(self, num_new_units):
+    def build_new_units(self, new_units):
         """Start a new construction project, and add to agent's portfolio.
 
         Detailed Description
         --------------------
-        
+        Current behavior: builds only unit_1 type units.
 
         Parameters
         ----------
@@ -206,9 +197,9 @@ class GenCo(Agent):
         None
 
         """
-        for i in range(num_new_units):
+        for i in range(new_units):
             unit_id = self.model.id_register.get_next_available_id()
-            new_unit = gen.Generator(world_model=self.model, id_num=unit_id, gtype='unit_1')
+            new_unit = gen.Generator(world_model=self.model, agent=self, id_num=unit_id, gtype='unit_1')
             self.portfolio[unit_id] = new_unit
             self.model.id_register.add_unit(self.unique_id, unit_id)
 
