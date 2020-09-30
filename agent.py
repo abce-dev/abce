@@ -6,6 +6,7 @@ import pandas as pd
 
 # import local modules
 import generator as gen
+import financial_statement as fs
 
 class GenCo(Agent):
     """ A utility company with a certain number of generation assets.
@@ -41,6 +42,7 @@ class GenCo(Agent):
         super().__init__(genco_id, model)
         self.set_up_portfolio(existing_portfolio)
         self.model = model
+        self.fs = fs.AgentFS(self.model, self)
 
     def set_up_portfolio(self, existing_portfolio):
         """Set up Generator units for each asset in GenCo's assigned portfolio
@@ -126,6 +128,7 @@ class GenCo(Agent):
         #self.forecast_demand()
         self.evaluate_current_capacity()
         self.assess_supply_adequacy()
+        self.fs.step()
 
     def evaluate_current_capacity(self):
         """Sum up all current generation capacity owned by this agent.
