@@ -11,10 +11,43 @@ class FinancialStatement(object):
     def __init__(self, model, generator=None, agent=None):
         # Attach the parent model to the FS object
         self.model = model
-#        self.current_step = self.model.current_step
-        self.column_names = ['capacity', 'capex', 'revenue', 'op_cost', 'EBITDA']
+        self.column_names = ['capacity', 'capex', 'revenue', 'op_cost', 'EBITDA', 'EBIT', 'EBT', 'tax', 'net_income']
         init_zeroes = np.zeros((40, len(self.column_names)))
         self.fsdata = pd.DataFrame(data = init_zeroes, columns = self.column_names)
+        self.dep_zeroes = np.zeros((40, 2))
+        self.depreciation_schedule = pd.DataFrame(data = self.dep_zeroes, columns = ['PPE', 'inc_depreciation'])
+        self.debt_zeroes = np.zeros((40,2))
+        self.debt_schedule = pd.DataFrame(data = self.debt_zeroes, columns = ['principal', 'interest'])
+
+
+    def update_revenue(self):
+        """Using the past period's weighted-average electricity price, compute
+           the revenue earned by this generator.
+        """
+        current_price = self.model.eprices[self.current_step]
+        self.fsdata['revenue'].iloc[self.current_step] = current_price * self.fsdata['capacity'].iloc[self.current_step]
+
+
+    def update_opcost(self):
+        self.fsdata['op_cost'].iloc[self.current_step] = self.generator.variable_cost + self.generator.fixed_cost
+
+
+    def update_EBITDA(self):
+        self.fsdata['EBITDA'] = self.fsdata['revenue'] - self.fsdata['op_cost']
+
+
+    def update_EBIT(self):
+        self.fsdata['EBIT'] = self.fsdata['EBITDA'] - self.depreciation_schedule['inc_depreciation']
+
+
+    def update_EBT(self):
+        self.fsdata['EBT'] = self.fsdata['EBIT'] - self.debt_schedule['interest']
+
+
+    def update_tax(self):
+        self.fsdata['tax'] = self.fsdata['EBT'] * self.generator.agent.tax_rate
+
+
 
 
 
@@ -36,10 +69,8 @@ class AgentFS(FinancialStatement):
              performance over time.
         """
         self.fsdata = pd.DataFrame(data = np.zeros((40, len(self.column_names))), columns = self.column_names)
-#        for unit in self.agent.portfolio.keys():
-#            self.agent.portfolio[unit].fs.step()
         self.aggregate_unit_FSs()
-        print(self.fsdata.head(10))
+        print(self.fsdata.head(6))
 
 
     def aggregate_unit_FSs(self):
@@ -55,18 +86,25 @@ class GeneratorFS(FinancialStatement):
     """
     def __init__(self, model, generator):
         super().__init__(self, model)
+        self.model = model
         self.generator = generator
         self.fsdata['capacity'].iloc[self.generator.proj_completion_date:self.generator.proj_completion_date + self.generator.asset_life_remaining] = self.generator.capacity
 
 
     def step(self):
+        self.current_step = self.generator.model.current_step
         self.update_capacity_projections()
         self.update_capex()
+        self.update_revenue()
+        self.update_opcost()
+        self.update_EBITDA()
+        self.update_EBIT()
+        self.update_EBT()
+        self.update_tax()
+        self.update_net_income()
 
 
     def update_capacity_projections(self):
-        # Update projections out to max time horizon
-        self.current_step = self.generator.model.current_step
         # Project capacity
         self.fsdata['capacity'].iloc[int(self.generator.proj_completion_date):] = self.generator.capacity
 
@@ -75,5 +113,19 @@ class GeneratorFS(FinancialStatement):
         if self.generator.status == 'wip':
             if self.generator.xtr_expenditures is not []:
                 self.fsdata['capex'].iloc[self.current_step] = self.generator.xtr_expenditures[-1]
+
+
+    def update_tax(self):
+        self.fsdata['tax'] = self.fsdata['EBT'] * self.generator.agent.tax_rate
+
+
+    def update_net_income(self):
+        self.fsdata['net_income'] = self.fsdata['EBT'] - self.fsdata['tax']
+
+
+
+
+
+
 
 
