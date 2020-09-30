@@ -4,10 +4,11 @@ import mesa
 import financial_statement as fs
 
 class Generator(object):
-    def __init__(self, world_model, id_num, gtype, completion=0):
+    def __init__(self, world_model, agent, id_num, gtype, completion=0):
         # Universal identification number, public knowledge
         self.id = id_num
         self.model = world_model # System model to which agents and generators belong
+        self.agent = agent
         # Set up unit type, and get parameters from the units.yml file
         self.type = gtype
         unit = world_model.unit_data.loc[self.type]
