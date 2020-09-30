@@ -48,6 +48,10 @@ class FinancialStatement(object):
         self.fsdata['tax'] = self.fsdata['EBT'] * self.generator.agent.tax_rate
 
 
+    def update_net_income(self):
+        self.fsdata['net_income'] = self.fsdata['EBT'] - self.fsdata['tax']
+
+
 
 
 
@@ -60,6 +64,7 @@ class AgentFS(FinancialStatement):
     def __init__(self, model, agent):
         super().__init__(self, model)
         self.agent = agent
+        self.aggregate_unit_FSs()
 
 
     def step(self):
@@ -70,12 +75,38 @@ class AgentFS(FinancialStatement):
         """
         self.fsdata = pd.DataFrame(data = np.zeros((40, len(self.column_names))), columns = self.column_names)
         self.aggregate_unit_FSs()
-        print(self.fsdata.head(6))
+        if self.agent.current_step < 4:
+            print(self.fsdata.head())
+        else:
+            print(self.fsdata.iloc[self.agent.current_step-3:self.agent.current_step+2])
 
 
     def aggregate_unit_FSs(self):
         for unit in self.agent.portfolio.keys():
             self.fsdata += self.agent.portfolio[unit].fs.fsdata
+
+
+    def update_capacity_projections(self):
+        # Project capacity
+        for unit in self.agent.portfolio.keys():
+            current_unit = self.agent.portfolio[unit]
+            self.fsdata['capacity'].iloc[int(current_unit.proj_completion_date):] = current_unit.capacity
+
+
+    def update_capex(self):
+        for unit in self.agent.portfolio.keys():
+            current_unit = self.agent.portfolio.keys()
+            if current_unit.status == 'wip':
+                if current_unit.xtr_expenditures is not []:
+                    self.fsdata['capex'].iloc[self.current_step] = current_unit.xtr_expenditures[-1]
+
+
+    def update_tax(self):
+        self.fsdata['tax'] = self.fsdata['EBT'] * self.agent.tax_rate
+
+
+
+
 
 
 
@@ -119,8 +150,6 @@ class GeneratorFS(FinancialStatement):
         self.fsdata['tax'] = self.fsdata['EBT'] * self.generator.agent.tax_rate
 
 
-    def update_net_income(self):
-        self.fsdata['net_income'] = self.fsdata['EBT'] - self.fsdata['tax']
 
 
 
