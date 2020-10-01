@@ -2,3 +2,5 @@ __pycache__
 *.swp
 run.py
 simplified_*
+market.yml
+out.txt

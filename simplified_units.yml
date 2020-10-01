@@ -2,7 +2,7 @@
 
 unit_1:
   overnight_cost: 1
-  xtr_lead_time: 4
+  xtr_lead_time: 3
   variable_cost: 4
   fixed_cost: 4
   useful_life: 20
