@@ -11,13 +11,15 @@ class FinancialStatement(object):
     def __init__(self, model, generator=None, agent=None):
         # Attach the parent model to the FS object
         self.model = model
-        self.column_names = ['capacity', 'capex', 'revenue', 'op_cost', 'EBITDA', 'EBIT', 'EBT', 'tax', 'net_income']
-        init_zeroes = np.zeros((40, len(self.column_names)))
-        self.fsdata = pd.DataFrame(data = init_zeroes, columns = self.column_names)
-        self.dep_zeroes = np.zeros((40, 2))
-        self.depreciation_schedule = pd.DataFrame(data = self.dep_zeroes, columns = ['PPE', 'inc_depreciation'])
-        self.debt_zeroes = np.zeros((40,2))
-        self.debt_schedule = pd.DataFrame(data = self.debt_zeroes, columns = ['principal', 'interest'])
+        fs_columns = ['capacity', 'capex', 'revenue', 'op_cost', 'EBITDA', 'EBIT', 'EBT', 'tax', 'net_income', 'fcf']
+        init_zeroes = np.zeros((40, len(fs_columns)))
+        self.fsdata = pd.DataFrame(data = init_zeroes, coluns = self.column_names)
+        dep_columns = ['capex', 'PPE', 'inc_depreciation']
+        dep_zeroes = np.zeros((40, len(dep_columns)))
+        self.depreciation_schedule = pd.DataFrame(data = dep_zeroes, columns = dep_columns)
+        debt_columns = ['principal', 'interest']
+        debt_zeroes = np.zeros((40,len(self.dep_zeroes)))
+        self.debt_schedule = pd.DataFrame(data = debt_zeroes, columns = debt_columns)
 
 
     def update_revenue(self):
@@ -31,28 +33,23 @@ class FinancialStatement(object):
     def update_opcost(self):
         self.fsdata['op_cost'].iloc[self.current_step] = self.generator.variable_cost + self.generator.fixed_cost
 
-
     def update_EBITDA(self):
         self.fsdata['EBITDA'] = self.fsdata['revenue'] - self.fsdata['op_cost']
-
 
     def update_EBIT(self):
         self.fsdata['EBIT'] = self.fsdata['EBITDA'] - self.depreciation_schedule['inc_depreciation']
 
-
     def update_EBT(self):
         self.fsdata['EBT'] = self.fsdata['EBIT'] - self.debt_schedule['interest']
-
 
     def update_tax(self):
         self.fsdata['tax'] = self.fsdata['EBT'] * self.generator.agent.tax_rate
 
-
     def update_net_income(self):
         self.fsdata['net_income'] = self.fsdata['EBT'] - self.fsdata['tax']
 
-
-
+    def update_fcf(self):
+        self.fsdata['fcf'] = self.fsdata['net_income'] + self.depreciation_schedule['inc_depreciation']
 
 
 
