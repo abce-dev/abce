@@ -38,8 +38,8 @@ class GenCo(Agent):
             -------
             None
         """
-
         super().__init__(genco_id, model)
+        self.params = yaml.load(open('./agent_params.yml', 'r'), Loader=yaml.FullLoader)
         self.set_up_portfolio(existing_portfolio)
         self.model = model
         self.fs = fs.AgentFS(self.model, self)
