@@ -11,15 +11,15 @@ class FinancialStatement(object):
     def __init__(self, model, generator=None, agent=None):
         # Attach the parent model to the FS object
         self.model = model
-        fs_columns = ['capacity', 'capex', 'revenue', 'op_cost', 'EBITDA', 'EBIT', 'EBT', 'tax', 'net_income', 'fcf']
-        init_zeroes = np.zeros((40, len(fs_columns)))
-        self.fsdata = pd.DataFrame(data = init_zeroes, coluns = self.column_names)
-        dep_columns = ['capex', 'PPE', 'inc_depreciation']
-        dep_zeroes = np.zeros((40, len(dep_columns)))
-        self.depreciation_schedule = pd.DataFrame(data = dep_zeroes, columns = dep_columns)
-        debt_columns = ['principal', 'interest']
-        debt_zeroes = np.zeros((40,len(self.dep_zeroes)))
-        self.debt_schedule = pd.DataFrame(data = debt_zeroes, columns = debt_columns)
+        self.fs_columns = ['capacity', 'revenue', 'op_cost', 'EBITDA', 'EBIT', 'EBT', 'tax', 'net_income', 'fcf']
+        init_zeroes = np.zeros((40, len(self.fs_columns)))
+        self.fsdata = pd.DataFrame(data = init_zeroes, columns = self.fs_columns)
+        self.dep_columns = ['capex', 'PPE', 'inc_depreciation']
+        dep_zeroes = np.zeros((40, len(self.dep_columns)))
+        self.depreciation_schedule = pd.DataFrame(data = dep_zeroes, columns = self.dep_columns)
+        self.debt_columns = ['principal', 'interest']
+        debt_zeroes = np.zeros((40,len(self.debt_columns)))
+        self.debt_schedule = pd.DataFrame(data = debt_zeroes, columns = self.debt_columns)
 
 
     def update_revenue(self):
@@ -61,21 +61,27 @@ class AgentFS(FinancialStatement):
     def __init__(self, model, agent):
         super().__init__(self, model)
         self.agent = agent
+        self.history = list()
         self.aggregate_unit_FSs()
 
 
     def step(self):
-        """Current behavior: overwrites Agent's FS each step with new
-             aggregated data.
-           Planned future behavior: keeps records of past FSs to track
-             performance over time.
+        """Empties last period's working financial statement sheet data;
+           prompts each unit to update its financial statement; and aggregates
+           all data into a central master sheet. The current step's sheet is
+           saved into the AgentFS.history list.
         """
-        self.fsdata = pd.DataFrame(data = np.zeros((40, len(self.column_names))), columns = self.column_names)
+        # Empty last period's data from the self.fsdata DataFrame
+        self.fsdata = pd.DataFrame(data = np.zeros((40, len(self.fs_columns))), columns = self.fs_columns)
+        # Step each generator's financial statement
         self.aggregate_unit_FSs()
+        # Display some recent data rows
         if self.agent.current_step < 4:
             print(self.fsdata.head())
         else:
             print(self.fsdata.iloc[self.agent.current_step-3:self.agent.current_step+2])
+        # Save the current period's financial sheet data to the self.history list.
+        self.history.append(self.fsdata)
 
 
     def aggregate_unit_FSs(self):
@@ -90,12 +96,12 @@ class AgentFS(FinancialStatement):
             self.fsdata['capacity'].iloc[int(current_unit.proj_completion_date):] = current_unit.capacity
 
 
-    def update_capex(self):
-        for unit in self.agent.portfolio.keys():
-            current_unit = self.agent.portfolio.keys()
-            if current_unit.status == 'wip':
-                if current_unit.xtr_expenditures is not []:
-                    self.fsdata['capex'].iloc[self.current_step] = current_unit.xtr_expenditures[-1]
+#    def update_capex(self):
+#        for unit in self.agent.portfolio.keys():
+#            current_unit = self.agent.portfolio.keys()
+#            if current_unit.status == 'wip':
+#                if current_unit.xtr_expenditures is not []:
+#                    self.fsdata['capex'].iloc[self.current_step] = current_unit.xtr_expenditures[-1]
 
 
     def update_tax(self):
@@ -130,6 +136,7 @@ class GeneratorFS(FinancialStatement):
         self.update_EBT()
         self.update_tax()
         self.update_net_income()
+        self.update_fcf()
 
 
     def update_capacity_projections(self):
@@ -140,7 +147,11 @@ class GeneratorFS(FinancialStatement):
     def update_capex(self):
         if self.generator.status == 'wip':
             if self.generator.xtr_expenditures is not []:
-                self.fsdata['capex'].iloc[self.current_step] = self.generator.xtr_expenditures[-1]
+                self.depreciation_schedule['capex'].iloc[self.current_step] = self.generator.xtr_expenditures[-1]
+
+
+    def update_depreciation(self):
+        pass
 
 
     def update_tax(self):
