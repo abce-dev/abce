@@ -30,7 +30,7 @@ class Generator(object):
         self.xtr_expenditures = list() # Blank list of periodic construction capital expenses
 
         # Initialize own FinancialStatement object
-        self.fs = fs.GeneratorFS(model=self.model, generator=self)
+        self.fs = fs.GeneratorFS(model=self.model, agent=self.agent, generator=self)
 
 
 
