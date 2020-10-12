@@ -39,11 +39,19 @@ class GenCo(Agent):
             None
         """
         super().__init__(genco_id, model)
-        self.params = yaml.load(open('./agent_params.yml', 'r'), Loader=yaml.FullLoader)
+        self.assign_parameters('./agent_params.yml')
         self.set_up_portfolio(existing_portfolio)
         self.model = model
-        self.fs = fs.AgentFS(self.model, self)
+        self.fs = fs.AgentFS(model = self.model, agent = self)
         self.tax_rate = self.model.tax_rate
+
+
+    def assign_parameters(self, params_file):
+        self.params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
+        self.debt_fraction = self.params['debt_fraction']
+        self.term_growth_rate = self.params['terminal_growth_rate']
+        self.discount_rate = self.params['discount_rate']
+
 
     def set_up_portfolio(self, existing_portfolio):
         """Set up Generator units for each asset in GenCo's assigned portfolio
