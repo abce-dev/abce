@@ -33,7 +33,6 @@ class Generator(object):
         self.fs = fs.GeneratorFS(model=self.model, agent=self.agent, generator=self)
 
 
-
     def step(self):
         if self.status == 'in_service':
             self.decrement_remaining_life()
@@ -41,6 +40,8 @@ class Generator(object):
             self.update_xtr_progress()
             self.update_xtr_expenses()
         self.fs.step()
+        self.update_xtr_status()
+
 
     def update_xtr_progress(self):
         """Update the total % completion to date of the project.
@@ -48,8 +49,8 @@ class Generator(object):
             Detailed Description
             --------------------
             Increment the unit's construction completion progress for the most
-            recent period. If this additional progress would put completion
-            at or over 100%, set the project to completed ('in_service' status)
+            recent period. If this additional increment would put the
+            completion quantity over 1, set the final completion to 1.
 
             The unit adds incremental progress linearly, at a rate of
             (1 / self.xtr_lead_time) per time period.
@@ -69,13 +70,21 @@ class Generator(object):
         #   difference between current completion and last period's completion
         #   (i.e. simple linear extrapolation of most recent completion rate)
         self.proj_completion_date = (1 - self.completion[-1]) / (self.completion[-1] - self.completion[-2]) + self.model.current_step
-        # Cleanup, and status update when project finishes
+        # Clean up self.completion if progress overshoots 100%
         if self.completion[-1] >= 1:
             self.completion[-1] = 1
+
+
+    def update_xtr_status(self):
+        """Check whether the project's construction completion status should
+           be updated from 'wip' to 'in_service'.
+        """
+        if self.completion[-1] == 1 and self.status == 'wip':
             self.status = 'in_service'
             print(f'Project {self.id} completed and entering service.')
-        else:
-            print(f'Project {self.id} at {self.completion[-1]} completion')
+        elif self.status == 'wip':
+            print(f'Project {self.id} at {self.completion[-1]} completion.')
+
 
     def update_xtr_expenses(self):
         """Incur construction expenses related to most recent project progress.
