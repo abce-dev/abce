@@ -8,9 +8,10 @@ class FinancialStatement(object):
     """An object to contain past records and future projections of operational
        and financial data for Generators and Agents.
     """
-    def __init__(self, model, generator=None, agent=None):
+    def __init__(self, model, agent, generator=None):
         # Attach the parent model to the FS object
         self.model = model
+        self.agent = agent
         self.fs_columns = ['capacity', 'revenue', 'op_cost', 'EBITDA', 'EBIT', 'EBT', 'tax', 'net_income', 'fcf']
         init_zeroes = np.zeros((40, len(self.fs_columns)))
         self.fsdata = pd.DataFrame(data = init_zeroes, columns = self.fs_columns)
@@ -43,7 +44,7 @@ class FinancialStatement(object):
         self.fsdata['EBT'] = self.fsdata['EBIT'] - self.debt_schedule['interest']
 
     def update_tax(self):
-        self.fsdata['tax'] = self.fsdata['EBT'] * self.generator.agent.tax_rate
+        self.fsdata['tax'] = self.fsdata['EBT'] * self.agent.tax_rate
 
     def update_net_income(self):
         self.fsdata['net_income'] = self.fsdata['EBT'] - self.fsdata['tax']
@@ -61,7 +62,10 @@ class AgentFS(FinancialStatement):
     def __init__(self, model, agent):
         super().__init__(self, model)
         self.agent = agent
-        self.history = list()
+        self.model = model
+        self.fs_history = list()
+        self.debt_history = list()
+        self.dep_history = list()
         self.aggregate_unit_FSs()
 
 
@@ -71,44 +75,29 @@ class AgentFS(FinancialStatement):
            all data into a central master sheet. The current step's sheet is
            saved into the AgentFS.history list.
         """
-        # Empty last period's data from the self.fsdata DataFrame
+        # Empty last period's data from the FS DataFrames
         self.fsdata = pd.DataFrame(data = np.zeros((40, len(self.fs_columns))), columns = self.fs_columns)
-        # Step each generator's financial statement
+        self.debt_schedule = pd.DataFrame(data = np.zeros((40, len(self.debt_columns))), columns = self.debt_columns)
+        self.depreciation_schedule = pd.DataFrame(data = np.zeros((40, len(self.dep_columns))), columns = self.dep_columns)
+        # Add up each generator's financial statements to create master records
         self.aggregate_unit_FSs()
         # Display some recent data rows
-        if self.agent.current_step < 4:
-            print(self.fsdata.head())
-        else:
-            print(self.fsdata.iloc[self.agent.current_step-3:self.agent.current_step+2])
+#        if self.agent.current_step < 4:
+#            print(self.fsdata.head())
+#        else:
+#            print(self.fsdata.iloc[self.agent.current_step-3:self.agent.current_step+2])
         # Save the current period's financial sheet data to the self.history list.
-        self.history.append(self.fsdata)
+        self.fs_history.append(self.fsdata)
+        self.dep_history.append(self.depreciation_schedule)
+        self.debt_history.append(self.debt_schedule)
+        print(self.debt_schedule.head())
 
 
     def aggregate_unit_FSs(self):
         for unit in self.agent.portfolio.keys():
             self.fsdata += self.agent.portfolio[unit].fs.fsdata
-
-
-    def update_capacity_projections(self):
-        # Project capacity
-        for unit in self.agent.portfolio.keys():
-            current_unit = self.agent.portfolio[unit]
-            self.fsdata['capacity'].iloc[int(current_unit.proj_completion_date):] = current_unit.capacity
-
-
-#    def update_capex(self):
-#        for unit in self.agent.portfolio.keys():
-#            current_unit = self.agent.portfolio.keys()
-#            if current_unit.status == 'wip':
-#                if current_unit.xtr_expenditures is not []:
-#                    self.fsdata['capex'].iloc[self.current_step] = current_unit.xtr_expenditures[-1]
-
-
-    def update_tax(self):
-        self.fsdata['tax'] = self.fsdata['EBT'] * self.agent.tax_rate
-
-
-
+            self.depreciation_schedule += self.agent.portfolio[unit].fs.depreciation_schedule
+            self.debt_schedule += self.agent.portfolio[unit].fs.debt_schedule
 
 
 
@@ -118,7 +107,7 @@ class GeneratorFS(FinancialStatement):
     """The Generator's version of the financial statement. Tracks capacity
        and the usual financial statement items.
     """
-    def __init__(self, model, generator):
+    def __init__(self, model, agent, generator):
         super().__init__(self, model)
         self.model = model
         self.generator = generator
@@ -129,6 +118,7 @@ class GeneratorFS(FinancialStatement):
         self.current_step = self.generator.model.current_step
         self.update_capacity_projections()
         self.update_capex()
+        self.update_debt()
         self.update_revenue()
         self.update_opcost()
         self.update_EBITDA()
@@ -148,6 +138,11 @@ class GeneratorFS(FinancialStatement):
         if self.generator.status == 'wip':
             if self.generator.xtr_expenditures is not []:
                 self.depreciation_schedule['capex'].iloc[self.current_step] = self.generator.xtr_expenditures[-1]
+
+
+    def update_debt(self):
+        if self.generator.status == 'wip':
+            self.debt_schedule['principal'].iloc[self.current_step] = self.debt_schedule['principal'].iloc[self.current_step - 1] + self.depreciation_schedule['capex'].iloc[self.current_step] * self.generator.agent.debt_fraction
 
 
     def update_depreciation(self):
