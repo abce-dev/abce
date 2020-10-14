@@ -12,15 +12,21 @@ class FinancialStatement(object):
         # Attach the parent model to the FS object
         self.model = model
         self.agent = agent
+        # Create financial statement dataframe
         self.fs_columns = ['capacity', 'revenue', 'op_cost', 'EBITDA', 'EBIT', 'EBT', 'tax', 'net_income', 'fcf']
-        init_zeroes = np.zeros((40, len(self.fs_columns)))
-        self.fsdata = pd.DataFrame(data = init_zeroes, columns = self.fs_columns)
+        fs_zeroes = np.zeros((40, len(self.fs_columns)))
+        self.fsdata = pd.DataFrame(data = fs_zeroes, columns = self.fs_columns)
+        self.fs_history = list()
+        # Create depreciation schedule dataframe
         self.dep_columns = ['capex', 'PPE', 'inc_depreciation']
         dep_zeroes = np.zeros((40, len(self.dep_columns)))
         self.depreciation_schedule = pd.DataFrame(data = dep_zeroes, columns = self.dep_columns)
+        self.dep_history = list()
+        # Create debt schedule dataframe
         self.debt_columns = ['principal', 'interest']
         debt_zeroes = np.zeros((40,len(self.debt_columns)))
         self.debt_schedule = pd.DataFrame(data = debt_zeroes, columns = self.debt_columns)
+        self.debt_history = list()
 
 
     def update_revenue(self):
@@ -76,9 +82,9 @@ class AgentFS(FinancialStatement):
            saved into the AgentFS.history list.
         """
         # Empty last period's data from the FS DataFrames
-        self.fsdata = pd.DataFrame(data = np.zeros((40, len(self.fs_columns))), columns = self.fs_columns)
-        self.debt_schedule = pd.DataFrame(data = np.zeros((40, len(self.debt_columns))), columns = self.debt_columns)
-        self.depreciation_schedule = pd.DataFrame(data = np.zeros((40, len(self.dep_columns))), columns = self.dep_columns)
+#        self.fsdata = pd.DataFrame(data = np.zeros((40, len(self.fs_columns))), columns = self.fs_columns)
+#        self.debt_schedule = pd.DataFrame(data = np.zeros((40, len(self.debt_columns))), columns = self.debt_columns)
+#        self.depreciation_schedule = pd.DataFrame(data = np.zeros((40, len(self.dep_columns))), columns = self.dep_columns)
         # Add up each generator's financial statements to create master records
         self.aggregate_unit_FSs()
         # Display some recent data rows
@@ -90,7 +96,7 @@ class AgentFS(FinancialStatement):
         self.fs_history.append(self.fsdata)
         self.dep_history.append(self.depreciation_schedule)
         self.debt_history.append(self.debt_schedule)
-        print(self.debt_schedule.head())
+        print(self.debt_schedule.head(10))
 
 
     def aggregate_unit_FSs(self):
@@ -129,6 +135,10 @@ class GeneratorFS(FinancialStatement):
         self.update_fcf()
 
 
+    def create_xtr_expense_schedule(self):
+        pass    
+
+
     def update_capacity_projections(self):
         # Project capacity
         self.fsdata['capacity'].iloc[int(self.generator.proj_completion_date):] = self.generator.capacity
@@ -142,7 +152,13 @@ class GeneratorFS(FinancialStatement):
 
     def update_debt(self):
         if self.generator.status == 'wip':
-            self.debt_schedule['principal'].iloc[self.current_step] = self.debt_schedule['principal'].iloc[self.current_step - 1] + self.depreciation_schedule['capex'].iloc[self.current_step] * self.generator.agent.debt_fraction
+            new_debt = (self.depreciation_schedule['capex'].iloc[self.current_step] - self.depreciation_schedule['capex'].iloc[self.current_step - 1]) * self.generator.agent.debt_fraction
+            
+        
+
+
+
+#            self.debt_schedule['principal'].iloc[self.current_step] = self.debt_schedule['principal'].iloc[self.current_step - 1] + self.depreciation_schedule['capex'].iloc[self.current_step] * self.generator.agent.debt_fraction
 
 
     def update_depreciation(self):
@@ -154,10 +170,34 @@ class GeneratorFS(FinancialStatement):
 
 
 
+class WIPSchedule(object):
+    def __init__(self, generator, agent, model):
+        self.generator = generator
+        self.agent = agent
+        self.model = model
+        self.get_initial_generator_parameters()
+        self.expenditure_history = list()
+        self.progress_history = list()
 
 
+    def get_initial_generator_parameters(self):
+        """Set up the generator's initial construction project parameters.
+           Actual outcomes will eventually evolve over the course of the
+           project.
+        """
+        self.lead_time = self.generator.xtr_lead_time
+        # For now: set total capital cost to generator's overnight cost
+        self.capital_cost = self.generator.overnight_cost
+        self.completion_rate_type = self.generator.completion_rate_type
 
 
+    def project_initial_work_schedule(self):
+        if self.completion_rate_type == 'linear':
+            incremental_completion = 1.0 / self.lead_time
+            self.work_schedule = [incremental_completion] * self.lead_time
 
+
+#    def project_initial_expenditure_schedule(self):
+#        if self.expenditure_rate_type = '
 
 

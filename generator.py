@@ -9,12 +9,13 @@ class Generator(object):
         self.id = id_num
         self.model = world_model # System model to which agents and generators belong
         self.agent = agent
-        # Set up unit type, and get parameters from the units.yml file
+        # Set up unit type, and get initial parameters from the units.yml file
         self.type = gtype
         unit = world_model.unit_data.loc[self.type]
         self.capacity = unit['capacity']
         self.overnight_cost = unit['overnight_cost']
         self.xtr_lead_time = unit['xtr_lead_time']
+        self.completion_rate_type = unit['completion_rate_type']
         self.variable_cost = unit['variable_cost']
         self.fixed_cost = unit['fixed_cost']
         self.asset_life_remaining = unit['useful_life']
@@ -27,6 +28,8 @@ class Generator(object):
         else:
             self.status = 'wip'
             self.proj_completion_date = self.model.current_step + self.xtr_lead_time
+            if self.completion_rate_type == 'linear':
+                pass
         self.xtr_expenditures = list() # Blank list of periodic construction capital expenses
 
         # Initialize own FinancialStatement object
