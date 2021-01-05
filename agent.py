@@ -99,7 +99,6 @@ class GenCo(Agent):
             unit_data = pd.Series(existing_portfolio.iloc[i].transpose())
             for j in range(unit_data['num_copies']):
                 unit_id = self.model.id_register.register_unit(agent_id=self.unique_id)
-                print(unit_id)
                 new_unit = gen.Generator(world_model=self.model, agent=self, id_num=unit_id, gtype=unit_data['gtype'], completion=1)
                 self.portfolio[unit_id] = new_unit
 
@@ -136,7 +135,7 @@ class GenCo(Agent):
         self.get_demand_forecast()
         #self.forecast_demand()
         self.evaluate_current_capacity()
-        self.assess_supply_adequacy()
+        self.build_new_units(self.assess_supply_adequacy())
         self.fs.step()
 
     def evaluate_current_capacity(self):
@@ -179,15 +178,16 @@ class GenCo(Agent):
 
         Returns
         -------
-        None
+        num_new_units : int
+            Number of new units to build
 
         """
         supply_surplus = list(self.fs.fsdata['capacity'].iloc[self.current_step+1:self.current_step + len(self.demand_forecast)+1] - self.demand_forecast)
-        print(supply_surplus)
         if not all(s > 0 for s in supply_surplus):
-            new_units = int(math.ceil((-min(supply_surplus) / float(self.model.unit_data.loc['unit_1', 'capacity']))))
-            self.build_new_units(new_units)
-            return
+            num_new_units = int(math.ceil((-min(supply_surplus) / float(self.model.unit_data.loc['unit_1', 'capacity']))))
+        else:
+            num_new_units = 0
+        return num_new_units
 
     def build_new_units(self, new_units):
         """Start a new construction project, and add to agent's portfolio.
