@@ -82,21 +82,21 @@ class AgentFS(FinancialStatement):
            saved into the AgentFS.history list.
         """
         # Empty last period's data from the FS DataFrames
-#        self.fsdata = pd.DataFrame(data = np.zeros((40, len(self.fs_columns))), columns = self.fs_columns)
-#        self.debt_schedule = pd.DataFrame(data = np.zeros((40, len(self.debt_columns))), columns = self.debt_columns)
-#        self.depreciation_schedule = pd.DataFrame(data = np.zeros((40, len(self.dep_columns))), columns = self.dep_columns)
+        self.fsdata = pd.DataFrame(data = np.zeros((40, len(self.fs_columns))), columns = self.fs_columns)
+        self.debt_schedule = pd.DataFrame(data = np.zeros((40, len(self.debt_columns))), columns = self.debt_columns)
+        self.depreciation_schedule = pd.DataFrame(data = np.zeros((40, len(self.dep_columns))), columns = self.dep_columns)
         # Add up each generator's financial statements to create master records
         self.aggregate_unit_FSs()
         # Display some recent data rows
-#        if self.agent.current_step < 4:
-#            print(self.fsdata.head())
-#        else:
-#            print(self.fsdata.iloc[self.agent.current_step-3:self.agent.current_step+2])
+        if self.agent.current_step < 4:
+            print(self.fsdata.head())
+        else:
+            print(self.fsdata.iloc[self.agent.current_step-3:self.agent.current_step+2])
         # Save the current period's financial sheet data to the self.history list.
         self.fs_history.append(self.fsdata)
         self.dep_history.append(self.depreciation_schedule)
         self.debt_history.append(self.debt_schedule)
-        print(self.debt_schedule.head(10))
+#        print(self.debt_schedule.head(10))
 
 
     def aggregate_unit_FSs(self):
@@ -122,7 +122,7 @@ class GeneratorFS(FinancialStatement):
 
     def step(self):
         self.current_step = self.generator.model.current_step
-        self.update_capacity_projections()
+        #self.update_capacity_projections()
         self.update_capex()
         self.update_debt()
         self.update_revenue()
