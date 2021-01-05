@@ -98,12 +98,10 @@ class GenCo(Agent):
         for i in range(len(existing_portfolio.index)):
             unit_data = pd.Series(existing_portfolio.iloc[i].transpose())
             for j in range(unit_data['num_copies']):
-#                unit_id = self.model.id_register.get_next_available_id()
-                unit_id = self.model.id_register.add_unit(agent_id=self.unique_id)
+                unit_id = self.model.id_register.register_unit(agent_id=self.unique_id)
                 print(unit_id)
                 new_unit = gen.Generator(world_model=self.model, agent=self, id_num=unit_id, gtype=unit_data['gtype'], completion=1)
                 self.portfolio[unit_id] = new_unit
-                #self.model.id_register.add_unit(self.unique_id, unit_id)
 
 
     def step(self):
@@ -209,10 +207,9 @@ class GenCo(Agent):
 
         """
         for i in range(new_units):
-            unit_id = self.model.id_register.get_next_available_id()
+            unit_id = self.model.id_register.register_unit(agent_id = self.unique_id)
             new_unit = gen.Generator(world_model=self.model, agent=self, id_num=unit_id, gtype='unit_1')
             self.portfolio[unit_id] = new_unit
-            self.model.id_register.add_unit(self.unique_id, unit_id)
 
     def set_current_step(self):
         """Obtain the current step number from the model.

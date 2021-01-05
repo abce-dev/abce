@@ -11,8 +11,8 @@ class ID_register(object):
         self.register = list()
         self.next_id = 100
 
-    def add_unit(self, agent_id, unit_id = None):
-        """Add a unit to the register, and change the next available ID.
+    def register_unit(self, agent_id, unit_id = None):
+        """Register a new unit, and update the next unclaimed ID.
 
            Detailed Description
            --------------------
@@ -47,20 +47,8 @@ class ID_register(object):
         return assigned_id
 
     def update_next_id(self):
-        """Update the next available project ID.
-
-           Detailed Description
-           --------------------
-           Update the next available project ID, ensuring no collisions with
-           existing units.
-
-           Parameters
-           ----------
-           none
-
-           Returns
-           -------
-           None
+        """Update the next available project ID, ensuring no collisions with
+           previously-assigned unit IDs..
         """
         self.next_id = max(self.register) + 1
 
