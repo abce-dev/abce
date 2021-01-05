@@ -13,6 +13,27 @@ class ID_register(object):
 
     def add_unit(self, agent_id, unit_id = None):
         """Add a unit to the register, and change the next available ID.
+
+           Detailed Description
+           --------------------
+           Add a unit to the register, using either a user-specified unit ID
+           number or an automatically-generated ID from the update_next_id()
+           method in the ID_register class.
+
+           Parameters
+           ----------
+           agent_id: (int)
+               The unique ID of the agent which owns the generator.
+
+           unit_id: (int, optional)
+               A unique ID to assign to the unit. If not specified, or if the
+               given ID is already taken, automatically generate a valid
+               unclaimed ID based on the existing unit register.
+
+           Returns
+           -------
+           assigned_id: (int)
+               A valid unclaimed ID, recorded in the ID_register object
         """
         if unit_id is None or unit_id in self.register:
             assigned_id = self.next_id
@@ -33,11 +54,6 @@ class ID_register(object):
            Update the next available project ID, ensuring no collisions with
            existing units.
 
-           This function is called by both the add_unit() and the
-           get_next_available_id() functions, so the next available unit ID
-           is always guaranteed to be a valid unclaimed ID after those
-           operations.
-
            Parameters
            ----------
            none
@@ -48,25 +64,4 @@ class ID_register(object):
         """
         self.next_id = max(self.register) + 1
 
-#        if len(self.register) == 0:
-#            self.next_id = 100
-#        else:
-#            self.next_id = max(self.register) + 1
 
-    def get_next_available_id(self):
-        """Return the next unclaimed unit ID, and then update the next claimable
-           unit ID number.
-
-           Parameters
-           ----------
-           None
-
-           Returns
-           -------
-           assigned_id : int
-              The next (sequentially) valid unclaimed unit ID number, to be
-              assigned to a new generation unit.
-        """
-        assigned_id = self.next_id
-        self.update_next_id()
-        return assigned_id
