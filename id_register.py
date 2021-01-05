@@ -11,11 +11,19 @@ class ID_register(object):
         self.register = list()
         self.next_id = 100
 
-    def add_unit(self, agent_id, unit_id):
+    def add_unit(self, agent_id, unit_id = None):
         """Add a unit to the register, and change the next available ID.
         """
-        self.register.append(unit_id)
+        if unit_id is None or unit_id in self.register:
+            assigned_id = self.next_id
+        elif unit_id is not None:
+            assigned_id = unit_id
+        else:
+            print('Something went wrong when trying to assign ID {unit_id} to agent {agent_id}.')
+            exit()
+        self.register.append(assigned_id)
         self.update_next_id()
+        return assigned_id
 
     def update_next_id(self):
         """Update the next available project ID.
@@ -24,12 +32,6 @@ class ID_register(object):
            --------------------
            Update the next available project ID, ensuring no collisions with
            existing units.
-
-           If the next ID is less than any entries in the register, reset it
-           to be one greater than the largest ID number currently in the
-           register.
-
-           If the next ID is a valid unclaimed ID, do nothing.
 
            This function is called by both the add_unit() and the
            get_next_available_id() functions, so the next available unit ID
@@ -44,11 +46,12 @@ class ID_register(object):
            -------
            None
         """
-        while self.next_id in self.register:
-            self.next_id += 1
-        if self.register != []:
-            if self.next_id > min(self.register):
-                self.next_id = max(self.register) + 1
+        self.next_id = max(self.register) + 1
+
+#        if len(self.register) == 0:
+#            self.next_id = 100
+#        else:
+#            self.next_id = max(self.register) + 1
 
     def get_next_available_id(self):
         """Return the next unclaimed unit ID, and then update the next claimable
