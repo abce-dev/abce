@@ -1,56 +1,140 @@
 # Simple two-option project choice model
 
 println("Loading packages...")
-using JuMP, GLPK, LinearAlgebra, DataFrames, CSV
+using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, Printf
 println("Packages loaded successfully.")
 
-###### DATA ######
+###### Set up inputs
+println("Initializing data...")
+df = CSV.read("./j_units.csv", DataFrame)   # Unit operational data
+num_types = size(df)[1]   # Number of available unit types
 
-df = CSV.read("./h_units.csv", DataFrame)
+max_demand = 1500     # Maximum available unserved demand
+d = 0.05             # Discount rate
+de_ratio = .5
+debt_cap = .6
+tax_rate = 0.21
+int_cap = 9000000     # $/year, max amount of debt interest allowed
 
-#unit_names = ["big", "small"]
-#op_costs = [8., 5.]
-#op_revs = [16., 10.]
-#unit_life = [30., 20.]
+fc_pd = 50    # Number of periods in the forecast horizon
+avg_e_price = 0.07   # $/kWh, avg electricity price
 
-genco_max_exp = 30
-d = 0.05
-npv_costs = zeros(Float64, 0)
-npv_revs = zeros(Float64, 0)
+# Dictionary of fuel costs
+c_fuel = Dict([("nuc", .64), ("ng", 2), ("coal", 5)])  # $/MMBTU
+c_fuel_sd = Dict([("nuc", 0.01), ("ng", 0.1), ("coal", 0.12)])
 
-##################
+# System parameters
+# Read in from CSV
+df = CSV.read("./j_units.csv", DataFrame)   # Updated unit operational data
 
+# Allocate the correct fuel cost to each generator according to its fuel type
+# RV (will go inside the MC loop)
+df[!, :uc_fuel] = zeros(size(df)[1])
+for i = 1:size(df)[1]
+    df[i, :uc_fuel] = c_fuel[df[i, :fuel_type]]
+end
+
+# Add empty column for project NPVs in df
+df[!, :FCF_NPV] = zeros(size(df)[1])
+
+# Create per-unit financial statement tables
+fs_dict = Dict{String, DataFrame}()
+for i = 1:size(df)[1]
+    new_df = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
+    name = df[i, :name]
+    fs_dict[name] = new_df
+end
+
+# Populate financial statements with top-line data
+# This data is deterministic, and is on a per-unit basis (not per-kW or per-kWh)
+# Therefore, you can multiply each of these dataframes by its corresponding
+#    u[] value to determine the actual impact of the units chosen on the GC's
+#    final financial statement
+for i = 1:size(df)[1]
+    name = df[i, :name]
+    fs = fs_dict[name]
+
+    # Generate events during the construction period
+    for j = 1:df[i, :d_x]
+        # Linearly distribute construction costs over the construction duration
+        fs[j, :xtr_exp] = df[i, :uc_x] * df[i, :capacity] * 1000 / df[i, :d_x]
+        fs[j, :remaining_debt_principal] = sum(fs[k, :xtr_exp] for k in 1:j) * de_ratio
+    end
+
+    # Generate prime-mover events from the end of construction to the end of the unit's life
+    for j = (df[i, :d_x] + 1):(df[i, :d_x] + df[i, :unit_life])
+        # Apply constant debt payment (sinking fund at cost of debt)
+        # This amount is always calculated based on the amount of debt outstanding at
+        #    the project's completion
+        fs[j, :debt_payment] = fs[df[i, :d_x], :remaining_debt_principal] * d / (1 - (1+d)^(-1*df[i, :unit_life]))
+        # Determine portion of payment which pays down interest (instead of principal)
+        fs[j, :interest_due] = fs[j-1, :remaining_debt_principal] * d
+        # Update the amount of principal remaining at the end of the year
+        fs[j, :remaining_debt_principal] = fs[j-1, :remaining_debt_principal] - (fs[j, :debt_payment] - fs[j, :interest_due])
+
+        # Set kWh of generation for the year
+        fs[j, :gen] = df[i, :capacity] * df[i, :CF] * 8760 * 1000
+
+        # Apply straight-line depreciation
+        fs[j, :depreciation] = fs[df[i, :d_x], :xtr_exp] ./ df[i, :unit_life]
+    end
+
+    # Apply reactive functions to the rest of the dataframe
+    # Compute total revenue for the year
+    transform!(fs, [:gen] => ((gen) -> avg_e_price .* gen) => :Revenue)
+    # Compute total cost of fuel used
+    transform!(fs, [:gen] => ((gen) -> df[i, :uc_fuel] .* df[i, :heat_rate] .* gen ./ 1000000) => :Fuel_Cost)
+    # Compute total VOM cost incurred during generation
+    transform!(fs, [:gen] => ((gen) -> df[i, :VOM] .* gen) => :VOM_Cost)
+    # Compute total FOM cost for the year (non-reactive)
+    fs[!, :FOM_Cost] = zeros(size(fs)[1])
+    fs[(df[i, :d_x]+1):(df[i, :d_x]+df[i, :unit_life]), :FOM_Cost] = ones(df[i, :unit_life]) .* (df[i, :FOM] * df[i, :capacity] * 1000)
+    # Compute EBITDA
+    transform!(fs, [:Revenue, :Fuel_Cost, :VOM_Cost, :FOM_Cost] => ((rev, fc, VOM, FOM) -> rev - fc - VOM - FOM) => :EBITDA)
+    # Compute EBIT
+    transform!(fs, [:EBITDA, :depreciation] => ((EBITDA, dep) -> EBITDA - dep) => :EBIT)
+    # Compute EBT
+    transform!(fs, [:EBIT, :interest_due] => ((EBIT, interest) -> EBIT - interest) => :EBT)
+    # Compute taxes owed
+    transform!(fs, [:EBT] => ((EBT) -> EBT .* tax_rate) => :tax_owed)
+    # Compute net income
+    transform!(fs, [:EBT, :tax_owed] => ((EBT, tax) -> EBT - tax) => :Net_Income)
+    # Compute FCF
+    transform!(fs, [:Net_Income, :interest_due] => ((NI, interest) -> NI + interest) => :FCF)
+
+    # Add column of compounded discount factors
+    transform!(fs, [:year] => ((year) -> (1+d) .^ (-1 .* year)) => :d_factor)
+    # 
+    df[i, :FCF_NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
+end
+
+println(df)
+println("Data initialized.")
+
+###### Set up the model
 println("Setting up model...")
-
-num_types = size(df[!, :names])[1]      # Number of available unit types
-
-transform!(df, [:op_costs, :unit_life] => ((op_cost, life) -> op_cost .* (1+d .- (1+d) .^ (-1*life))/d) => :npv_costs)
-transform!(df, [:op_revs, :unit_life] => ((op_rev, life) -> op_rev .* (1+d .- (1+d) .^ (-1*life))/d) => :npv_revs)
-
-#for i = 1:num_types
-#    append!(npv_costs, op_costs[i] * (1+d - (1+d)^(-1*unit_life[i]))/d)
-#    append!(npv_revs, op_revs[i] * (1+d - (1+d)^(-1*unit_life[i]))/d)
-#end
-
 m = Model(GLPK.Optimizer)
 @variable(m, u[1:num_types] >= 0, Int)
+@variable(m, z[1:fc_pd])
 
-@constraint(m, transpose(u) * df[!, :op_costs] <= genco_max_exp)    # Single-year cost ceiling
+# Restrict total construction to be less than maximum available demand (subject to capacity factor)
+@constraint(m, transpose(u) * (df[!, :capacity] .* df[!, :CF]) <= max_demand)
+# Constraint on max amount of interest payable per year
+@constraint(m, transpose(u) * (df[!, :uc_x] .* df[!, :capacity] .* de_ratio .* d ./ (1 .- (1+d) .^ (-1 .* df[!, :unit_life]))) <= int_cap)
 
-@objective(m, Max, transpose(u) * (df[!, :npv_revs] - df[!, :npv_costs]))
+@objective(m, Max, transpose(u) * df[!, :FCF_NPV])
 println("Model set up.")
 
-#### SOLVE THE MODEL
+
+###### Solve the model
 println("Solving problem...")
 optimize!(m)
 status = termination_status.(m)
 unit_qty = value.(u)
-total_rev = transpose(unit_qty) * df[!, :npv_revs]
-total_cost = transpose(unit_qty) * df[!, :npv_costs]
-net_profit = transpose(unit_qty) * (df[!, :npv_revs] - df[!, :npv_costs])
 
+
+###### Display the results
 println(status)
-println("The GenCo should build ", unit_qty[1], " A units, and ", unit_qty[2], " B units")
-println("Total company revenue = ", total_rev)
-println("Total company costs = ", total_cost)
-println("Company net profit = ", net_profit)
+println("Units to build:")
+println(hcat(select(df, :name), DataFrame(units = unit_qty)))
+println("Total NPV of all built projects = ", transpose(unit_qty) * df[!, :FCF_NPV])
