@@ -1,3 +1,4 @@
-names,op_costs,op_revs,unit_life
-big, 8, 16, 30
-small, 5, 10, 20
+name,capacity,uc_x,d_x,fuel_type,heat_rate,VOM,FOM,unit_life,CF
+big,1000,4000,7,nuc,10440,0.002,101,60,.92
+small,300,3000,5,nuc,13000,0.004,90,60,.92
+micro,10,4000,2,nuc,15000,0.006,70,40,.92
