@@ -3,6 +3,8 @@ from mesa.time import RandomActivation
 import yaml
 import math
 import pandas as pd
+import subprocess
+import csv
 
 # import local modules
 import generator as gen
@@ -136,6 +138,15 @@ class GenCo(Agent):
         #self.forecast_demand()
         self.evaluate_current_capacity()
         self.build_new_units(self.assess_supply_adequacy())
+
+        # Write the excess unserved demand to a csv
+        demand_series = pd.DataFrame({'demand': self.available_demand}) * (-1)
+        demand_file = f"gc{self.unique_id}_demand.csv"
+        portfolio_file = f"gc{self.unique_id}_portfolio.yml"
+        demand_series.to_csv(f"gc{self.unique_id}_demand.csv")
+        with open(portfolio_file, "w") as portfile:
+            yaml.dump(self.portfolio, portfile)
+        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so unit_choice.jl"], start_new_session=True)
         self.fs.step()
 
     def evaluate_current_capacity(self):
@@ -183,6 +194,7 @@ class GenCo(Agent):
 
         """
         supply_surplus = list(self.fs.fsdata['capacity'].iloc[self.current_step+1:self.current_step + len(self.demand_forecast)+1] - self.demand_forecast)
+        self.available_demand = supply_surplus
         if not all(s > 0 for s in supply_surplus):
             num_new_units = int(math.ceil((-min(supply_surplus) / float(self.model.unit_data.loc['unit_1', 'capacity']))))
         else:
