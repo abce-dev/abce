@@ -1,13 +1,22 @@
 # Simple two-option project choice model
 
 println("Loading packages...")
-using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, Printf
+using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, Printf, YAML
+# Include localy module of ABCE functions
+include("./ABCEfunctions.jl")
+using .ABCEfunctions
 println("Packages loaded successfully.")
 
 ###### Set up inputs
 println("Initializing data...")
-df = CSV.read("./j_units.csv", DataFrame)   # Unit operational data
-num_types = size(df)[1]   # Number of available unit types
+
+# Get GenCo number from command line
+if size(ARGS)[1] != 0
+    gc_id = ARGS[1]
+else
+    println("No GenCo ID provided. Using default data.")
+    gc_id = nothing
+end
 
 max_demand = 1500     # Maximum available unserved demand
 d = 0.05             # Discount rate
@@ -16,16 +25,41 @@ debt_cap = .6
 tax_rate = 0.21
 int_cap = 9000000     # $/year, max amount of debt interest allowed
 
-fc_pd = 50    # Number of periods in the forecast horizon
+#fc_pd = 50    # Number of periods in the forecast horizon
 avg_e_price = 0.07   # $/kWh, avg electricity price
 
 # Dictionary of fuel costs
 c_fuel = Dict([("nuc", .64), ("ng", 2), ("coal", 5)])  # $/MMBTU
 c_fuel_sd = Dict([("nuc", 0.01), ("ng", 0.1), ("coal", 0.12)])
 
+# Sequence of available unserved demand
+# The sequence starts with the upcoming period, and is padded after its
+#   end to match the length of the fs_dict dataframes.
+#available_demand = [100, 500, 1000, 1500, 1500, 1500, 1500, 1500]
+
 # System parameters
 # Read in from CSV
-df = CSV.read("./j_units.csv", DataFrame)   # Updated unit operational data
+df = CSV.read("./h_units.csv", DataFrame)   # Updated unit operational data
+if gc_id == nothing
+    demand_filename = "./default_demand.csv"
+else
+    demand_filename = string("./gc", gc_id, "_demand.csv")
+end
+available_demand = CSV.read(demand_filename, DataFrame)[!, :demand]
+
+# Set number of available unit types based on the vertical size of the df array
+num_types = size(df)[1]
+
+# Ensure that forecast horizon is long enough to accommodate the end of life
+#   the most long-lived unit
+durations = df[!, :d_x] + df[!, :unit_life]
+fc_pd = maximum(durations)
+
+# Extend the unserved demand data to match the total forecast period
+# Assume the final value for unserved demand remains the same for the entire
+#   horizon
+fill_demand = last(available_demand) * ones(fc_pd - size(available_demand)[1])
+available_demand = vcat(available_demand, fill_demand) 
 
 # Allocate the correct fuel cost to each generator according to its fuel type
 # RV (will go inside the MC loop)
@@ -66,7 +100,7 @@ for i = 1:size(df)[1]
         # Apply constant debt payment (sinking fund at cost of debt)
         # This amount is always calculated based on the amount of debt outstanding at
         #    the project's completion
-        fs[j, :debt_payment] = fs[df[i, :d_x], :remaining_debt_principal] * d / (1 - (1+d)^(-1*df[i, :unit_life]))
+        fs[j, :debt_payment] = fs[df[i, :d_x], :remaining_debt_principal] .* d ./ (1 - (1+d) .^ (-1*df[i, :unit_life]))
         # Determine portion of payment which pays down interest (instead of principal)
         fs[j, :interest_due] = fs[j-1, :remaining_debt_principal] * d
         # Update the amount of principal remaining at the end of the year
@@ -100,7 +134,7 @@ for i = 1:size(df)[1]
     # Compute net income
     transform!(fs, [:EBT, :tax_owed] => ((EBT, tax) -> EBT - tax) => :Net_Income)
     # Compute FCF
-    transform!(fs, [:Net_Income, :interest_due] => ((NI, interest) -> NI + interest) => :FCF)
+    transform!(fs, [:Net_Income, :interest_due, :xtr_exp] => ((NI, interest, xtr_exp) -> NI + interest - xtr_exp) => :FCF)
 
     # Add column of compounded discount factors
     transform!(fs, [:year] => ((year) -> (1+d) .^ (-1 .* year)) => :d_factor)
@@ -118,7 +152,10 @@ m = Model(GLPK.Optimizer)
 @variable(m, z[1:fc_pd])
 
 # Restrict total construction to be less than maximum available demand (subject to capacity factor)
-@constraint(m, transpose(u) * (df[!, :capacity] .* df[!, :CF]) <= max_demand)
+for i = 1:size(fs_dict[df[1, :name]])[1]
+    @constraint(m, sum(u[j] * fs_dict[df[j, :name]][i, :gen] for j=1:3) / (8760*1000) <= available_demand[i])
+end
+#@constraint(m, transpose(u) * (df[!, :capacity] .* df[!, :CF]) <= max_demand)
 # Constraint on max amount of interest payable per year
 @constraint(m, transpose(u) * (df[!, :uc_x] .* df[!, :capacity] .* de_ratio .* d ./ (1 .- (1+d) .^ (-1 .* df[!, :unit_life]))) <= int_cap)
 
