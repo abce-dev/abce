@@ -41,7 +41,7 @@ class GenCo(Agent):
             None
         """
         super().__init__(genco_id, model)
-        self.assign_parameters('./gc_params.yml')
+        self.assign_parameters('./data/gc_params.yml')
         self.set_up_portfolio(existing_portfolio)
         self.model = model
         self.fs = fs.AgentFS(model = self.model, agent = self)
@@ -141,9 +141,9 @@ class GenCo(Agent):
 
         # Write the excess unserved demand to a csv
         demand_series = pd.DataFrame({'demand': self.available_demand}) * (-1)
-        demand_file = f"gc{self.unique_id}_demand.csv"
-        portfolio_file = f"gc{self.unique_id}_portfolio.yml"
-        demand_series.to_csv(f"gc{self.unique_id}_demand.csv")
+        demand_file = f"./data/gc{self.unique_id}_demand.csv"
+        portfolio_file = f"./data/gc{self.unique_id}_portfolio.yml"
+        demand_series.to_csv(f"./data/gc{self.unique_id}_demand.csv")
         with open(portfolio_file, "w") as portfile:
             yaml.dump(self.portfolio, portfile)
         subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so unit_choice.jl"], start_new_session=True)

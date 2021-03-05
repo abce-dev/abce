@@ -39,11 +39,11 @@ c_fuel_sd = Dict([("nuc", 0.01), ("ng", 0.1), ("coal", 0.12)])
 
 # System parameters
 # Read in from CSV
-df = CSV.read("./h_units.csv", DataFrame)   # Updated unit operational data
+df = CSV.read("./data/h_units.csv", DataFrame)   # Updated unit operational data
 if gc_id == nothing
-    demand_filename = "./default_demand.csv"
+    demand_filename = "./data/default_demand.csv"
 else
-    demand_filename = string("./gc", gc_id, "_demand.csv")
+    demand_filename = string("./data/gc", gc_id, "_demand.csv")
 end
 available_demand = CSV.read(demand_filename, DataFrame)[!, :demand]
 

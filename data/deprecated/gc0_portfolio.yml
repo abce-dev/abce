@@ -1,0 +1,4370 @@
+&id038
+100: &id045 !!python/object:generator.Generator
+  agent: &id001 !!python/object:agent.GenCo
+    available_demand:
+    - 300.0
+    - 300.0
+    - 0.0
+    - 0.0
+    current_demand: 1500
+    current_step: 3
+    debt_fraction: 0.5
+    demand_forecast: &id029
+    - 1500
+    - 1500
+    - 1800
+    - 1800
+    discount_rate: 0.05
+    fs: !!python/object:financial_statement.AgentFS
+      agent: *id001
+      debt_columns:
+      - principal
+      - interest
+      debt_history:
+      - !!python/object:pandas.core.frame.DataFrame
+        _metadata: &id007 []
+        _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+          state: !!python/tuple
+          - &id005
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - &id003 !!python/name:pandas.core.indexes.base.Index ''
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - &id002 !!python/name:numpy.ndarray ''
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 2
+                  - &id004 !!python/object/apply:numpy.dtype
+                    args:
+                    - O8
+                    - false
+                    - true
+                    state: !!python/tuple
+                    - 3
+                    - '|'
+                    - null
+                    - null
+                    - null
+                    - -1
+                    - -1
+                    - 63
+                  - false
+                  - - principal
+                    - interest
+                name: null
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - &id008 !!python/name:pandas.core.indexes.range.RangeIndex ''
+              - name: null
+                start: 0
+                step: 1
+                stop: 40
+          - - &id006 !!python/object/apply:numpy.core.multiarray._reconstruct
+              args:
+              - *id002
+              - !!python/tuple
+                - 0
+              - !!binary |
+                Yg==
+              state: !!python/tuple
+              - 1
+              - !!python/tuple
+                - 2
+                - 40
+              - &id009 !!python/object/apply:numpy.dtype
+                args:
+                - f8
+                - false
+                - true
+                state: !!python/tuple
+                - 3
+                - <
+                - null
+                - null
+                - null
+                - -1
+                - -1
+                - 0
+              - true
+              - !!binary |
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAA==
+          - - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 2
+                  - *id004
+                  - false
+                  - - principal
+                    - interest
+                name: null
+          - 0.14.1:
+              axes: *id005
+              blocks:
+              - mgr_locs: !!python/object/apply:builtins.slice
+                - 0
+                - 2
+                - 1
+                values: *id006
+        _typ: dataframe
+        attrs: {}
+      - !!python/object:pandas.core.frame.DataFrame
+        _metadata: *id007
+        _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+          state: !!python/tuple
+          - &id010
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 2
+                  - *id004
+                  - false
+                  - - principal
+                    - interest
+                name: null
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id008
+              - name: null
+                start: 0
+                step: 1
+                stop: 40
+          - - &id011 !!python/object/apply:numpy.core.multiarray._reconstruct
+              args:
+              - *id002
+              - !!python/tuple
+                - 0
+              - !!binary |
+                Yg==
+              state: !!python/tuple
+              - 1
+              - !!python/tuple
+                - 2
+                - 40
+              - *id009
+              - true
+              - !!binary |
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAA==
+          - - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 2
+                  - *id004
+                  - false
+                  - - principal
+                    - interest
+                name: null
+          - 0.14.1:
+              axes: *id010
+              blocks:
+              - mgr_locs: !!python/object/apply:builtins.slice
+                - 0
+                - 2
+                - 1
+                values: *id011
+        _typ: dataframe
+        attrs: {}
+      - &id014 !!python/object:pandas.core.frame.DataFrame
+        _metadata: *id007
+        _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+          state: !!python/tuple
+          - &id012
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 2
+                  - *id004
+                  - false
+                  - - principal
+                    - interest
+                name: null
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id008
+              - name: null
+                start: 0
+                step: 1
+                stop: 40
+          - - &id013 !!python/object/apply:numpy.core.multiarray._reconstruct
+              args:
+              - *id002
+              - !!python/tuple
+                - 0
+              - !!binary |
+                Yg==
+              state: !!python/tuple
+              - 1
+              - !!python/tuple
+                - 2
+                - 40
+              - *id009
+              - true
+              - !!binary |
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAA==
+          - - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 2
+                  - *id004
+                  - false
+                  - - principal
+                    - interest
+                name: null
+          - 0.14.1:
+              axes: *id012
+              blocks:
+              - mgr_locs: !!python/object/apply:builtins.slice
+                - 0
+                - 2
+                - 1
+                values: *id013
+        _typ: dataframe
+        attrs: {}
+      debt_schedule: *id014
+      dep_columns:
+      - capex
+      - PPE
+      - inc_depreciation
+      dep_history:
+      - !!python/object:pandas.core.frame.DataFrame
+        _metadata: *id007
+        _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+          state: !!python/tuple
+          - &id015
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 3
+                  - *id004
+                  - false
+                  - - capex
+                    - PPE
+                    - inc_depreciation
+                name: null
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id008
+              - name: null
+                start: 0
+                step: 1
+                stop: 40
+          - - &id016 !!python/object/apply:numpy.core.multiarray._reconstruct
+              args:
+              - *id002
+              - !!python/tuple
+                - 0
+              - !!binary |
+                Yg==
+              state: !!python/tuple
+              - 1
+              - !!python/tuple
+                - 3
+                - 40
+              - *id009
+              - true
+              - !!binary |
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          - - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 3
+                  - *id004
+                  - false
+                  - - capex
+                    - PPE
+                    - inc_depreciation
+                name: null
+          - 0.14.1:
+              axes: *id015
+              blocks:
+              - mgr_locs: !!python/object/apply:builtins.slice
+                - 0
+                - 3
+                - 1
+                values: *id016
+        _typ: dataframe
+        attrs: {}
+      - !!python/object:pandas.core.frame.DataFrame
+        _metadata: *id007
+        _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+          state: !!python/tuple
+          - &id017
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 3
+                  - *id004
+                  - false
+                  - - capex
+                    - PPE
+                    - inc_depreciation
+                name: null
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id008
+              - name: null
+                start: 0
+                step: 1
+                stop: 40
+          - - &id018 !!python/object/apply:numpy.core.multiarray._reconstruct
+              args:
+              - *id002
+              - !!python/tuple
+                - 0
+              - !!binary |
+                Yg==
+              state: !!python/tuple
+              - 1
+              - !!python/tuple
+                - 3
+                - 40
+              - *id009
+              - true
+              - !!binary |
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVVVVVVVV9T8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          - - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 3
+                  - *id004
+                  - false
+                  - - capex
+                    - PPE
+                    - inc_depreciation
+                name: null
+          - 0.14.1:
+              axes: *id017
+              blocks:
+              - mgr_locs: !!python/object/apply:builtins.slice
+                - 0
+                - 3
+                - 1
+                values: *id018
+        _typ: dataframe
+        attrs: {}
+      - &id021 !!python/object:pandas.core.frame.DataFrame
+        _metadata: *id007
+        _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+          state: !!python/tuple
+          - &id019
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 3
+                  - *id004
+                  - false
+                  - - capex
+                    - PPE
+                    - inc_depreciation
+                name: null
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id008
+              - name: null
+                start: 0
+                step: 1
+                stop: 40
+          - - &id020 !!python/object/apply:numpy.core.multiarray._reconstruct
+              args:
+              - *id002
+              - !!python/tuple
+                - 0
+              - !!binary |
+                Yg==
+              state: !!python/tuple
+              - 1
+              - !!python/tuple
+                - 3
+                - 40
+              - *id009
+              - true
+              - !!binary |
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVVVVVVVV9T8AAAAAAAAAAAAAAAAAAAAAqqqqqqqq+j8A
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          - - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 3
+                  - *id004
+                  - false
+                  - - capex
+                    - PPE
+                    - inc_depreciation
+                name: null
+          - 0.14.1:
+              axes: *id019
+              blocks:
+              - mgr_locs: !!python/object/apply:builtins.slice
+                - 0
+                - 3
+                - 1
+                values: *id020
+        _typ: dataframe
+        attrs: {}
+      depreciation_schedule: *id021
+      fs_columns:
+      - capacity
+      - revenue
+      - op_cost
+      - EBITDA
+      - EBIT
+      - EBT
+      - tax
+      - net_income
+      - fcf
+      fs_history:
+      - !!python/object:pandas.core.frame.DataFrame
+        _metadata: *id007
+        _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+          state: !!python/tuple
+          - &id022
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 9
+                  - *id004
+                  - false
+                  - - capacity
+                    - revenue
+                    - op_cost
+                    - EBITDA
+                    - EBIT
+                    - EBT
+                    - tax
+                    - net_income
+                    - fcf
+                name: null
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id008
+              - name: null
+                start: 0
+                step: 1
+                stop: 40
+          - - &id023 !!python/object/apply:numpy.core.multiarray._reconstruct
+              args:
+              - *id002
+              - !!python/tuple
+                - 0
+              - !!binary |
+                Yg==
+              state: !!python/tuple
+              - 1
+              - !!python/tuple
+                - 9
+                - 40
+              - *id009
+              - true
+              - !!binary |
+                AAAAAAAAiUABAAAAAABMQAAAAAAAADJAAQAAAAAAQ0ABAAAAAABDQAEAAAAAAENApXA9CtcjJECw
+                R+F6FO47QLBH4XoU7jtAAAAAAAAAiUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAiUAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                mUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAmUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAiUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAiUAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAiUAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          - - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 9
+                  - *id004
+                  - false
+                  - - capacity
+                    - revenue
+                    - op_cost
+                    - EBITDA
+                    - EBIT
+                    - EBT
+                    - tax
+                    - net_income
+                    - fcf
+                name: null
+          - 0.14.1:
+              axes: *id022
+              blocks:
+              - mgr_locs: !!python/object/apply:builtins.slice
+                - 0
+                - 9
+                - 1
+                values: *id023
+        _typ: dataframe
+        attrs: {}
+      - !!python/object:pandas.core.frame.DataFrame
+        _metadata: *id007
+        _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+          state: !!python/tuple
+          - &id024
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 9
+                  - *id004
+                  - false
+                  - - capacity
+                    - revenue
+                    - op_cost
+                    - EBITDA
+                    - EBIT
+                    - EBT
+                    - tax
+                    - net_income
+                    - fcf
+                name: null
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id008
+              - name: null
+                start: 0
+                step: 1
+                stop: 40
+          - - &id025 !!python/object/apply:numpy.core.multiarray._reconstruct
+              args:
+              - *id002
+              - !!python/tuple
+                - 0
+              - !!binary |
+                Yg==
+              state: !!python/tuple
+              - 1
+              - !!python/tuple
+                - 9
+                - 40
+              - *id009
+              - true
+              - !!binary |
+                AAAAAAAAiUABAAAAAABMQAAAAAAAADJAAQAAAAAAQ0ABAAAAAABDQAEAAAAAAENApXA9CtcjJECw
+                R+F6FO47QLBH4XoU7jtAAAAAAAAAiUABAAAAAABMQAAAAAAAAElACAAAAAAAGEAIAAAAAAAYQAgA
+                AAAAABhAeD0K16Nw+T+vcD0K16MRQK9wPQrXoxFAAAAAAAAAiUAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmUAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+                nEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAABAj0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAj0AAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAj0AAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          - - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 9
+                  - *id004
+                  - false
+                  - - capacity
+                    - revenue
+                    - op_cost
+                    - EBITDA
+                    - EBIT
+                    - EBT
+                    - tax
+                    - net_income
+                    - fcf
+                name: null
+          - 0.14.1:
+              axes: *id024
+              blocks:
+              - mgr_locs: !!python/object/apply:builtins.slice
+                - 0
+                - 9
+                - 1
+                values: *id025
+        _typ: dataframe
+        attrs: {}
+      - &id028 !!python/object:pandas.core.frame.DataFrame
+        _metadata: *id007
+        _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+          state: !!python/tuple
+          - &id026
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 9
+                  - *id004
+                  - false
+                  - - capacity
+                    - revenue
+                    - op_cost
+                    - EBITDA
+                    - EBIT
+                    - EBT
+                    - tax
+                    - net_income
+                    - fcf
+                name: null
+            - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id008
+              - name: null
+                start: 0
+                step: 1
+                stop: 40
+          - - &id027 !!python/object/apply:numpy.core.multiarray._reconstruct
+              args:
+              - *id002
+              - !!python/tuple
+                - 0
+              - !!binary |
+                Yg==
+              state: !!python/tuple
+              - 1
+              - !!python/tuple
+                - 9
+                - 40
+              - *id009
+              - true
+              - !!binary |
+                AAAAAAAAiUABAAAAAABMQAAAAAAAADJAAQAAAAAAQ0ABAAAAAABDQAEAAAAAAENApXA9CtcjJECw
+                R+F6FO47QLBH4XoU7jtAAAAAAAAAiUABAAAAAABMQAAAAAAAAElACAAAAAAAGEAIAAAAAAAYQAgA
+                AAAAABhAeD0K16Nw+T+vcD0K16MRQK9wPQrXoxFAAAAAAAAAiUAAAAAAAGCjQAAAAAAAAE1AAAAA
+                AADsokAAAAAAAOyiQAAAAAAA7KJAcT0K16MOhEBG4XoUrtCbQEbhehSu0JtAAAAAAAAAmUAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg
+                nEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgnEAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAgnEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAABAj0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAj0AAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAj0AAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          - - !!python/object/apply:pandas.core.indexes.base._new_Index
+              - *id003
+              - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 9
+                  - *id004
+                  - false
+                  - - capacity
+                    - revenue
+                    - op_cost
+                    - EBITDA
+                    - EBIT
+                    - EBT
+                    - tax
+                    - net_income
+                    - fcf
+                name: null
+          - 0.14.1:
+              axes: *id026
+              blocks:
+              - mgr_locs: !!python/object/apply:builtins.slice
+                - 0
+                - 9
+                - 1
+                values: *id027
+        _typ: dataframe
+        attrs: {}
+      fsdata: *id028
+      model: &id032 !!python/object:model.GridModel
+        current_step: 3
+        demand_NTF: *id029
+        demand_history: !!python/object:demand_history.DemandHistory
+          register: !!python/object:pandas.core.frame.DataFrame
+            _metadata: *id007
+            _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+              state: !!python/tuple
+              - &id030
+                - !!python/object/apply:pandas.core.indexes.base._new_Index
+                  - *id003
+                  - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                      args:
+                      - *id002
+                      - !!python/tuple
+                        - 0
+                      - !!binary |
+                        Yg==
+                      state: !!python/tuple
+                      - 1
+                      - !!python/tuple
+                        - 1
+                      - *id004
+                      - false
+                      - - demand
+                    name: null
+                - !!python/object/apply:pandas.core.indexes.base._new_Index
+                  - *id008
+                  - name: null
+                    start: 0
+                    step: 1
+                    stop: 4
+              - - &id031 !!python/object/apply:numpy.core.multiarray._reconstruct
+                  args:
+                  - *id002
+                  - !!python/tuple
+                    - 0
+                  - !!binary |
+                    Yg==
+                  state: !!python/tuple
+                  - 1
+                  - !!python/tuple
+                    - 1
+                    - 4
+                  - &id033 !!python/object/apply:numpy.dtype
+                    args:
+                    - i8
+                    - false
+                    - true
+                    state: !!python/tuple
+                    - 3
+                    - <
+                    - null
+                    - null
+                    - null
+                    - -1
+                    - -1
+                    - 0
+                  - false
+                  - !!binary |
+                    IAMAAAAAAADoAwAAAAAAAOgDAAAAAAAAsAQAAAAAAAA=
+              - - !!python/object/apply:pandas.core.indexes.base._new_Index
+                  - *id003
+                  - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                      args:
+                      - *id002
+                      - !!python/tuple
+                        - 0
+                      - !!binary |
+                        Yg==
+                      state: !!python/tuple
+                      - 1
+                      - !!python/tuple
+                        - 1
+                      - *id004
+                      - false
+                      - - demand
+                    name: null
+              - 0.14.1:
+                  axes: *id030
+                  blocks:
+                  - mgr_locs: !!python/object/apply:builtins.slice
+                    - 0
+                    - 1
+                    - 1
+                    values: *id031
+            _typ: dataframe
+            attrs: {}
+        eprices:
+        - 0.07
+        - 0.07
+        - 3.1
+        - 3.2
+        - 3.1
+        - 3.3
+        - 3.4
+        - 3.5
+        future_vis: 4
+        id_register: !!python/object:id_register.ID_register
+          next_id: 108
+          register:
+          - 100
+          - 101
+          - 102
+          - 103
+          - 104
+          - 105
+          - 106
+          - 107
+        num_agents: 1
+        prev_demand:
+        - 800
+        schedule: !!python/object:mesa.time.RandomActivation
+          _agents: !!python/object/apply:collections.OrderedDict
+          - - - 0
+              - *id001
+          model: *id032
+          steps: 3
+          time: 3
+        tax_rate: 0.265
+        true_demand_profile:
+        - 1000
+        - 1000
+        - 1200
+        - 1500
+        - 1500
+        - 1800
+        - 1800
+        - 1800
+        unit_data: !!python/object:pandas.core.frame.DataFrame
+          _metadata: *id007
+          _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+            state: !!python/tuple
+            - &id034
+              - !!python/object/apply:pandas.core.indexes.base._new_Index
+                - *id003
+                - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                    args:
+                    - *id002
+                    - !!python/tuple
+                      - 0
+                    - !!binary |
+                      Yg==
+                    state: !!python/tuple
+                    - 1
+                    - !!python/tuple
+                      - 7
+                    - *id004
+                    - false
+                    - - overnight_cost
+                      - xtr_lead_time
+                      - variable_cost
+                      - fixed_cost
+                      - useful_life
+                      - capacity
+                      - completion_rate_type
+                  name: null
+              - &id037 !!python/object/apply:pandas.core.indexes.base._new_Index
+                - *id003
+                - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                    args:
+                    - *id002
+                    - !!python/tuple
+                      - 0
+                    - !!binary |
+                      Yg==
+                    state: !!python/tuple
+                    - 1
+                    - !!python/tuple
+                      - 2
+                    - *id004
+                    - false
+                    - - unit_1
+                      - unit_2
+                  name: null
+            - - &id035 !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 6
+                  - 2
+                - *id033
+                - false
+                - !!binary |
+                  AQAAAAAAAAAUAAAAAAAAAAMAAAAAAAAAAQAAAAAAAAAEAAAAAAAAAAEAAAAAAAAABAAAAAAAAAAB
+                  AAAAAAAAABQAAAAAAAAAFAAAAAAAAADIAAAAAAAAAJABAAAAAAAA
+              - &id036 !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 1
+                  - 2
+                - *id004
+                - false
+                - - linear
+                  - linear
+            - - !!python/object/apply:pandas.core.indexes.base._new_Index
+                - *id003
+                - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                    args:
+                    - *id002
+                    - !!python/tuple
+                      - 0
+                    - !!binary |
+                      Yg==
+                    state: !!python/tuple
+                    - 1
+                    - !!python/tuple
+                      - 6
+                    - *id004
+                    - false
+                    - - overnight_cost
+                      - xtr_lead_time
+                      - variable_cost
+                      - fixed_cost
+                      - useful_life
+                      - capacity
+                  name: null
+              - !!python/object/apply:pandas.core.indexes.base._new_Index
+                - *id003
+                - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                    args:
+                    - *id002
+                    - !!python/tuple
+                      - 0
+                    - !!binary |
+                      Yg==
+                    state: !!python/tuple
+                    - 1
+                    - !!python/tuple
+                      - 1
+                    - *id004
+                    - false
+                    - - completion_rate_type
+                  name: null
+            - 0.14.1:
+                axes: *id034
+                blocks:
+                - mgr_locs: !!python/object/apply:builtins.slice
+                  - 0
+                  - 6
+                  - 1
+                  values: *id035
+                - mgr_locs: !!python/object/apply:builtins.slice
+                  - 6
+                  - 7
+                  - 1
+                  values: *id036
+          _typ: dataframe
+          attrs: {}
+        unit_types: *id037
+    model: *id032
+    params:
+      debt_fraction: 0.5
+      discount_rate: 0.05
+      terminal_growth_rate: 0.03
+    portfolio: *id038
+    pos: null
+    tax_rate: 0.265
+    term_growth_rate: 0.03
+    total_capacity: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id033
+    - !!binary |
+      CAcAAAAAAAA=
+    unique_id: 0
+  asset_life_remaining: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    EAAAAAAAAAA=
+  capacity: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    yAAAAAAAAAA=
+  completion:
+  - 1
+  completion_rate_type: linear
+  fixed_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  fs: !!python/object:financial_statement.GeneratorFS
+    agent: *id032
+    current_step: 3
+    debt_columns:
+    - principal
+    - interest
+    debt_history: []
+    debt_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id039
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id040 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 2
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAA==
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+        - 0.14.1:
+            axes: *id039
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 2
+              - 1
+              values: *id040
+      _typ: dataframe
+      attrs: {}
+    dep_columns:
+    - capex
+    - PPE
+    - inc_depreciation
+    dep_history: []
+    depreciation_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id041
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id042 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 3
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+        - 0.14.1:
+            axes: *id041
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 3
+              - 1
+              values: *id042
+      _typ: dataframe
+      attrs: {}
+    fs_columns:
+    - capacity
+    - revenue
+    - op_cost
+    - EBITDA
+    - EBIT
+    - EBT
+    - tax
+    - net_income
+    - fcf
+    fs_history: []
+    fsdata: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id043
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id044 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 9
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAaUABAAAAAAAsQAAAAAAAACBAAgAAAAAAGEACAAAAAAAYQAIAAAAAABhAcz0K16Nw+T+l
+              cD0K16MRQKVwPQrXoxFAAAAAAAAAaUABAAAAAAAsQAAAAAAAACBAAgAAAAAAGEACAAAAAAAYQAIA
+              AAAAABhAcz0K16Nw+T+lcD0K16MRQKVwPQrXoxFAAAAAAAAAaUAAAAAAAGCDQAAAAAAAACBAAAAA
+              AAAgg0AAAAAAACCDQAAAAAAAIINA9ihcj8JFZECF61G4Hh18QIXrUbgeHXxAAAAAAAAAaUAAAAAA
+              AACEQAAAAAAAACBAAAAAAADAg0AAAAAAAMCDQAAAAAAAwINAkML1KFzvZEC4HoXrUQh9QLgehetR
+              CH1AAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              aUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+        - 0.14.1:
+            axes: *id043
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 9
+              - 1
+              values: *id044
+      _typ: dataframe
+      attrs: {}
+    generator: *id045
+    model: *id032
+  id: 100
+  model: *id032
+  overnight_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+  proj_completion_date: 0
+  status: in_service
+  type: unit_1
+  variable_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  xtr_expenditures: []
+  xtr_lead_time: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AwAAAAAAAAA=
+101: &id052 !!python/object:generator.Generator
+  agent: *id001
+  asset_life_remaining: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    EAAAAAAAAAA=
+  capacity: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    yAAAAAAAAAA=
+  completion:
+  - 1
+  completion_rate_type: linear
+  fixed_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  fs: !!python/object:financial_statement.GeneratorFS
+    agent: *id032
+    current_step: 3
+    debt_columns:
+    - principal
+    - interest
+    debt_history: []
+    debt_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id046
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id047 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 2
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAA==
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+        - 0.14.1:
+            axes: *id046
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 2
+              - 1
+              values: *id047
+      _typ: dataframe
+      attrs: {}
+    dep_columns:
+    - capex
+    - PPE
+    - inc_depreciation
+    dep_history: []
+    depreciation_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id048
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id049 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 3
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+        - 0.14.1:
+            axes: *id048
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 3
+              - 1
+              values: *id049
+      _typ: dataframe
+      attrs: {}
+    fs_columns:
+    - capacity
+    - revenue
+    - op_cost
+    - EBITDA
+    - EBIT
+    - EBT
+    - tax
+    - net_income
+    - fcf
+    fs_history: []
+    fsdata: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id050
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id051 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 9
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAaUABAAAAAAAsQAAAAAAAACBAAgAAAAAAGEACAAAAAAAYQAIAAAAAABhAcz0K16Nw+T+l
+              cD0K16MRQKVwPQrXoxFAAAAAAAAAaUABAAAAAAAsQAAAAAAAACBAAgAAAAAAGEACAAAAAAAYQAIA
+              AAAAABhAcz0K16Nw+T+lcD0K16MRQKVwPQrXoxFAAAAAAAAAaUAAAAAAAGCDQAAAAAAAACBAAAAA
+              AAAgg0AAAAAAACCDQAAAAAAAIINA9ihcj8JFZECF61G4Hh18QIXrUbgeHXxAAAAAAAAAaUAAAAAA
+              AACEQAAAAAAAACBAAAAAAADAg0AAAAAAAMCDQAAAAAAAwINAkML1KFzvZEC4HoXrUQh9QLgehetR
+              CH1AAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              aUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+        - 0.14.1:
+            axes: *id050
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 9
+              - 1
+              values: *id051
+      _typ: dataframe
+      attrs: {}
+    generator: *id052
+    model: *id032
+  id: 101
+  model: *id032
+  overnight_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+  proj_completion_date: 0
+  status: in_service
+  type: unit_1
+  variable_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  xtr_expenditures: []
+  xtr_lead_time: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AwAAAAAAAAA=
+102: &id059 !!python/object:generator.Generator
+  agent: *id001
+  asset_life_remaining: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    EAAAAAAAAAA=
+  capacity: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    kAEAAAAAAAA=
+  completion:
+  - 1
+  completion_rate_type: linear
+  fixed_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+  fs: !!python/object:financial_statement.GeneratorFS
+    agent: *id032
+    current_step: 3
+    debt_columns:
+    - principal
+    - interest
+    debt_history: []
+    debt_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id053
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id054 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 2
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAA==
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+        - 0.14.1:
+            axes: *id053
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 2
+              - 1
+              values: *id054
+      _typ: dataframe
+      attrs: {}
+    dep_columns:
+    - capex
+    - PPE
+    - inc_depreciation
+    dep_history: []
+    depreciation_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id055
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id056 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 3
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+        - 0.14.1:
+            axes: *id055
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 3
+              - 1
+              values: *id056
+      _typ: dataframe
+      attrs: {}
+    fs_columns:
+    - capacity
+    - revenue
+    - op_cost
+    - EBITDA
+    - EBIT
+    - EBT
+    - tax
+    - net_income
+    - fcf
+    fs_history: []
+    fsdata: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id057
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id058 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 9
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAeUABAAAAAAA8QAAAAAAAAABAAQAAAAAAOkABAAAAAAA6QAEAAAAAADpAkcL1KFyPG0Bd
+              j8L1KBwzQF2PwvUoHDNAAAAAAAAAeUABAAAAAAA8QAAAAAAAAABAAQAAAAAAOkABAAAAAAA6QAEA
+              AAAAADpAkcL1KFyPG0Bdj8L1KBwzQF2PwvUoHDNAAAAAAAAAeUAAAAAAAGCTQAAAAAAAAABAAAAA
+              AABYk0AAAAAAAFiTQAAAAAAAWJNAhetRuB6BdEA+CtejcG+MQD4K16Nwb4xAAAAAAAAAeUAAAAAA
+              AACUQAAAAAAAAABAAAAAAAD4k0AAAAAAAPiTQAAAAAAA+JNAH4XrUbgqdUBwPQrXo1qNQHA9Ctej
+              Wo1AAAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeUAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              eUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeUAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAeUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+        - 0.14.1:
+            axes: *id057
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 9
+              - 1
+              values: *id058
+      _typ: dataframe
+      attrs: {}
+    generator: *id059
+    model: *id032
+  id: 102
+  model: *id032
+  overnight_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    FAAAAAAAAAA=
+  proj_completion_date: 0
+  status: in_service
+  type: unit_2
+  variable_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+  xtr_expenditures: []
+  xtr_lead_time: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+103: &id066 !!python/object:generator.Generator
+  agent: *id001
+  asset_life_remaining: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    FAAAAAAAAAA=
+  capacity: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    yAAAAAAAAAA=
+  completion:
+  - 0
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV5T8=
+  - 1
+  completion_rate_type: linear
+  fixed_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  fs: !!python/object:financial_statement.GeneratorFS
+    agent: *id032
+    current_step: 3
+    debt_columns:
+    - principal
+    - interest
+    debt_history: []
+    debt_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id060
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id061 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 2
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAA==
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+        - 0.14.1:
+            axes: *id060
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 2
+              - 1
+              values: *id061
+      _typ: dataframe
+      attrs: {}
+    dep_columns:
+    - capex
+    - PPE
+    - inc_depreciation
+    dep_history: []
+    depreciation_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id062
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id063 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 3
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8AAAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8A
+              AAAAAAAAAAAAAAAAAAAAVlVVVVVV1T8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+        - 0.14.1:
+            axes: *id062
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 3
+              - 1
+              values: *id063
+      _typ: dataframe
+      attrs: {}
+    fs_columns:
+    - capacity
+    - revenue
+    - op_cost
+    - EBITDA
+    - EBIT
+    - EBT
+    - tax
+    - net_income
+    - fcf
+    fs_history: []
+    fsdata: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id064
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id065 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 9
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBAAAAAAAAAIMAAAAAAAAAgwAAA
+              AAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbgehRfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBAAAAA
+              AAAAIMAAAAAAAAAgwAAAAAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbgehRfAAAAAAAAAaUAAAAAA
+              AACEQAAAAAAAACBAAAAAAADAg0AAAAAAAMCDQAAAAAAAwINAkML1KFzvZEC4HoXrUQh9QLgehetR
+              CH1AAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              aUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+        - 0.14.1:
+            axes: *id064
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 9
+              - 1
+              values: *id065
+      _typ: dataframe
+      attrs: {}
+    generator: *id066
+    model: *id032
+  id: 103
+  model: *id032
+  overnight_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+  proj_completion_date: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id009
+  - !!binary |
+    AAAAAAAACEA=
+  status: in_service
+  type: unit_1
+  variable_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  xtr_expenditures:
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VlVVVVVV1T8=
+  xtr_lead_time: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AwAAAAAAAAA=
+104: &id073 !!python/object:generator.Generator
+  agent: *id001
+  asset_life_remaining: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    FAAAAAAAAAA=
+  capacity: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    yAAAAAAAAAA=
+  completion:
+  - 0
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV5T8=
+  - 1
+  completion_rate_type: linear
+  fixed_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  fs: !!python/object:financial_statement.GeneratorFS
+    agent: *id032
+    current_step: 3
+    debt_columns:
+    - principal
+    - interest
+    debt_history: []
+    debt_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id067
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id068 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 2
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAA==
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+        - 0.14.1:
+            axes: *id067
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 2
+              - 1
+              values: *id068
+      _typ: dataframe
+      attrs: {}
+    dep_columns:
+    - capex
+    - PPE
+    - inc_depreciation
+    dep_history: []
+    depreciation_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id069
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id070 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 3
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8AAAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8A
+              AAAAAAAAAAAAAAAAAAAAVlVVVVVV1T8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+        - 0.14.1:
+            axes: *id069
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 3
+              - 1
+              values: *id070
+      _typ: dataframe
+      attrs: {}
+    fs_columns:
+    - capacity
+    - revenue
+    - op_cost
+    - EBITDA
+    - EBIT
+    - EBT
+    - tax
+    - net_income
+    - fcf
+    fs_history: []
+    fsdata: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id071
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id072 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 9
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBAAAAAAAAAIMAAAAAAAAAgwAAA
+              AAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbgehRfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBAAAAA
+              AAAAIMAAAAAAAAAgwAAAAAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbgehRfAAAAAAAAAaUAAAAAA
+              AACEQAAAAAAAACBAAAAAAADAg0AAAAAAAMCDQAAAAAAAwINAkML1KFzvZEC4HoXrUQh9QLgehetR
+              CH1AAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              aUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+        - 0.14.1:
+            axes: *id071
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 9
+              - 1
+              values: *id072
+      _typ: dataframe
+      attrs: {}
+    generator: *id073
+    model: *id032
+  id: 104
+  model: *id032
+  overnight_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+  proj_completion_date: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id009
+  - !!binary |
+    AAAAAAAACEA=
+  status: in_service
+  type: unit_1
+  variable_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  xtr_expenditures:
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VlVVVVVV1T8=
+  xtr_lead_time: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AwAAAAAAAAA=
+105: &id080 !!python/object:generator.Generator
+  agent: *id001
+  asset_life_remaining: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    FAAAAAAAAAA=
+  capacity: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    yAAAAAAAAAA=
+  completion:
+  - 0
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV5T8=
+  - 1
+  completion_rate_type: linear
+  fixed_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  fs: !!python/object:financial_statement.GeneratorFS
+    agent: *id032
+    current_step: 3
+    debt_columns:
+    - principal
+    - interest
+    debt_history: []
+    debt_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id074
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id075 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 2
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAA==
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+        - 0.14.1:
+            axes: *id074
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 2
+              - 1
+              values: *id075
+      _typ: dataframe
+      attrs: {}
+    dep_columns:
+    - capex
+    - PPE
+    - inc_depreciation
+    dep_history: []
+    depreciation_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id076
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id077 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 3
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8AAAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8A
+              AAAAAAAAAAAAAAAAAAAAVlVVVVVV1T8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+        - 0.14.1:
+            axes: *id076
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 3
+              - 1
+              values: *id077
+      _typ: dataframe
+      attrs: {}
+    fs_columns:
+    - capacity
+    - revenue
+    - op_cost
+    - EBITDA
+    - EBIT
+    - EBT
+    - tax
+    - net_income
+    - fcf
+    fs_history: []
+    fsdata: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id078
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id079 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 9
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBAAAAAAAAAIMAAAAAAAAAgwAAA
+              AAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbgehRfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBAAAAA
+              AAAAIMAAAAAAAAAgwAAAAAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbgehRfAAAAAAAAAaUAAAAAA
+              AACEQAAAAAAAACBAAAAAAADAg0AAAAAAAMCDQAAAAAAAwINAkML1KFzvZEC4HoXrUQh9QLgehetR
+              CH1AAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              aUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+        - 0.14.1:
+            axes: *id078
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 9
+              - 1
+              values: *id079
+      _typ: dataframe
+      attrs: {}
+    generator: *id080
+    model: *id032
+  id: 105
+  model: *id032
+  overnight_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+  proj_completion_date: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id009
+  - !!binary |
+    AAAAAAAACEA=
+  status: in_service
+  type: unit_1
+  variable_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  xtr_expenditures:
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VlVVVVVV1T8=
+  xtr_lead_time: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AwAAAAAAAAA=
+106: &id087 !!python/object:generator.Generator
+  agent: *id001
+  asset_life_remaining: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    FAAAAAAAAAA=
+  capacity: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    yAAAAAAAAAA=
+  completion:
+  - 0
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV5T8=
+  - 1
+  completion_rate_type: linear
+  fixed_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  fs: !!python/object:financial_statement.GeneratorFS
+    agent: *id032
+    current_step: 3
+    debt_columns:
+    - principal
+    - interest
+    debt_history: []
+    debt_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id081
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id082 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 2
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAA==
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+        - 0.14.1:
+            axes: *id081
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 2
+              - 1
+              values: *id082
+      _typ: dataframe
+      attrs: {}
+    dep_columns:
+    - capex
+    - PPE
+    - inc_depreciation
+    dep_history: []
+    depreciation_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id083
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id084 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 3
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8AAAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8A
+              AAAAAAAAAAAAAAAAAAAAVlVVVVVV1T8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+        - 0.14.1:
+            axes: *id083
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 3
+              - 1
+              values: *id084
+      _typ: dataframe
+      attrs: {}
+    fs_columns:
+    - capacity
+    - revenue
+    - op_cost
+    - EBITDA
+    - EBIT
+    - EBT
+    - tax
+    - net_income
+    - fcf
+    fs_history: []
+    fsdata: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id085
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id086 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 9
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBAAAAAAAAAIMAAAAAAAAAgwAAA
+              AAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbgehRfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBAAAAA
+              AAAAIMAAAAAAAAAgwAAAAAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbgehRfAAAAAAAAAaUAAAAAA
+              AACEQAAAAAAAACBAAAAAAADAg0AAAAAAAMCDQAAAAAAAwINAkML1KFzvZEC4HoXrUQh9QLgehetR
+              CH1AAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              aUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+        - 0.14.1:
+            axes: *id085
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 9
+              - 1
+              values: *id086
+      _typ: dataframe
+      attrs: {}
+    generator: *id087
+    model: *id032
+  id: 106
+  model: *id032
+  overnight_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+  proj_completion_date: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id009
+  - !!binary |
+    AAAAAAAACEA=
+  status: in_service
+  type: unit_1
+  variable_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  xtr_expenditures:
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VlVVVVVV1T8=
+  xtr_lead_time: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AwAAAAAAAAA=
+107: &id094 !!python/object:generator.Generator
+  agent: *id001
+  asset_life_remaining: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    FAAAAAAAAAA=
+  capacity: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    yAAAAAAAAAA=
+  completion:
+  - 0
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV5T8=
+  completion_rate_type: linear
+  fixed_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  fs: !!python/object:financial_statement.GeneratorFS
+    agent: *id032
+    current_step: 3
+    debt_columns:
+    - principal
+    - interest
+    debt_history: []
+    debt_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id088
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id089 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 2
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAA==
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 2
+                - *id004
+                - false
+                - - principal
+                  - interest
+              name: null
+        - 0.14.1:
+            axes: *id088
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 2
+              - 1
+              values: *id089
+      _typ: dataframe
+      attrs: {}
+    dep_columns:
+    - capex
+    - PPE
+    - inc_depreciation
+    dep_history: []
+    depreciation_schedule: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id090
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id091 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 3
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8A
+              AAAAAAAAAAAAAAAAAAAAVVVVVVVV1T8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 3
+                - *id004
+                - false
+                - - capex
+                  - PPE
+                  - inc_depreciation
+              name: null
+        - 0.14.1:
+            axes: *id090
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 3
+              - 1
+              values: *id091
+      _typ: dataframe
+      attrs: {}
+    fs_columns:
+    - capacity
+    - revenue
+    - op_cost
+    - EBITDA
+    - EBIT
+    - EBT
+    - tax
+    - net_income
+    - fcf
+    fs_history: []
+    fsdata: !!python/object:pandas.core.frame.DataFrame
+      _metadata: *id007
+      _mgr: !!python/object/new:pandas.core.internals.managers.BlockManager
+        state: !!python/tuple
+        - &id092
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+          - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id008
+            - name: null
+              start: 0
+              step: 1
+              stop: 40
+        - - &id093 !!python/object/apply:numpy.core.multiarray._reconstruct
+            args:
+            - *id002
+            - !!python/tuple
+              - 0
+            - !!binary |
+              Yg==
+            state: !!python/tuple
+            - 1
+            - !!python/tuple
+              - 9
+              - 40
+            - *id009
+            - true
+            - !!binary |
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACBAAAAA
+              AAAAIMAAAAAAAAAgwAAAAAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbgehRfAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAACBAAAAAAAAAIMAAAAAAAAAgwAAAAAAAACDA9ihcj8L1AMCF61G4HoUXwIXrUbge
+              hRfAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              aUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaUAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAaUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+              AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        - - !!python/object/apply:pandas.core.indexes.base._new_Index
+            - *id003
+            - data: !!python/object/apply:numpy.core.multiarray._reconstruct
+                args:
+                - *id002
+                - !!python/tuple
+                  - 0
+                - !!binary |
+                  Yg==
+                state: !!python/tuple
+                - 1
+                - !!python/tuple
+                  - 9
+                - *id004
+                - false
+                - - capacity
+                  - revenue
+                  - op_cost
+                  - EBITDA
+                  - EBIT
+                  - EBT
+                  - tax
+                  - net_income
+                  - fcf
+              name: null
+        - 0.14.1:
+            axes: *id092
+            blocks:
+            - mgr_locs: !!python/object/apply:builtins.slice
+              - 0
+              - 9
+              - 1
+              values: *id093
+      _typ: dataframe
+      attrs: {}
+    generator: *id094
+    model: *id032
+  id: 107
+  model: *id032
+  overnight_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AQAAAAAAAAA=
+  proj_completion_date: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id009
+  - !!binary |
+    AAAAAAAAEEA=
+  status: wip
+  type: unit_1
+  variable_cost: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    BAAAAAAAAAA=
+  xtr_expenditures:
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id009
+    - !!binary |
+      VVVVVVVV1T8=
+  xtr_lead_time: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id033
+  - !!binary |
+    AwAAAAAAAAA=
