@@ -10,59 +10,35 @@ println("Packages loaded successfully.")
 ###### Set up inputs
 println("Initializing data...")
 
-# Get GenCo number from command line
-if size(ARGS)[1] != 0
-    gc_id = ARGS[1]
-else
-    println("No GenCo ID provided. Using default data.")
-    gc_id = nothing
-end
+# Unit type data file name
+unit_data_file = "./data/h_units.csv"
 
-max_demand = 1500     # Maximum available unserved demand
-d = 0.05             # Discount rate
-de_ratio = .5
-debt_cap = .6
-tax_rate = 0.21
+d = 0.05              # Discount rate
+de_ratio = .5         # Max debt/equity ratio
+tax_rate = 0.21       # Corporate tax rate
 int_cap = 9000000     # $/year, max amount of debt interest allowed
-
-#fc_pd = 50    # Number of periods in the forecast horizon
-avg_e_price = 0.07   # $/kWh, avg electricity price
+avg_e_price = 0.07    # $/kWh, avg electricity price
 
 # Dictionary of fuel costs
 c_fuel = Dict([("nuc", .64), ("ng", 2), ("coal", 5)])  # $/MMBTU
 c_fuel_sd = Dict([("nuc", 0.01), ("ng", 0.1), ("coal", 0.12)])
 
-# Sequence of available unserved demand
-# The sequence starts with the upcoming period, and is padded after its
-#   end to match the length of the fs_dict dataframes.
-#available_demand = [100, 500, 1000, 1500, 1500, 1500, 1500, 1500]
-
 # System parameters
-# Read in from CSV
-df = CSV.read("./data/h_units.csv", DataFrame)   # Updated unit operational data
-if gc_id == nothing
-    demand_filename = "./data/default_demand.csv"
-else
-    demand_filename = string("./data/gc", gc_id, "_demand.csv")
-end
-available_demand = CSV.read(demand_filename, DataFrame)[!, :demand]
-
-# Set number of available unit types based on the vertical size of the df array
-num_types = size(df)[1]
+# Read unit operational data (df) and number of unit types (num_types)
+df, num_types = load_unit_type_data(unit_data_file)
+# Locate the appropriate demand data file
+demand_filename = get_demand_data_file()
+# Load the demand data
+available_demand = load_demand_data(demand_filename)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
-#   the most long-lived unit
-durations = df[!, :d_x] + df[!, :unit_life]
-fc_pd = maximum(durations)
+#   for the most long-lived unit
+fc_pd = set_forecast_period(df)
 
-# Extend the unserved demand data to match the total forecast period
-# Assume the final value for unserved demand remains the same for the entire
-#   horizon
-fill_demand = last(available_demand) * ones(fc_pd - size(available_demand)[1])
-available_demand = vcat(available_demand, fill_demand) 
+# Extend the unserved demand data to match the total forecast period (constant projection)
+available_demand = forecast_demand(available_demand, fc_pd)
 
 # Allocate the correct fuel cost to each generator according to its fuel type
-# RV (will go inside the MC loop)
 df[!, :uc_fuel] = zeros(size(df)[1])
 for i = 1:size(df)[1]
     df[i, :uc_fuel] = c_fuel[df[i, :fuel_type]]
@@ -72,12 +48,7 @@ end
 df[!, :FCF_NPV] = zeros(size(df)[1])
 
 # Create per-unit financial statement tables
-fs_dict = Dict{String, DataFrame}()
-for i = 1:size(df)[1]
-    new_df = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
-    name = df[i, :name]
-    fs_dict[name] = new_df
-end
+fs_dict = create_unit_FS_dfs(df, fc_pd)
 
 # Populate financial statements with top-line data
 # This data is deterministic, and is on a per-unit basis (not per-kW or per-kWh)
@@ -155,7 +126,6 @@ m = Model(GLPK.Optimizer)
 for i = 1:size(fs_dict[df[1, :name]])[1]
     @constraint(m, sum(u[j] * fs_dict[df[j, :name]][i, :gen] for j=1:3) / (8760*1000) <= available_demand[i])
 end
-#@constraint(m, transpose(u) * (df[!, :capacity] .* df[!, :CF]) <= max_demand)
 # Constraint on max amount of interest payable per year
 @constraint(m, transpose(u) * (df[!, :uc_x] .* df[!, :capacity] .* de_ratio .* d ./ (1 .- (1+d) .^ (-1 .* df[!, :unit_life]))) <= int_cap)
 
