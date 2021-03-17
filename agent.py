@@ -9,6 +9,7 @@ import csv
 # import local modules
 import generator as gen
 import financial_statement as fs
+from ABCEfunctions import *
 
 class GenCo(Agent):
     """ A utility company with a certain number of generation assets.
@@ -56,6 +57,7 @@ class GenCo(Agent):
 
 
     def set_up_portfolio(self, existing_portfolio):
+        # DEPRECATED : Replace with "INSERT INTO assets VALUES"
         """Set up Generator units for each asset in GenCo's assigned portfolio
 
            Detailed Description
@@ -150,6 +152,7 @@ class GenCo(Agent):
         self.fs.step()
 
     def evaluate_current_capacity(self):
+        # DEPRECATED : will be a SELECT capacity FROM assets
         """Sum up all current generation capacity owned by this agent.
 
         Detailed Description
@@ -174,6 +177,8 @@ class GenCo(Agent):
         print(f'Total capacity currently installed = {self.total_capacity}.')
 
     def assess_supply_adequacy(self):
+        # DEPRECATED : will be a DB operation
+        # Also has some dummy behavior which needs to be cleared
         """Determine whether future demand exceeds future supply.
 
         Detailed Description
@@ -202,6 +207,7 @@ class GenCo(Agent):
         return num_new_units
 
     def build_new_units(self, new_units):
+        # DEPRECATED : will be handled by Julia
         """Start a new construction project, and add to agent's portfolio.
 
         Detailed Description
@@ -231,6 +237,7 @@ class GenCo(Agent):
         print(f'\n\n Current step = {self.current_step}')
 
     def get_demand_forecast(self):
+        # DEPRECATED : will pull from a demand table
         """ Obtain the current demand visibility window from the model.
 
             Detailed Description
@@ -245,6 +252,7 @@ class GenCo(Agent):
             self.current_demand = self.demand_forecast[0]
 
     def forecast_demand(self):
+        # DEPRECATED : may be completely removable
         """Determine lead time until next unmanageable demand increase.
 
            Detailed Description

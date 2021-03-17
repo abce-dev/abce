@@ -3,10 +3,11 @@ from mesa.time import RandomActivation
 from agent import GenCo
 import yaml
 import pandas as pd
+import subprocess
 
 # import local modules
 import id_register
-#import demand_history
+from ABCEfunctions import *
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
@@ -17,15 +18,20 @@ class GridModel(Model):
         self.future_vis = 4  # Number of time steps agents can see into the future
         self.tax_rate = 0.265 # Corporate tax rate
 
+        # Initialize database for managing asset and WIP construction project data
+        sp = subprocess.run(["python3 seed_creator.py"], shell=True)
+
         # Load default unit data and demand profile
         self.load_unit_data(unit_data_file)
         self.get_true_market_data(demand_data_file)
         self.set_demand_visibility_window()
 
         # Set up a public register of unit IDs
+        # DEPRECATED : will be replaced by a "SELECT asset_id FROM assets"
         self.id_register = id_register.ID_register()
 
         # Set up a public demand-history data series
+        # DEPRECATED : will be implemented via DB
         #self.demand_history = demand_history.DemandHistory(self.prev_demand[0])
 
         # Define the agent schedule, using randomly-ordered agent activation
