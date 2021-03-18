@@ -4,6 +4,7 @@ import mesa
 import financial_statement as fs
 
 class Generator(object):
+    # DEPRECATED
     def __init__(self, world_model, agent, id_num, gtype, completion=0):
         # Universal identification number, public knowledge
         self.id = id_num
