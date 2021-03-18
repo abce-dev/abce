@@ -7,9 +7,10 @@ import yaml
 # User inputs
 unit_data_file = '/home/biegelk/abce/data/simplified_units.yml'
 market_data_file = '/home/biegelk/abce/data/market.yml'
+db_file = "/home/biegelk/abce/abce_db.db"
 
 # Run the model
 if __name__ == '__main__':
-    abce_model = GridModel(1, unit_data_file, market_data_file)
+    abce_model = GridModel(1, db_file, unit_data_file, market_data_file)
     for i in range(4):
         abce_model.step()

@@ -11,7 +11,7 @@ from ABCEfunctions import *
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
-    def __init__(self, n, unit_data_file, demand_data_file):
+    def __init__(self, n, db_file, unit_data_file, demand_data_file):
         # Parameters
         self.num_agents = n
         self.current_step = -1
@@ -20,6 +20,7 @@ class GridModel(Model):
 
         # Initialize database for managing asset and WIP construction project data
         sp = subprocess.run(["python3 seed_creator.py"], shell=True)
+        self.db, self.cur = load_database(db_file)
 
         # Load default unit data and demand profile
         self.load_unit_data(unit_data_file)

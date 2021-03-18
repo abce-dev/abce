@@ -2,9 +2,9 @@ import sqlite3
 import sys
 import pandas as pd
 
-def load_database():
+def load_database(db_file):
     try:
-        db = sqlite3.connect(sys.argv[1])
+        db = sqlite3.connect(db_file)
         cur = db.cursor()
         return db, cur
     except:
