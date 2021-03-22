@@ -17,6 +17,15 @@
 #    - cancellation_pd  : text : Julia
 #    - retirement_pd    : real : Python
 #    - cap_pmt          : real : Python
+#
+# table 3: agent_params
+#
+#    - agent_id          : text : Python
+#    - discount_rate     : real : Python
+#    - tax_rate          : real : Python
+#    - term_growth_rate  : real : Python
+#    - debt_fraction     : real : Python
+#    - interest_cap      : real : Python
 
 
 import sqlite3
@@ -25,6 +34,7 @@ import os
 def set_database_filename():
     abce_db = "./abce_db.db"
     return abce_db
+
 
 def clear_db_file(abce_db):
     if os.path.exists(abce_db):
@@ -37,6 +47,7 @@ def clear_db_file(abce_db):
             print("Terminating...")
             exit()
 
+
 def get_user_consent_to_delete(abce_db):
     print(f"A file already exists at {abce_db}.")
     user_resp = ""
@@ -45,21 +56,33 @@ def get_user_consent_to_delete(abce_db):
         user_resp = input("Is it OK to delete it? [y/n]")
     return user_resp
 
+
 def create_db_file(abce_db):
     print(f"Creating a new database file at {abce_db}.")
     db = sqlite3.connect(abce_db)
     cur = db.cursor()
     return db, cur
 
+
 def create_assets_table(cur):
     cur.execute("""CREATE TABLE assets
                  (asset_id text, agent_id text, completion_pd real,
-                 cancellation_pd real, retirement_pd real, cap_pmt real)""")
+                  cancellation_pd real, retirement_pd real, cap_pmt real)""")
+
 
 def create_WIP_projects_table(cur):
     cur.execute("""CREATE TABLE WIP_projects
                  (asset_id text, agent_id text, period real, rcec real,
-                 rtec real, anpe real)""")
+                  rtec real, anpe real)""")
+
+
+def create_agent_params_table(cur):
+    cur.execute("""CREATE TABLE agent_params
+                   (agent_id text, discount_rate real, tax_rate real,
+                    term_growth_rate real, debt_fraction real,
+                    interest_cap real)""")
+
+
 
 # Set name and path for ABCE database file
 if __name__ == "__main__":
@@ -73,9 +96,11 @@ if __name__ == "__main__":
     # Create a database seed file and associated cursor object
     db, cur = create_db_file(abce_db)
 
-    # Create the `assets` and `WIP_projects` tables, with associated headers
+    # Create the `assets`, `WIP_projects`, and `agent_params` tables, 
+    #    including headers
     create_assets_table(cur)
     create_WIP_projects_table(cur)
+    create_agent_params_table(cur)
 
     # Commit changes and close the connection to the database
     db.commit()
