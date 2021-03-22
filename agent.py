@@ -74,7 +74,10 @@ class GenCo(Agent):
 #        demand_file = f"./data/gc{self.unique_id}_demand.csv"
 
         # Run the agent behavior choice algorithm
-        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
+#        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
+        # Newer invocation
+        sp = subprocess.run([f"julia agent_choice.jl"], shell = True)
+
 
         # TODO: integrate FS operations with DB
         # Financial statements currently disabled
