@@ -27,16 +27,12 @@ class GridModel(Model):
         self.get_true_market_data(demand_data_file)
         self.set_demand_visibility_window()
 
-        # Set up a public register of unit IDs
-        # DEPRECATED : will be replaced by a "SELECT asset_id FROM assets"
-#        self.id_register = id_register.ID_register()
-
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
 
         # Create agents
         for i in range(self.num_agents):
-            gc = GenCo(i, self, c_portfolio.loc[i+1])
+            gc = GenCo(i, self)
             self.schedule.add(gc)
 
         # Load the agents' starting portfolios
