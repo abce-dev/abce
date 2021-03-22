@@ -10,13 +10,13 @@
 #    - anpe          : real : Julia (init), Julia (step)
 #
 # table 2: assets
-#       HEADER         TYPE   SET BY
-#    - asset_id      : text : Python
-#    - agent_id      : text : Python
-#    - is_complete  : text : Python
-#    - is_cancelled  : text : Python
-#    - ret_pd        : real : Python
-#    - cap_pmt       : real : Python
+#       HEADER            TYPE   SET BY
+#    - asset_id         : text : Python
+#    - agent_id         : text : Python
+#    - completion_pd    : text : Python
+#    - cancellation_pd  : text : Julia
+#    - retirement_pd    : real : Python
+#    - cap_pmt          : real : Python
 
 
 import sqlite3
