@@ -1,5 +1,7 @@
-# Simple two-option project choice model
+# Agent decision model
 
+println("\n\n-----------------------------------------------------------------")
+println("Julia agent choice algorithm: starting")
 println("Loading packages...")
 using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, Printf, YAML
 # Include localy module of ABCE functions
@@ -10,18 +12,30 @@ println("Packages loaded successfully.")
 ###### Set up inputs
 println("Initializing data...")
 
+# Load the database
+db = load_db()
+pd = get_current_period()
+agent_id = get_agent_id()
+
+# Set up agent-specific data
+# Get a list of all ongoing construction projects for the current agent
+agent_projects = get_active_projects_list(db, agent_id)
+
 # Unit type data file name
 unit_data_file = "./data/h_units.csv"
 
-d = 0.05              # Discount rate
-de_ratio = .5         # Max debt/equity ratio
-tax_rate = 0.21       # Corporate tax rate
-int_cap = 9000000     # $/year, max amount of debt interest allowed
+# Get agent financial parameters
+agent_params = get_agent_params(db, agent_id)
+
+
+#d = 0.05              # Discount rate
+#de_ratio = .5         # Max debt/equity ratio
+#tax_rate = 0.21       # Corporate tax rate
+#int_cap = 9000000     # $/year, max amount of debt interest allowed
 avg_e_price = 0.07    # $/kWh, avg electricity price
 
-# Dictionary of fuel costs
-c_fuel = Dict([("nuc", .64), ("ng", 2), ("coal", 5)])  # $/MMBTU
-c_fuel_sd = Dict([("nuc", 0.01), ("ng", 0.1), ("coal", 0.12)])
+# Read in fuel costs from file
+c_fuel = CSV.read("./data/fuel_costs.csv", DataFrame)
 
 # System parameters
 # Read unit operational data (df) and number of unit types (num_types)
@@ -145,3 +159,4 @@ println(status)
 println("Units to build:")
 println(hcat(select(df, :name), DataFrame(units = unit_qty)))
 println("Total NPV of all built projects = ", transpose(unit_qty) * df[!, :FCF_NPV])
+println("\n Julia: finishing")
