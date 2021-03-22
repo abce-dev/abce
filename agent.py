@@ -59,45 +59,12 @@ class GenCo(Agent):
         num_units = len(self.portfolio.keys())
         print(f'I\'m GenCo # {self.unique_id}, and I have {num_units} units.')
         self.get_demand_forecast()
-#        self.evaluate_current_capacity()
-#        self.build_new_units(self.assess_supply_adequacy())
 
         # Write the excess unserved demand to a csv
 #        demand_series = pd.DataFrame({'demand': self.available_demand}) * (-1)
 #        demand_file = f"./data/gc{self.unique_id}_demand.csv"
         subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so unit_choice.jl"], start_new_session=True)
         self.fs.step()
-
-#    def evaluate_current_capacity(self):
-#        # DEPRECATED : will be a SELECT capacity FROM assets
-#        """Sum up all current generation capacity owned by this agent.
-#        """
-#        self.total_capacity = 0
-#        for unit in self.portfolio.keys():
-#            self.total_capacity += self.portfolio[unit].capacity
-#        print(f'Total capacity currently installed = {self.total_capacity}.')
-
-#    def assess_supply_adequacy(self):
-#        # DEPRECATED : will be a DB operation
-#        # Also has some dummy behavior which needs to be cleared
-#        """Determine whether future demand exceeds future supply.
-#        """
-#        supply_surplus = list(self.fs.fsdata['capacity'].iloc[self.current_step+1:self.current_step + len(self.demand_forecast)+1] - self.demand_forecast)
-#        self.available_demand = supply_surplus
-#        if not all(s > 0 for s in supply_surplus):
-#            num_new_units = int(math.ceil((-min(supply_surplus) / float(self.model.unit_data.loc['unit_1', 'capacity']))))
-#        else:
-#            num_new_units = 0
-#        return num_new_units
-
-#    def build_new_units(self, new_units):
-#        # DEPRECATED : will be handled by Julia
-#        """Start a new construction project, and add to agent's portfolio.
-#        """
-#        for i in range(new_units):
-#            unit_id = self.model.id_register.register_unit(agent_id = self.unique_id)
-#            new_unit = gen.Generator(world_model=self.model, agent=self, id_num=unit_id, gtype='unit_1')
-#            self.portfolio[unit_id] = new_unit
 
     def set_current_step(self):
         """Obtain the current step number from the model.
