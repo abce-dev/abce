@@ -37,18 +37,26 @@ class GenCo(Agent):
 
         """
         super().__init__(genco_id, model)
-#        self.assign_parameters('./data/gc_params.yml')
+        self.assign_parameters('./data/gc_params.yml')
         self.model = model
 #        self.fs = fs.AgentFS(model = self.model, agent = self)
 
 
-#    def assign_parameters(self, params_file):
-#        # TODO: assign parameters into an agent_params DB table
-#        self.params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
-#        self.debt_fraction = self.params['debt_fraction']
-#        self.term_growth_rate = self.params['terminal_growth_rate']
-#        self.discount_rate = self.params['discount_rate']
-#        self.tax_rate = self.params['tax_rate']
+    def assign_parameters(self, params_file):
+        # Retrieve parameters from file
+        params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
+        debt_fraction = params['debt_fraction']
+        term_growth_rate = params['terminal_growth_rate']
+        discount_rate = params['discount_rate']
+        tax_rate = params['tax_rate']
+        interest_cap = params['interest_cap']
+
+        # Save parameters to DB table `agent_params`
+        db = self.model.db
+        cur = db.cursor()
+        cur.execute(f"""INSERT INTO agent_params VALUES ({self.unique_id}, 
+                        {discount_rate}, {tax_rate}, {term_growth_rate}, 
+                        {debt_fraction}, {interest_cap})""")
 
 
     def step(self):
