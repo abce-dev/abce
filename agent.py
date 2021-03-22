@@ -61,6 +61,9 @@ class GenCo(Agent):
         self.WIP_projects = self.get_WIP_project_list()
         self.op_assets = self.get_operating_asset_list()
 
+        # Update the status of each current WIP project
+        self.update_WIP_assets()
+
         for id_num in self.:
             self.portfolio[id_num].step()
         num_units = len(self.portfolio.keys())
@@ -118,11 +121,12 @@ class GenCo(Agent):
         return op_asset_list
 
 
-    def update_assets(self):
+    def update_WIP_assets(self):
         db = self.model.db
         cur = db.cursor()
         if self.WIP_projects:
             # If there are active construction projects under way:
+            print(f"Updating ongoing construction projects for agent {self.unique_id}.")
             for asset_id in self.WIP_projects:
                 # Select the current project's most recent data record
                 cur.execute(f"SELECT * FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_step - 1}")
@@ -151,7 +155,7 @@ class GenCo(Agent):
 
         else:
             # If there are no construction projects in progress:
-            print(f"There are no ongoing construction projects for agent {self.unique_id}."
+            print(f"Agent {self.unique_id} hase no ongoing construction projects.")
 
         # Commit the changes to the database
         db.commit()
