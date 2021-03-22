@@ -1,4 +1,4 @@
-agent, gtype, rem_life, num_copies, archetype_id
-1, unit_1, 15, 2, 501
-1, unit_2, 15, 1, 502
-2, unit_1, 10, 1, 501
+agent, gtype, ret_pd, num_copies
+201, unit_1, 15, 2
+201, unit_2, 12, 1
+202, unit_1, 10, 1
