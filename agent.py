@@ -37,17 +37,18 @@ class GenCo(Agent):
 
         """
         super().__init__(genco_id, model)
-        self.assign_parameters('./data/gc_params.yml')
+#        self.assign_parameters('./data/gc_params.yml')
         self.model = model
-        self.fs = fs.AgentFS(model = self.model, agent = self)
+#        self.fs = fs.AgentFS(model = self.model, agent = self)
 
 
-    def assign_parameters(self, params_file):
-        self.params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
-        self.debt_fraction = self.params['debt_fraction']
-        self.term_growth_rate = self.params['terminal_growth_rate']
-        self.discount_rate = self.params['discount_rate']
-        self.tax_rate = self.params['tax_rate']
+#    def assign_parameters(self, params_file):
+#        # TODO: assign parameters into an agent_params DB table
+#        self.params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
+#        self.debt_fraction = self.params['debt_fraction']
+#        self.term_growth_rate = self.params['terminal_growth_rate']
+#        self.discount_rate = self.params['discount_rate']
+#        self.tax_rate = self.params['tax_rate']
 
 
     def step(self):
@@ -64,11 +65,9 @@ class GenCo(Agent):
         # Update the status of each current WIP project
         self.update_WIP_assets()
 
-        for id_num in self.:
-            self.portfolio[id_num].step()
-        num_units = len(self.portfolio.keys())
-        print(f'I\'m GenCo # {self.unique_id}, and I have {num_units} units.')
-        self.get_demand_forecast()
+        # Retrieve the demand forecast for the upcoming visible periods
+        # TODO: integrate with DB
+#        self.get_demand_forecast()
 
         # Write the excess unserved demand to a csv
 #        demand_series = pd.DataFrame({'demand': self.available_demand}) * (-1)
@@ -76,7 +75,10 @@ class GenCo(Agent):
 
         # Run the agent behavior choice algorithm
         subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
-        self.fs.step()
+
+        # TODO: integrate FS operations with DB
+        # Financial statements currently disabled
+#        self.fs.step()
 
 
     def get_current_step(self):
