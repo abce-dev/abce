@@ -4,6 +4,10 @@ using SQLite, DataFrames
 
 export load_db, get_current_period, get_agent_id, get_table, show_table, get_active_projects_list, ensure_projects_not_empty, authorize_anpe
 
+#####
+# Setup functions
+#####
+
 function load_db()
     try
         db = SQLite.DB(ARGS[1])
@@ -14,6 +18,7 @@ function load_db()
         exit()
     end
 end
+
 
 function get_current_period()
     try
@@ -26,6 +31,7 @@ function get_current_period()
     end
 end
 
+
 function get_agent_id()
     try
         agent_id = parse(Int64, ARGS[3])
@@ -37,11 +43,79 @@ function get_agent_id()
     end
 end
 
+
+function get_agent_params(db, agent_id)
+    try
+        command = string("SELECT * FROM agent_params WHERE agent_id = ", agent_id)
+        df = DBInterface.execute(db, command) |> DataFrame
+    catch e
+        println("Could not get agent parameters from file:")
+        println(e)
+        exit()
+    end
+end
+
+
+function load_unit_type_data(unit_data_file)
+    unit_data = CSV.read(unit_data_file, DataFrame)
+    num_types = size(unit_data)[1]
+    return unit_data, num_types
+end
+
+
+function load_demand_data(demand_data_file):
+    demand_data = CSV.read(demand_data_file, DataFrame)
+    return demand_data
+end
+
+
+function set_forecast_period(df)
+    transform!(df, [:d_x, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
+    max_horizon = max(df[!, :full_life])
+    return max_horizon
+end
+
+
+function forecast_demand(available_demand, fc_pd)
+    demand = zeros(Float64, fc_pd)
+    demand[1:size(available_demand)] = available_demand[!, :demand]
+    return demand
+end
+
+
+function allocate_fuel_costs(unit_data, fuel_costs):
+    num_units = size(unit_data)[1]
+    unit_data[!, :uc_fuel] = zeros(num_units)
+    for i = 1:num_units
+        unit_data[i, :uc_fuel] = c_fuel[df[i, :fuel_type]]
+    end
+    return unit_data
+end
+
+
+function create_unit_FS_dict(unit_data)
+    fs_dict = Dict{String, DataFrame}
+    num_types = size(unit_data)[1]
+    for i = 1:num_types:
+        unit_name = unit_data[i, :name]
+        unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
+        fs_dict[unit_name] = unit_FS
+    end
+    return fs_dict
+end
+
+
+#####
+# Database interaction functions
+#####
+
+
 function get_table(db, table_name)
     command = string("SELECT * FROM ", string(table_name))
     df = DBInterface.execute(db, command) |> DataFrame
     return df
 end
+
 
 function show_table(db, table_name)
     command = string("SELECT * FROM ", string(table_name))
@@ -51,12 +125,14 @@ function show_table(db, table_name)
     return df
 end
 
+
 function get_active_projects_list(db, agent_id)
     # Get a list of all active (non-complete, non-cancelled) projects for the given agent
     SQL_get_proj = SQLite.Stmt(db, string("SELECT asset_id FROM assets WHERE agent_id = ", agent_id, " AND is_complete = 'no' AND is_cancelled = 'no'"))
     project_list = DBInterface.execute(SQL_get_proj) |> DataFrame
     return project_list
 end
+
 
 function get_next_available_id(db)
     # Return the next available asset ID (one greater than the current largest ID)
@@ -100,6 +176,7 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
     end
 end
 
+
 function authorize_anpe(db, agent_id, current_period, project_list)
     # Loop through each project and authorize $100 of ANPE by setting the anpe value in xtr_projects
     for i = 1:size(project_list[!, :asset_id])[1]
@@ -109,5 +186,49 @@ function authorize_anpe(db, agent_id, current_period, project_list)
         DBInterface.execute(db, "UPDATE xtr_projects SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end
 end
+
+
+#####
+# NPV transformation functions
+#####
+
+function add_xtr_events(unit_data, unit_num, unit_FS_dict, agent_params)
+    # Generate the events which occur during the construction period:
+    #    construction expenditures and the accrual of debt
+    for i = 1:unit_data[unit_num, :d_x]
+        # Linearly distribute construction costs over the construction duration
+        unit_FS_dict[i, :xtr_exp] = unit_data[unit_num, :uc_x], * unit_data[unit_num, :capacity] * 1000 / unit_data[unit_num, :d_x]
+        unit_FS_dict[i, :remaining_debt_principal] = sum(fs[j, :xtr_exp] for j in 1:i) * agent_params[:debt_fraction]
+    end
+end
+
+
+#function generate_operation_prime_movers(unit_data, unit_num, unit_FS_dict, agent_params)
+    # Generate the prime-mover events which occur during the plant's operation:
+    #   capital repayment, total amount of generation, and depreciation
+#    for i = (unit_data[unit_num, :d_x] + 1):(unit_data[unit_num, :d_x] + unit_data[unit_num, :unit_life])
+        # Apply a constant debt payment (sinking fund at the cost of debt)
+#    end
+#end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 end
