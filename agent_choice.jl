@@ -149,4 +149,36 @@ println(status)
 println("Units to build:")
 println(hcat(select(unit_data, :name), DataFrame(units = unit_qty)))
 println("Total NPV of all built projects = ", transpose(unit_qty) * unit_data[!, :FCF_NPV])
+
+
+# Save the new units into the `assets` and `WIP_projects` DB tables
+for i = 1:num_units
+    for j = 1:unit_qty[i]
+        next_id = get_next_available_id(db)
+        # Update `WIP_projects` table
+        rcec = unit_data[i, :uc_x] * unit_data[i, :capacity]
+        rtec = unit_data[i, :d_x]
+        WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
+        DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)
+
+        # Update `assets` table
+        completion_pd = pd + unit_data[i, :d_x]
+        cancellation_pd = 9999
+        retirement_pd = pd + unit_data[i, :d_x] + unit_data[i, :unit_life]
+        cap_pmt = 0
+        assets_vals = (next_id, agent_id, completion_pd, cancellation_pd, retirement_pd, cap_pmt)
+        DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?)", assets_vals)
+    end
+end
+
+show_table(db, "assets")
+show_table(db, "WIP_projects")
+
+
+
+
+
+
+
+
 println("\n Julia: finishing")
