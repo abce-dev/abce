@@ -1,6 +1,6 @@
 # A script to create (or delete and recreate) the base ABCE database file
 # Specification:
-# table 1: xtr_projects
+# table 1: WIP_projects
 #       HEADER         TYPE   SET BY
 #    - asset_id      : text : Julia (init), Python (step)
 #    - agent_id      : text : Julia (init), Python (step)
