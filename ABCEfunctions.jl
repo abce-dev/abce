@@ -77,7 +77,7 @@ end
 
 
 function forecast_demand(available_demand, fc_pd)
-    demand = zeros(Float64, fc_pd)
+    demand = zeros(Float64, convert(Int64, fc_pd))
     demand[1:size(available_demand)[1]] = available_demand[!, :demand]
     return demand
 end
@@ -93,11 +93,11 @@ function allocate_fuel_costs(unit_data, fuel_costs)
 end
 
 
-function create_unit_FS_dict(unit_data)
-    fs_dict = Dict{String, DataFrame}
+function create_unit_FS_dict(unit_data, fc_pd)
+    fs_dict = Dict()
     num_types = size(unit_data)[1]
     for i = 1:num_types
-        unit_name = unit_data[i, :name]
+        unit_name = unit_data[i, :unit_type]
         unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
         fs_dict[unit_name] = unit_FS
     end
@@ -205,6 +205,7 @@ end
 function add_xtr_events(unit_data, unit_num, unit_FS_dict, agent_params)
     # Generate the events which occur during the construction period:
     #    construction expenditures and the accrual of debt
+    unit_num = convert(Int64, unit_num)
     for i = 1:unit_data[unit_num, :d_x]
         # Linearly distribute construction costs over the construction duration
         unit_FS_dict[i, :xtr_exp] = unit_data[unit_num, :uc_x] * unit_data[unit_num, :capacity] * 1000 / unit_data[unit_num, :d_x]

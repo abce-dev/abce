@@ -43,17 +43,17 @@ available_demand = load_demand_data(demand_data_file)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
 #   for the most long-lived unit
-fc_pd = set_forecast_period(unit_data)
+fc_pd = convert(Int64, set_forecast_period(unit_data))
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 available_demand = forecast_demand(available_demand, fc_pd)
 
 # Add empty column for project NPVs in unit_data
-unit_data[!, :FCF_NPV] = zeros(num_types)
+unit_data[!, :FCF_NPV] = zeros(Float64, num_types)
 
 # Create per-unit financial statement tables
 println("Creating and populating unit financial statements for NPV calculation")
-unit_FS_dict = create_unit_FS_dict(unit_data)
+unit_FS_dict = create_unit_FS_dict(unit_data, fc_pd)
 
 # Populate financial statements with top-line data
 # This data is deterministic, and is on a per-unit basis (not per-kW or per-kWh)
@@ -61,11 +61,15 @@ unit_FS_dict = create_unit_FS_dict(unit_data)
 #    u[] value to determine the actual impact of the units chosen on the GC's
 #    final financial statement
 for i = 1:num_types
-    name = unit_data[i, :name]
+    name = unit_data[i, :unit_type]
     fs = unit_FS_dict[name]
 
     # Generate events during the construction period
-    add_xtr_events(unit_data, i, fs, agent_params)
+    for j = 1:unit_data[i, :d_x]
+        # Uniformly distribute construction costs over the construction duration
+        unit_FS_dict[j, :xtr_exp] = unit_data[i, :uc_x] * unit_data[i, :capacity] * 1000 / unit_data[i, :d_x]
+        unit_FS_dict[j, :remaining_debt_principal] = sum(fs[k, :xtr_exp] for k in 1:j) * agent_params[1, :debt_fraction]
+    end
 
     # Generate prime-mover events from the end of construction to the end of the unit's life
     for j = (unit_data[i, :d_x] + 1):(unit_data[i, :d_x] + unit_data[i, :unit_life])
@@ -124,8 +128,8 @@ m = Model(GLPK.Optimizer)
 @variable(m, z[1:fc_pd])
 
 # Restrict total construction to be less than maximum available demand (subject to capacity factor)
-for i = 1:size(unit_FS_dict[unit_data[1, :name]])[1]
-    @constraint(m, sum(u[j] * unit_FS_dict[unit_data[j, :name]][i, :gen] for j=1:3) / (8760*1000) <= available_demand[i])
+for i = 1:size(unit_FS_dict[unit_data[1, :unit_type]])[1]
+    @constraint(m, sum(u[j] * unit_FS_dict[unit_data[j, :unit_type]][i, :gen] for j=1:3) / (8760*1000) <= available_demand[i])
 end
 # Constraint on max amount of interest payable per year
 @constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* de_ratio .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
@@ -144,7 +148,7 @@ unit_qty = value.(u)
 ###### Display the results
 println(status)
 println("Units to build:")
-println(hcat(select(unit_data, :name), DataFrame(units = unit_qty)))
+println(hcat(select(unit_data, :unit_type), DataFrame(units = unit_qty)))
 println("Total NPV of all built projects = ", transpose(unit_qty) * unit_data[!, :FCF_NPV])
 
 
@@ -159,7 +163,7 @@ for i = 1:num_units
         DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)
 
         # Update `assets` table
-        unit_type = unit_data[i, :name]
+        unit_type = unit_data[i, :unit_type]
         completion_pd = pd + unit_data[i, :d_x]
         cancellation_pd = 9999
         retirement_pd = pd + unit_data[i, :d_x] + unit_data[i, :unit_life]
