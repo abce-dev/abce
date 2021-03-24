@@ -126,7 +126,7 @@ function show_table(db, table_name)
 end
 
 
-function get_active_projects_list(db, agent_id)
+function get_WIP_projects_list(db, agent_id)
     # Get a list of all active (non-complete, non-cancelled) projects for the given agent
     SQL_get_proj = SQLite.Stmt(db, string("SELECT asset_id FROM assets WHERE agent_id = ", agent_id, " AND is_complete = 'no' AND is_cancelled = 'no'"))
     project_list = DBInterface.execute(SQL_get_proj) |> DataFrame
@@ -177,12 +177,13 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
 end
 
 
-function authorize_anpe(db, agent_id, current_period, project_list)
+function authorize_anpe(db, agent_id, current_period, project_list, unit_data)
     # Loop through each project and authorize $100 of ANPE by setting the anpe value in xtr_projects
     for i = 1:size(project_list[!, :asset_id])[1]
         current_asset = project_list[i, :asset_id]
         println("Authorizing expenditures for project ", current_asset)
-        vals = (100, current_period, current_asset)
+        anpe_val = 1000000000   # $1B/period
+        vals = (anpe_val, current_period, current_asset)
         DBInterface.execute(db, "UPDATE xtr_projects SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end
 end
