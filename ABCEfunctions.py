@@ -29,19 +29,16 @@ def show_table(db, cur, table_name):
         quit()
 
 def get_next_asset_id(db, cur):
-    cur.execute(f"SELECT asset_id FROM assets")
-    try:
-        asset_list = list(cur.fetchall()[0])
+    cur.execute("SELECT asset_id FROM assets")
+    asset_list = list(cur.fetchall())
+    if len(asset_list) != 0:
+        asset_list = [int(id_num[0]) for id_num in asset_list]
         next_id = max(asset_list) + 1
-    except IndexError:
+    else:
         # There are no existing assets
+        print("There are no existing assets")
         next_id = 2001
-    except:
-        # Something else went wrong
-        print("Could not retrieve the next asset ID")
-        quit()
     return next_id
-
 
 
 

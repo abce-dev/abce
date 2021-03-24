@@ -82,7 +82,7 @@ class GenCo(Agent):
 
         # Run the agent behavior choice algorithm
 #        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
-        sp = subprocess.run([f"julia agent_choice.jl"], shell = True)
+        sp = subprocess.check_call([f"julia agent_choice.jl"], shell = True)
 
 
         # TODO: integrate FS operations with DB
@@ -105,7 +105,8 @@ class GenCo(Agent):
         db = self.model.db
         cur = db.cursor()
         cur.execute(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND cancellation_pd > {self.current_step} AND retirement_pd > {self.current_step}")
-        all_asset_list = list(cur.fetchall()[0])
+        all_asset_list = list(cur.fetchall())
+        all_asset_list = [int(item[0]) for item in all_asset_list]
         return all_asset_list
 
 
@@ -116,7 +117,8 @@ class GenCo(Agent):
         db = self.model.db
         cur = db.cursor()
         cur.execute(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND completion_pd > {self.current_step} AND cancellation_pd > {self.current_step}")
-        WIP_project_list = list(cur.fetchall()[0])
+        WIP_project_list = list(cur.fetchall())
+        WIP_project_list = [int(item[0]) for item in WIP_project_list]
         return WIP_project_list
 
 
@@ -128,7 +130,8 @@ class GenCo(Agent):
         db = self.model.db
         cur = db.cursor()
         cur.execute(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND completion_pd <= {self.current_step} AND cancellation_pd > {self.current_step} AND retirement_pd > {self.current_step}")
-        op_asset_list = list(cur.fetchall()[0])
+        op_asset_list = list(cur.fetchall())
+        op_asset_list = [int(item[0]) for item in op_asset_list]
         return op_asset_list
 
 

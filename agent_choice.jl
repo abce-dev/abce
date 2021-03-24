@@ -13,7 +13,7 @@ println("Packages loaded successfully.")
 println("Initializing data...")
 
 # File names
-unit_data_file = "./data/h_units.csv"
+unit_data_file = "./data/unit_specs.csv"
 fuel_cost_file = "./data/fuel_costs.csv"
 demand_data_file = "./data/default_demand.csv"
 

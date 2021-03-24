@@ -63,7 +63,7 @@ function load_unit_type_data(unit_data_file)
 end
 
 
-function load_demand_data(demand_data_file):
+function load_demand_data(demand_data_file)
     demand_data = CSV.read(demand_data_file, DataFrame)
     return demand_data
 end
@@ -83,7 +83,7 @@ function forecast_demand(available_demand, fc_pd)
 end
 
 
-function allocate_fuel_costs(unit_data, fuel_costs):
+function allocate_fuel_costs(unit_data, fuel_costs)
     num_units = size(unit_data)[1]
     unit_data[!, :uc_fuel] = zeros(num_units)
     for i = 1:num_units

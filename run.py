@@ -5,7 +5,7 @@ from model import GridModel
 import yaml
 
 # User inputs
-unit_data_file = '/home/biegelk/abce/data/simplified_units.yml'
+unit_data_file = '/home/biegelk/abce/data/unit_specs.csv'
 market_data_file = '/home/biegelk/abce/data/market.yml'
 db_file = "/home/biegelk/abce/abce_db.db"
 

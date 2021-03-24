@@ -39,12 +39,12 @@ class GridModel(Model):
 
         # Add all initial assets to the database
         self.add_initial_assets_to_db(initial_assets, self.cur, self.db)
+        show_table(self.db, self.cur, "assets")
 
 
     def load_unit_data(self, filename):
         unit_file = open(filename)
-        unit_data = yaml.load(unit_file, Loader=yaml.FullLoader)
-        unit_data = pd.DataFrame.from_dict(unit_data, orient='index')
+        unit_data = pd.read_csv(unit_file)
         unit_types = unit_data.index
         return unit_types, unit_data
 
@@ -70,13 +70,12 @@ class GridModel(Model):
                 completion_pd = 0
                 cancellation_pd = 9999
                 retirement_pd = initial_assets.loc[i, "useful_life"]
-                print(self.unit_data)
-                capital_payment = self.unit_data.loc[i, "overnight_cost"] / initial_assets.loc[i, "useful_life"]
-                vals = (asset_id, agent_id, completion_pd, cancellation_pd, retirement_pd, capital_payment)
-                cur.execute("""INSERT INTO assets VALUES
-                               ({asset_id}, {agent_id}, {unit_type},
-                                {completion_pd}, {cancellation_pd},
-                                {retirement_pd}, {capital_payment})""")
+                capital_payment = self.unit_data.loc[i, "capacity"] * self.unit_data.loc[i, "uc_x"] * 1000 / initial_assets.loc[i, "useful_life"]
+                cur.execute(f"""INSERT INTO assets VALUES
+                                ({asset_id}, {agent_id}, '{unit_type}', 
+                                 {completion_pd}, {cancellation_pd},
+                                 {retirement_pd}, {capital_payment})""")
+                db.commit()
 
 
     def step(self):
