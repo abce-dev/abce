@@ -75,7 +75,7 @@ class GenCo(Agent):
 
         # Retrieve the demand forecast for the upcoming visible periods
         # TODO: integrate with DB
-#        self.get_demand_forecast()
+        self.get_demand_forecast()
 
         # Write the excess unserved demand to a csv
 #        demand_series = pd.DataFrame({'demand': self.available_demand}) * (-1)
@@ -83,7 +83,6 @@ class GenCo(Agent):
 
         # Run the agent behavior choice algorithm
 #        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
-        # Newer invocation
         sp = subprocess.run([f"julia agent_choice.jl"], shell = True)
 
 
@@ -154,17 +153,15 @@ class GenCo(Agent):
                 #    reflect completion status.
                 cur.execute(f"UPDATE assets SET completion_pd = {self.current_step} WHERE asset_id = {asset_id}")
 
-            # Update the WIP_project dataframe with new completion data
-            WIP_project.loc[0, "period"] = self.current_step
-            WIP_project.loc[0, "rcec"] = max(WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"], 0)
-            WIP_project.loc[0, "rtec"] = -= 1
-            WIP_project.loc[0, "anpe"] = 0    # Reset to 0 to avoid inter-period contamination
+            # Set values to update the WIP_project dataframe with new completion data
+            period = self.current_step
+            rcec = max(WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"], 0)
+            rtec = -= 1
+            anpe = 0    # Reset to 0 to avoid inter-period contamination
 
             # Update the `WIP_projects` database table
-            vals = (WIP_project.loc[0, "asset_id"], WIP_project.loc[0, "agent_id"], 
-                    WIP_project.loc[0, "period"], WIP_project.loc[0, "rcec"],
-                    WIP_project.loc[0, "rtec"], WIP_project.loc[0, "anpe"])
-            cur.execute(f"INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", vals)
+
+            cur.execute(f"INSERT INTO WIP_projects VALUES ({asset_id}, {agent_id}, {period}, {rcec}, {rtec}, {anpe})")
 
         else:
             # If there are no construction projects in progress:
@@ -172,19 +169,6 @@ class GenCo(Agent):
 
         # Commit the changes to the database
         db.commit()
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
