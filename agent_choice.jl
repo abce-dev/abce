@@ -28,6 +28,7 @@ agent_projects = get_active_projects_list(db, agent_id)
 
 # Get agent financial parameters
 agent_params = get_agent_params(db, agent_id)
+d = agent_params[1, :discount_rate]
 
 # Set an average e- price
 avg_e_price = 0.07    # $/kWh, avg electricity price
@@ -131,7 +132,7 @@ for i = 1:size(unit_FS_dict[unit_data[1, :name]])[1]
     @constraint(m, sum(u[j] * unit_FS_dict[unit_data[j, :name]][i, :gen] for j=1:3) / (8760*1000) <= available_demand[i])
 end
 # Constraint on max amount of interest payable per year
-@constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* de_ratio .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= int_cap)
+@constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* de_ratio .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
 
 @objective(m, Max, transpose(u) * unit_data[!, :FCF_NPV])
 println("Model set up.")
@@ -151,7 +152,7 @@ println(hcat(select(unit_data, :name), DataFrame(units = unit_qty)))
 println("Total NPV of all built projects = ", transpose(unit_qty) * unit_data[!, :FCF_NPV])
 
 
-# Save the new units into the `assets` and `WIP_projects` DB tables
+###### Save the new units into the `assets` and `WIP_projects` DB tables
 for i = 1:num_units
     for j = 1:unit_qty[i]
         next_id = get_next_available_id(db)
@@ -170,6 +171,15 @@ for i = 1:num_units
         DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?)", assets_vals)
     end
 end
+
+##### Authorize ANPE for all current WIP projects
+# Retrieve all WIP projects
+WIP_projects = get_WIP_projects_list(db, agent_id)
+# Authorize ANPE for the upcoming period (default: $1B/year)
+authorize_anpe(db, agent_id, pd, WIP_projects, unit_data)
+
+
+
 
 show_table(db, "assets")
 show_table(db, "WIP_projects")
