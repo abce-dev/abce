@@ -67,15 +67,16 @@ class GridModel(Model):
             for j in range(initial_assets.loc[i, "num_copies"]):
                 asset_id = get_next_asset_id(self.db, self.cur)
                 agent_id = initial_assets.loc[i, "agent_id"]
+                unit_type = initial_assets.loc[i, "unit_type"]
                 completion_pd = 0
                 cancellation_pd = 9999
                 retirement_pd = initial_assets.loc[i, "useful_life"]
                 capital_payment = self.unit_data.loc[i, "overnight_cost"] / initial_assets.loc[i, "useful_life"]
                 vals = (asset_id, agent_id, completion_pd, cancellation_pd, retirement_pd, capital_payment)
                 cur.execute("""INSERT INTO assets VALUES
-                               ({asset_id}, {agent_id}, {completion_pd},
-                                {cancellation_pd}, {retirement_pd},
-                                {capital_payment})""")
+                               ({asset_id}, {agent_id}, {unit_type},
+                                {completion_pd}, {cancellation_pd},
+                                {retirement_pd}, {capital_payment})""")
 
 
     def step(self):

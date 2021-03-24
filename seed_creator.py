@@ -17,6 +17,7 @@
 #    - cancellation_pd  : text : Julia
 #    - retirement_pd    : real : Python
 #    - cap_pmt          : real : Python
+#    - unit_type        : text : Python
 #
 # table 3: agent_params
 #
@@ -66,8 +67,9 @@ def create_db_file(abce_db):
 
 def create_assets_table(cur):
     cur.execute("""CREATE TABLE assets
-                 (asset_id text, agent_id text, completion_pd real,
-                  cancellation_pd real, retirement_pd real, cap_pmt real)""")
+                 (asset_id text, agent_id text, unit_type text,
+                  completion_pd real, cancellation_pd real, retirement_pd real,
+                  cap_pmt real)""")
 
 
 def create_WIP_projects_table(cur):

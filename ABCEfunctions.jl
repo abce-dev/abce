@@ -156,9 +156,9 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
 
             # Assign some dummy data to the project
             xtr_vals = (new_asset_id, string(agent_id), 0, 1000, 10, 0)
-            asset_vals = (new_asset_id, string(agent_id), "no", "no", 9999, 0)
+            asset_vals = (new_asset_id, string(agent_id), "gas", "no", "no", 9999, 0)
             DBInterface.execute(db, "INSERT INTO xtr_projects VALUES (?, ?, ?, ?, ?, ?)", xtr_vals)
-            DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?)", asset_vals)
+            DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)", asset_vals)
             println(string("Created project ", new_asset_id))
 
             # Update the list of active construction projects and return it
