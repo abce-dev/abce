@@ -7,7 +7,6 @@ import subprocess
 import csv
 
 # import local modules
-import generator as gen
 import financial_statement as fs
 from ABCEfunctions import *
 
@@ -156,7 +155,7 @@ class GenCo(Agent):
             # Set values to update the WIP_project dataframe with new completion data
             period = self.current_step
             rcec = max(WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"], 0)
-            rtec = -= 1
+            rtec -= 1
             anpe = 0    # Reset to 0 to avoid inter-period contamination
 
             # Update the `WIP_projects` database table

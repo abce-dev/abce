@@ -6,7 +6,6 @@ import pandas as pd
 import subprocess
 
 # import local modules
-import id_register
 from ABCEfunctions import *
 
 class GridModel(Model):
@@ -39,14 +38,14 @@ class GridModel(Model):
         initial_assets = pd.read_csv('./data/portfolios.csv', skipinitialspace=True)
 
         # Add all initial assets to the database
-        add_initial_assets_to_db(initial_assets, self.cur, self.db)
+        self.add_initial_assets_to_db(initial_assets, self.cur, self.db)
 
 
     def load_unit_data(self, filename):
         unit_file = open(filename)
         unit_data = yaml.load(unit_file, Loader=yaml.FullLoader)
         unit_data = pd.DataFrame.from_dict(unit_data, orient='index')
-        unit_types = self.unit_data.index
+        unit_types = unit_data.index
         return unit_types, unit_data
 
 
@@ -62,7 +61,7 @@ class GridModel(Model):
         self.demand_NTF = self.true_demand_profile[self.current_step:self.current_step + self.future_vis]
 
 
-    def add_initial_assets_to_db(initial_assets, cur, db):
+    def add_initial_assets_to_db(self, initial_assets, cur, db):
         for i in range(len(initial_assets)):
             for j in range(initial_assets.loc[i, "num_copies"]):
                 asset_id = get_next_asset_id(self.db, self.cur)
@@ -71,6 +70,7 @@ class GridModel(Model):
                 completion_pd = 0
                 cancellation_pd = 9999
                 retirement_pd = initial_assets.loc[i, "useful_life"]
+                print(self.unit_data)
                 capital_payment = self.unit_data.loc[i, "overnight_cost"] / initial_assets.loc[i, "useful_life"]
                 vals = (asset_id, agent_id, completion_pd, cancellation_pd, retirement_pd, capital_payment)
                 cur.execute("""INSERT INTO assets VALUES

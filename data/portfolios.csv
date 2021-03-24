@@ -1,4 +1,4 @@
-agent, unit_type, ret_pd, num_copies
+agent_id, unit_type, useful_life, num_copies
 201, smr, 15, 2
 201, large_nuc, 12, 1
 202, smr, 10, 1
