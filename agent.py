@@ -82,7 +82,7 @@ class GenCo(Agent):
 
         # Run the agent behavior choice algorithm
 #        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
-        sp = subprocess.check_call([f"julia agent_choice.jl"], shell = True)
+        sp = subprocess.check_call([f"julia agent_choice.jl ./abce_db.db {self.current_step} {self.unique_id}"], shell = True)
 
 
         # TODO: integrate FS operations with DB
@@ -162,12 +162,11 @@ class GenCo(Agent):
             anpe = 0    # Reset to 0 to avoid inter-period contamination
 
             # Update the `WIP_projects` database table
-
             cur.execute(f"INSERT INTO WIP_projects VALUES ({asset_id}, {agent_id}, {period}, {rcec}, {rtec}, {anpe})")
 
         else:
             # If there are no construction projects in progress:
-            print(f"Agent {self.unique_id} hase no ongoing construction projects.")
+            print(f"Agent {self.unique_id} has no ongoing construction projects.")
 
         # Commit the changes to the database
         db.commit()

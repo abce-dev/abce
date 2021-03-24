@@ -24,7 +24,7 @@ agent_id = get_agent_id()
 
 # Set up agent-specific data
 # Get a list of all ongoing construction projects for the current agent
-agent_projects = get_active_projects_list(db, agent_id)
+agent_projects = get_WIP_projects_list(db, pd, agent_id)
 
 # Get agent financial parameters
 agent_params = get_agent_params(db, agent_id)
@@ -33,15 +33,13 @@ d = agent_params[1, :discount_rate]
 # Set an average e- price
 avg_e_price = 0.07    # $/kWh, avg electricity price
 
-# Read in fuel costs from file
-c_fuel = CSV.read(fuel_cost_data, DataFrame)
 
 # System parameters
 # Read unit operational data (unit_data) and number of unit types (num_types)
-unit_data, num_types = load_unit_type_data(unit_data_file)
+unit_data, num_types = get_unit_specs(db)
 
 # Load the demand data
-available_demand = load_demand_data(demand_filename)
+available_demand = load_demand_data(demand_data_file)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
 #   for the most long-lived unit
@@ -50,13 +48,11 @@ fc_pd = set_forecast_period(unit_data)
 # Extend the unserved demand data to match the total forecast period (constant projection)
 available_demand = forecast_demand(available_demand, fc_pd)
 
-# Allocate the correct fuel cost to each generator according to its fuel type
-unit_data = allocate_fuel_costs(unit_data)
-
 # Add empty column for project NPVs in unit_data
 unit_data[!, :FCF_NPV] = zeros(num_types)
 
 # Create per-unit financial statement tables
+println("Creating and populating unit financial statements for NPV calculation")
 unit_FS_dict = create_unit_FS_dict(unit_data)
 
 # Populate financial statements with top-line data
@@ -155,7 +151,7 @@ println("Total NPV of all built projects = ", transpose(unit_qty) * unit_data[!,
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
 for i = 1:num_units
     for j = 1:unit_qty[i]
-        next_id = get_next_available_id(db)
+        next_id = get_next_asset_id(db)
         # Update `WIP_projects` table
         rcec = unit_data[i, :uc_x] * unit_data[i, :capacity]
         rtec = unit_data[i, :d_x]
@@ -175,7 +171,7 @@ end
 
 ##### Authorize ANPE for all current WIP projects
 # Retrieve all WIP projects
-WIP_projects = get_WIP_projects_list(db, agent_id)
+WIP_projects = get_WIP_projects_list(db, pd, agent_id)
 # Authorize ANPE for the upcoming period (default: $1B/year)
 authorize_anpe(db, agent_id, pd, WIP_projects, unit_data)
 

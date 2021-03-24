@@ -1,8 +1,8 @@
 module ABCEfunctions
 
-using SQLite, DataFrames
+using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_table, show_table, get_active_projects_list, ensure_projects_not_empty, authorize_anpe
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, load_demand_data, set_forecast_period, forecast_demand, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
 
 #####
 # Setup functions
@@ -71,14 +71,14 @@ end
 
 function set_forecast_period(df)
     transform!(df, [:d_x, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
-    max_horizon = max(df[!, :full_life])
+    max_horizon = maximum(df[!, :full_life])
     return max_horizon
 end
 
 
 function forecast_demand(available_demand, fc_pd)
     demand = zeros(Float64, fc_pd)
-    demand[1:size(available_demand)] = available_demand[!, :demand]
+    demand[1:size(available_demand)[1]] = available_demand[!, :demand]
     return demand
 end
 
@@ -87,7 +87,7 @@ function allocate_fuel_costs(unit_data, fuel_costs)
     num_units = size(unit_data)[1]
     unit_data[!, :uc_fuel] = zeros(num_units)
     for i = 1:num_units
-        unit_data[i, :uc_fuel] = c_fuel[df[i, :fuel_type]]
+        unit_data[i, :uc_fuel] = fuel_costs[fuel_costs[!, :fuel_type] == unit_data[i, :fuel_type], :cost_per_mmbtu]
     end
     return unit_data
 end
@@ -96,7 +96,7 @@ end
 function create_unit_FS_dict(unit_data)
     fs_dict = Dict{String, DataFrame}
     num_types = size(unit_data)[1]
-    for i = 1:num_types:
+    for i = 1:num_types
         unit_name = unit_data[i, :name]
         unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
         fs_dict[unit_name] = unit_FS
@@ -126,15 +126,16 @@ function show_table(db, table_name)
 end
 
 
-function get_WIP_projects_list(db, agent_id)
-    # Get a list of all active (non-complete, non-cancelled) projects for the given agent
-    SQL_get_proj = SQLite.Stmt(db, string("SELECT asset_id FROM assets WHERE agent_id = ", agent_id, " AND is_complete = 'no' AND is_cancelled = 'no'"))
+function get_WIP_projects_list(db, pd, agent_id)
+    # Get a list of all WIP (non-complete, non-cancelled) projects for the given agent
+    vals = (pd, pd)
+    SQL_get_proj = SQLite.Stmt(db, string("SELECT asset_id FROM assets WHERE agent_id = ", agent_id, " AND completion_pd > ", pd, " AND cancellation_pd > ", pd))
     project_list = DBInterface.execute(SQL_get_proj) |> DataFrame
     return project_list
 end
 
 
-function get_next_available_id(db)
+function get_next_asset_id(db)
     # Return the next available asset ID (one greater than the current largest ID)
     SQL_get_ids = SQLite.Stmt(db, string("SELECT asset_id FROM assets"))
     asset_df = DBInterface.execute(SQL_get_ids) |> DataFrame
@@ -142,6 +143,14 @@ function get_next_available_id(db)
     next_id = maximum(asset_df[!, :asset_id]) + 1
     return next_id    
 end
+
+
+function get_unit_specs(db)
+    df = DBInterface.execute(db, "SELECT * FROM unit_specs") |> DataFrame
+    num_types = size(df)[1]
+    return df, num_types
+end
+
 
 
 function ensure_projects_not_empty(db, agent_id, project_list, current_period)
@@ -152,7 +161,7 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
             #    observation of post-completion model behavior
 
             # Create a new project
-            new_asset_id = get_next_available_id(db)
+            new_asset_id = get_next_asset_id(db)
 
             # Assign some dummy data to the project
             xtr_vals = (new_asset_id, string(agent_id), 0, 1000, 10, 0)
@@ -161,8 +170,8 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
             DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)", asset_vals)
             println(string("Created project ", new_asset_id))
 
-            # Update the list of active construction projects and return it
-            project_list = get_active_projects_list(db, agent_id)
+            # Update the list of WIP construction projects and return it
+            project_list = get_WIP_projects_list(db, agent_id)
             return project_list
         else
             # If at least one construction project already exists, there's no
@@ -198,7 +207,7 @@ function add_xtr_events(unit_data, unit_num, unit_FS_dict, agent_params)
     #    construction expenditures and the accrual of debt
     for i = 1:unit_data[unit_num, :d_x]
         # Linearly distribute construction costs over the construction duration
-        unit_FS_dict[i, :xtr_exp] = unit_data[unit_num, :uc_x], * unit_data[unit_num, :capacity] * 1000 / unit_data[unit_num, :d_x]
+        unit_FS_dict[i, :xtr_exp] = unit_data[unit_num, :uc_x] * unit_data[unit_num, :capacity] * 1000 / unit_data[unit_num, :d_x]
         unit_FS_dict[i, :remaining_debt_principal] = sum(fs[j, :xtr_exp] for j in 1:i) * agent_params[:debt_fraction]
     end
 end

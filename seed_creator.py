@@ -1,32 +1,45 @@
 # A script to create (or delete and recreate) the base ABCE database file
 # Specification:
 # table 1: WIP_projects
-#       HEADER         TYPE   SET BY
-#    - asset_id      : text : Julia (init), Python (step)
-#    - agent_id      : text : Julia (init), Python (step)
-#    - period        : real : Julia (init), Python (step)
-#    - rcec          : real : Julia (init), Python (step)
-#    - rtec          : real : Julia (init), Python (step)
-#    - anpe          : real : Julia (init), Julia (step)
+#       HEADER         TYPE   INIT BY  STEPPED BY
+#    - asset_id      : text : Julia,   Python
+#    - agent_id      : text : Julia,   Python
+#    - period        : real : Julia,   Python
+#    - rcec          : real : Julia,   Python
+#    - rtec          : real : Julia,   Python
+#    - anpe          : real : Julia,   Julia 
 #
 # table 2: assets
-#       HEADER            TYPE   SET BY
-#    - asset_id         : text : Python
-#    - agent_id         : text : Python
-#    - completion_pd    : text : Python
-#    - cancellation_pd  : text : Julia
-#    - retirement_pd    : real : Python
-#    - cap_pmt          : real : Python
-#    - unit_type        : text : Python
+#       HEADER            TYPE   INIT BY        STEPPED BY
+#    - asset_id         : text : Python/Julia,  n/a
+#    - agent_id         : text : Python/Julia,  n/a
+#    - completion_pd    : text : Python/Julia,  Python
+#    - cancellation_pd  : text : Julia,         Julia
+#    - retirement_pd    : real : Python/Julia,  Python
+#    - cap_pmt          : real : Python/Julia,  Python
+#    - unit_type        : text : Python/Julia,  n/a
 #
 # table 3: agent_params
+#       HEADER             TYPE   SET BY
+#    - agent_id          : text : model
+#    - discount_rate     : real : model
+#    - tax_rate          : real : model
+#    - term_growth_rate  : real : model
+#    - debt_fraction     : real : model
+#    - interest_cap      : real : model
 #
-#    - agent_id          : text : Python
-#    - discount_rate     : real : Python
-#    - tax_rate          : real : Python
-#    - term_growth_rate  : real : Python
-#    - debt_fraction     : real : Python
-#    - interest_cap      : real : Python
+# table 4: unit_specs
+#
+#    - unit_type    : text : seed_creator
+#    - fuel_type    : text : seed_creator
+#    - capacity     : real : seed_creator
+#    - uc_x         : real : seed_creator
+#    - d_x          : real : seed_creator
+#    - heat_rate    : real : seed_creator
+#    - VOM          : real : seed_creator
+#    - FOM          : real : seed_creator
+#    - unit_life    : real : seed_creator
+#    - CF           : real : seed_creator
 
 
 import sqlite3
@@ -84,6 +97,12 @@ def create_agent_params_table(cur):
                     term_growth_rate real, debt_fraction real,
                     interest_cap real)""")
 
+def create_unit_specs_table(cur):
+    cur.execute("""CREATE TABLE	unit_specs
+                   (unit_type text, fuel_type text, capacity real, uc_x real,
+                    d_x real, heat_rate real, VOM real, FOM real,
+                    unit_life real, CF real)""")
+
 
 
 # Set name and path for ABCE database file
@@ -103,6 +122,7 @@ if __name__ == "__main__":
     create_assets_table(cur)
     create_WIP_projects_table(cur)
     create_agent_params_table(cur)
+    create_unit_specs_table(cur)
 
     # Commit changes and close the connection to the database
     db.commit()
