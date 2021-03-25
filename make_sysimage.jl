@@ -24,8 +24,8 @@ Pkg.activate
 
 # Run the current version of unit_choice.jl, outputting function-compilation
 #   records to `./precompile.jl`
-run(`julia --trace-compile=precompile.jl unit_choice.jl`)
+run(`julia --trace-compile=precompile.jl agent_choice.jl ./abce_db.db 0 201`)
 
 # Create `abceSysimage.so` using the specified packages and the newly
 #   generated `precompile.jl` file.
-create_sysimage([:CSV, :JuMP, :GLPK, :DataFrames]; sysimage_path="abceSysimage.so", precompile_statements_file="./precompile.jl")
+create_sysimage([:CSV, :JuMP, :GLPK, :DataFrames, :SQLite]; sysimage_path="abceSysimage.so", precompile_statements_file="./precompile.jl")
