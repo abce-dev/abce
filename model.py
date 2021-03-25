@@ -32,7 +32,7 @@ class GridModel(Model):
         self.schedule = RandomActivation(self)
 
         # Create agents
-        for i in range(self.num_agents):
+        for i in range(201, 201 + self.num_agents):
             gc = GenCo(i, self)
             self.schedule.add(gc)
 
@@ -99,7 +99,8 @@ class GridModel(Model):
             # Insert the values into the unit_specs DB table
             cur.execute(f"""INSERT INTO unit_specs VALUES
                             ('{unit_type}', '{fuel_type}', {capacity}, {uc_x},
-                             {d_x}, {heat_rate}, {VOM}, {FOM}, {unit_life}, {CF})""")
+                             {d_x}, {heat_rate}, {VOM}, {FOM}, {unit_life},
+                             {fuel_cost}, {CF})""")
             db.commit()
 
 

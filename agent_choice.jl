@@ -3,7 +3,7 @@
 println("\n\n-----------------------------------------------------------------")
 println("Julia agent choice algorithm: starting")
 println("Loading packages...")
-using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, Printf, YAML
+using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, Printf, YAML, SQLite
 # Include localy module of ABCE functions
 include("./ABCEfunctions.jl")
 using .ABCEfunctions
@@ -31,7 +31,7 @@ agent_params = get_agent_params(db, agent_id)
 d = agent_params[1, :discount_rate]
 
 # Set an average e- price
-avg_e_price = 0.07    # $/kWh, avg electricity price
+avg_e_price = 0.08    # $/kWh, avg electricity price
 
 
 # System parameters
@@ -43,7 +43,7 @@ available_demand = load_demand_data(demand_data_file)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
 #   for the most long-lived unit
-fc_pd = convert(Int64, set_forecast_period(unit_data))
+fc_pd = set_forecast_period(unit_data)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 available_demand = forecast_demand(available_demand, fc_pd)
@@ -65,10 +65,15 @@ for i = 1:num_types
     fs = unit_FS_dict[name]
 
     # Generate events during the construction period
+    xtr_exp_per_pd = unit_data[i, :uc_x] * unit_data[i, :capacity] * 1000 / unit_data[i, :d_x]
+    xtr_exp_series = ones(unit_data[i, :d_x]) .* xtr_exp_per_pd
+    zeros_series = zeros(fc_pd - unit_data[i, :d_x])
+    xtr_exp = vcat(xtr_exp_series, zeros_series)
+    fs[!, :xtr_exp] .= xtr_exp
     for j = 1:unit_data[i, :d_x]
         # Uniformly distribute construction costs over the construction duration
-        unit_FS_dict[j, :xtr_exp] = unit_data[i, :uc_x] * unit_data[i, :capacity] * 1000 / unit_data[i, :d_x]
-        unit_FS_dict[j, :remaining_debt_principal] = sum(fs[k, :xtr_exp] for k in 1:j) * agent_params[1, :debt_fraction]
+        #unit_FS_dict[j, :xtr_exp] = unit_data[i, :uc_x] * unit_data[i, :capacity] * 1000 / unit_data[i, :d_x]
+        fs[j, :remaining_debt_principal] = sum(fs[!, :xtr_exp]) * agent_params[1, :debt_fraction] # sum(fs[k, :xtr_exp] for k in 1:j)
     end
 
     # Generate prime-mover events from the end of construction to the end of the unit's life
@@ -93,7 +98,7 @@ for i = 1:num_types
     # Compute total revenue for the year
     transform!(fs, [:gen] => ((gen) -> avg_e_price .* gen) => :Revenue)
     # Compute total cost of fuel used
-    transform!(fs, [:gen] => ((gen) -> unit_data[i, :uc_fuel] .* unit_data[i, :heat_rate] .* gen ./ 1000000) => :Fuel_Cost)
+    transform!(fs, [:gen] => ((gen) -> unit_data[i, :fuel_cost] .* unit_data[i, :heat_rate] .* gen ./ 1000000) => :Fuel_Cost)
     # Compute total VOM cost incurred during generation
     transform!(fs, [:gen] => ((gen) -> unit_data[i, :VOM] .* gen) => :VOM_Cost)
     # Compute total FOM cost for the year (non-reactive)
@@ -106,7 +111,7 @@ for i = 1:num_types
     # Compute EBT
     transform!(fs, [:EBIT, :interest_due] => ((EBIT, interest) -> EBIT - interest) => :EBT)
     # Compute taxes owed
-    transform!(fs, [:EBT] => ((EBT) -> EBT .* tax_rate) => :tax_owed)
+    transform!(fs, [:EBT] => ((EBT) -> EBT .* agent_params[1, :tax_rate]) => :tax_owed)
     # Compute net income
     transform!(fs, [:EBT, :tax_owed] => ((EBT, tax) -> EBT - tax) => :Net_Income)
     # Compute FCF
@@ -117,6 +122,8 @@ for i = 1:num_types
     # 
     unit_data[i, :FCF_NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
 end
+
+print(unit_FS_dict["micro"])
 
 println(unit_data)
 println("Data initialized.")
@@ -132,7 +139,7 @@ for i = 1:size(unit_FS_dict[unit_data[1, :unit_type]])[1]
     @constraint(m, sum(u[j] * unit_FS_dict[unit_data[j, :unit_type]][i, :gen] for j=1:3) / (8760*1000) <= available_demand[i])
 end
 # Constraint on max amount of interest payable per year
-@constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* de_ratio .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
+@constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* agent_params[1, :debt_fraction] .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
 
 @objective(m, Max, transpose(u) * unit_data[!, :FCF_NPV])
 println("Model set up.")
@@ -153,7 +160,7 @@ println("Total NPV of all built projects = ", transpose(unit_qty) * unit_data[!,
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
-for i = 1:num_units
+for i = 1:num_types
     for j = 1:unit_qty[i]
         next_id = get_next_asset_id(db)
         # Update `WIP_projects` table
@@ -179,17 +186,9 @@ WIP_projects = get_WIP_projects_list(db, pd, agent_id)
 # Authorize ANPE for the upcoming period (default: $1B/year)
 authorize_anpe(db, agent_id, pd, WIP_projects, unit_data)
 
+# Show final assets and WIP_projects tables
+#show_table(db, "assets")
+#show_table(db, "WIP_projects")
 
-
-
-show_table(db, "assets")
-show_table(db, "WIP_projects")
-
-
-
-
-
-
-
-
+# End
 println("\n Julia: finishing")

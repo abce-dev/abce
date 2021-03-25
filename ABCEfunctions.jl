@@ -79,6 +79,7 @@ end
 function forecast_demand(available_demand, fc_pd)
     demand = zeros(Float64, convert(Int64, fc_pd))
     demand[1:size(available_demand)[1]] = available_demand[!, :demand]
+    demand[(size(available_demand)[1] + 1):fc_pd] .= demand[size(available_demand)[1]] 
     return demand
 end
 
@@ -146,8 +147,12 @@ end
 
 
 function get_unit_specs(db)
+    # Retrieve the table of unit specifications from the DB
     df = DBInterface.execute(db, "SELECT * FROM unit_specs") |> DataFrame
     num_types = size(df)[1]
+    # Convert the Int-type columns to Int64
+    df[!, :d_x] = convert.(Int64, df[:, :d_x])
+    df[!, :unit_life] = convert.(Int64, df[:, :unit_life])
     return df, num_types
 end
 
@@ -166,7 +171,7 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
             # Assign some dummy data to the project
             xtr_vals = (new_asset_id, string(agent_id), 0, 1000, 10, 0)
             asset_vals = (new_asset_id, string(agent_id), "gas", "no", "no", 9999, 0)
-            DBInterface.execute(db, "INSERT INTO xtr_projects VALUES (?, ?, ?, ?, ?, ?)", xtr_vals)
+            DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", xtr_vals)
             DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)", asset_vals)
             println(string("Created project ", new_asset_id))
 
@@ -187,13 +192,13 @@ end
 
 
 function authorize_anpe(db, agent_id, current_period, project_list, unit_data)
-    # Loop through each project and authorize $100 of ANPE by setting the anpe value in xtr_projects
+    # Loop through each project and authorize $100 of ANPE by setting the anpe value in WIP_projects
     for i = 1:size(project_list[!, :asset_id])[1]
         current_asset = project_list[i, :asset_id]
-        println("Authorizing expenditures for project ", current_asset)
+        #println("Authorizing expenditures for project ", current_asset)
         anpe_val = 1000000000   # $1B/period
         vals = (anpe_val, current_period, current_asset)
-        DBInterface.execute(db, "UPDATE xtr_projects SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
+        DBInterface.execute(db, "UPDATE WIP_projects SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end
 end
 

@@ -40,6 +40,7 @@
 #    - FOM          : real : seed_creator
 #    - unit_life    : real : seed_creator
 #    - CF           : real : seed_creator
+#    - fuel_cost    : real : seed_creator
 
 
 import sqlite3
@@ -67,7 +68,7 @@ def get_user_consent_to_delete(abce_db):
     user_resp = ""
     valid_responses = ["Y", "y", "N", "n", "yes", "no", "Yes", "No"]
     while user_resp not in valid_responses:
-        user_resp = input("Is it OK to delete it? [y/n]")
+        user_resp = input("Is it OK to delete it? [y/n] ")
     return user_resp
 
 
@@ -101,7 +102,7 @@ def create_unit_specs_table(cur):
     cur.execute("""CREATE TABLE	unit_specs
                    (unit_type text, fuel_type text, capacity real, uc_x real,
                     d_x real, heat_rate real, VOM real, FOM real,
-                    unit_life real, CF real)""")
+                    unit_life real, CF real, fuel_cost real)""")
 
 
 

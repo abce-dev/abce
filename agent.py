@@ -82,7 +82,7 @@ class GenCo(Agent):
 
         # Run the agent behavior choice algorithm
 #        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
-        sp = subprocess.check_call([f"julia agent_choice.jl ./abce_db.db {self.current_step} {self.unique_id}"], shell = True)
+        sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./abce_db.db {self.current_step} {self.unique_id}"], shell = True)
 
 
         # TODO: integrate FS operations with DB
@@ -158,7 +158,7 @@ class GenCo(Agent):
             # Set values to update the WIP_project dataframe with new completion data
             period = self.current_step
             rcec = max(WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"], 0)
-            rtec -= 1
+            rtec = WIP_project.loc[0, "rtec"] - 1
             anpe = 0    # Reset to 0 to avoid inter-period contamination
 
             # Update the `WIP_projects` database table
