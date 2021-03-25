@@ -6,3 +6,5 @@ market.yml
 out.txt
 abceSysimage.so
 *.db
+precompile.jl
+
