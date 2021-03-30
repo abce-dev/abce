@@ -36,7 +36,6 @@ def get_next_asset_id(db, cur):
         next_id = max(asset_list) + 1
     else:
         # There are no existing assets
-        print("There are no existing assets")
         next_id = 2001
     return next_id
 

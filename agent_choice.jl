@@ -33,20 +33,19 @@ d = agent_params[1, :discount_rate]
 # Set an average e- price
 avg_e_price = 0.08    # $/kWh, avg electricity price
 
-
 # System parameters
 # Read unit operational data (unit_data) and number of unit types (num_types)
 unit_data, num_types = get_unit_specs(db)
-
-# Load the demand data
-available_demand = load_demand_data(demand_data_file)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
 #   for the most long-lived unit
 fc_pd = set_forecast_period(unit_data)
 
+# Load the demand data
+available_demand = get_demand_forecast(db, pd, agent_id, fc_pd)
+
 # Extend the unserved demand data to match the total forecast period (constant projection)
-available_demand = forecast_demand(available_demand, fc_pd)
+available_demand = get_net_demand(db, pd, agent_id, fc_pd, available_demand)
 
 # Add empty column for project NPVs in unit_data
 unit_data[!, :FCF_NPV] = zeros(Float64, num_types)
@@ -123,9 +122,6 @@ for i = 1:num_types
     unit_data[i, :FCF_NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
 end
 
-print(unit_FS_dict["micro"])
-
-println(unit_data)
 println("Data initialized.")
 
 ###### Set up the model
@@ -164,7 +160,7 @@ for i = 1:num_types
     for j = 1:unit_qty[i]
         next_id = get_next_asset_id(db)
         # Update `WIP_projects` table
-        rcec = unit_data[i, :uc_x] * unit_data[i, :capacity]
+        rcec = unit_data[i, :uc_x] * unit_data[i, :capacity] * 1000
         rtec = unit_data[i, :d_x]
         WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
         DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)

@@ -2,7 +2,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, load_demand_data, set_forecast_period, forecast_demand, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, load_demand_data, set_forecast_period, forecast_demand, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
 
 #####
 # Setup functions
@@ -77,9 +77,9 @@ end
 
 
 function forecast_demand(available_demand, fc_pd)
-    demand = zeros(Float64, convert(Int64, fc_pd))
-    demand[1:size(available_demand)[1]] = available_demand[!, :demand]
-    demand[(size(available_demand)[1] + 1):fc_pd] .= demand[size(available_demand)[1]] 
+    demand = DataFrame(demand = zeros(Float64, convert(Int64, fc_pd)))
+    demand[1:size(available_demand)[1], :demand] .= available_demand[!, :demand]
+    demand[(size(available_demand)[1] + 1):fc_pd, :demand] .= demand[size(available_demand)[1], :demand] 
     return demand
 end
 
@@ -129,10 +129,47 @@ end
 
 function get_WIP_projects_list(db, pd, agent_id)
     # Get a list of all WIP (non-complete, non-cancelled) projects for the given agent
-    vals = (pd, pd)
     SQL_get_proj = SQLite.Stmt(db, string("SELECT asset_id FROM assets WHERE agent_id = ", agent_id, " AND completion_pd > ", pd, " AND cancellation_pd > ", pd))
     project_list = DBInterface.execute(SQL_get_proj) |> DataFrame
     return project_list
+end
+
+
+function get_demand_forecast(db, pd, agent_id, fc_pd)
+    # Get a list of forecasted future demand amounts
+    # Forecast no increase after the end of the future visibility window
+    # Hardcoded visibility window of 5
+    vals = (pd, pd + 5)
+    demand_forecast = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
+    demand_forecast = forecast_demand(demand_forecast, fc_pd)
+    return demand_forecast
+end
+
+
+function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
+    # Calculate the amount of forecasted net demand in future periods
+    installed_cap_forecast = DataFrame(period = Int64[], derated_capacity = Float64[])
+    vals = (pd, pd)
+    assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ?", vals) |> DataFrame
+    assets[!, :capacity] = zeros(size(assets)[1])
+    assets[!, :CF] = zeros(size(assets)[1])
+    unit_specs = DBInterface.execute(db, "SELECT * FROM unit_specs") |> DataFrame
+    for i = 1:size(assets)[1]
+        asset_type = assets[i, :unit_type]
+        unit = filter(row -> row[:unit_type] == asset_type, unit_specs)
+        assets[i, :capacity] = unit[1, :capacity]
+        assets[i, :CF] = unit[1, :CF]
+        transform!(assets, [:capacity, :CF] => ((cap, cf) -> cap .* cf) => :derated_capacity)
+    end
+    for i=pd:pd+fc_pd-1
+        active_assets = filter(row -> (row[:completion_pd] <= i) && (row[:retirement_pd] > i), assets)
+        total_cap = sum(active_assets[!, :derated_capacity])
+        df = DataFrame(period = i, derated_capacity = total_cap)
+        append!(installed_cap_forecast, df)
+    end
+    net_demand_forecast = demand_forecast[!, :demand] - installed_cap_forecast[!, :derated_capacity]
+    return net_demand_forecast
+
 end
 
 
@@ -196,7 +233,7 @@ function authorize_anpe(db, agent_id, current_period, project_list, unit_data)
     for i = 1:size(project_list[!, :asset_id])[1]
         current_asset = project_list[i, :asset_id]
         #println("Authorizing expenditures for project ", current_asset)
-        anpe_val = 1000000000   # $1B/period
+        anpe_val = 100000000   # $1B/period
         vals = (anpe_val, current_period, current_asset)
         DBInterface.execute(db, "UPDATE WIP_projects SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end

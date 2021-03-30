@@ -41,6 +41,12 @@
 #    - unit_life    : real : seed_creator
 #    - CF           : real : seed_creator
 #    - fuel_cost    : real : seed_creator
+# table 5: demand
+#
+#    - period       : real : model
+#    - demand       : real : model
+
+
 
 
 import sqlite3
@@ -104,6 +110,10 @@ def create_unit_specs_table(cur):
                     d_x real, heat_rate real, VOM real, FOM real,
                     unit_life real, CF real, fuel_cost real)""")
 
+def create_demand_table(cur):
+    cur.execute("CREATE TABLE demand (period real, demand real)")
+
+
 
 
 # Set name and path for ABCE database file
@@ -124,6 +134,7 @@ if __name__ == "__main__":
     create_WIP_projects_table(cur)
     create_agent_params_table(cur)
     create_unit_specs_table(cur)
+    create_demand_table(cur)
 
     # Commit changes and close the connection to the database
     db.commit()

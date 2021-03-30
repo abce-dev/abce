@@ -70,7 +70,8 @@ class GenCo(Agent):
         self.op_assets = self.get_operating_asset_list()
 
         # Update the status of each current WIP project
-        self.update_WIP_assets()
+        show_table(self.model.db, self.model.cur, "assets")
+        self.update_WIP_projects()
 
         # Retrieve the demand forecast for the upcoming visible periods
         # TODO: integrate with DB
@@ -135,7 +136,7 @@ class GenCo(Agent):
         return op_asset_list
 
 
-    def update_WIP_assets(self):
+    def update_WIP_projects(self):
         db = self.model.db
         cur = db.cursor()
         if self.WIP_projects:
@@ -145,24 +146,25 @@ class GenCo(Agent):
                 # Select the current project's most recent data record
                 cur.execute(f"SELECT * FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_step - 1}")
                 WIP_project = pd.DataFrame([list(cur.fetchall()[0])], columns = ["asset_id", "agent_id", "period", "rcec", "rtec", "anpe"])
+                db.commit()
 
-            # TODO: implement stochastic RCEC and RTEC escalation
-            # Currently: no escalation
+                # TODO: implement stochastic RCEC and RTEC escalation
+                # Currently: no escalation
 
-            if WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"] <= 0:
-                # This period's authorized expenditures close out the
-                #    remainder of the project. Update the `assets` table to
-                #    reflect completion status.
-                cur.execute(f"UPDATE assets SET completion_pd = {self.current_step} WHERE asset_id = {asset_id}")
+                if WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"] <= 0:
+                    # This period's authorized expenditures close out the
+                    #    remainder of the project. Update the `assets` table to
+                    #    reflect completion status.
+                    cur.execute(f"UPDATE assets SET completion_pd = {self.current_step} WHERE asset_id = {asset_id}")
 
-            # Set values to update the WIP_project dataframe with new completion data
-            period = self.current_step
-            rcec = max(WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"], 0)
-            rtec = WIP_project.loc[0, "rtec"] - 1
-            anpe = 0    # Reset to 0 to avoid inter-period contamination
+                # Set values to update the WIP_project dataframe with new completion data
+                period = self.current_step
+                rcec = max(WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"], 0)
+                rtec = WIP_project.loc[0, "rtec"] - 1
+                anpe = 0    # Reset to 0 to avoid inter-period contamination
 
-            # Update the `WIP_projects` database table
-            cur.execute(f"INSERT INTO WIP_projects VALUES ({asset_id}, {agent_id}, {period}, {rcec}, {rtec}, {anpe})")
+                # Update the `WIP_projects` database table
+                cur.execute(f"INSERT INTO WIP_projects VALUES ({asset_id}, {self.unique_id}, {period}, {rcec}, {rtec}, {anpe})")
 
         else:
             # If there are no construction projects in progress:
@@ -177,7 +179,17 @@ class GenCo(Agent):
         # DEPRECATED : will pull from a demand table
         """ Obtain the current demand visibility window from the model.
         """
-        if self.model.demand_NTF != []:
-            self.demand_forecast = self.model.demand_NTF
-            self.current_demand = self.demand_forecast[0]
+        #if self.model.demand_NTF != []:
+        #    self.demand_forecast = self.model.demand_NTF
+        #    self.current_demand = self.demand_forecast[0]
+        pass
+
+
+    def forecast_unserved_demand(self):
+        db = self.model.db
+        cur = db.cursor()
+        
+
+
+
 

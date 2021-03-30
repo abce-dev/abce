@@ -12,5 +12,5 @@ db_file = "/home/biegelk/abce/abce_db.db"
 # Run the model
 if __name__ == '__main__':
     abce_model = GridModel(1, db_file, unit_data_file, market_data_file)
-    for i in range(3):
+    for i in range(20):
         abce_model.step()

@@ -3,6 +3,7 @@ from mesa.time import RandomActivation
 from agent import GenCo
 import yaml
 import pandas as pd
+import numpy as np
 import subprocess
 
 # import local modules
@@ -25,8 +26,15 @@ class GridModel(Model):
         self.unit_types, self.unit_data = self.load_unit_data(unit_data_file)
         self.fuel_costs = pd.read_csv("./data/fuel_costs.csv")
         self.add_units_to_db(self.db, self.cur, self.unit_data, self.fuel_costs)
-        self.get_true_market_data(demand_data_file)
-        self.set_demand_visibility_window()
+
+        # Load demand data into the database
+        demand_df = pd.read_csv("./data/default_demand.csv")
+        demand_fill = pd.DataFrame(np.ones(100 - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
+        demand_df = demand_df.append(demand_fill, ignore_index=True)
+        for period in list(demand_df.index):
+            demand = demand_df.loc[period, "demand"]
+            self.cur.execute(f"INSERT INTO demand VALUES ({period}, {demand})")
+            self.db.commit()
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
@@ -54,14 +62,12 @@ class GridModel(Model):
     def get_true_market_data(self, filename):
         market_file = open(filename)
         market_data = yaml.load(market_file, Loader=yaml.FullLoader)
-        self.prev_demand = market_data['past_demand']
-        self.true_demand_profile = market_data['demand']
         self.eprices = market_data['prices']
 
 
     def set_demand_visibility_window(self):
-        self.demand_NTF = self.true_demand_profile[self.current_step:self.current_step + self.future_vis]
-
+        #self.demand_NTF = self.true_demand_profile[self.current_step:self.current_step + self.future_vis]
+        pass
 
     def add_initial_assets_to_db(self, initial_assets, cur, db):
         for i in range(len(initial_assets)):
@@ -100,13 +106,15 @@ class GridModel(Model):
             cur.execute(f"""INSERT INTO unit_specs VALUES
                             ('{unit_type}', '{fuel_type}', {capacity}, {uc_x},
                              {d_x}, {heat_rate}, {VOM}, {FOM}, {unit_life},
-                             {fuel_cost}, {CF})""")
+                             {CF}, {fuel_cost})""")
             db.commit()
 
 
     def step(self):
         ''' Advance the model by one step. '''
         self.current_step += 1
-        self.set_demand_visibility_window()
+        print("\n\n====================================================")
+        print(f"Model step: {self.current_step}")
+        #self.set_demand_visibility_window()
         self.schedule.step()
 
