@@ -228,12 +228,15 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
 end
 
 
-function authorize_anpe(db, agent_id, current_period, project_list, unit_data)
+function authorize_anpe(db, agent_id, current_period, project_list, unit_specs)
     # Loop through each project and authorize $100 of ANPE by setting the anpe value in WIP_projects
     for i = 1:size(project_list[!, :asset_id])[1]
         current_asset = project_list[i, :asset_id]
-        #println("Authorizing expenditures for project ", current_asset)
-        anpe_val = 100000000   # $1B/period
+        asset_type = DBInterface.execute(db, string("SELECT unit_type FROM assets WHERE asset_id = ", current_asset)) |> DataFrame
+        unit = filter(row -> row[:unit_type] == asset_type[1, :unit_type], unit_specs)
+        # Authorize a uniform expenditure over the life of the project
+        anpe_val = unit[1, :uc_x] * unit[1, :capacity] * 1000 / unit[1, :d_x]
+#        anpe_val = 100000000   # $1B/period
         vals = (anpe_val, current_period, current_asset)
         DBInterface.execute(db, "UPDATE WIP_projects SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end
