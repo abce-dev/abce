@@ -8,19 +8,30 @@ import subprocess
 
 # import local modules
 from ABCEfunctions import *
+from seed_creator import *
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
-    def __init__(self, n, db_file, unit_data_file, demand_data_file):
+    def __init__(self, n, db_file, unit_data_file, demand_data_file, first_agent_id, first_asset_id):
         # Parameters
         self.num_agents = n
         self.current_step = -1
         self.future_vis = 4  # Number of time steps agents can see into the future
+        self.first_agent_id = first_agent_id  # Starting number for valid agent IDs
+        self.first_asset_id = first_asset_id
 
         # Initialize database for managing asset and WIP construction project data
         self.db_file = db_file
-        sp = subprocess.run(["python3 seed_creator.py"], shell=True)
-        self.db, self.cur = load_database(self.db_file)
+        clear_db_file(self.db_file)
+        self.db, self.cur = create_db_file(self.db_file)
+        # Create the five DB tables (see `seed_creator.py` for table specifications)
+        create_assets_table(self.cur)
+        create_WIP_projects_table(self.cur)
+        create_agent_params_table(self.cur)
+        create_unit_specs_table(self.cur)
+        create_demand_table(self.cur)
+        self.db.commit()
+        print(f"Database created in file '{self.db_file}'.")
 
         # Load default unit data and demand profile
         self.unit_types, self.unit_data = self.load_unit_data(unit_data_file)
@@ -40,7 +51,7 @@ class GridModel(Model):
         self.schedule = RandomActivation(self)
 
         # Create agents
-        for i in range(201, 201 + self.num_agents):
+        for i in range(self.first_agent_id, self.first_agent_id + self.num_agents):
             gc = GenCo(i, self)
             self.schedule.add(gc)
 
@@ -49,7 +60,7 @@ class GridModel(Model):
 
         # Add all initial assets to the database
         self.add_initial_assets_to_db(initial_assets, self.cur, self.db)
-        show_table(self.db, self.cur, "assets")
+        print(get_table(self.db, self.cur, "assets"))
 
 
     def load_unit_data(self, filename):
@@ -59,20 +70,10 @@ class GridModel(Model):
         return unit_types, unit_data
 
 
-    def get_true_market_data(self, filename):
-        market_file = open(filename)
-        market_data = yaml.load(market_file, Loader=yaml.FullLoader)
-        self.eprices = market_data['prices']
-
-
-    def set_demand_visibility_window(self):
-        #self.demand_NTF = self.true_demand_profile[self.current_step:self.current_step + self.future_vis]
-        pass
-
     def add_initial_assets_to_db(self, initial_assets, cur, db):
         for i in range(len(initial_assets)):
             for j in range(initial_assets.loc[i, "num_copies"]):
-                asset_id = get_next_asset_id(self.db, self.cur)
+                asset_id = get_next_asset_id(self.db, self.cur, self.first_asset_id)
                 agent_id = initial_assets.loc[i, "agent_id"]
                 unit_type = initial_assets.loc[i, "unit_type"]
                 completion_pd = 0

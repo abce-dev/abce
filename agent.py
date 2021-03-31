@@ -44,25 +44,26 @@ class GenCo(Agent):
     def assign_parameters(self, params_file):
         # Retrieve parameters from file
         params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
-        debt_fraction = params['debt_fraction']
-        term_growth_rate = params['terminal_growth_rate']
-        discount_rate = params['discount_rate']
-        tax_rate = params['tax_rate']
-        interest_cap = params['interest_cap']
+        self.debt_fraction = params['debt_fraction']
+        self.term_growth_rate = params['terminal_growth_rate']
+        self.discount_rate = params['discount_rate']
+        self.tax_rate = params['tax_rate']
+        self.interest_cap = params['interest_cap']
 
         # Save parameters to DB table `agent_params`
         db = self.model.db
         cur = db.cursor()
         cur.execute(f"""INSERT INTO agent_params VALUES ({self.unique_id}, 
-                        {discount_rate}, {tax_rate}, {term_growth_rate}, 
-                        {debt_fraction}, {interest_cap})""")
+                        {self.discount_rate}, {self.tax_rate},
+                        {self.term_growth_rate}, {self.debt_fraction},
+                        {self.interest_cap})""")
 
 
     def step(self):
         """Controller function to activate all agent behaviors at each time step.
         """
         # Set the current model step
-        self.current_step = self.get_current_step()
+        self.current_step = self.model.current_step
 
         # Get lists of all assets, all WIP projects, and all operating assets
         self.all_assets = self.get_current_asset_list()
@@ -70,44 +71,21 @@ class GenCo(Agent):
         self.op_assets = self.get_operating_asset_list()
 
         # Update the status of each current WIP project
-        show_table(self.model.db, self.model.cur, "assets")
+        print(get_table(self.model.db, self.model.cur, "assets"))
         self.update_WIP_projects()
-
-        # Retrieve the demand forecast for the upcoming visible periods
-        # TODO: integrate with DB
-        self.get_demand_forecast()
-
-        # Write the excess unserved demand to a csv
-#        demand_series = pd.DataFrame({'demand': self.available_demand}) * (-1)
-#        demand_file = f"./data/gc{self.unique_id}_demand.csv"
 
         # Run the agent behavior choice algorithm
 #        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
         sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./abce_db.db {self.current_step} {self.unique_id}"], shell = True)
 
 
-        # TODO: integrate FS operations with DB
-        # Financial statements currently disabled
-#        self.fs.step()
-
-
-    def get_current_step(self):
-        """Obtain the current step number from the model.
-
-        """
-        current_step = self.model.current_step
-        return current_step
-
-
     def get_current_asset_list(self):
         # Get a list of all assets belonging to the current agent where:
         #  - cancellation_pd is in the future (not currently cancelled)
         #  - retirement_pd is in the future (not currently retired)
-        db = self.model.db
-        cur = db.cursor()
+        cur = self.model.db.cursor()
         cur.execute(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND cancellation_pd > {self.current_step} AND retirement_pd > {self.current_step}")
-        all_asset_list = list(cur.fetchall())
-        all_asset_list = [int(item[0]) for item in all_asset_list]
+        all_asset_list = [int(item[0]) for item in list(cur.fetchall())]
         return all_asset_list
 
 
@@ -115,8 +93,7 @@ class GenCo(Agent):
         # Get a list of all assets belonging to the current agent where:
         #  - cancellation_pd is in the future (not currently cancelled)
         #  - completion_pd is in the future (not currently completed)
-        db = self.model.db
-        cur = db.cursor()
+        cur = self.model.db.cursor()
         cur.execute(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND completion_pd > {self.current_step} AND cancellation_pd > {self.current_step}")
         WIP_project_list = list(cur.fetchall())
         WIP_project_list = [int(item[0]) for item in WIP_project_list]
@@ -128,8 +105,7 @@ class GenCo(Agent):
         #  - cancellation_pd is in the future (not currently cancelled)
         #  - completion_pd is in the past (already completed)
         #  - retirement_pd is in the future (not currently retired)
-        db = self.model.db
-        cur = db.cursor()
+        cur = self.model.db.cursor()
         cur.execute(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND completion_pd <= {self.current_step} AND cancellation_pd > {self.current_step} AND retirement_pd > {self.current_step}")
         op_asset_list = list(cur.fetchall())
         op_asset_list = [int(item[0]) for item in op_asset_list]
@@ -172,24 +148,4 @@ class GenCo(Agent):
 
         # Commit the changes to the database
         db.commit()
-
-
-
-    def get_demand_forecast(self):
-        # DEPRECATED : will pull from a demand table
-        """ Obtain the current demand visibility window from the model.
-        """
-        #if self.model.demand_NTF != []:
-        #    self.demand_forecast = self.model.demand_NTF
-        #    self.current_demand = self.demand_forecast[0]
-        pass
-
-
-    def forecast_unserved_demand(self):
-        db = self.model.db
-        cur = db.cursor()
-        
-
-
-
 
