@@ -170,9 +170,10 @@ for i = 1:num_types
         completion_pd = pd + unit_data[i, :d_x]
         cancellation_pd = 9999
         retirement_pd = pd + unit_data[i, :d_x] + unit_data[i, :unit_life]
+        total_capex = 0    # Only updated once project is complete
         cap_pmt = 0
-        assets_vals = (next_id, agent_id, unit_type, completion_pd, cancellation_pd, retirement_pd, cap_pmt)
-        DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)", assets_vals)
+        assets_vals = (next_id, agent_id, unit_type, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
+        DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
     end
 end
 
