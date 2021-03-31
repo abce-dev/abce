@@ -5,9 +5,9 @@ from model import GridModel
 import yaml
 
 # User inputs
-unit_data_file = '/home/biegelk/abce/data/unit_specs.csv'
-market_data_file = '/home/biegelk/abce/data/market.yml'
-db_file = "/home/biegelk/abce/abce_db.db"
+unit_data_file = './data/unit_specs.csv'
+market_data_file = './data/market.yml'
+db_file = "./abce_db.db"
 
 # Set default values from which to start assigning agent and asset ID numbers
 first_agent_id = 201
