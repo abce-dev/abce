@@ -16,6 +16,7 @@
 #    - completion_pd    : text : Python/Julia,  Python
 #    - cancellation_pd  : text : Julia,         Julia
 #    - retirement_pd    : real : Python/Julia,  Python
+#    - total_capex      : real : Python,        Python
 #    - cap_pmt          : real : Python/Julia,  Python
 #    - unit_type        : text : Python/Julia,  n/a
 #
@@ -26,6 +27,8 @@
 #    - tax_rate          : real : model
 #    - term_growth_rate  : real : model
 #    - debt_fraction     : real : model
+#    - debt_cost         : real : model
+#    - equity_cost       : real : model
 #    - interest_cap      : real : model
 #
 # table 4: unit_specs
@@ -89,7 +92,7 @@ def create_assets_table(cur):
     cur.execute("""CREATE TABLE assets
                  (asset_id text, agent_id text, unit_type text,
                   completion_pd real, cancellation_pd real, retirement_pd real,
-                  cap_pmt real)""")
+                  total_capex real, cap_pmt real)""")
 
 
 def create_WIP_projects_table(cur):
@@ -101,8 +104,8 @@ def create_WIP_projects_table(cur):
 def create_agent_params_table(cur):
     cur.execute("""CREATE TABLE agent_params
                    (agent_id text, discount_rate real, tax_rate real,
-                    term_growth_rate real, debt_fraction real,
-                    interest_cap real)""")
+                    term_growth_rate real, debt_fraction real, debt_cost real,
+                    equity_cost real, interest_cap real)""")
 
 def create_unit_specs_table(cur):
     cur.execute("""CREATE TABLE	unit_specs

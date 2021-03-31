@@ -79,11 +79,12 @@ class GridModel(Model):
                 completion_pd = 0
                 cancellation_pd = 9999
                 retirement_pd = initial_assets.loc[i, "useful_life"]
+                total_capex = 0    # Dummy value
                 capital_payment = self.unit_data.loc[i, "capacity"] * self.unit_data.loc[i, "uc_x"] * 1000 / initial_assets.loc[i, "useful_life"]
                 cur.execute(f"""INSERT INTO assets VALUES
                                 ({asset_id}, {agent_id}, '{unit_type}', 
                                  {completion_pd}, {cancellation_pd},
-                                 {retirement_pd}, {capital_payment})""")
+                                 {retirement_pd}, {total_capex}, {capital_payment})""")
                 db.commit()
 
 
