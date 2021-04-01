@@ -12,7 +12,7 @@ from seed_creator import *
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
-    def __init__(self, n, db_file, unit_data_file, demand_data_file, first_agent_id, first_asset_id):
+    def __init__(self, n, db_file, unit_data_file, fuel_data_file, demand_data_file, first_agent_id, first_asset_id):
         # Parameters
         self.num_agents = n
         self.current_step = -1
@@ -33,13 +33,13 @@ class GridModel(Model):
         self.db.commit()
         print(f"Database created in file '{self.db_file}'.")
 
-        # Load default unit data and demand profile
+        # Load unit type specifications and fuel costs
         self.unit_types, self.unit_data = self.load_unit_data(unit_data_file)
-        self.fuel_costs = pd.read_csv("./data/fuel_costs.csv")
+        self.fuel_costs = pd.read_csv(fuel_data_file)
         self.add_units_to_db(self.db, self.cur, self.unit_data, self.fuel_costs)
 
         # Load demand data into the database
-        demand_df = pd.read_csv("./data/default_demand.csv")
+        demand_df = pd.read_csv(demand_data_file)
         demand_fill = pd.DataFrame(np.ones(100 - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
         demand_df = demand_df.append(demand_fill, ignore_index=True)
         for period in list(demand_df.index):
