@@ -1,6 +1,6 @@
 # Agent decision model
 
-println("\n\n-----------------------------------------------------------------")
+println("\n-----------------------------------------------------------")
 println("Julia agent choice algorithm: starting")
 println("Loading packages...")
 using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, Printf, YAML, SQLite
@@ -189,3 +189,5 @@ authorize_anpe(db, agent_id, pd, WIP_projects, unit_data)
 
 # End
 println("\n Julia: finishing")
+println("\n-----------------------------------------------------------")
+

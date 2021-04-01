@@ -115,8 +115,15 @@ class GridModel(Model):
     def step(self):
         ''' Advance the model by one step. '''
         self.current_step += 1
-        print("\n\n====================================================")
+        print("\n\n\n\n==========================================================================")
         print(f"Model step: {self.current_step}")
+        print("==========================================================================")
         #self.set_demand_visibility_window()
         self.schedule.step()
+        print("\nAll agent turns are complete.\n")
+        print("Table of all assets:")
+        print(get_table(self.db, self.cur, "assets"))
+        print("\nTable of WIP projects:")
+        print(get_table(self.db, self.cur, "WIP_projects"))
+
 

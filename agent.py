@@ -66,6 +66,7 @@ class GenCo(Agent):
         """
         # Set the current model step
         self.current_step = self.model.current_step
+        print(f"Agent #{self.unique_id} is taking its turn...")
 
         # Get lists of all assets, all WIP projects, and all operating assets
         self.all_assets = self.get_current_asset_list()
@@ -74,13 +75,13 @@ class GenCo(Agent):
         # Update the status of each current WIP project
         if self.current_step > 0:
             self.WIP_projects = self.get_WIP_project_list()
-            print(get_table(self.model.db, self.model.cur, "assets"))
             self.update_WIP_projects()
 
         # Run the agent behavior choice algorithm
 #        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
         sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./abce_db.db {self.current_step} {self.unique_id}"], shell = True)
-        print(get_table(self.model.db, self.model.cur, "WIP_projects"))
+
+        print(f"Agent #{self.unique_id}'s turn is complete.\n")
 
 
     def get_current_asset_list(self):
