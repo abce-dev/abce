@@ -130,7 +130,6 @@ class GenCo(Agent):
 
                 # TODO: implement stochastic RCEC and RTEC escalation
                 # Currently: no escalation
-                print(WIP_project.loc[0, "rcec"], WIP_project.loc[0, "anpe"])
 
                 if WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"] <= 0:
                     # This period's authorized expenditures close out the
@@ -166,9 +165,7 @@ class GenCo(Agent):
 
     def compute_total_capex(self, asset_id):
         self.cur.execute(f"SELECT anpe FROM WIP_projects WHERE asset_id = {asset_id}")
-        capex_list = list(self.cur.fetchall())
-        capex_list = [item[0] for item in capex_list]
-        print(capex_list)
+        capex_list = [item[0] for item in list(self.cur.fetchall())]
         total_capex = sum(capex_list)
         return total_capex
 

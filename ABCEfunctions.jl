@@ -2,7 +2,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, load_demand_data, set_forecast_period, forecast_demand, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, load_demand_data, set_forecast_period, extrapolate_demand, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
 
 #####
 # Setup functions
@@ -76,7 +76,7 @@ function set_forecast_period(df)
 end
 
 
-function forecast_demand(available_demand, fc_pd)
+function extrapolate_demand(available_demand, fc_pd)
     demand = DataFrame(demand = zeros(Float64, convert(Int64, fc_pd)))
     demand[1:size(available_demand)[1], :demand] .= available_demand[!, :demand]
     demand[(size(available_demand)[1] + 1):fc_pd, :demand] .= demand[size(available_demand)[1], :demand] 
@@ -141,7 +141,8 @@ function get_demand_forecast(db, pd, agent_id, fc_pd)
     # Hardcoded visibility window of 5
     vals = (pd, pd + 5)
     demand_forecast = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
-    demand_forecast = forecast_demand(demand_forecast, fc_pd)
+    println(demand_forecast)
+    demand_forecast = extrapolate_demand(demand_forecast, fc_pd)
     return demand_forecast
 end
 
