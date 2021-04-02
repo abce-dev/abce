@@ -13,9 +13,9 @@ println("Packages loaded successfully.")
 println("Initializing data...")
 
 # File names
-unit_data_file = "./data/unit_specs.csv"
-fuel_cost_file = "./data/fuel_costs.csv"
-demand_data_file = "./data/demand_data.csv"
+unit_data_file = "./inputs/unit_specs.csv"
+fuel_cost_file = "./inputs/fuel_costs.csv"
+demand_data_file = "./inputs/demand_data.csv"
 
 # Load the inputs
 db = load_db()

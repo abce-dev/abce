@@ -5,9 +5,9 @@ from model import GridModel
 import yaml
 
 # User inputs
-unit_data_file = "./data/unit_specs.csv"
-fuel_data_file = "./data/fuel_costs.csv"
-demand_data_file = "./data/demand_data.csv"
+unit_data_file = "./inputs/unit_specs.csv"
+fuel_data_file = "./inputs/fuel_costs.csv"
+demand_data_file = "./inputs/demand_data.csv"
 db_file = "./abce_db.db"
 
 # Set default values from which to start assigning agent and asset ID numbers
