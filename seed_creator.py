@@ -50,7 +50,7 @@
 #    - demand       : real : model
 # table 6: price duration curve data
 #
-#    - price        : real : model
+#    - lamda        : real : model
 
 
 
@@ -120,7 +120,7 @@ def create_demand_table(cur):
 
 
 def create_price_curve_table(cur):
-    cur.execute("CREATE TABLE price_curve (price real)")
+    cur.execute("CREATE TABLE price_curve (lamda real)")
 
 
 
