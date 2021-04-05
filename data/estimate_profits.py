@@ -14,7 +14,7 @@ price_data_file = get_file_name()
 price_duration_data = load_original_data(price_data_file)
 
 # Organize the price data
-price_duration_data, origin, year = organize_price_data(price_data_file, price_duration_data)
+price_duration_data = organize_price_data(price_data_file, price_duration_data)
 num_periods = len(price_duration_data)
 
 print(price_duration_data)
