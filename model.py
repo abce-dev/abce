@@ -9,10 +9,11 @@ import subprocess
 # import local modules
 from ABCEfunctions import *
 from seed_creator import *
+from price_curve import *
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
-    def __init__(self, n, db_file, unit_data_file, fuel_data_file, demand_data_file, first_agent_id, first_asset_id):
+    def __init__(self, n, db_file, unit_data_file, fuel_data_file, demand_data_file, price_data_file, first_agent_id, first_asset_id):
         # Parameters
         self.num_agents = n
         self.current_step = -1
@@ -25,11 +26,7 @@ class GridModel(Model):
         clear_db_file(self.db_file)
         self.db, self.cur = create_db_file(self.db_file)
         # Create the five DB tables (see `seed_creator.py` for table specifications)
-        create_assets_table(self.cur)
-        create_WIP_projects_table(self.cur)
-        create_agent_params_table(self.cur)
-        create_unit_specs_table(self.cur)
-        create_demand_table(self.cur)
+        create_all_tables(self.cur)
         self.db.commit()
         print(f"Database created in file '{self.db_file}'.")
 
@@ -56,11 +53,22 @@ class GridModel(Model):
             self.schedule.add(gc)
 
         # Load the agents' starting portfolios
-        initial_assets = pd.read_csv('./data/portfolios.csv', skipinitialspace=True)
+        initial_assets = pd.read_csv('./inputs/portfolios.csv', skipinitialspace=True)
 
         # Add all initial assets to the database
         self.add_initial_assets_to_db(initial_assets, self.cur, self.db)
         print(get_table(self.db, self.cur, "assets"))
+
+        # Load the price duration data
+        hourly_prices = load_original_data(price_data_file)
+        # Organize the price data
+        price_duration_data = organize_price_data(price_data_file, hourly_prices)
+        print(price_duration_data)
+        # Save price duration data to the database
+        for i in range(len(price_duration_data)):
+            price = price_duration_data.loc[i, "lamda"]
+            self.cur.execute(f"INSERT INTO price_curve VALUES ({price})")
+        self.db.commit()
 
 
     def load_unit_data(self, filename):
