@@ -110,7 +110,7 @@ class GridModel(Model):
             unit_life = unit_data.loc[i, "unit_life"]
             CF = unit_data.loc[i, "CF"]
             # Incorporate unit fuel cost data from the fuel costs file
-            fuel_cost = fuel_costs[fuel_costs.fuel_type == fuel_type].cost_per_mmbtu[0]
+            fuel_cost = fuel_costs[fuel_costs.fuel_type == fuel_type].reset_index().loc[0, "cost_per_mmbtu"]
 
             # Insert the values into the unit_specs DB table
             cur.execute(f"""INSERT INTO unit_specs VALUES
