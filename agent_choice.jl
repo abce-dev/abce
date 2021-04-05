@@ -47,6 +47,9 @@ available_demand = get_demand_forecast(db, pd, agent_id, fc_pd)
 # Extend the unserved demand data to match the total forecast period (constant projection)
 available_demand = get_net_demand(db, pd, agent_id, fc_pd, available_demand)
 
+# Load the price data
+price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
+
 # Add empty column for project NPVs in unit_data
 unit_data[!, :FCF_NPV] = zeros(Float64, num_types)
 

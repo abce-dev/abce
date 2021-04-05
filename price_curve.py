@@ -29,15 +29,12 @@ def organize_price_data(file_name, price_df):
         # ALEAF output file
         lamda = price_df.filter(["LMP"], axis=1).iloc[::7].reset_index().drop(labels=["index"], axis=1)
         lamda = lamda.rename(columns={"LMP": "lamda"})
-        origin = "ALEAF"
-        year = 2019
     else:
         # Assume it's an ERCOT file
         lamda = price_df.filter(["System Lamda"], axis=1).rename(columns={"System Lamda": "lamda"})
-        origin = "ERCOT_historical"
-        year = file_name.split("_")[-1]
-    lamda = lamda.sort_values(by = ["lamda"], ascending = False)
-    return lamda, origin, year
+        lamda = lamda.reset_index().drop(labels=["index"], axis=1)
+    lamda = lamda.sort_values(by = ["lamda"], ascending = False).reset_index().drop(labels=["index"], axis=1)
+    return lamda
 
 
 def plot_price_duration_curve(lamda, origin, year):
@@ -48,7 +45,7 @@ def plot_price_duration_curve(lamda, origin, year):
     ax.set_xscale("log")
     ax.set_yscale("log")
 
-    plot_name = f"price_curve_{origin}_{year}.png"
+    plot_name = f"price_curve.png"
     fig.savefig(plot_name)
 
 

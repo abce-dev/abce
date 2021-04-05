@@ -48,7 +48,9 @@
 #
 #    - period       : real : model
 #    - demand       : real : model
-
+# table 6: price duration curve data
+#
+#    - price        : real : model
 
 
 
@@ -117,6 +119,18 @@ def create_demand_table(cur):
     cur.execute("CREATE TABLE demand (period real, demand real)")
 
 
+def create_price_curve_table(cur):
+    cur.execute("CREATE TABLE price_curve (price real)")
+
+
+
+def create_all_tables(cur):
+    create_assets_table(cur)
+    create_WIP_projects_table(cur)
+    create_agent_params_table(cur)
+    create_unit_specs_table(cur)
+    create_demand_table(cur)
+    create_price_curve_table(cur)
 
 
 # Set name and path for ABCE database file
@@ -138,6 +152,7 @@ if __name__ == "__main__":
     create_agent_params_table(cur)
     create_unit_specs_table(cur)
     create_demand_table(cur)
+    create_price_curve_table(cur)
 
     # Commit changes and close the connection to the database
     db.commit()
