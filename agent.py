@@ -36,7 +36,7 @@ class GenCo(Agent):
 
         """
         super().__init__(genco_id, model)
-        self.assign_parameters('./data/gc_params.yml')
+        self.assign_parameters('./inputs/gc_params.yml')
         self.model = model
 #        self.fs = fs.AgentFS(model = self.model, agent = self)
 
