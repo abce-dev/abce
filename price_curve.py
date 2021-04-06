@@ -31,7 +31,7 @@ def organize_price_data(file_name, price_df):
         lamda = lamda.rename(columns={"LMP": "lamda"})
     else:
         # Assume it's an ERCOT file
-        lamda = price_df.filter(["System Lamda"], axis=1).rename(columns={"System Lamda": "lamda"})
+        lamda = price_df.filter(["Total electricity price"], axis=1).rename(columns={"Total electricity price": "lamda"})
         lamda = lamda.reset_index().drop(labels=["index"], axis=1)
     lamda = lamda.sort_values(by = ["lamda"], ascending = False).reset_index().drop(labels=["index"], axis=1)
     return lamda
