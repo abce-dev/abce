@@ -90,22 +90,41 @@ for i = 1:num_types
         fs[j, :remaining_debt_principal] = fs[j-1, :remaining_debt_principal] - (fs[j, :debt_payment] - fs[j, :interest_due])
 
         # Set kWh of generation for the year
-        fs[j, :gen] = unit_data[i, :capacity] * unit_data[i, :CF] * 8760 * 1000
+        #fs[j, :gen] = unit_data[i, :capacity] * unit_data[i, :CF] * 8760 * 1000
 
         # Apply straight-line depreciation
         fs[j, :depreciation] = fs[unit_data[i, :d_x], :xtr_exp] ./ unit_data[i, :unit_life]
     end
 
+    # Compute unit revenue, based on the price duration curve loaded from file
+    submarginal_hours = filter(row -> row.lamda > unit_data[i, :VOM] * 1000 + (unit_data[i, :fuel_cost] * unit_data[i, :heat_rate]i / 1000), price_curve)
+    marginal_hours = filter(row -> row.lamda == unit_data[i, :VOM] * 1000 + (unit_data[i, :fuel_cost] * unit_data[i, :heat_rate] / 1000), price_curve)
+    if size(marginal_hours)[1] != 0
+        marginal_hours_revenue = sum(marginal_hours[!, :lamda]) * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])
+    else
+        # There were no hours where this unit (or an equivalently-priced one) was marginal
+        marginal_hours_revenue = 0
+    end
+    submarginal_hours_revenue = sum(submarginal_hours[!, :lamda]) * unit_data[i, :capacity]
+    fs[!, :Revenue] .= 0.0
+    fs[unit_data[i, :d_x] + 1:unit_data[i, :d_x] + unit_data[i, :unit_life], :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * 8760 / size(price_curve)[1]
+
+    # Unit generates during all marginal and sub-marginal hours
+    num_active_hours = (size(submarginal_hours)[1] + size(marginal_hours)[1] * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])) * 8760 / size(price_curve)[1]
+    gen = num_active_hours * unit_data[i, :capacity] * 1000   # kWh
+    fs[unit_data[i, :d_x] + 1 : unit_data[i, :d_x] + unit_data[i, :unit_life], :gen] .= gen
+
+
     # Apply reactive functions to the rest of the dataframe
     # Compute total revenue for the year
-    transform!(fs, [:gen] => ((gen) -> avg_e_price .* gen) => :Revenue)
+#    transform!(fs, [:gen] => ((gen) -> avg_e_price .* gen) => :Revenue)
     # Compute total cost of fuel used
-    transform!(fs, [:gen] => ((gen) -> unit_data[i, :fuel_cost] .* unit_data[i, :heat_rate] .* gen ./ 1000000) => :Fuel_Cost)
+    transform!(fs, [:gen] => ((gen) -> unit_data[i, :fuel_cost] .* unit_data[i, :heat_rate] ./ 1000000 .* gen) => :Fuel_Cost)
     # Compute total VOM cost incurred during generation
     transform!(fs, [:gen] => ((gen) -> unit_data[i, :VOM] .* gen) => :VOM_Cost)
     # Compute total FOM cost for the year (non-reactive)
     fs[!, :FOM_Cost] = zeros(size(fs)[1])
-    fs[(unit_data[i, :d_x]+1):(unit_data[i, :d_x]+unit_data[i, :unit_life]), :FOM_Cost] = ones(unit_data[i, :unit_life]) .* (unit_data[i, :FOM] * unit_data[i, :capacity] * 1000)
+    fs[(unit_data[i, :d_x]+1):(unit_data[i, :d_x]+unit_data[i, :unit_life]), :FOM_Cost] .= unit_data[i, :FOM] * unit_data[i, :capacity] * 1000
     # Compute EBITDA
     transform!(fs, [:Revenue, :Fuel_Cost, :VOM_Cost, :FOM_Cost] => ((rev, fc, VOM, FOM) -> rev - fc - VOM - FOM) => :EBITDA)
     # Compute EBIT
@@ -125,6 +144,7 @@ for i = 1:num_types
     unit_data[i, :FCF_NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
 end
 
+println(unit_data)
 println("Data initialized.")
 
 ###### Set up the model
@@ -135,7 +155,7 @@ m = Model(GLPK.Optimizer)
 
 # Restrict total construction to be less than maximum available demand (subject to capacity factor)
 for i = 1:size(unit_FS_dict[unit_data[1, :unit_type]])[1]
-    @constraint(m, sum(u[j] * unit_FS_dict[unit_data[j, :unit_type]][i, :gen] for j=1:3) / (8760*1000) <= available_demand[i])
+    @constraint(m, sum(u[j] * unit_FS_dict[unit_data[j, :unit_type]][i, :gen] for j=1:num_types) / (8760*1000) <= available_demand[i])
 end
 # Constraint on max amount of interest payable per year
 @constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* agent_params[1, :debt_fraction] .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
