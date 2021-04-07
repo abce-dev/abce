@@ -149,7 +149,9 @@ for i = 1:num_types
     unit_data[i, :FCF_NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
 end
 
-println(unit_data)
+if pd == 0
+    println(unit_data)
+end
 println("Data initialized.")
 
 ###### Set up the model
@@ -180,7 +182,7 @@ unit_qty = value.(u)
 println(status)
 println("Units to build:")
 println(hcat(select(unit_data, :unit_type), DataFrame(units = unit_qty)))
-println("Total NPV of all built projects = ", transpose(unit_qty) * unit_data[!, :FCF_NPV])
+#println("Total NPV of all built projects = ", transpose(unit_qty) * unit_data[!, :FCF_NPV])
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables

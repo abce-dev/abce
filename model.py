@@ -155,7 +155,5 @@ class GridModel(Model):
         print("\nAll agent turns are complete.\n")
         print("Table of all assets:")
         print(get_table(self.db, self.cur, "assets"))
-        print("\nTable of WIP projects:")
-        print(get_table(self.db, self.cur, "WIP_projects"))
 
 
