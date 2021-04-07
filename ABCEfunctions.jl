@@ -151,26 +151,28 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
     # Calculate the amount of forecasted net demand in future periods
     installed_cap_forecast = DataFrame(period = Int64[], derated_capacity = Float64[])
     vals = (pd, pd)
-    assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ?", vals) |> DataFrame
-    assets[!, :capacity] = zeros(size(assets)[1])
-    assets[!, :CF] = zeros(size(assets)[1])
+    current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ?", vals) |> DataFrame
+    if size(current_assets)[1] == 0
+        println("There are no currently-active generation assets in the system; unpredictable behavior may occur.")
+    end
+    current_assets[!, :capacity] = zeros(size(current_assets)[1])
+    current_assets[!, :CF] = zeros(size(current_assets)[1])
     unit_specs = DBInterface.execute(db, "SELECT * FROM unit_specs") |> DataFrame
-    for i = 1:size(assets)[1]
-        asset_type = assets[i, :unit_type]
+    for i = 1:size(current_assets)[1]
+        asset_type = current_assets[i, :unit_type]
         unit = filter(row -> row[:unit_type] == asset_type, unit_specs)
-        assets[i, :capacity] = unit[1, :capacity]
-        assets[i, :CF] = unit[1, :CF]
-        transform!(assets, [:capacity, :CF] => ((cap, cf) -> cap .* cf) => :derated_capacity)
+        current_assets[i, :capacity] = unit[1, :capacity]
+        current_assets[i, :CF] = unit[1, :CF]
+        transform!(current_assets, [:capacity, :CF] => ((cap, cf) -> cap .* cf) => :derated_capacity)
     end
     for i=pd:pd+fc_pd-1
-        active_assets = filter(row -> (row[:completion_pd] <= i) && (row[:retirement_pd] > i), assets)
-        total_cap = sum(active_assets[!, :derated_capacity])
+        future_active_assets = filter(row -> (row[:completion_pd] <= i) && (row[:retirement_pd] > i), current_assets)
+        total_cap = sum(future_active_assets[!, :derated_capacity])
         df = DataFrame(period = i, derated_capacity = total_cap)
         append!(installed_cap_forecast, df)
     end
     net_demand_forecast = demand_forecast[!, :demand] - installed_cap_forecast[!, :derated_capacity]
     return net_demand_forecast
-
 end
 
 
