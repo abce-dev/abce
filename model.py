@@ -13,13 +13,21 @@ from price_curve import *
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
-    def __init__(self, n, db_file, unit_data_file, fuel_data_file, demand_data_file, price_data_file, first_agent_id, first_asset_id):
-        # Parameters
-        self.num_agents = n
+    def __init__(self, settings_file):
+        with open(settings_file) as setfile:
+            settings = yaml.load(setfile, Loader=yaml.FullLoader)
+        # Get input file locations from the settings dictionary
+        unit_specs_file = settings["unit_specs_file"]
+        fuel_data_file = settings["fuel_data_file"]
+        demand_data_file = settings["demand_data_file"]
+        price_curve_data_file = settings["price_curve_data_file"]
+        db_file = settings["db_file"]
+        # Get parameters from the settings dictionary
+        self.num_agents = settings["num_agents"]
+        self.first_agent_id = settings["first_agent_id"]
+        self.first_asset_id = settings["first_asset_id"]
+
         self.current_step = -1
-        self.future_vis = 4  # Number of time steps agents can see into the future
-        self.first_agent_id = first_agent_id  # Starting number for valid agent IDs
-        self.first_asset_id = first_asset_id
 
         # Initialize database for managing asset and WIP construction project data
         self.db_file = db_file
@@ -31,7 +39,7 @@ class GridModel(Model):
         print(f"Database created in file '{self.db_file}'.")
 
         # Load unit type specifications and fuel costs
-        self.unit_types, self.unit_data = self.load_unit_data(unit_data_file)
+        self.unit_types, self.unit_data = self.load_unit_data(unit_specs_file)
         self.fuel_costs = pd.read_csv(fuel_data_file)
         self.add_units_to_db(self.db, self.cur, self.unit_data, self.fuel_costs)
 
@@ -49,7 +57,7 @@ class GridModel(Model):
 
         # Create agents
         for i in range(self.first_agent_id, self.first_agent_id + self.num_agents):
-            gc = GenCo(i, self)
+            gc = GenCo(i, self, settings_file)
             self.schedule.add(gc)
 
         # Load the agents' starting portfolios
@@ -60,9 +68,9 @@ class GridModel(Model):
         print(get_table(self.db, self.cur, "assets"))
 
         # Load the price duration data
-        hourly_prices = load_original_data(price_data_file)
+        hourly_prices = load_original_data(price_curve_data_file)
         # Organize the price data
-        price_duration_data = organize_price_data(price_data_file, hourly_prices)
+        price_duration_data = organize_price_data(price_curve_data_file, hourly_prices)
         # Save price duration data to the database
         for i in range(len(price_duration_data)):
             price = price_duration_data.loc[i, "lamda"]

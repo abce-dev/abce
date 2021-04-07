@@ -13,7 +13,7 @@ from ABCEfunctions import *
 class GenCo(Agent):
     """ A utility company with a certain number of generation assets.
     """
-    def __init__(self, genco_id, model):
+    def __init__(self, genco_id, model, settings_file):
         """ Initialize a GenCo class object.
 
             Detailed Description
@@ -36,7 +36,10 @@ class GenCo(Agent):
 
         """
         super().__init__(genco_id, model)
-        self.assign_parameters('./inputs/gc_params.yml')
+        with open(settings_file) as setfile:
+            settings = yaml.load(setfile, Loader=yaml.FullLoader)
+        gc_params_file = settings["gc_params_file"]
+        self.assign_parameters(gc_params_file)
         self.model = model
 #        self.fs = fs.AgentFS(model = self.model, agent = self)
 
@@ -79,7 +82,7 @@ class GenCo(Agent):
 
         # Run the agent behavior choice algorithm
 #        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
-        sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./abce_db.db {self.current_step} {self.unique_id}"], shell = True)
+        sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True)
 
         print(f"Agent #{self.unique_id}'s turn is complete.\n")
 

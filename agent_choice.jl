@@ -12,13 +12,18 @@ println("Packages loaded successfully.")
 ###### Set up inputs
 println("Initializing data...")
 
+# Load settings and file locations from the settings file
+settings_file = ARGS[1]
+settings = YAML.load_file(settings_file)
 # File names
-unit_data_file = "./inputs/unit_specs.csv"
-fuel_cost_file = "./inputs/fuel_costs.csv"
-demand_data_file = "./inputs/demand_data.csv"
+unit_specs_file = settings["unit_specs_file"]
+fuel_cost_file = settings["fuel_data_file"]
+demand_data_file = settings["demand_data_file"]
+price_curve_data_file = settings["price_curve_data_file"]
+db_file = settings["db_file"]
 
 # Load the inputs
-db = load_db()
+db = load_db(db_file)
 pd = get_current_period()
 agent_id = get_agent_id()
 

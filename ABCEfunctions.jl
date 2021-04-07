@@ -8,9 +8,9 @@ export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_ty
 # Setup functions
 #####
 
-function load_db()
+function load_db(db_file)
     try
-        db = SQLite.DB(ARGS[1])
+        db = SQLite.DB(db_file)
         return db
     catch e
         println("Couldn't load the database:")
