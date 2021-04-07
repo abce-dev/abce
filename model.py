@@ -15,17 +15,17 @@ class GridModel(Model):
     ''' A model with some number of GenCos. '''
     def __init__(self, settings_file):
         with open(settings_file) as setfile:
-            settings = yaml.load(setfile, Loader=yaml.FullLoader)
+            self.settings = yaml.load(setfile, Loader=yaml.FullLoader)
         # Get input file locations from the settings dictionary
-        unit_specs_file = settings["unit_specs_file"]
-        fuel_data_file = settings["fuel_data_file"]
-        demand_data_file = settings["demand_data_file"]
-        price_curve_data_file = settings["price_curve_data_file"]
-        db_file = settings["db_file"]
+        unit_specs_file = self.settings["unit_specs_file"]
+        fuel_data_file = self.settings["fuel_data_file"]
+        demand_data_file = self.settings["demand_data_file"]
+        price_curve_data_file = self.settings["price_curve_data_file"]
+        db_file = self.settings["db_file"]
         # Get parameters from the settings dictionary
-        self.num_agents = settings["num_agents"]
-        self.first_agent_id = settings["first_agent_id"]
-        self.first_asset_id = settings["first_asset_id"]
+        self.num_agents = self.settings["num_agents"]
+        self.first_agent_id = self.settings["first_agent_id"]
+        self.first_asset_id = self.settings["first_asset_id"]
 
         self.current_step = -1
 
@@ -69,8 +69,11 @@ class GridModel(Model):
 
         # Load the price duration data
         hourly_prices = load_original_data(price_curve_data_file)
+        # Check whether a market price subsidy is in effect, and its value
+        self.set_market_subsidy()
         # Organize the price data
-        price_duration_data = organize_price_data(price_curve_data_file, hourly_prices)
+        price_duration_data = organize_price_data(price_curve_data_file, hourly_prices, self.subsidy_amount)
+        print(price_duration_data)
         # Save price duration data to the database
         for i in range(len(price_duration_data)):
             price = price_duration_data.loc[i, "lamda"]
@@ -125,6 +128,20 @@ class GridModel(Model):
                              {d_x}, {heat_rate}, {VOM}, {FOM}, {unit_life},
                              {CF}, {fuel_cost})""")
             db.commit()
+
+
+    def set_market_subsidy(self):
+        try:
+            self.subsidy_enabled = self.settings["enable_subsidy"]
+            if self.subsidy_enabled == True:
+                self.subsidy_amount = self.settings["subsidy_amount"]
+            else:
+                self.subsidy_amount = 0
+        except:
+            # If "enable_subsidy" is not specified in settings.yml, set to False
+            print("No subsidy enabled")
+            self.subsidy_enabled = False
+            self.subsidy_amount = 0
 
 
     def step(self):

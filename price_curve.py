@@ -24,7 +24,7 @@ def load_original_data(price_file_name):
     return price_df
 
 
-def organize_price_data(file_name, price_df):
+def organize_price_data(file_name, price_df, subsidy):
     if "output" in file_name or "DISPATCH" in file_name:
         # ALEAF output file
         lamda = price_df.filter(["LMP"], axis=1).iloc[::7].reset_index().drop(labels=["index"], axis=1)
@@ -34,6 +34,7 @@ def organize_price_data(file_name, price_df):
         lamda = price_df.filter(["Total electricity price"], axis=1).rename(columns={"Total electricity price": "lamda"})
         lamda = lamda.reset_index().drop(labels=["index"], axis=1)
     lamda = lamda.sort_values(by = ["lamda"], ascending = False).reset_index().drop(labels=["index"], axis=1)
+    lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x + subsidy))
     return lamda
 
 
