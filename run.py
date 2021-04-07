@@ -9,7 +9,7 @@ unit_data_file = "./inputs/unit_specs.csv"
 fuel_data_file = "./inputs/fuel_costs.csv"
 demand_data_file = "./inputs/demand_data.csv"
 #price_curve_data_file = "./inputs/output_DISPATCH_aleafbase.csv"
-price_curve_data_file = "./data/RTM_ORDC_REL_DPLY_PRC_ADDR_RSRV_2019.xlsx"
+price_curve_data_file = "./inputs/RTM_ORDC_REL_DPLY_PRC_ADDR_RSRV_2019.xlsx"
 db_file = "./abce_db.db"
 
 # Set default values from which to start assigning agent and asset ID numbers

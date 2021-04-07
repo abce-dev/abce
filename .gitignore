@@ -2,6 +2,7 @@ __pycache__
 *.swp
 *.xlsx
 *.png
+deprecated/*
 data/*.csv
 run.py
 simplified_*

@@ -63,7 +63,6 @@ class GridModel(Model):
         hourly_prices = load_original_data(price_data_file)
         # Organize the price data
         price_duration_data = organize_price_data(price_data_file, hourly_prices)
-        print(price_duration_data)
         # Save price duration data to the database
         for i in range(len(price_duration_data)):
             price = price_duration_data.loc[i, "lamda"]
