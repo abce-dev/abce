@@ -13,6 +13,7 @@
 #       HEADER            TYPE   INIT BY        STEPPED BY
 #    - asset_id         : text : Python/Julia,  n/a
 #    - agent_id         : text : Python/Julia,  n/a
+#    - revealed         : text :
 #    - completion_pd    : text : Python/Julia,  Python
 #    - cancellation_pd  : text : Julia,         Julia
 #    - retirement_pd    : real : Python/Julia,  Python
@@ -92,7 +93,7 @@ def create_db_file(abce_db):
 
 def create_assets_table(cur):
     cur.execute("""CREATE TABLE assets
-                 (asset_id text, agent_id text, unit_type text,
+                 (asset_id text, agent_id text, revealed text, unit_type text,
                   completion_pd real, cancellation_pd real, retirement_pd real,
                   total_capex real, cap_pmt real)""")
 
