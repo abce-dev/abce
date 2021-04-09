@@ -36,11 +36,13 @@ class GenCo(Agent):
 
         """
         super().__init__(genco_id, model)
-        with open(settings_file) as setfile:
-            settings = yaml.load(setfile, Loader=yaml.FullLoader)
-        gc_params_file = settings["gc_params_file"]
-        self.assign_parameters(gc_params_file)
         self.model = model
+        with open(settings_file) as setfile:
+            self.settings = yaml.load(setfile, Loader=yaml.FullLoader)
+        self.gc_params_file = self.settings["gc_params_file"]
+        self.portfolios_file = self.settings["portfolios_file"]
+        self.assign_parameters(self.gc_params_file)
+        self.add_initial_assets_to_db()
 #        self.fs = fs.AgentFS(model = self.model, agent = self)
 
 
@@ -62,6 +64,28 @@ class GenCo(Agent):
                         {self.discount_rate}, {self.tax_rate}, {self.term_growth_rate},
                         {self.debt_fraction}, {self.debt_cost}, {self.equity_cost},
                         {self.interest_cap})""")
+
+
+    def add_initial_assets_to_db(self):
+        initial_assets = pd.read_csv(self.portfolios_file, skipinitialspace=True)
+        for i in range(len(initial_assets)):
+            if initial_assets.loc[i, "agent_id"] == self.unique_id:
+                for j in range(initial_assets.loc[i, "num_copies"]):
+                    asset_id = get_next_asset_id(self.db, self.cur, self.settings["first_asset_id"])
+                    agent_id = initial_assets.loc[i, "agent_id"]
+                    revealed = "true"
+                    unit_type = initial_assets.loc[i, "unit_type"]
+                    completion_pd = 0
+                    cancellation_pd = 9999
+                    retirement_pd = initial_assets.loc[i, "useful_life"]
+                    total_capex = self.model.unit_specs.loc[i, "capacity"] * self.model.unit_specs.loc[i, "uc_x"] * 1000
+                    capital_payment = self.compute_sinking_fund_payment(self.model.unit_specs.loc[i, "unit_life"], total_capex)
+                    self.cur.execute(f"""INSERT INTO assets VALUES
+                                       ({asset_id}, {agent_id}, '{revealed}', '{unit_type}',
+                                        {completion_pd}, {cancellation_pd},
+                                        {retirement_pd}, {total_capex}, {capital_payment})""")
+                    self.db.commit()
+
 
 
     def step(self):
@@ -143,11 +167,17 @@ class GenCo(Agent):
 
                     # Compute amount of CapEx from the project (in as-spent, inflation-unadjusted $)
                     total_capex = self.compute_total_capex(asset_id)
+                    print(total_capex)
                     cur.execute(f"UPDATE assets SET total_capex = {total_capex} WHERE asset_id = {asset_id}")
 
                     # Compute periodic sinking fund payments
-                    capex_repayment = self.compute_sinking_fund_payment(total_capex)
-                    cur.execute(f"UPDATE assets SET cap_pmt = {capex_repayment} WHERE asset_id = {asset_id}")
+                    cur.execute(f"SELECT unit_type FROM assets WHERE asset_id = {asset_id}")
+                    unit_type = cur.fetchone()[0]
+                    unit_life = self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "unit_life"].values[0]
+                    print(unit_life)
+                    capex_payment = self.compute_sinking_fund_payment(total_capex, unit_life)
+                    print(capex_payment)
+                    cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} WHERE asset_id = {asset_id}")
                     db.commit()
 
                 # Set values to update the WIP_project dataframe with new completion data
@@ -174,10 +204,9 @@ class GenCo(Agent):
         return total_capex
 
 
-    def compute_sinking_fund_payment(self, total_capex):
-        t = 40    # Temporary assumption: new assets paid for with 40-year debt life
+    def compute_sinking_fund_payment(self, total_capex, unit_life):
         wacc = self.debt_fraction * self.debt_cost + (1 - self.debt_fraction) * self.equity_cost
-        cap_pmt = total_capex * wacc / ((1 + wacc)**t - 1)
+        cap_pmt = total_capex * wacc / ((1 + wacc)**unit_life - 1)
         return cap_pmt
 
 

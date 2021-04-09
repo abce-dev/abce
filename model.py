@@ -39,9 +39,9 @@ class GridModel(Model):
         print(f"Database created in file '{self.db_file}'.")
 
         # Load unit type specifications and fuel costs
-        self.unit_types, self.unit_data = self.load_unit_data(unit_specs_file)
+        self.unit_types, self.unit_specs = self.load_unit_specs(unit_specs_file)
         self.fuel_costs = pd.read_csv(fuel_data_file)
-        self.add_units_to_db(self.db, self.cur, self.unit_data, self.fuel_costs)
+        self.add_units_to_db(self.db, self.cur, self.unit_specs, self.fuel_costs)
 
         # Load demand data into the database
         demand_df = pd.read_csv(demand_data_file)
@@ -60,13 +60,6 @@ class GridModel(Model):
             gc = GenCo(i, self, settings_file)
             self.schedule.add(gc)
 
-        # Load the agents' starting portfolios
-        initial_assets = pd.read_csv('./inputs/portfolios.csv', skipinitialspace=True)
-
-        # Add all initial assets to the database
-        self.add_initial_assets_to_db(initial_assets, self.cur, self.db)
-        print(get_table(self.db, self.cur, "assets"))
-
         # Load the price duration data
         hourly_prices = load_original_data(price_curve_data_file)
         # Check whether a market price subsidy is in effect, and its value
@@ -79,47 +72,28 @@ class GridModel(Model):
             price = price_duration_data.loc[i, "lamda"]
             self.cur.execute(f"INSERT INTO price_curve VALUES ({price})")
         self.db.commit()
+        print(get_table(self.db, self.cur, "assets"))
 
 
-    def load_unit_data(self, filename):
-        unit_file = open(filename)
-        unit_data = pd.read_csv(unit_file)
-        unit_types = unit_data.index
-        return unit_types, unit_data
+    def load_unit_specs(self, filename):
+        unit_specs = pd.read_csv(open(filename))
+        unit_types = unit_specs.index
+        return unit_types, unit_specs
 
 
-    def add_initial_assets_to_db(self, initial_assets, cur, db):
-        for i in range(len(initial_assets)):
-            for j in range(initial_assets.loc[i, "num_copies"]):
-                asset_id = get_next_asset_id(self.db, self.cur, self.first_asset_id)
-                agent_id = initial_assets.loc[i, "agent_id"]
-                revealed = "true"
-                unit_type = initial_assets.loc[i, "unit_type"]
-                completion_pd = 0
-                cancellation_pd = 9999
-                retirement_pd = initial_assets.loc[i, "useful_life"]
-                total_capex = 0    # Dummy value
-                capital_payment = self.unit_data.loc[i, "capacity"] * self.unit_data.loc[i, "uc_x"] * 1000 / initial_assets.loc[i, "useful_life"]
-                cur.execute(f"""INSERT INTO assets VALUES
-                                ({asset_id}, {agent_id}, '{revealed}', '{unit_type}', 
-                                 {completion_pd}, {cancellation_pd},
-                                 {retirement_pd}, {total_capex}, {capital_payment})""")
-                db.commit()
-
-
-    def add_units_to_db(self, db, cur, unit_data, fuel_costs):
-        for i in range(len(unit_data)):
+    def add_units_to_db(self, db, cur, unit_specs, fuel_costs):
+        for i in range(len(unit_specs)):
             # Get unit data from file
-            unit_type = unit_data.loc[i, "unit_type"]
-            fuel_type = unit_data.loc[i, "fuel_type"]
-            capacity = unit_data.loc[i, "capacity"]
-            uc_x = unit_data.loc[i, "uc_x"]
-            d_x = unit_data.loc[i, "d_x"]
-            heat_rate = unit_data.loc[i, "heat_rate"]
-            VOM = unit_data.loc[i, "VOM"]
-            FOM = unit_data.loc[i, "FOM"]
-            unit_life = unit_data.loc[i, "unit_life"]
-            CF = unit_data.loc[i, "CF"]
+            unit_type = unit_specs.loc[i, "unit_type"]
+            fuel_type = unit_specs.loc[i, "fuel_type"]
+            capacity = unit_specs.loc[i, "capacity"]
+            uc_x = unit_specs.loc[i, "uc_x"]
+            d_x = unit_specs.loc[i, "d_x"]
+            heat_rate = unit_specs.loc[i, "heat_rate"]
+            VOM = unit_specs.loc[i, "VOM"]
+            FOM = unit_specs.loc[i, "FOM"]
+            unit_life = unit_specs.loc[i, "unit_life"]
+            CF = unit_specs.loc[i, "CF"]
             # Incorporate unit fuel cost data from the fuel costs file
             fuel_cost = fuel_costs[fuel_costs.fuel_type == fuel_type].reset_index().loc[0, "cost_per_mmbtu"]
 
