@@ -78,7 +78,8 @@ class GenCo(Agent):
                     completion_pd = 0
                     cancellation_pd = 9999
                     retirement_pd = initial_assets.loc[i, "useful_life"]
-                    total_capex = self.model.unit_specs.loc[i, "capacity"] * self.model.unit_specs.loc[i, "uc_x"] * 1000
+                    total_capex = self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "capacity"].values[0] * self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "uc_x"].values[0] * 1000
+                    print(total_capex)
                     capital_payment = self.compute_sinking_fund_payment(total_capex, self.model.unit_specs.loc[i, "unit_life"])
                     self.cur.execute(f"""INSERT INTO assets VALUES
                                        ({asset_id}, {agent_id}, '{revealed}', '{unit_type}',
