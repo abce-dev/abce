@@ -151,7 +151,8 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
     # Calculate the amount of forecasted net demand in future periods
     installed_cap_forecast = DataFrame(period = Int64[], derated_capacity = Float64[])
     vals = (pd, pd)
-    current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ?", vals) |> DataFrame
+    # Select a list of all current assets, which are not cancelled, retired, or hidden from public view
+    current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ? AND revealed = 'true'", vals) |> DataFrame
     if size(current_assets)[1] == 0
         println("There are no currently-active generation assets in the system; unpredictable behavior may occur.")
     end
