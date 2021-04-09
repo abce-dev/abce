@@ -93,6 +93,7 @@ class GridModel(Model):
             for j in range(initial_assets.loc[i, "num_copies"]):
                 asset_id = get_next_asset_id(self.db, self.cur, self.first_asset_id)
                 agent_id = initial_assets.loc[i, "agent_id"]
+                revealed = "true"
                 unit_type = initial_assets.loc[i, "unit_type"]
                 completion_pd = 0
                 cancellation_pd = 9999
@@ -100,7 +101,7 @@ class GridModel(Model):
                 total_capex = 0    # Dummy value
                 capital_payment = self.unit_data.loc[i, "capacity"] * self.unit_data.loc[i, "uc_x"] * 1000 / initial_assets.loc[i, "useful_life"]
                 cur.execute(f"""INSERT INTO assets VALUES
-                                ({asset_id}, {agent_id}, '{unit_type}', 
+                                ({asset_id}, {agent_id}, '{revealed}', '{unit_type}', 
                                  {completion_pd}, {cancellation_pd},
                                  {retirement_pd}, {total_capex}, {capital_payment})""")
                 db.commit()
@@ -150,10 +151,20 @@ class GridModel(Model):
         print("\n\n\n\n==========================================================================")
         print(f"Model step: {self.current_step}")
         print("==========================================================================")
-        #self.set_demand_visibility_window()
         self.schedule.step()
         print("\nAll agent turns are complete.\n")
+        # Reveal new information to all market participants
+        self.reveal_decisions()
         print("Table of all assets:")
         print(get_table(self.db, self.cur, "assets"))
 
+
+
+
+    def reveal_decisions(self):
+        self.cur.execute("SELECT asset_id FROM assets WHERE revealed = 'false'")
+        projects_to_reveal = [i[0] for i in list(self.cur.fetchall())]
+        for asset_id in projects_to_reveal:
+            self.cur.execute(f"""UPDATE assets SET revealed = 'true' WHERE asset_id = '{asset_id}'""")
+        self.db.commit()
 
