@@ -3,9 +3,10 @@
 unit_specs_file: "./inputs/unit_specs.csv"
 fuel_data_file: "./inputs/fuel_costs.csv"
 demand_data_file: "./inputs/demand_data.csv"
-#price_curve_data_file: "./inputs/output_DISPATCH_aleafbase.csv"
-price_curve_data_file: "./inputs/RTM_ORDC_REL_DPLY_PRC_ADDR_RSRV_2019.xlsx"
+price_curve_data_file: "./inputs/output_DISPATCH_aleafbase.csv"
+#price_curve_data_file: "./inputs/RTM_ORDC_REL_DPLY_PRC_ADDR_RSRV_2019.xlsx"
 gc_params_file: "./inputs/gc_params.yml"
+portfolios_file: "./inputs/portfolios.csv"
 db_file: "./abce_db.db"
 
 first_agent_id: 201
@@ -15,4 +16,4 @@ num_agents: 1
 num_steps: 25
 
 enable_subsidy: True
-subsidy_amount: 8    # $/MWh
+subsidy_amount: 40    # $/MWh
