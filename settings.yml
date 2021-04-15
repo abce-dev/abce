@@ -12,8 +12,9 @@ db_file: "./abce_db.db"
 first_agent_id: 201
 first_asset_id: 2001
 
-num_agents: 1
+num_agents: 2
 num_steps: 25
 
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
+peak_demand: 3500  # MWh, to scale load duration data

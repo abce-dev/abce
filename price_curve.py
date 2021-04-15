@@ -4,13 +4,16 @@ import matplotlib.pyplot as plt
 import sys
 import os
 
-def get_file_name():
-    try:
-        price_file_name = sys.argv[1]
-    except:
-        print("No price data file specified.")
-        print(sys.exc_info()[0])
-        raise
+def get_file_name(filename = None):
+    if filename is not None:
+        price_file_name = filename
+    else:
+        try:
+            price_file_name = sys.argv[1]
+        except:
+            print("No price data file specified.")
+            print(sys.exc_info()[0])
+            raise
     return price_file_name
 
 
@@ -36,6 +39,19 @@ def organize_price_data(file_name, price_df, subsidy):
     lamda = lamda.sort_values(by = ["lamda"], ascending = False).reset_index().drop(labels=["index"], axis=1)
     lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x + subsidy))
     return lamda
+
+
+def organize_load_data(load_df, peak_demand):
+    load_duration = load_df.filter(["LoadShape"], axis=1).rename(columns={"LoadShape": "load"})
+    load_duration = load_duration.sort_values(by = ["load"], ascending = False).reset_index().drop(labels=["index"], axis=1)
+    load_duration = load_duration * peak_demand
+    return load_duration
+
+
+def create_dispatch_curve(active_assets_ids, db):
+    cur = db.cursor()
+    for asset_id in active_assets_ids:
+        cur.execute(f"SELECT asset_id, unit_type, capacity, VOM, fuel_cost FROM assets WHERE assed_id = {asset_id}")
 
 
 def plot_price_duration_curve(lamda, origin, year):
