@@ -159,7 +159,7 @@ println("Data initialized.")
 println("Setting up model...")
 m = Model(GLPK.Optimizer)
 # Turn on higher model verbosity for debugging
-set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+#set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
 @variable(m, u[1:num_types] >= 0, Int)
 @variable(m, z[1:fc_pd])
 

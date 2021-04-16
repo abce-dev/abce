@@ -79,7 +79,6 @@ class GenCo(Agent):
                     cancellation_pd = 9999
                     retirement_pd = initial_assets.loc[i, "useful_life"]
                     total_capex = self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "capacity"].values[0] * self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "uc_x"].values[0] * 1000
-                    print(total_capex)
                     capital_payment = self.compute_sinking_fund_payment(total_capex, self.model.unit_specs.loc[i, "unit_life"])
                     self.cur.execute(f"""INSERT INTO assets VALUES
                                        ({asset_id}, {agent_id}, '{revealed}', '{unit_type}',
@@ -168,16 +167,13 @@ class GenCo(Agent):
 
                     # Compute amount of CapEx from the project (in as-spent, inflation-unadjusted $)
                     total_capex = self.compute_total_capex(asset_id)
-                    print(total_capex)
                     cur.execute(f"UPDATE assets SET total_capex = {total_capex} WHERE asset_id = {asset_id}")
 
                     # Compute periodic sinking fund payments
                     cur.execute(f"SELECT unit_type FROM assets WHERE asset_id = {asset_id}")
                     unit_type = cur.fetchone()[0]
                     unit_life = self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "unit_life"].values[0]
-                    print(unit_life)
                     capex_payment = self.compute_sinking_fund_payment(total_capex, unit_life)
-                    print(capex_payment)
                     cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} WHERE asset_id = {asset_id}")
                     db.commit()
 
