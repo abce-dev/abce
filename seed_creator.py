@@ -3,12 +3,84 @@
                                         # INIT    STEP
 abce_tables = {"WIP_projects": 
                  [("asset_id", "text"), # Julia, Python
-                  ("agent_id", "text")
+                  ("agent_id", "text"),
+                  ("period", "real"),
+                  ("rcec", "real"),
+                  ("rtec", "real"),
+                  ("anpe", "real")
                  ],
 
                "assets":
-                 [("asset_id", "text")
-                 ]}
+                 [("asset_id", "text"),
+                  ("agent_id", "text"),
+                  ("unit_type", "text"),
+                  ("revealed", "text"),
+                  #("start_pd", "real"),  #TODO: implement start period record
+                  ("completion_pd", "real"),
+                  ("cancellation_pd", "real"),
+                  ("retirement_pd", "real"),
+                  ("total_capex", "real"),
+                  ("cap_pmt", "real")
+                 ],
+
+               "agent_params":
+                 [("agent_id", "text"),
+                  ("discount_rate", "real"),
+                  ("tax_rate", "real"),
+                  ("term_growth_rate", "real"),
+                  ("debt_fraction", "real"),
+                  ("debt_cost", "real"),
+                  ("equity_cost", "real"),
+                  ("interest_cap", "real")
+                 ],
+
+               "unit_specs":
+                 [("unit_type", "text"),
+                  ("fuel_type", "text"),
+                  ("capacity", "real"),
+                  ("uc_x", "real"),
+                  ("d_x", "real"),
+                  ("heat_rate", "real"),
+                  ("VOM", "real"),
+                  ("FOM", "real"),
+                  ("unit_life", "real"),
+                  ("CF", "real"),
+                  ("fuel_cost", "real")
+                 ],
+
+               "demand":
+                 [("period", "real"),
+                  ("demand", "real")
+                 ],
+
+               "price_curve":
+                 [("lamda", "real")]
+              }
+
+# table 4: unit_specs
+#
+#    - unit_type    : text : seed_creator
+#    - fuel_type    : text : seed_creator
+#    - capacity     : real : seed_creator
+#    - uc_x         : real : seed_creator
+#    - d_x          : real : seed_creator
+#    - heat_rate    : real : seed_creator
+#    - VOM          : real : seed_creator
+#    - FOM          : real : seed_creator
+#    - unit_life    : real : seed_creator
+#    - CF           : real : seed_creator
+#    - fuel_cost    : real : seed_creator
+# table 5: demand
+#
+#    - period       : real : model
+#    - demand       : real : model
+# table 6: price duration curve data
+#
+#    - lamda        : real : model
+
+
+
+
 
 
 # table 1: WIP_projects
@@ -43,28 +115,6 @@ abce_tables = {"WIP_projects":
 #    - equity_cost       : real : model
 #    - interest_cap      : real : model
 #
-# table 4: unit_specs
-#
-#    - unit_type    : text : seed_creator
-#    - fuel_type    : text : seed_creator
-#    - capacity     : real : seed_creator
-#    - uc_x         : real : seed_creator
-#    - d_x          : real : seed_creator
-#    - heat_rate    : real : seed_creator
-#    - VOM          : real : seed_creator
-#    - FOM          : real : seed_creator
-#    - unit_life    : real : seed_creator
-#    - CF           : real : seed_creator
-#    - fuel_cost    : real : seed_creator
-# table 5: demand
-#
-#    - period       : real : model
-#    - demand       : real : model
-# table 6: price duration curve data
-#
-#    - lamda        : real : model
-
-
 
 import sqlite3
 import os
