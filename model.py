@@ -60,12 +60,11 @@ class GridModel(Model):
             gc = GenCo(i, self, settings_file)
             self.schedule.add(gc)
 
-        # Load the price duration data
-        hourly_prices = pc.load_original_data(price_curve_data_file)
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy()
-        # Organize the price data
-        price_duration_data = pc.organize_price_data(price_curve_data_file, hourly_prices, self.subsidy_amount)
+        # Load and organize the price duration data
+        price_duration_data = pc.load_price_data(price_curve_data_file, self.subsidy_amount)
+
         # Save price duration data to the database
         for i in range(len(price_duration_data)):
             price = price_duration_data.loc[i, "lamda"]

@@ -14,7 +14,7 @@ def get_file_name():
     return price_file_name
 
 
-def load_original_data(price_file_name):
+def load_price_data(price_file_name, subsidy):
     file_name, file_ext = os.path.splitext(price_file_name)
 
     if "csv" in file_ext:
@@ -27,6 +27,7 @@ def load_original_data(price_file_name):
         print("Please provide a file in one of those formats.")
         print("Terminating...")
         sys.exit()
+    price_df = organize_price_data(price_file_name, price_df, subsidy)
     return price_df
 
 
