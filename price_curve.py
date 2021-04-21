@@ -21,6 +21,12 @@ def load_original_data(price_file_name):
         price_df = pd.read_csv(price_file_name)
     elif "xls" in file_ext:
         price_df = pd.read_excel(price_file_name, engine="openpyxl", sheet_name="Jan")
+    else:
+        # An unsupported file format has been provided; alert the user and end
+        print("The file specified for the price curve data is not .csv or .xls/.xlsx.")
+        print("Please provide a file in one of those formats.")
+        print("Terminating...")
+        sys.exit()
     return price_df
 
 
