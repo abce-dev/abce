@@ -113,8 +113,9 @@ def create_database(db_file_name):
     create_all_tables(cur)
     # Commit changes and close the connection to the database
     db.commit()
-    db.close()
+#    db.close()
     print(f"Database created in file '{db_file_name}'.")
+    return db, cur
 
 
 
