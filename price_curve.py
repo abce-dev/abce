@@ -52,12 +52,7 @@ def plot_price_duration_curve(lamda, origin, year, plot_name="price_curve.png"):
     ax.plot(x_vals, lamda)
     ax.set_xscale("log")
     ax.set_yscale("log")
-
     fig.savefig(plot_name)
-
-
-def write_price_data_to_file(lamda):
-    lamda.to_csv("./price_duration_data.csv", index=False)
 
 
 def compute_unit_revenue(price_duration_data, unit_VOM, unit_capacity, unit_CF):
