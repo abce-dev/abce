@@ -60,6 +60,7 @@ abce_tables = {"WIP_projects":
 
 import sqlite3
 import os
+import sys
 
 def clear_db_file(abce_db):
     if os.path.exists(abce_db):
@@ -102,24 +103,21 @@ def create_all_tables(cur):
         make_table(cur, table)
 
 
-# Set name and path for ABCE database file
-if __name__ == "__main__":
-    # Get the desired filename for the database
-    abce_db = "./abce_db.db"
-
-    # Check whether the file already exists, and ask user's permission to delete
-    #    if an existing file is found
-    clear_db_file(abce_db)
-
+def create_database(db_file_name):
+    # Check whether the specified file already exists; if so, ask the user's
+    #    permission to delete it
+    clear_db_file(db_file_name)
     # Create a database seed file and associated cursor object
-    db, cur = create_db_file(abce_db)
-
-    # Create the `assets`, `WIP_projects`, and `agent_params` tables, 
-    #    including headers
+    db, cur = create_db_file(db_file_name)
+    # Create all tables in the database
     create_all_tables(cur)
-
     # Commit changes and close the connection to the database
     db.commit()
     db.close()
+    print(f"Database created in file '{db_file_name}'.")
 
-    print(f"Database created in file '{abce_db}'.")
+
+
+# Set name and path for ABCE database file
+if __name__ == "__main__":
+    create_database(sys.argv[1])
