@@ -26,6 +26,7 @@ class GridModel(Model):
         self.num_agents = self.settings["num_agents"]
         self.first_agent_id = self.settings["first_agent_id"]
         self.first_asset_id = self.settings["first_asset_id"]
+        self.total_forecast_horizon = self.settings["total_forecast_horizon"]
 
         self.current_step = -1
 
@@ -40,7 +41,7 @@ class GridModel(Model):
 
         # Load demand data into the database
         demand_df = pd.read_csv(demand_data_file)
-        demand_fill = pd.DataFrame(np.ones(100 - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
+        demand_fill = pd.DataFrame(np.ones(self.total_forecast_horizon - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
         demand_df = demand_df.append(demand_fill, ignore_index=True)
         for period in list(demand_df.index):
             demand = demand_df.loc[period, "demand"]
