@@ -21,6 +21,8 @@ fuel_cost_file = settings["fuel_data_file"]
 demand_data_file = settings["demand_data_file"]
 price_curve_data_file = settings["price_curve_data_file"]
 db_file = settings["db_file"]
+# Constants
+hours_per_year = settings["hours_per_year"]
 
 # Load the inputs
 db = load_db(db_file)
@@ -94,9 +96,6 @@ for i = 1:num_types
         # Update the amount of principal remaining at the end of the year
         fs[j, :remaining_debt_principal] = fs[j-1, :remaining_debt_principal] - (fs[j, :debt_payment] - fs[j, :interest_due])
 
-        # Set kWh of generation for the year
-        #fs[j, :gen] = unit_data[i, :capacity] * unit_data[i, :CF] * 8760 * 1000
-
         # Apply straight-line depreciation
         fs[j, :depreciation] = fs[unit_data[i, :d_x], :xtr_exp] ./ unit_data[i, :unit_life]
     end
@@ -112,10 +111,10 @@ for i = 1:num_types
     end
     submarginal_hours_revenue = sum(submarginal_hours[!, :lamda]) * unit_data[i, :capacity]
     fs[!, :Revenue] .= 0.0
-    fs[unit_data[i, :d_x] + 1:unit_data[i, :d_x] + unit_data[i, :unit_life], :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * 8760 / size(price_curve)[1]
+    fs[unit_data[i, :d_x] + 1:unit_data[i, :d_x] + unit_data[i, :unit_life], :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * hours_per_year / size(price_curve)[1]
 
     # Unit generates during all marginal and sub-marginal hours
-    num_active_hours = (size(submarginal_hours)[1] + size(marginal_hours)[1] * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])) * 8760 / size(price_curve)[1]
+    num_active_hours = (size(submarginal_hours)[1] + size(marginal_hours)[1] * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])) * hours_per_year / size(price_curve)[1]
     gen = num_active_hours * unit_data[i, :capacity] * 1000   # kWh
     fs[unit_data[i, :d_x] + 1 : unit_data[i, :d_x] + unit_data[i, :unit_life], :gen] .= gen
 
@@ -165,7 +164,7 @@ m = Model(GLPK.Optimizer)
 
 # Restrict total construction to be less than maximum available demand (subject to capacity factor)
 for i = 1:size(unit_FS_dict[unit_data[1, :unit_type]])[1]
-    @constraint(m, sum(u[j] * unit_FS_dict[unit_data[j, :unit_type]][i, :gen] for j=1:num_types) / (8760*1000) <= available_demand[i])
+    @constraint(m, sum(u[j] * unit_FS_dict[unit_data[j, :unit_type]][i, :gen] for j=1:num_types) / (hours_per_year*1000) <= available_demand[i])
 end
 # Constraint on max amount of interest payable per year
 @constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* agent_params[1, :debt_fraction] .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])

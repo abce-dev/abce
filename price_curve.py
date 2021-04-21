@@ -55,9 +55,9 @@ def plot_price_duration_curve(lamda, origin, year, plot_name="price_curve.png"):
     fig.savefig(plot_name)
 
 
-def compute_unit_revenue(price_duration_data, unit_VOM, unit_capacity, unit_CF):
+def compute_unit_revenue(price_duration_data, unit_VOM, unit_capacity, unit_CF, hours_per_year):
     active_period_prices = price_duration_data[price_duration_data["lamda"] > unit_VOM]["lamda"]
-    total_revenue = sum(active_period_prices) * unit_capacity * unit_CF * 8760 / len(price_duration_data)
+    total_revenue = sum(active_period_prices) * unit_capacity * unit_CF * hours_per_year / len(price_duration_data)
     return active_period_prices, total_revenue
 
 

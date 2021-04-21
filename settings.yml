@@ -17,3 +17,5 @@ num_steps: 25
 
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
+
+hours_per_year: 8760
