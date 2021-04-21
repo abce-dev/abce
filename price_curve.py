@@ -45,7 +45,7 @@ def organize_price_data(file_name, price_df, subsidy):
     return lamda
 
 
-def plot_price_duration_curve(lamda, origin, year):
+def plot_price_duration_curve(lamda, origin, year, plot_name="price_curve.png"):
     x_vals = np.arange(0, len(lamda), 1)
 
     fig, ax = plt.subplots()
@@ -53,7 +53,6 @@ def plot_price_duration_curve(lamda, origin, year):
     ax.set_xscale("log")
     ax.set_yscale("log")
 
-    plot_name = f"price_curve.png"
     fig.savefig(plot_name)
 
 
