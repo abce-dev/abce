@@ -12,3 +12,4 @@ abceSysimage.so
 *.db
 precompile.jl
 inputs/output*.csv
+*cplex*

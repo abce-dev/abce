@@ -18,3 +18,6 @@ num_steps: 25
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
 peak_demand: 3500  # MWh, to scale load duration data
+
+hours_per_year: 8760
+total_forecast_horizon: 100    # Number of periods in the complete forecast horizon

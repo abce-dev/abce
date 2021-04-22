@@ -7,9 +7,9 @@ import numpy as np
 import subprocess
 
 # import local modules
-from ABCEfunctions import *
-from seed_creator import *
-from price_curve import *
+import ABCEfunctions as ABCE
+import seed_creator as sc
+import price_curve as pc
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
@@ -26,17 +26,13 @@ class GridModel(Model):
         self.num_agents = self.settings["num_agents"]
         self.first_agent_id = self.settings["first_agent_id"]
         self.first_asset_id = self.settings["first_asset_id"]
+        self.total_forecast_horizon = self.settings["total_forecast_horizon"]
 
         self.current_step = -1
 
         # Initialize database for managing asset and WIP construction project data
         self.db_file = db_file
-        clear_db_file(self.db_file)
-        self.db, self.cur = create_db_file(self.db_file)
-        # Create the five DB tables (see `seed_creator.py` for table specifications)
-        create_all_tables(self.cur)
-        self.db.commit()
-        print(f"Database created in file '{self.db_file}'.")
+        self.db, self.cur = sc.create_database(self.db_file)
 
         # Load unit type specifications and fuel costs
         self.unit_types, self.unit_specs = self.load_unit_specs(unit_specs_file)
@@ -45,7 +41,7 @@ class GridModel(Model):
 
         # Load demand data into the database
         demand_df = pd.read_csv(demand_data_file)
-        demand_fill = pd.DataFrame(np.ones(100 - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
+        demand_fill = pd.DataFrame(np.ones(self.total_forecast_horizon - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
         demand_df = demand_df.append(demand_fill, ignore_index=True)
         for period in list(demand_df.index):
             demand = demand_df.loc[period, "demand"]
@@ -60,18 +56,17 @@ class GridModel(Model):
             gc = GenCo(i, self, settings_file)
             self.schedule.add(gc)
 
-        # Load the price duration data
-        hourly_prices = load_original_data(price_curve_data_file)
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy()
-        # Organize the price data
-        price_duration_data = organize_price_data(price_curve_data_file, hourly_prices, self.subsidy_amount)
+        # Load and organize the price duration data
+        price_duration_data = pc.load_price_data(price_curve_data_file, self.subsidy_amount)
+
         # Save price duration data to the database
         for i in range(len(price_duration_data)):
             price = price_duration_data.loc[i, "lamda"]
             self.cur.execute(f"INSERT INTO price_curve VALUES ({price})")
         self.db.commit()
-        print(get_table(self.db, self.cur, "assets"))
+        print(ABCE.get_table(self.db, self.cur, "assets"))
 
 
     def load_unit_specs(self, filename):
@@ -129,9 +124,9 @@ class GridModel(Model):
         # Reveal new information to all market participants
         self.reveal_decisions()
         print("Table of all assets:")
-        print(get_table(self.db, self.cur, "assets"))
+        print(ABCE.get_table(self.db, self.cur, "assets"))
         print("Table of construction project updates:")
-        print(get_table(self.db, self.cur, "WIP_projects").tail(n=8))
+        print(ABCE.get_table(self.db, self.cur, "WIP_projects").tail(n=8))
 
 
 
