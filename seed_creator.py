@@ -1,5 +1,16 @@
 # A script to create (or delete and recreate) the base ABCE database file
 # Specification:
+                                        # INIT    STEP
+abce_tables = {"WIP_projects": 
+                 [("asset_id", "text"), # Julia, Python
+                  ("agent_id", "text")
+                 ],
+
+               "assets":
+                 [("asset_id", "text")
+                 ]}
+
+
 # table 1: WIP_projects
 #       HEADER         TYPE   INIT BY  STEPPED BY
 #    - asset_id      : text : Julia,   Python
@@ -91,6 +102,14 @@ def create_db_file(abce_db):
     return db, cur
 
 
+def make_table(cur, table_name):
+    sql_cols = []
+    for column in abce_tables[table_name]:
+        sql_cols.append(f"{column[0]} {column[1]}")
+    cmd = f"CREATE TABLE {table_name} (" + ", ".join(sql_cols) + ")"
+    cur.execute(cmd)
+
+
 def create_assets_table(cur):
     cur.execute("""CREATE TABLE assets
                  (asset_id text, agent_id text, revealed text, unit_type text,
@@ -126,12 +145,8 @@ def create_price_curve_table(cur):
 
 
 def create_all_tables(cur):
-    create_assets_table(cur)
-    create_WIP_projects_table(cur)
-    create_agent_params_table(cur)
-    create_unit_specs_table(cur)
-    create_demand_table(cur)
-    create_price_curve_table(cur)
+    for table in abce_tables:
+        make_table(cur, table)
 
 
 # Set name and path for ABCE database file
