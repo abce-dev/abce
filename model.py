@@ -59,7 +59,7 @@ class GridModel(Model):
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy()
         # Load and organize the price duration data
-        price_duration_data = pc.load_price_data(price_curve_data_file, self.subsidy_amount)
+        price_duration_data = pc.load_time_series_data(price_curve_data_file, file_type="price", subsidy=self.subsidy_amount)
 
         # Save price duration data to the database
         for i in range(len(price_duration_data)):

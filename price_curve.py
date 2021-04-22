@@ -17,21 +17,31 @@ def get_file_name(filename = None):
     return price_file_name
 
 
-def load_price_data(price_file_name, subsidy):
-    file_name, file_ext = os.path.splitext(price_file_name)
+def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0):
+    file_name, file_ext = os.path.splitext(data_file_name)
 
     if "csv" in file_ext:
-        price_df = pd.read_csv(price_file_name)
-    elif "xls" in file_ext:
-        price_df = pd.read_excel(price_file_name, engine="openpyxl", sheet_name="Jan")
+        ts_df = pd.read_csv(data_file_name)
+    elif "xls" in file_ext and file_type == "price":
+        ts_df = pd.read_excel(data_file_name, engine="openpyxl", sheet_name="Jan")
+    elif "xls" in file_ext and file_type == "load":
+        # timeseriesParams.xlsx only has one sheet
+        ts_df = pd.read_excel(data_file_name, engine="openpyxl")
     else:
         # An unsupported file format has been provided; alert the user and end
         print("The file specified for the price curve data is not .csv or .xls/.xlsx.")
         print("Please provide a file in one of those formats.")
         print("Terminating...")
         sys.exit()
-    price_df = organize_price_data(price_file_name, price_df, subsidy)
-    return price_df
+
+    # Invoke an appropriate organization function, depending on file type
+    if file_type == "price":
+        ts_df = organize_price_data(file_name, ts_df, subsidy)
+    elif file_type == "load":
+        if peak_demand == 0:
+            print(f"Using default peak demand value of {peak_demand}; a value must be specified if this is incorrect.")
+        ts_df = organize_load_data(ts_df, peak_demand)
+    return ts_df
 
 
 def organize_price_data(file_name, price_df, subsidy):
