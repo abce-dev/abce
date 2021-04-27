@@ -28,6 +28,13 @@ class GridModel(Model):
         self.first_agent_id = self.settings["first_agent_id"]
         self.first_asset_id = self.settings["first_asset_id"]
         self.total_forecast_horizon = self.settings["total_forecast_horizon"]
+        try:
+            self.use_precomputed_price_curve = self.settings["use_precomputed_price_curve"]
+        except:
+            # Default to `True` but warn the user
+            print("No setting specified for price curve generation; will use precomputed curve.")
+            self.use_precomputed_price_curve = True
+
 
         self.current_step = -1
 
@@ -41,7 +48,7 @@ class GridModel(Model):
         self.add_units_to_db(self.db, self.cur, self.unit_specs, self.fuel_costs)
 
         # Load all-period demand data into the database
-        demand_df = pd.read_csv(demand_data_file)
+        demand_df = pd.read_csv(demand_data_file) * self.settings["peak_demand"]
         demand_fill = pd.DataFrame(np.ones(self.total_forecast_horizon - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
         demand_df = demand_df.append(demand_fill, ignore_index=True)
         for period in list(demand_df.index):
@@ -61,16 +68,19 @@ class GridModel(Model):
         self.set_market_subsidy()
         # Load and organize the price duration data
 #        price_duration_data = pc.load_time_series_data(price_curve_data_file, file_type="price", subsidy=self.subsidy_amount)
-        # Create the systemwide merit order curve
-        merit_curve = pc.create_merit_curve(self.db, self.current_step)
-        pc.plot_curve(merit_curve, plot_name="merit_curve.png")
-        # Load five-minute demand data from file
-        demand_data = pc.load_time_series_data(time_series_data_file, file_type="load", peak_demand=self.settings["peak_demand"])
-        pc.plot_curve(demand_data, plot_name="demand_curve.png")
-        # Create the final price duration curve
-        price_duration_data = pc.compute_price_duration_curve(demand_data, merit_curve)
-        # Save a plot of the price duration curve
-        pc.plot_curve(price_duration_data, plot_name="price_duration.png")
+        if self.use_precomputed_price_curve:
+            price_duration_data = pc.load_time_series_data(price_curve_data_file, file_type="price", subsidy=self.subsidy_amount)
+        else:
+            # Create the systemwide merit order curve
+            merit_curve = pc.create_merit_curve(self.db, self.current_step)
+            pc.plot_curve(merit_curve, plot_name="merit_curve.png")
+            # Load five-minute demand data from file
+            demand_data = pc.load_time_series_data(time_series_data_file, file_type="load", peak_demand=self.settings["peak_demand"])
+            pc.plot_curve(demand_data, plot_name="demand_curve.png")
+            # Create the final price duration curve
+            price_duration_data = pc.compute_price_duration_curve(demand_data, merit_curve)
+            # Save a plot of the price duration curve
+            pc.plot_curve(price_duration_data, plot_name="price_duration.png")
 
 
         # Save price duration data to the database
