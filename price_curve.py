@@ -56,7 +56,6 @@ def organize_price_data(file_name, price_df, subsidy):
     lamda = lamda.sort_values(by = ["lamda"], ascending = False).reset_index().drop(labels=["index"], axis=1)
     lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x + subsidy))
     lamda = lamda.to_numpy().transpose()[0]
-    print(lamda)
     return lamda
 
 
