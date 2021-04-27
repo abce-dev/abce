@@ -14,11 +14,12 @@ first_agent_id: 201
 first_asset_id: 2001
 
 num_agents: 1
-num_steps: 25
+num_steps: 3
 
+use_precomputed_price_curve: True
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
-peak_demand: 2100  # MWh, to scale load duration data
+peak_demand: 1700  # MWh, to scale load duration data
 
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
