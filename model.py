@@ -21,6 +21,7 @@ class GridModel(Model):
         fuel_data_file = self.settings["fuel_data_file"]
         demand_data_file = self.settings["demand_data_file"]
         price_curve_data_file = self.settings["price_curve_data_file"]
+        time_series_data_file = self.settings["time_series_data_file"]
         db_file = self.settings["db_file"]
         # Get parameters from the settings dictionary
         self.num_agents = self.settings["num_agents"]
@@ -39,7 +40,7 @@ class GridModel(Model):
         self.fuel_costs = pd.read_csv(fuel_data_file)
         self.add_units_to_db(self.db, self.cur, self.unit_specs, self.fuel_costs)
 
-        # Load demand data into the database
+        # Load all-period demand data into the database
         demand_df = pd.read_csv(demand_data_file)
         demand_fill = pd.DataFrame(np.ones(self.total_forecast_horizon - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
         demand_df = demand_df.append(demand_fill, ignore_index=True)
@@ -59,12 +60,22 @@ class GridModel(Model):
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy()
         # Load and organize the price duration data
-        price_duration_data = pc.load_time_series_data(price_curve_data_file, file_type="price", subsidy=self.subsidy_amount)
+#        price_duration_data = pc.load_time_series_data(price_curve_data_file, file_type="price", subsidy=self.subsidy_amount)
+        # Create the systemwide merit order curve
+        merit_curve = pc.create_merit_curve(self.db, self.current_step)
+        pc.plot_curve(merit_curve, plot_name="merit_curve.png")
+        # Load five-minute demand data from file
+        demand_data = pc.load_time_series_data(time_series_data_file, file_type="load", peak_demand=self.settings["peak_demand"])
+        pc.plot_curve(demand_data, plot_name="demand_curve.png")
+        # Create the final price duration curve
+        price_duration_data = pc.compute_price_duration_curve(demand_data, merit_curve)
+        # Save a plot of the price duration curve
+        pc.plot_curve(price_duration_data, plot_name="price_duration.png")
+
 
         # Save price duration data to the database
         for i in range(len(price_duration_data)):
-            price = price_duration_data.loc[i, "lamda"]
-            self.cur.execute(f"INSERT INTO price_curve VALUES ({price})")
+            self.cur.execute(f"INSERT INTO price_curve VALUES ({price_duration_data[i]})")
         self.db.commit()
         print(ABCE.get_table(self.db, self.cur, "assets"))
 

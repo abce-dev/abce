@@ -5,6 +5,7 @@ fuel_data_file: "./inputs/fuel_costs.csv"
 demand_data_file: "./inputs/demand_data.csv"
 price_curve_data_file: "./inputs/output_DISPATCH_aleafbase.csv"
 #price_curve_data_file: "./inputs/RTM_ORDC_REL_DPLY_PRC_ADDR_RSRV_2019.xlsx"
+time_series_data_file: "./inputs/timeseriesParams.xlsx"
 gc_params_file: "./inputs/gc_params.yml"
 portfolios_file: "./inputs/portfolios.csv"
 db_file: "./abce_db.db"
@@ -17,7 +18,7 @@ num_steps: 25
 
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
-peak_demand: 3500  # MWh, to scale load duration data
+peak_demand: 2100  # MWh, to scale load duration data
 
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon

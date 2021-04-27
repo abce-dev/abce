@@ -65,19 +65,55 @@ def organize_load_data(load_df, peak_demand):
     return load_duration
 
 
-def create_dispatch_curve(active_assets_ids, db):
-    cur = db.cursor()
-    for asset_id in active_assets_ids:
-        cur.execute(f"SELECT asset_id, unit_type, capacity, VOM, fuel_cost FROM assets WHERE assed_id = {asset_id}")
+def create_merit_curve(db, current_pd):
+    system_portfolio = pd.read_sql_query(f"SELECT asset_id, unit_type FROM assets WHERE retirement_pd > {current_pd} AND completion_pd <= 0", db)
+    unit_specs = pd.read_sql_query("SELECT * FROM unit_specs", db)
+    system_portfolio["capacity"] = 0
+    system_portfolio["VOM"] = 0
+    system_portfolio["FC_per_MMBTU"] = 0
+    system_portfolio["heat_rate"] = 0
+    for i in range(len(system_portfolio)):
+        unit_type = system_portfolio.loc[i, "unit_type"]
+        system_portfolio.loc[i, "capacity"] = unit_specs.loc[unit_specs["unit_type"] == unit_type, "capacity"].values[0]
+        system_portfolio.loc[i, "VOM"] = unit_specs.loc[unit_specs["unit_type"] == unit_type, "VOM"].values[0]
+        system_portfolio.loc[i, "FC_per_MMBTU"] = unit_specs.loc[unit_specs["unit_type"] == unit_type, "fuel_cost"].values[0]
+        system_portfolio.loc[i, "heat_rate"] = unit_specs.loc[unit_specs["unit_type"] == unit_type, "heat_rate"].values[0]
+    system_portfolio["MC"] = system_portfolio.apply(lambda df: df["heat_rate"] * df["FC_per_MMBTU"]/1000 + df["VOM"], axis=1)
+    system_portfolio = system_portfolio.sort_values(by = ["MC"], ascending = True).reset_index().drop(labels=["index"], axis=1)
+
+    x = np.arange(0, sum(system_portfolio["capacity"]), 1)
+    y = np.zeros(len(x))
+
+    starting_index = 0
+    for i in range(len(system_portfolio)):
+        for j in range(int(system_portfolio.loc[i, "capacity"])):
+            y[starting_index + j] = system_portfolio.loc[i, "MC"]
+        starting_index += int(system_portfolio.loc[i, "capacity"])
+
+    return y
 
 
-def plot_price_duration_curve(lamda, origin, year, plot_name="price_curve.png"):
-    x_vals = np.arange(0, len(lamda), 1)
+def compute_price_duration_curve(demand, merit_curve):
+    prices = np.zeros(len(demand))
+    print("Computing PDC")
+    for i in range(len(demand)):
+        if int(np.around(demand.loc[i, "load"], 0)) >= len(merit_curve):
+            # Demand exceeds all available capacity; set price to administrative maximum
+            prices[i] = 9001
+        else:
+            prices[i] = merit_curve[int(np.around(demand.loc[i, "load"], 0))]
+    prices = -np.sort(-prices)
+    return prices
+
+
+def plot_curve(data, plot_name="price_curve.png"):
+    x_vals = np.arange(0, len(data), 1)
 
     fig, ax = plt.subplots()
-    ax.plot(x_vals, lamda)
-    ax.set_xscale("log")
+    ax.plot(x_vals, data)
+    #ax.set_xscale("log")
     ax.set_yscale("log")
+    plt.ylim(1, 9500)
     fig.savefig(plot_name)
 
 
