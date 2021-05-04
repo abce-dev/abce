@@ -59,8 +59,7 @@ class GridModel(Model):
 
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy(settings)
-        # Load and organize the price duration data
-#        price_duration_data = pc.load_time_series_data(price_curve_data_file, file_type="price", subsidy=self.subsidy_amount)
+        # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
             price_duration_data = pc.load_time_series_data(price_curve_data_file, file_type="price", subsidy=self.subsidy_amount)
         else:
@@ -80,8 +79,6 @@ class GridModel(Model):
         for i in range(len(price_duration_data)):
             self.cur.execute(f"INSERT INTO price_curve VALUES ({price_duration_data[i]})")
         self.db.commit()
-        print(pd.read_sql("SELECT * FROM assets", self.db))
-#        print(ABCE.get_table(self.db, "assets"))
 
 
     def load_unit_specs(self, filename):

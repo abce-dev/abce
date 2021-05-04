@@ -69,7 +69,7 @@ def clear_db_file(abce_db, replace):
             os.remove(abce_db)
             print(f"Existing file at {abce_db} deleted.")
         else:
-            print(f"Okay, please remove the file at {abce_db}, or specify --replace on the command line to avoid this message.")
+            print(f"Please remove the file at {abce_db}, or specify --replace on the command line to automatically delete it and avoid this message.")
             print("Terminating...")
             exit()
 
