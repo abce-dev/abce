@@ -13,7 +13,7 @@ import ABCEfunctions as ABCE
 class GenCo(Agent):
     """ A utility company with a certain number of generation assets.
     """
-    def __init__(self, genco_id, model, settings_file):
+    def __init__(self, genco_id, model, settings):
         """ Initialize a GenCo class object.
 
             Detailed Description
@@ -37,12 +37,10 @@ class GenCo(Agent):
         """
         super().__init__(genco_id, model)
         self.model = model
-        with open(settings_file) as setfile:
-            self.settings = yaml.load(setfile, Loader=yaml.FullLoader)
-        self.gc_params_file = self.settings["gc_params_file"]
-        self.portfolios_file = self.settings["portfolios_file"]
+        self.gc_params_file = settings["gc_params_file"]
+        self.portfolios_file = settings["portfolios_file"]
         self.assign_parameters(self.gc_params_file)
-        self.add_initial_assets_to_db()
+        self.add_initial_assets_to_db(settings)
 #        self.fs = fs.AgentFS(model = self.model, agent = self)
 
 
@@ -66,12 +64,12 @@ class GenCo(Agent):
                         {self.interest_cap})""")
 
 
-    def add_initial_assets_to_db(self):
+    def add_initial_assets_to_db(self, settings):
         initial_assets = pd.read_csv(self.portfolios_file, skipinitialspace=True)
         for i in range(len(initial_assets)):
             if initial_assets.loc[i, "agent_id"] == self.unique_id:
                 for j in range(initial_assets.loc[i, "num_copies"]):
-                    asset_id = ABCE.get_next_asset_id(self.db, self.cur, self.settings["first_asset_id"])
+                    asset_id = ABCE.get_next_asset_id(self.db, settings["first_asset_id"])
                     agent_id = initial_assets.loc[i, "agent_id"]
                     revealed = "true"
                     unit_type = initial_assets.loc[i, "unit_type"]

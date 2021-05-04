@@ -183,7 +183,7 @@ function get_next_asset_id(db)
     # Return the next available asset ID (one greater than the current largest ID)
     SQL_get_ids = SQLite.Stmt(db, string("SELECT asset_id FROM assets"))
     asset_df = DBInterface.execute(SQL_get_ids) |> DataFrame
-    asset_df[!, :asset_id] = tryparse.(Int64, asset_df[:, :asset_id])
+    #asset_df[!, :asset_id] = asset_df[:, :asset_id]
     next_id = maximum(asset_df[!, :asset_id]) + 1
     return next_id    
 end

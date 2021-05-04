@@ -2,7 +2,7 @@
 # Specification:
                                         # INIT    STEP
 abce_tables = {"WIP_projects": 
-                 [("asset_id", "text"), # Julia, Python
+                 [("asset_id", "integer"), # Julia, Python
                   ("agent_id", "text"),
                   ("period", "real"),
                   ("rcec", "real"),
@@ -11,7 +11,7 @@ abce_tables = {"WIP_projects":
                  ],
 
                "assets":
-                 [("asset_id", "text"),
+                 [("asset_id", "integer"),
                   ("agent_id", "text"),
                   ("unit_type", "text"),
                   ("revealed", "text"),
@@ -61,26 +61,17 @@ abce_tables = {"WIP_projects":
 import sqlite3
 import os
 import sys
+import pandas as pd
 
-def clear_db_file(abce_db):
+def clear_db_file(abce_db, replace):
     if os.path.exists(abce_db):
-        user_resp = get_user_consent_to_delete(abce_db)
-        if user_resp in ["Y", "y", "Yes", "yes", "YES"]:
+        if replace:
             os.remove(abce_db)
             print(f"Existing file at {abce_db} deleted.")
         else:
-            print(f"Okay, please remove the file at {abce_db} before running this script again.")
+            print(f"Okay, please remove the file at {abce_db}, or specify --replace on the command line to avoid this message.")
             print("Terminating...")
             exit()
-
-
-def get_user_consent_to_delete(abce_db):
-    print(f"A file already exists at {abce_db}.")
-    user_resp = ""
-    valid_responses = ["Y", "y", "N", "n", "yes", "no", "Yes", "No"]
-    while user_resp not in valid_responses:
-        user_resp = input("Is it OK to delete it? [y/n] ")
-    return user_resp
 
 
 def create_db_file(abce_db):
@@ -103,22 +94,20 @@ def create_all_tables(cur):
         make_table(cur, table)
 
 
-def create_database(db_file_name):
-    # Check whether the specified file already exists; if so, ask the user's
-    #    permission to delete it
-    clear_db_file(db_file_name)
+def create_database(db_file_name, replace=False):
+    # Check whether the specified file already exists and delete it if allowed
+    clear_db_file(db_file_name, replace)
     # Create a database seed file and associated cursor object
     db, cur = create_db_file(db_file_name)
     # Create all tables in the database
     create_all_tables(cur)
     # Commit changes and close the connection to the database
     db.commit()
-#    db.close()
     print(f"Database created in file '{db_file_name}'.")
     return db, cur
-
 
 
 # Set name and path for ABCE database file
 if __name__ == "__main__":
     create_database(sys.argv[1])
+    # TODO: add argparse here

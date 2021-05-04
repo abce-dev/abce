@@ -13,23 +13,21 @@ import price_curve as pc
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
-    def __init__(self, settings_file):
-        with open(settings_file) as setfile:
-            self.settings = yaml.load(setfile, Loader=yaml.FullLoader)
+    def __init__(self, settings, args):
         # Get input file locations from the settings dictionary
-        unit_specs_file = self.settings["unit_specs_file"]
-        fuel_data_file = self.settings["fuel_data_file"]
-        demand_data_file = self.settings["demand_data_file"]
-        price_curve_data_file = self.settings["price_curve_data_file"]
-        time_series_data_file = self.settings["time_series_data_file"]
-        db_file = self.settings["db_file"]
+        unit_specs_file = settings["unit_specs_file"]
+        fuel_data_file = settings["fuel_data_file"]
+        demand_data_file = settings["demand_data_file"]
+        price_curve_data_file = settings["price_curve_data_file"]
+        time_series_data_file = settings["time_series_data_file"]
+        db_file = settings["db_file"]
         # Get parameters from the settings dictionary
-        self.num_agents = self.settings["num_agents"]
-        self.first_agent_id = self.settings["first_agent_id"]
-        self.first_asset_id = self.settings["first_asset_id"]
-        self.total_forecast_horizon = self.settings["total_forecast_horizon"]
+        self.num_agents = settings["num_agents"]
+        self.first_agent_id = settings["first_agent_id"]
+        self.first_asset_id = settings["first_asset_id"]
+        self.total_forecast_horizon = settings["total_forecast_horizon"]
         try:
-            self.use_precomputed_price_curve = self.settings["use_precomputed_price_curve"]
+            self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
         except:
             # Default to `True` but warn the user
             print("No setting specified for price curve generation; will use precomputed curve.")
@@ -40,7 +38,8 @@ class GridModel(Model):
 
         # Initialize database for managing asset and WIP construction project data
         self.db_file = db_file
-        self.db, self.cur = sc.create_database(self.db_file)
+        self.db, self.cur = sc.create_database(self.db_file, args.replace)
+
 
         # Load unit type specifications and fuel costs
         self.unit_types, self.unit_specs = self.load_unit_specs(unit_specs_file)
@@ -48,24 +47,25 @@ class GridModel(Model):
         self.add_units_to_db(self.db, self.cur, self.unit_specs, self.fuel_costs)
 
         # Load all-period demand data into the database
-        demand_df = pd.read_csv(demand_data_file) * self.settings["peak_demand"]
+        demand_df = pd.read_csv(demand_data_file) * settings["peak_demand"]
         demand_fill = pd.DataFrame(np.ones(self.total_forecast_horizon - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
         demand_df = demand_df.append(demand_fill, ignore_index=True)
-        for period in list(demand_df.index):
-            demand = demand_df.loc[period, "demand"]
-            self.cur.execute(f"INSERT INTO demand VALUES ({period}, {demand})")
-            self.db.commit()
+        demand_df.to_sql("demand", self.db, if_exists="replace", index_label="period")
+#        for period in list(demand_df.index):
+#            demand = demand_df.loc[period, "demand"]
+#            self.cur.execute(f"INSERT INTO demand VALUES ({period}, {demand})")
+#            self.db.commit()
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
 
         # Create agents
         for i in range(self.first_agent_id, self.first_agent_id + self.num_agents):
-            gc = GenCo(i, self, settings_file)
+            gc = GenCo(i, self, settings)
             self.schedule.add(gc)
 
         # Check whether a market price subsidy is in effect, and its value
-        self.set_market_subsidy()
+        self.set_market_subsidy(settings)
         # Load and organize the price duration data
 #        price_duration_data = pc.load_time_series_data(price_curve_data_file, file_type="price", subsidy=self.subsidy_amount)
         if self.use_precomputed_price_curve:
@@ -75,7 +75,7 @@ class GridModel(Model):
             merit_curve = pc.create_merit_curve(self.db, self.current_step)
             pc.plot_curve(merit_curve, plot_name="merit_curve.png")
             # Load five-minute demand data from file
-            demand_data = pc.load_time_series_data(time_series_data_file, file_type="load", peak_demand=self.settings["peak_demand"])
+            demand_data = pc.load_time_series_data(time_series_data_file, file_type="load", peak_demand=settings["peak_demand"])
             pc.plot_curve(demand_data, plot_name="demand_curve.png")
             # Create the final price duration curve
             price_duration_data = pc.compute_price_duration_curve(demand_data, merit_curve)
@@ -87,7 +87,8 @@ class GridModel(Model):
         for i in range(len(price_duration_data)):
             self.cur.execute(f"INSERT INTO price_curve VALUES ({price_duration_data[i]})")
         self.db.commit()
-        print(ABCE.get_table(self.db, self.cur, "assets"))
+        print(pd.read_sql("SELECT * FROM assets", self.db))
+#        print(ABCE.get_table(self.db, "assets"))
 
 
     def load_unit_specs(self, filename):
@@ -120,18 +121,14 @@ class GridModel(Model):
             db.commit()
 
 
-    def set_market_subsidy(self):
-        try:
-            self.subsidy_enabled = self.settings["enable_subsidy"]
-            if self.subsidy_enabled == True:
-                self.subsidy_amount = self.settings["subsidy_amount"]
-            else:
-                self.subsidy_amount = 0
-        except:
-            # If "enable_subsidy" is not specified in settings.yml, set to False
-            print("No subsidy enabled")
-            self.subsidy_enabled = False
-            self.subsidy_amount = 0
+    def set_market_subsidy(self, settings):
+        self.subsidy_enabled = False
+        self.subsidy_amount = 0
+
+        if "enable_subsidy" in settings:
+            self.subsidy_enabled = settings["enable_subsidy"]
+            if self.subsidy_enabled and "subsidy_amount" in settings:
+                self.subsidy_amount = settings["subsidy_amount"]
 
 
     def step(self):
@@ -145,9 +142,9 @@ class GridModel(Model):
         # Reveal new information to all market participants
         self.reveal_decisions()
         print("Table of all assets:")
-        print(ABCE.get_table(self.db, self.cur, "assets"))
+        print(pd.read_sql("SELECT * FROM assets", self.db))
         print("Table of construction project updates:")
-        print(ABCE.get_table(self.db, self.cur, "WIP_projects").tail(n=8))
+        print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
 
 
