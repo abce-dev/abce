@@ -47,14 +47,7 @@ class GridModel(Model):
         self.add_units_to_db(self.db, self.cur, self.unit_specs, self.fuel_costs)
 
         # Load all-period demand data into the database
-        demand_df = pd.read_csv(demand_data_file) * settings["peak_demand"]
-        demand_fill = pd.DataFrame(np.ones(self.total_forecast_horizon - len(demand_df)), columns = ["demand"]) * demand_df.iloc[-1]["demand"]
-        demand_df = demand_df.append(demand_fill, ignore_index=True)
-        demand_df.to_sql("demand", self.db, if_exists="replace", index_label="period")
-#        for period in list(demand_df.index):
-#            demand = demand_df.loc[period, "demand"]
-#            self.cur.execute(f"INSERT INTO demand VALUES ({period}, {demand})")
-#            self.db.commit()
+        self.load_demand_data_to_db(settings)
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
@@ -119,6 +112,16 @@ class GridModel(Model):
                              {d_x}, {heat_rate}, {VOM}, {FOM}, {unit_life},
                              {CF}, {fuel_cost})""")
             db.commit()
+
+
+    def load_demand_data_to_db(self, settings):
+        # Load all-period demand data into the database
+        demand_df = pd.read_csv(settings["demand_data_file"]) * settings["peak_demand"]
+        # Create an expanded range of periods to backfill with demand_df data
+        new_index = list(range(self.total_forecast_horizon))
+        demand_df = demand_df.reindex(new_index, method="ffill")
+        # Save data to DB
+        demand_df.to_sql("demand", self.db, if_exists="replace", index_label="period")
 
 
     def set_market_subsidy(self, settings):
