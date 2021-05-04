@@ -167,8 +167,9 @@ for i = 1:size(unit_FS_dict[unit_data[1, :unit_type]])[1]
     @constraint(m, sum(u[j] * unit_FS_dict[unit_data[j, :unit_type]][i, :gen] for j=1:num_types) / (hours_per_year*1000) <= available_demand[i])
 end
 # Constraint on max amount of interest payable per year
-@constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* agent_params[1, :debt_fraction] .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
+#@constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* agent_params[1, :debt_fraction] .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
 
+#@objective(m, Max, transpose(u) * unit_data[!, :FCF_NPV] - 0.25 * sum((available_demand[i] - sum(u))^2 for i=1:size(available_demand)[0]))
 @objective(m, Max, transpose(u) * unit_data[!, :FCF_NPV])
 println("Model set up.")
 
