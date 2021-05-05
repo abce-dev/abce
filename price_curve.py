@@ -99,9 +99,7 @@ def plot_curve(data, plot_name="price_curve.png"):
 
     fig, ax = plt.subplots()
     ax.plot(x_vals, data)
-    #ax.set_xscale("log")
     ax.set_yscale("log")
-    plt.ylim(1, 9500)
     fig.savefig(plot_name)
 
 
