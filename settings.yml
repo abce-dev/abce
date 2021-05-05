@@ -20,6 +20,7 @@ num_steps: 20
 use_precomputed_price_curve: True
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
+price_cap: 9001
 peak_demand: 1700  # MWh, to scale load duration data
 
 hours_per_year: 8760

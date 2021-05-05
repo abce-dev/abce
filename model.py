@@ -70,7 +70,7 @@ class GridModel(Model):
             demand_data = pc.load_time_series_data(time_series_data_file, file_type="load", peak_demand=settings["peak_demand"])
             pc.plot_curve(demand_data, plot_name="demand_curve.png")
             # Create the final price duration curve
-            price_duration_data = pc.compute_price_duration_curve(demand_data, merit_curve)
+            price_duration_data = pc.compute_price_duration_curve(demand_data, merit_curve, settings["price_cap"])
             # Save a plot of the price duration curve
             pc.plot_curve(price_duration_data, plot_name="price_duration.png")
 

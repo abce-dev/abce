@@ -70,7 +70,7 @@ def create_merit_curve(db, current_pd):
     system_portfolio["MC"] = system_portfolio.apply(lambda df: df["heat_rate"] * df["FC_per_MMBTU"]/1000 + df["VOM"], axis=1)
     system_portfolio = system_portfolio.sort_values(by = ["MC"], ascending = True).reset_index().drop(labels=["index"], axis=1)
 
-    y = np.zeros(sum(system_portfolio["capacity"])
+    y = np.zeros(sum(system_portfolio["capacity"]))
 
     starting_index = 0
     for i in range(len(system_portfolio)):
@@ -81,13 +81,13 @@ def create_merit_curve(db, current_pd):
     return y
 
 
-def compute_price_duration_curve(demand, merit_curve):
+def compute_price_duration_curve(demand, merit_curve, price_cap):
     prices = np.zeros(len(demand))
     print("Computing PDC")
     for i in range(len(demand)):
         if int(np.around(demand.loc[i, "load"], 0)) >= len(merit_curve):
             # Demand exceeds all available capacity; set price to administrative maximum
-            prices[i] = 9001
+            prices[i] = price_cap
         else:
             prices[i] = merit_curve[int(np.around(demand.loc[i, "load"], 0))]
     prices = -np.sort(-prices)
