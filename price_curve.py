@@ -4,18 +4,6 @@ import matplotlib.pyplot as plt
 import sys
 import os
 
-def get_file_name(filename = None):
-    if filename is not None:
-        price_file_name = filename
-    else:
-        try:
-            price_file_name = sys.argv[1]
-        except:
-            print("No price data file specified.")
-            print(sys.exc_info()[0])
-            raise
-    return price_file_name
-
 
 def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0):
     file_name, file_ext = os.path.splitext(data_file_name)
@@ -82,8 +70,7 @@ def create_merit_curve(db, current_pd):
     system_portfolio["MC"] = system_portfolio.apply(lambda df: df["heat_rate"] * df["FC_per_MMBTU"]/1000 + df["VOM"], axis=1)
     system_portfolio = system_portfolio.sort_values(by = ["MC"], ascending = True).reset_index().drop(labels=["index"], axis=1)
 
-    x = np.arange(0, sum(system_portfolio["capacity"]), 1)
-    y = np.zeros(len(x))
+    y = np.zeros(sum(system_portfolio["capacity"])
 
     starting_index = 0
     for i in range(len(system_portfolio)):
