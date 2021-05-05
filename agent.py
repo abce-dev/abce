@@ -7,7 +7,6 @@ import subprocess
 import csv
 
 # import local modules
-import financial_statement as fs
 import ABCEfunctions as ABCE
 
 class GenCo(Agent):
