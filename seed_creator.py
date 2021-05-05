@@ -1,6 +1,12 @@
 # A script to create (or delete and recreate) the base ABCE database file
-# Specification:
-                                        # INIT    STEP
+
+import sqlite3
+import os
+import sys
+import pandas as pd
+
+# Database Specification:
+                                       # INIT    STEP
 abce_tables = {"WIP_projects": 
                  [("asset_id", "integer"), # Julia, Python
                   ("agent_id", "text"),
@@ -58,11 +64,6 @@ abce_tables = {"WIP_projects":
               }
 
 
-import sqlite3
-import os
-import sys
-import pandas as pd
-
 def clear_db_file(abce_db, replace):
     if os.path.exists(abce_db):
         if replace:
@@ -89,18 +90,14 @@ def make_table(cur, table_name):
     cur.execute(cmd)
 
 
-def create_all_tables(cur):
-    for table in abce_tables:
-        make_table(cur, table)
-
-
 def create_database(db_file_name, replace=False):
     # Check whether the specified file already exists and delete it if allowed
     clear_db_file(db_file_name, replace)
     # Create a database seed file and associated cursor object
     db, cur = create_db_file(db_file_name)
     # Create all tables in the database
-    create_all_tables(cur)
+    for table in abce_tables:
+        make_table(cur, table)
     # Commit changes and close the connection to the database
     db.commit()
     print(f"Database created in file '{db_file_name}'.")
