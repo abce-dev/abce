@@ -33,6 +33,10 @@ class GenCo(Agent):
             model : GridModel (mesa)
                 A mesa GridModel object which creates and passes data to
                 all agents.
+            settings : dictionary
+                A dictionary of runtime/model parameters, loaded and passed
+                in by run.py.
+
 
         """
         super().__init__(genco_id, model)
@@ -68,22 +72,20 @@ class GenCo(Agent):
         initial_assets = pd.read_csv(self.portfolios_file, skipinitialspace=True)
         for i in range(len(initial_assets)):
             if initial_assets.loc[i, "agent_id"] == self.unique_id:
+                agent_id = initial_assets.loc[i, "agent_id"]
+                revealed = "true"
+                unit_type = initial_assets.loc[i, "unit_type"]
+                completion_pd = 0
+                cancellation_pd = 9999
+                retirement_pd = initial_assets.loc[i, "useful_life"]
                 for j in range(initial_assets.loc[i, "num_copies"]):
                     asset_id = ABCE.get_next_asset_id(self.db, settings["first_asset_id"])
-                    agent_id = initial_assets.loc[i, "agent_id"]
-                    revealed = "true"
-                    unit_type = initial_assets.loc[i, "unit_type"]
-                    completion_pd = 0
-                    cancellation_pd = 9999
-                    retirement_pd = initial_assets.loc[i, "useful_life"]
                     total_capex = self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "capacity"].values[0] * self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "uc_x"].values[0] * 1000
                     capital_payment = self.compute_sinking_fund_payment(total_capex, self.model.unit_specs.loc[i, "unit_life"])
                     self.cur.execute(f"""INSERT INTO assets VALUES
                                        ({asset_id}, {agent_id}, '{unit_type}', '{revealed}',
                                         {completion_pd}, {cancellation_pd},
                                         {retirement_pd}, {total_capex}, {capital_payment})""")
-                    self.db.commit()
-
 
 
     def step(self):
