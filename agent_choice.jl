@@ -101,8 +101,8 @@ for i = 1:num_types
     end
 
     # Compute unit revenue, based on the price duration curve loaded from file
-    submarginal_hours = filter(row -> row.lamda > unit_data[i, :VOM] * 1000 + (unit_data[i, :fuel_cost] * unit_data[i, :heat_rate]i / 1000), price_curve)
-    marginal_hours = filter(row -> row.lamda == unit_data[i, :VOM] * 1000 + (unit_data[i, :fuel_cost] * unit_data[i, :heat_rate] / 1000), price_curve)
+    submarginal_hours = filter(row -> row.lamda > unit_data[i, :VOM] * 1000 + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate]i / 1000), price_curve)
+    marginal_hours = filter(row -> row.lamda == unit_data[i, :VOM] * 1000 + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate] / 1000), price_curve)
     if size(marginal_hours)[1] != 0
         marginal_hours_revenue = sum(marginal_hours[!, :lamda]) * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])
     else
@@ -123,7 +123,7 @@ for i = 1:num_types
     # Compute total revenue for the year
 #    transform!(fs, [:gen] => ((gen) -> avg_e_price .* gen) => :Revenue)
     # Compute total cost of fuel used
-    transform!(fs, [:gen] => ((gen) -> unit_data[i, :fuel_cost] .* unit_data[i, :heat_rate] ./ 1000000 .* gen) => :Fuel_Cost)
+    transform!(fs, [:gen] => ((gen) -> unit_data[i, :FC_per_MMBTU] .* unit_data[i, :heat_rate] ./ 1000000 .* gen) => :Fuel_Cost)
     # Compute total VOM cost incurred during generation
     transform!(fs, [:gen] => ((gen) -> unit_data[i, :VOM] .* gen) => :VOM_Cost)
     # Compute total FOM cost for the year (non-reactive)

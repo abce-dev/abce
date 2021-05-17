@@ -8,7 +8,7 @@ import pandas as pd
 # Database Specification:
                                        # INIT    STEP
 abce_tables = {"WIP_projects": 
-                 [("asset_id", "integer"), # Julia, Python
+                 [("asset_id", "integer", "PRIMARY KEY"), # Julia, Python
                   ("agent_id", "text"),
                   ("period", "real"),
                   ("rcec", "real"),
@@ -17,7 +17,7 @@ abce_tables = {"WIP_projects":
                  ],
 
                "assets":
-                 [("asset_id", "integer"),
+                 [("asset_id", "integer", "PRIMARY KEY"),
                   ("agent_id", "text"),
                   ("unit_type", "text"),
                   ("revealed", "text"),
@@ -30,7 +30,7 @@ abce_tables = {"WIP_projects":
                  ],
 
                "agent_params":
-                 [("agent_id", "text"),
+                 [("agent_id", "text", "PRIMARY KEY"),
                   ("discount_rate", "real"),
                   ("tax_rate", "real"),
                   ("term_growth_rate", "real"),
@@ -41,7 +41,7 @@ abce_tables = {"WIP_projects":
                  ],
 
                "unit_specs":
-                 [("unit_type", "text"),
+                 [("unit_type", "text", "PRIMARY KEY"),
                   ("fuel_type", "text"),
                   ("capacity", "real"),
                   ("uc_x", "real"),
@@ -51,7 +51,7 @@ abce_tables = {"WIP_projects":
                   ("FOM", "real"),
                   ("unit_life", "real"),
                   ("CF", "real"),
-                  ("fuel_cost", "real")
+                  ("FC_per_MMBTU", "real")
                  ],
 
                "demand":
