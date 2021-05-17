@@ -140,7 +140,7 @@ for i = 1:num_types
         transform!(fs, [:gen] => ((gen) -> unit_data[i, :VOM] .* gen) => :VOM_Cost)
         # Compute total FOM cost for the year (non-reactive)
         fs[!, :FOM_Cost] = zeros(size(fs)[1])
-        fs[(unit_data[i, :d_x]+1):(unit_data[i, :d_x]+unit_data[i, :unit_life]), :FOM_Cost] .= unit_data[i, :FOM] * unit_data[i, :capacity] * 1000
+        fs[(j + unit_data[i, :d_x]+1):(j + unit_data[i, :d_x]+unit_data[i, :unit_life]), :FOM_Cost] .= unit_data[i, :FOM] * unit_data[i, :capacity] * 1000
         # Compute EBITDA
         transform!(fs, [:Revenue, :Fuel_Cost, :VOM_Cost, :FOM_Cost] => ((rev, fc, VOM, FOM) -> rev - fc - VOM - FOM) => :EBITDA)
         # Compute EBIT
@@ -155,7 +155,7 @@ for i = 1:num_types
         transform!(fs, [:Net_Income, :interest_due, :xtr_exp] => ((NI, interest, xtr_exp) -> NI + interest - xtr_exp) => :FCF)
 
         # Add column of compounded discount factors
-        transform!(fs, [:year] => ((year) -> (1+d) .^ (-1 .* year)) => :d_factor)
+        transform!(fs, [:year] => ((year) -> (1+d) .^ (-1 .* (year .- 1))) => :d_factor)
         # Discount unit FCF NPV values and save to the NPV_results dataframe
         NPV_results[findall(NPV_results.name .== name)[1], :NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
 #        unit_data[i, :FCF_NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
@@ -163,6 +163,7 @@ for i = 1:num_types
 end
 
 println(NPV_results)
+println(unit_FS_dict)
 
 if pd == 0
     println(unit_data)
