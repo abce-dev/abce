@@ -91,8 +91,8 @@ for i = 1:num_types
         head_zeros_series = zeros(j)
         xtr_exp_per_pd = unit_data[i, :uc_x] * unit_data[i, :capacity] * 1000 / unit_data[i, :d_x]
         xtr_exp_series = ones(unit_data[i, :d_x]) .* xtr_exp_per_pd
-        tail_zeros_series = zeros(fc_pd - unit_data[i, :d_x])
-        xtr_exp = vcat(xtr_exp_series, tail_zeros_series)
+        tail_zeros_series = zeros(fc_pd - j - unit_data[i, :d_x])
+        xtr_exp = vcat(head_zeros_series, xtr_exp_series, tail_zeros_series)
         fs[!, :xtr_exp] .= xtr_exp
         for k = j+1:j+unit_data[i, :d_x]
             # Uniformly distribute construction costs over the construction duration
