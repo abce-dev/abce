@@ -138,11 +138,11 @@ function get_WIP_projects_list(db, pd, agent_id)
 end
 
 
-function get_demand_forecast(db, pd, agent_id, fc_pd)
+function get_demand_forecast(db, pd, demand_vis_horizon, agent_id, fc_pd)
     # Get a list of forecasted future demand amounts
     # Forecast no increase after the end of the future visibility window
     # Hardcoded visibility window of 5
-    vals = (pd, pd + 5)
+    vals = (pd, pd + demand_vis_horizon)
     demand_forecast = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
     println(demand_forecast)
     demand_forecast = extrapolate_demand(demand_forecast, fc_pd)
