@@ -24,6 +24,7 @@ db_file = settings["db_file"]
 # Constants
 hours_per_year = settings["hours_per_year"]
 num_lags = settings["num_future_periods_considered"]
+demand_vis_horizon = settings["demand_visibility_horizon"]
 
 # Load the inputs
 db = load_db(db_file)
@@ -51,10 +52,11 @@ num_alternatives = num_types * (num_lags + 1)
 fc_pd = set_forecast_period(unit_data, num_lags)
 
 # Load the demand data
-available_demand = get_demand_forecast(db, pd, agent_id, fc_pd)
+available_demand = get_demand_forecast(db, pd, demand_vis_horizon, agent_id, fc_pd)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 available_demand = get_net_demand(db, pd, agent_id, fc_pd, available_demand)
+println(DataFrame(net_demand = available_demand)[1:10, :])
 
 # Load the price data
 price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
@@ -96,7 +98,7 @@ for i = 1:num_types
         fs[!, :xtr_exp] .= xtr_exp
         for k = j+1:j+unit_data[i, :d_x]
             # Uniformly distribute construction costs over the construction duration
-            fs[k, :remaining_debt_principal] = sum(fs[!, :xtr_exp]) * agent_params[1, :debt_fraction] # sum(fs[k, :xtr_exp] for k in 1:j)
+            fs[k, :remaining_debt_principal] = sum(fs[1:k, :xtr_exp]) * agent_params[1, :debt_fraction]
         end
 
         # Generate prime-mover events from the end of construction to the end of the unit's life
@@ -104,14 +106,15 @@ for i = 1:num_types
             # Apply constant debt payment (sinking fund at cost of debt)
             # This amount is always calculated based on the amount of debt outstanding at
             #    the project's completion
-            fs[k, :debt_payment] = fs[unit_data[i, :d_x], :remaining_debt_principal] .* d ./ (1 - (1+d) .^ (-1*unit_data[i, :unit_life]))
+            fs[k, :debt_payment] = fs[j + unit_data[i, :d_x], :remaining_debt_principal] .* d ./ (1 - (1+d) .^ (-1*unit_data[i, :unit_life]))
             # Determine portion of payment which pays down interest (instead of principal)
             fs[k, :interest_due] = fs[k-1, :remaining_debt_principal] * d
             # Update the amount of principal remaining at the end of the year
             fs[k, :remaining_debt_principal] = fs[k-1, :remaining_debt_principal] - (fs[k, :debt_payment] - fs[k, :interest_due])
 
-            # Apply straight-line depreciation
-            fs[k, :depreciation] = fs[unit_data[i, :d_x], :xtr_exp] ./ unit_data[i, :unit_life]
+            # Apply straight-line depreciation, based on debt outstanding at
+            #    the project's completion
+            fs[k, :depreciation] = fs[j + unit_data[i, :d_x], :xtr_exp] ./ unit_data[i, :unit_life]
         end
 
         # Compute unit revenue, based on the price duration curve loaded from file
@@ -158,16 +161,21 @@ for i = 1:num_types
         transform!(fs, [:year] => ((year) -> (1+d) .^ (-1 .* (year .- 1))) => :d_factor)
         # Discount unit FCF NPV values and save to the NPV_results dataframe
         NPV_results[findall(NPV_results.name .== name)[1], :NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
-#        unit_data[i, :FCF_NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
+        unit_data[i, :FCF_NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
     end
 end
 
+#for i = 1:num_alternatives
+#    if occursin("smr", alternative_names[i])
+#        print(unit_FS_dict[alternative_names[i]])
+#    end
+#end
 println(NPV_results)
-println(unit_FS_dict)
 
 if pd == 0
     println(unit_data)
 end
+
 println("Data initialized.")
 
 ###### Set up the model
@@ -186,9 +194,9 @@ for i = 1:size(available_demand)[1]
         available_demand[i] = 0
     end
 end
-println(available_demand)
+
 for i = 1:size(unit_FS_dict[alternative_names[1]])[1]
-    @constraint(m, sum(u[j] * unit_FS_dict[alternative_names[j]][i, :gen] for j=1:num_alternatives) / (hours_per_year*1000) <= available_demand[i] * 1.25)
+    @constraint(m, sum(u[j] * unit_FS_dict[alternative_names[j]][i, :gen] for j=1:num_alternatives) / (hours_per_year*1000) <= available_demand[i] * 2)
 end
 # Constraint on max amount of interest payable per year
 #@constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* agent_params[1, :debt_fraction] .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
