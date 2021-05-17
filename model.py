@@ -61,9 +61,10 @@ class GridModel(Model):
         self.create_price_duration_curve(settings)
 
         # Save price duration data to the database
-        for i in range(len(self.price_duration_data)):
-            self.cur.execute(f"INSERT INTO price_curve VALUES ({self.price_duration_data[i]})")
-        self.db.commit()
+        self.price_duration_data.to_sql("price_curve", con = self.db, if_exists = "replace")
+#        for i in range(len(self.price_duration_data)):
+#            self.cur.execute(f"INSERT INTO price_curve VALUES ({self.price_duration_data[i]})")
+#        self.db.commit()
 
 
     def load_unit_specs(self, filename):
@@ -118,7 +119,7 @@ class GridModel(Model):
     def create_price_duration_curve(self, settings):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
-            self.price_duration_data = pc.load_time_series_data(settings["price_curve_data_file"], file_type="price", subsidy=self.subsidy_amount)
+            self.price_duration_data = pc.load_time_series_data(settings["price_curve_data_file"], file_type="price", subsidy=self.subsidy_amount, output_type = "dataframe")
         else:
             # Create the systemwide merit order curve
             self.merit_curve = pc.create_merit_curve(self.db, self.current_step)
@@ -151,9 +152,8 @@ class GridModel(Model):
 
 
     def reveal_decisions(self):
-        self.cur.execute("SELECT asset_id FROM assets WHERE revealed = 'false'")
-        projects_to_reveal = [i[0] for i in list(self.cur.fetchall())]
-        for asset_id in projects_to_reveal:
+        projects_to_reveal = pd.read_sql("SELECT asset_id FROM assets WHERE revealed = 'false'", self.db)
+        for asset_id in projects_to_reveal["asset_id"]:
             self.cur.execute(f"""UPDATE assets SET revealed = 'true' WHERE asset_id = '{asset_id}'""")
         self.db.commit()
 

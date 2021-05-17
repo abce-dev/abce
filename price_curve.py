@@ -5,7 +5,7 @@ import sys
 import os
 
 
-def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0):
+def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0, output_type="np.array"):
     file_name, file_ext = os.path.splitext(data_file_name)
 
     if "csv" in file_ext:
@@ -24,15 +24,15 @@ def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0):
 
     # Invoke an appropriate organization function, depending on file type
     if file_type == "price":
-        ts_df = organize_price_data(file_name, ts_df, subsidy)
+        ts_df = organize_price_data(file_name, ts_df, subsidy, output_type)
     elif file_type == "load":
         if peak_demand == 0:
             print(f"Using default peak demand value of {peak_demand}; a value must be specified if this is incorrect.")
-        ts_df = organize_load_data(ts_df, peak_demand)
+        ts_df = organize_load_data(ts_df, peak_demand, output_type)
     return ts_df
 
 
-def organize_price_data(file_name, price_df, subsidy):
+def organize_price_data(file_name, price_df, subsidy, output_type):
     if "output" in file_name or "DISPATCH" in file_name:
         # ALEAF output file
         lamda = price_df.filter(["LMP"], axis=1).iloc[::7].reset_index().drop(labels=["index"], axis=1)
@@ -43,14 +43,17 @@ def organize_price_data(file_name, price_df, subsidy):
         lamda = lamda.reset_index().drop(labels=["index"], axis=1)
     lamda = lamda.sort_values(by = ["lamda"], ascending = False).reset_index().drop(labels=["index"], axis=1)
     lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x + subsidy))
-    lamda = lamda.to_numpy().transpose()[0]
+    if output_type == "np.array":
+        lamda = lamda.to_numpy().transpose()[0]
     return lamda
 
 
-def organize_load_data(load_df, peak_demand):
+def organize_load_data(load_df, peak_demand, output_type):
     load_duration = load_df.filter(["LoadShape"], axis=1).rename(columns={"LoadShape": "load"})
     load_duration = load_duration.sort_values(by = ["load"], ascending = False).reset_index().drop(labels=["index"], axis=1)
     load_duration = load_duration * peak_demand
+    if output_type == "np.array":
+        load_duration = load_duration.to_numpy().transpose()[0]
     return load_duration
 
 
