@@ -58,22 +58,11 @@ def organize_load_data(load_df, peak_demand, output_type):
 
 
 def create_merit_curve(db, current_pd):
-    system_portfolio = pd.read_sql_query(f"SELECT asset_id, unit_type FROM assets WHERE retirement_pd > {current_pd} AND completion_pd <= 0", db)
-    unit_specs = pd.read_sql_query("SELECT * FROM unit_specs", db)
-    system_portfolio["capacity"] = 0
-    system_portfolio["VOM"] = 0
-    system_portfolio["FC_per_MMBTU"] = 0
-    system_portfolio["heat_rate"] = 0
-    for i in range(len(system_portfolio)):
-        unit_type = system_portfolio.loc[i, "unit_type"]
-        system_portfolio.loc[i, "capacity"] = unit_specs.loc[unit_specs["unit_type"] == unit_type, "capacity"].values[0]
-        system_portfolio.loc[i, "VOM"] = unit_specs.loc[unit_specs["unit_type"] == unit_type, "VOM"].values[0]
-        system_portfolio.loc[i, "FC_per_MMBTU"] = unit_specs.loc[unit_specs["unit_type"] == unit_type, "fuel_cost"].values[0]
-        system_portfolio.loc[i, "heat_rate"] = unit_specs.loc[unit_specs["unit_type"] == unit_type, "heat_rate"].values[0]
+    system_portfolio = pd.read_sql_query("SELECT assets.asset_id, assets.unit_type, capacity, VOM, FC_per_MMBTU, heat_rate FROM assets INNER JOIN unit_specs ON assets.unit_type = unit_specs.unit_type WHERE retirement_pd > 0 AND completion_pd <= 0", db)
     system_portfolio["MC"] = system_portfolio.apply(lambda df: df["heat_rate"] * df["FC_per_MMBTU"]/1000 + df["VOM"], axis=1)
     system_portfolio = system_portfolio.sort_values(by = ["MC"], ascending = True).reset_index().drop(labels=["index"], axis=1)
 
-    y = np.zeros(sum(system_portfolio["capacity"]))
+    y = np.zeros(int(sum(system_portfolio["capacity"])))
 
     starting_index = 0
     for i in range(len(system_portfolio)):
@@ -88,11 +77,11 @@ def compute_price_duration_curve(demand, merit_curve, price_cap):
     prices = np.zeros(len(demand))
     print("Computing PDC")
     for i in range(len(demand)):
-        if int(np.around(demand.loc[i, "load"], 0)) >= len(merit_curve):
+        if int(np.around(demand[i])) >= len(merit_curve):
             # Demand exceeds all available capacity; set price to administrative maximum
             prices[i] = price_cap
         else:
-            prices[i] = merit_curve[int(np.around(demand.loc[i, "load"], 0))]
+            prices[i] = merit_curve[int(np.around(demand[i], 0))]
     prices = -np.sort(-prices)
     return prices
 
