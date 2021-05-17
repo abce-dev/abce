@@ -27,6 +27,9 @@ class GridModel(Model):
         self.first_asset_id = settings["first_asset_id"]
         self.total_forecast_horizon = settings["total_forecast_horizon"]
 
+        # Copy the command-line arguments as member data
+        self.args = args
+
         # Determine setting for use of a precomputed price curve
         self.use_precomputed_price_curve = True
         if "use_precomputed_price_curve" in settings:
@@ -37,7 +40,7 @@ class GridModel(Model):
 
         # Initialize database for managing asset and WIP construction project data
         self.db_file = db_file
-        self.db, self.cur = sc.create_database(self.db_file, args.force)
+        self.db, self.cur = sc.create_database(self.db_file, self.args.force)
 
         # Load unit type specifications and fuel costs
         self.unit_types, self.unit_specs = self.load_unit_specs(unit_specs_file)
@@ -52,7 +55,7 @@ class GridModel(Model):
 
         # Create agents
         for i in range(self.first_agent_id, self.first_agent_id + self.num_agents):
-            gc = GenCo(i, self, settings)
+            gc = GenCo(i, self, settings, self.args.silent)
             self.schedule.add(gc)
 
         # Check whether a market price subsidy is in effect, and its value
@@ -62,9 +65,6 @@ class GridModel(Model):
 
         # Save price duration data to the database
         self.price_duration_data.to_sql("price_curve", con = self.db, if_exists = "replace")
-#        for i in range(len(self.price_duration_data)):
-#            self.cur.execute(f"INSERT INTO price_curve VALUES ({self.price_duration_data[i]})")
-#        self.db.commit()
 
 
     def load_unit_specs(self, filename):
@@ -136,17 +136,21 @@ class GridModel(Model):
     def step(self):
         ''' Advance the model by one step. '''
         self.current_step += 1
-        print("\n\n\n\n==========================================================================")
+        if not self.args.silent:
+            print("\n\n\n")
+        print("\n==========================================================================")
         print(f"Model step: {self.current_step}")
         print("==========================================================================")
         self.schedule.step()
-        print("\nAll agent turns are complete.\n")
+        if not self.args.silent:
+            print("\nAll agent turns are complete.\n")
         # Reveal new information to all market participants
         self.reveal_decisions()
-        print("Table of all assets:")
-        print(pd.read_sql("SELECT * FROM assets", self.db))
-        print("Table of construction project updates:")
-        print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
+        if not self.args.silent:
+            print("Table of all assets:")
+            print(pd.read_sql("SELECT * FROM assets", self.db))
+            print("Table of construction project updates:")
+            print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
 
 

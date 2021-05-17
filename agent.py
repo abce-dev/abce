@@ -5,6 +5,7 @@ import math
 import pandas as pd
 import subprocess
 import csv
+import os
 
 # import local modules
 import ABCEfunctions as ABCE
@@ -12,7 +13,7 @@ import ABCEfunctions as ABCE
 class GenCo(Agent):
     """ A utility company with a certain number of generation assets.
     """
-    def __init__(self, genco_id, model, settings):
+    def __init__(self, genco_id, model, settings, is_silent):
         """ Initialize a GenCo class object.
 
             Detailed Description
@@ -42,6 +43,7 @@ class GenCo(Agent):
         self.model = model
         self.gc_params_file = settings["gc_params_file"]
         self.portfolios_file = settings["portfolios_file"]
+        self.is_silent = is_silent
         self.assign_parameters(self.gc_params_file)
         self.add_initial_assets_to_db(settings)
 
@@ -103,8 +105,10 @@ class GenCo(Agent):
             self.update_WIP_projects()
 
         # Run the agent behavior choice algorithm
-#        subprocess.run(["/bin/bash", "-c", "julia -JabceSysimage.so agent_choice.jl"], start_new_session=True)
-        sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True)
+        if self.is_silent:
+            sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True, stdout=open(os.devnull, "wb"))
+        else:
+            sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True)
 
         print(f"Agent #{self.unique_id}'s turn is complete.\n")
 
@@ -144,7 +148,6 @@ class GenCo(Agent):
         cur = db.cursor()
         if self.WIP_projects:
             # If there are active construction projects under way:
-            print(f"Updating ongoing construction projects for agent {self.unique_id}.")
             for asset_id in self.WIP_projects:
                 # Select the current project's most recent data record
                 WIP_project = pd.read_sql(f"SELECT * FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_step - 1}", self.model.db)
