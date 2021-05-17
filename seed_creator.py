@@ -64,15 +64,33 @@ abce_tables = {"WIP_projects":
               }
 
 
-def clear_db_file(abce_db, replace):
+def ask_user_permission_to_delete(abce_db):
+    user_resp = ""
+    acceptable_responses = ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]
+    agree_responses = ["Y", "y", "Yes", "yes"]
+    reply = False
+    while user_resp not in acceptable_responses:
+        user_resp = input("There is already a database file at {abce_db}. Can I delete it? [y/n] ")
+    if user_resp in agree_responses:
+        reply = True
+    return reply
+    
+
+def clear_db_file(abce_db, force):
     if os.path.exists(abce_db):
-        if replace:
+        if force:
             os.remove(abce_db)
             print(f"Existing file at {abce_db} deleted.")
         else:
-            print(f"Please remove the file at {abce_db}, or specify --replace on the command line to automatically delete it and avoid this message.")
-            print("Terminating...")
-            exit()
+            user_response = ask_user_permission_to_delete(abce_db)
+            if user_response:
+                os.remove(abce_db)
+                print(f"Existing file at {abce_db} deleted.")
+                print("(Hint: you can specify --force or -f on the command line to automatically delete an existing DB file.)")
+            else:
+                print("DB file at {abce_db} not deleted. Please move it or specify a different file name.")
+                print("Terminating...")
+                exit()
 
 
 def create_db_file(abce_db):

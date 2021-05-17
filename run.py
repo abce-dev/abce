@@ -14,12 +14,12 @@ def read_settings(settings_file):
 
 def cli_args():
     parser = argparse.ArgumentParser(description='Run an ABCE simulation.')
-    parser.add_argument('--replace',
-                          action='store_true',
-                          help='Agree to overwrite any existing DB files.')
-    parser.add_argument('--settings_file',
-                          type=argparse.FileType('r'),
-                          help='Simulation settings file name.',
+    parser.add_argument("--force", "-f",
+                          action="store_true",
+                          help="Agree to overwrite any existing DB files.")
+    parser.add_argument("--settings_file",
+                          type=argparse.FileType("r"),
+                          help="Simulation settings file name.",
                           default="./settings.yml")
     args = parser.parse_args()
     return args

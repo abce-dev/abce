@@ -37,7 +37,7 @@ class GridModel(Model):
 
         # Initialize database for managing asset and WIP construction project data
         self.db_file = db_file
-        self.db, self.cur = sc.create_database(self.db_file, args.replace)
+        self.db, self.cur = sc.create_database(self.db_file, args.force)
 
         # Load unit type specifications and fuel costs
         self.unit_types, self.unit_specs = self.load_unit_specs(unit_specs_file)
