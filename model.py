@@ -129,6 +129,7 @@ class GridModel(Model):
             pc.plot_curve(self.demand_data, plot_name="demand_curve.png")
             # Create the final price duration curve
             self.price_duration_data = pc.compute_price_duration_curve(self.demand_data, self.merit_curve, settings["price_cap"])
+            self.price_duration_data = pd.DataFrame({"lamda": self.price_duration_data})
             # Save a plot of the price duration curve
             pc.plot_curve(self.price_duration_data, plot_name="price_duration.png")
 
