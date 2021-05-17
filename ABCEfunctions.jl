@@ -69,9 +69,9 @@ function load_demand_data(demand_data_file)
 end
 
 
-function set_forecast_period(df)
+function set_forecast_period(df, num_lags)
     transform!(df, [:d_x, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
-    max_horizon = maximum(df[!, :full_life])
+    max_horizon = maximum(df[!, :full_life]) + num_lags
     return max_horizon
 end
 
@@ -94,13 +94,16 @@ function allocate_fuel_costs(unit_data, fuel_costs)
 end
 
 
-function create_unit_FS_dict(unit_data, fc_pd)
+function create_unit_FS_dict(unit_data, fc_pd, num_lags)
     fs_dict = Dict()
     num_types = size(unit_data)[1]
     for i = 1:num_types
-        unit_name = unit_data[i, :unit_type]
-        unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
-        fs_dict[unit_name] = unit_FS
+        for j = 0:num_lags
+            short_name = unit_data[i, :unit_type]
+            unit_name = string(short_name, "_lag-", j)
+            unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
+            fs_dict[unit_name] = unit_FS
+        end
     end
     return fs_dict
 end
