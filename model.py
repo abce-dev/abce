@@ -148,7 +148,8 @@ class GridModel(Model):
         if not self.args.silent:
             print("\nAll agent turns are complete.\n")
         # Reveal new information to all market participants
-        self.reveal_decisions()
+        projects_to_reveal = self.get_projects_to_reveal()
+        self.reveal_decisions(projects_to_reveal)
         if not self.args.silent:
             print("Table of all assets:")
             print(pd.read_sql("SELECT * FROM assets", self.db))
