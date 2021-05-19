@@ -242,7 +242,7 @@ class GenCo(Agent):
         """
 
         wacc = self.debt_fraction * self.debt_cost + (1 - self.debt_fraction) * self.equity_cost
-        cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-unit_life))
+        cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
         return cap_pmt
 
 
