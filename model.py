@@ -43,7 +43,7 @@ class GridModel(Model):
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
 
         # Load unit type specifications and fuel costs
-        self.unit_types, self.unit_specs = self.load_unit_specs(unit_specs_file)
+        self.unit_specs = pd.read_csv(unit_specs_file)
         self.fuel_costs = pd.read_csv(fuel_data_file)
         self.add_units_to_db()
 
@@ -67,15 +67,9 @@ class GridModel(Model):
         self.price_duration_data.to_sql("price_curve", con = self.db, if_exists = "replace")
 
 
-    def load_unit_specs(self, filename):
-        unit_specs = pd.read_csv(open(filename))
-        unit_types = unit_specs.index
-        return unit_types, unit_specs
-
-
     def add_units_to_db(self):
         for i in range(len(self.unit_specs)):
-            # Get unit data from file
+            # Get relevant unit specs from file
             unit_type = self.unit_specs.loc[i, "unit_type"]
             fuel_type = self.unit_specs.loc[i, "fuel_type"]
             capacity = self.unit_specs.loc[i, "capacity"]
@@ -94,7 +88,6 @@ class GridModel(Model):
                             ('{unit_type}', '{fuel_type}', {capacity}, {uc_x},
                              {d_x}, {heat_rate}, {VOM}, {FOM}, {unit_life},
                              {CF}, {fuel_cost})""")
-            #db.commit()
 
 
     def load_demand_data_to_db(self, settings):
@@ -108,6 +101,13 @@ class GridModel(Model):
 
 
     def set_market_subsidy(self, settings):
+        """
+        If a subsidy is enabled, set the model's `subsidy_amount` to the
+        quantity specified by the user in 'settings.yml'.
+
+        Args:
+          settings (dict): model settings from 'settings.yml'
+        """
         self.subsidy_enabled = False
         self.subsidy_amount = 0
 
@@ -135,7 +135,9 @@ class GridModel(Model):
 
 
     def step(self):
-        ''' Advance the model by one step. '''
+        """
+        Advance the model by one step.
+        """
         self.current_step += 1
         if not self.args.silent:
             print("\n\n\n")
@@ -154,10 +156,32 @@ class GridModel(Model):
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
 
+    def get_projects_to_reveal(self):
+        """
+        Set which (if any) unrevealed project construction decisions should
+           be revealed (`revealed = True`).
+        
+        This function is a placeholder, which sets all unrevealed decisions
+           to be revealed at the end of each decision round, after all
+           agents have taken their turns. This behavior may be updated in
+           the future.
 
-
-    def reveal_decisions(self):
+        Returns:
+           projects_to_reveal (pd DataFrame): one-column dataframe of ints,
+             listing asset IDs to reveal
+        """
         projects_to_reveal = pd.read_sql("SELECT asset_id FROM assets WHERE revealed = 'false'", self.db)
+        return projects_to_reveal
+
+    def reveal_decisions(self, projects_to_reveal):
+        """
+        Set the indicated set of assets to have the `revealed = True` status
+        in the database 'assets' table.
+
+        Args:
+           projects_to_reveal (pd DataFrame): one-column dataframe of ints,
+             listing asset IDs to reveal
+        """
         for asset_id in projects_to_reveal["asset_id"]:
             self.cur.execute(f"""UPDATE assets SET revealed = 'true' WHERE asset_id = '{asset_id}'""")
         self.db.commit()
