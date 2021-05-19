@@ -8,11 +8,24 @@ import argparse
 
 
 def read_settings(settings_file):
+    """
+    Read in settings from the settings file.
+    """
     settings = yaml.load(settings_file, Loader=yaml.FullLoader)
     return settings
 
 
 def cli_args():
+    """
+    Set up the command-line argument parser. Then, read and parse whatever
+    arguments are provided via sys.argv into the argument types defined below.
+
+    New command-line options can be specified here.
+
+    Returns:
+       args (argparse object): populated namespace, with argument strings as
+         attributes. Retrieve values with args.<argument_name>.
+    """
     parser = argparse.ArgumentParser(description='Run an ABCE simulation.')
     parser.add_argument("--force", "-f",
                           action="store_true",
@@ -29,6 +42,7 @@ def cli_args():
 
 
 def run_model():
+    
     args = cli_args()
 
     settings = read_settings(args.settings_file)
