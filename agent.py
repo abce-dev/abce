@@ -11,33 +11,29 @@ import os
 import ABCEfunctions as ABCE
 
 class GenCo(Agent):
-    """ A utility company with a certain number of generation assets.
+    """ 
+    A utility company with a certain number of generation assets.
     """
     def __init__(self, genco_id, model, settings, is_silent):
-        """ Initialize a GenCo class object.
+        """
+        Initialize a GenCo class object.
 
-            Detailed Description
-            --------------------
-            Initializes a GenCo object based on the provided parameters. Uses
-            baseline mesa capabilities to set up an Agent-type object.
+        Detailed Description:
+          Initializes a GenCo object based on the provided parameters. Uses
+          baseline mesa capabilities to set up an Agent-type object.
 
-            Sets up the unique identifier number and the link to the invoking
-            GridModel (`model`). During execution, invokes the Julia
-            agent_choice.jl script.
+          Sets up the unique identifier number and the link to the invoking
+          GridModel (`model`). During execution, invokes the Julia
+          agent_choice.jl script.
 
-            Parameters
-            ----------
-            genco_id : int
-                A unique ID number for the agent, assigned sequentially
-                by the Model which owns the agents.
-            model : GridModel (mesa)
-                A mesa GridModel object which creates and passes data to
-                all agents.
-            settings : dictionary
-                A dictionary of runtime/model parameters, loaded and passed
-                in by run.py.
-
-
+        Args:
+           genco_id (int): A unique ID number for the agent, assigned
+             sequentially by the Model which owns the agents.
+           model (mesa GridModel): Container object which creates, updates,
+             and passes data to all agents.
+           settings (dict): Runtime/model parameters, loaded and passed
+             in by run.py.
+           is_silent (bool): Set from CLI; sets verbosity level.
         """
         super().__init__(genco_id, model)
         self.model = model
@@ -89,7 +85,8 @@ class GenCo(Agent):
 
 
     def step(self):
-        """Controller function to activate all agent behaviors at each time step.
+        """
+        Controller function to activate all agent behaviors at each time step.
         """
         # Set the current model step
         self.current_step = self.model.current_step
@@ -114,29 +111,50 @@ class GenCo(Agent):
 
 
     def get_current_asset_list(self):
-        # Get a list of all assets belonging to the current agent where:
-        #  - cancellation_pd is in the future (not currently cancelled)
-        #  - retirement_pd is in the future (not currently retired)
-        all_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND cancellation_pd > {self.current_step} AND retirement_pd > {self.current_step} AND revealed = 'true'", self.model.db)
+        """
+        Get a list of all assets meeting the following conditions:
+          - belongs to the currently-active agent
+          - `cancellation_pd` is in the future (not currently cancelled)
+          - `retirement_pd` is in the future (not currently retired)
+
+        Returns:
+           all_asset_list (list of ints): all asset IDs meeting the above criteria
+        """
+
+        all_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND cancellation_pd > {self.current_step} AND retirement_pd > {self.current_step}", self.model.db)
         all_asset_list = list(all_asset_list["asset_id"])
         return all_asset_list
 
 
     def get_WIP_project_list(self):
-        # Get a list of all assets belonging to the current agent where:
-        #  - cancellation_pd is in the future (not currently cancelled)
-        #  - completion_pd is in the future (not currently completed)
+        """
+        Get a list of all assets meeting the following conditions:
+          - belongs to the currently-active agent
+          - completion_pd is in the future (not yet completed)
+          - cancellation_pd is in the future (not currently cancelled)
+
+        Returns:
+           WIP_project_list (list of ints): all asset IDs meeting the above criteria
+        """
+
         cur = self.model.db.cursor()
-        WIP_project_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND completion_pd >= {self.current_step} AND cancellation_pd > {self.current_step} AND revealed = 'true'", self.model.db)
+        WIP_project_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND completion_pd >= {self.current_step} AND cancellation_pd > {self.current_step}", self.model.db)
         WIP_project_list = list(WIP_project_list["asset_id"])
         return WIP_project_list
 
 
     def get_operating_asset_list(self):
-        # Get a list of all assets belonging to the current agent where:
-        #  - cancellation_pd is in the future (not currently cancelled)
-        #  - completion_pd is in the past (already completed)
-        #  - retirement_pd is in the future (not currently retired)
+        """
+        Get a list of all assets meeting the following conditions:
+          - belongs to the currently-active agent
+          - completion_pd is in the past (already completed)
+          - cancellation_pd is in the future (never cancelled)
+          - retirement_pd is in the future (not currently retired)
+
+        Returns:
+           op_asset_list (list of ints): all asset IDs meeting the above criteria
+        """
+
         cur = self.model.db.cursor()
         op_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND completion_pd <= {self.current_step} AND cancellation_pd > {self.current_step} AND retirement_pd > {self.current_step}", self.model.db)
         op_asset_list = list(op_asset_list["asset_id"])
@@ -190,12 +208,39 @@ class GenCo(Agent):
 
 
     def compute_total_capex(self, asset_id):
+        """
+        Retrieve all previously-recorded capital expenditures for the indicated
+        asset from the database, and sum them to return the total capital
+        expenditure (up to the current period).
+
+        Args:
+           asset_id (int): asset for which to compute capex
+
+        Returns:
+           total_capex (float): total capital expenditures up to the present period
+        """
+
         capex_list = pd.read_sql(f"SELECT anpe FROM WIP_projects WHERE asset_id = {asset_id}", self.model.db)
         total_capex = sum(capex_list["anpe"])
         return total_capex
 
 
-    def compute_sinking_fund_payment(self, total_capex, unit_life):
+    def compute_sinking_fund_payment(self, total_capex, term):
+        """
+        Compute a constant sinking-fund payment based on a total capital
+        expenditures amount and the life of the unit, using the agent's
+        financial parameters.
+
+        Args:
+           total_capex (float): total capital expenditures on the project
+           term (int or float): term over which to amortize capital
+             expenditures
+
+        Returns:
+           cap_pmt (float): equal capital repayments to make over the course of
+             the indicated amortization term
+        """
+
         wacc = self.debt_fraction * self.debt_cost + (1 - self.debt_fraction) * self.equity_cost
         cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-unit_life))
         return cap_pmt
