@@ -13,7 +13,7 @@ import ABCEfunctions as ABCE
 class GenCo(Agent):
     """ A utility company with a certain number of generation assets.
     """
-    def __init__(self, genco_id, model, settings, is_silent):
+    def __init__(self, genco_id, model, settings, quiet):
         """ Initialize a GenCo class object.
 
             Detailed Description
@@ -43,7 +43,7 @@ class GenCo(Agent):
         self.model = model
         self.gc_params_file = settings["gc_params_file"]
         self.portfolios_file = settings["portfolios_file"]
-        self.is_silent = is_silent
+        self.quiet = quiet
         self.assign_parameters(self.gc_params_file)
         self.add_initial_assets_to_db(settings)
 
@@ -105,7 +105,7 @@ class GenCo(Agent):
             self.update_WIP_projects()
 
         # Run the agent behavior choice algorithm
-        if self.is_silent:
+        if self.quiet:
             sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True, stdout=open(os.devnull, "wb"))
         else:
             sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True)

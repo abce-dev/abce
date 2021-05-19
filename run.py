@@ -21,7 +21,7 @@ def cli_args():
                           type=argparse.FileType("r"),
                           help="Simulation settings file name.",
                           default="./settings.yml")
-    parser.add_argument("--silent", "-s",
+    parser.add_argument("--quiet", "-q",
                           action="store_true",
                           help="Suppress all output except the turn and period counters.")
     args = parser.parse_args()
