@@ -22,6 +22,9 @@ enable_subsidy: True
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
 peak_demand: 1700  # MWh, to scale load duration data
+demand_visibility_horizon: 5
 
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
+consider_future_projects: True
+num_future_periods_considered: 5    # Number of periods for which to consider future projects
