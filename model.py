@@ -55,7 +55,7 @@ class GridModel(Model):
 
         # Create agents
         for i in range(self.first_agent_id, self.first_agent_id + self.num_agents):
-            gc = GenCo(i, self, settings, self.args.silent)
+            gc = GenCo(i, self, settings, self.args.quiet)
             self.schedule.add(gc)
 
         # Check whether a market price subsidy is in effect, and its value
@@ -139,18 +139,18 @@ class GridModel(Model):
         Advance the model by one step.
         """
         self.current_step += 1
-        if not self.args.silent:
+        if not self.args.quiet:
             print("\n\n\n")
         print("\n==========================================================================")
         print(f"Model step: {self.current_step}")
         print("==========================================================================")
         self.schedule.step()
-        if not self.args.silent:
+        if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
         # Reveal new information to all market participants
         projects_to_reveal = self.get_projects_to_reveal()
         self.reveal_decisions(projects_to_reveal)
-        if not self.args.silent:
+        if not self.args.quiet:
             print("Table of all assets:")
             print(pd.read_sql("SELECT * FROM assets", self.db))
             print("Table of construction project updates:")

@@ -14,7 +14,8 @@ class GenCo(Agent):
     """ 
     A utility company with a certain number of generation assets.
     """
-    def __init__(self, genco_id, model, settings, is_silent):
+
+    def __init__(self, genco_id, model, settings, quiet):
         """
         Initialize a GenCo class object.
 
@@ -33,13 +34,14 @@ class GenCo(Agent):
              and passes data to all agents.
            settings (dict): Runtime/model parameters, loaded and passed
              in by run.py.
-           is_silent (bool): Set from CLI; sets verbosity level.
+           quiet (bool): Set from CLI; sets verbosity level.
         """
+
         super().__init__(genco_id, model)
         self.model = model
         self.gc_params_file = settings["gc_params_file"]
         self.portfolios_file = settings["portfolios_file"]
-        self.is_silent = is_silent
+        self.quiet = quiet
         self.assign_parameters(self.gc_params_file)
         self.add_initial_assets_to_db(settings)
 
@@ -74,10 +76,10 @@ class GenCo(Agent):
                 completion_pd = 0
                 cancellation_pd = 9999
                 retirement_pd = initial_assets.loc[i, "useful_life"]
+                total_capex = self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "capacity"].values[0] * self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "uc_x"].values[0] * 1000
+                capital_payment = self.compute_sinking_fund_payment(total_capex, self.model.unit_specs.loc[i, "unit_life"])
                 for j in range(initial_assets.loc[i, "num_copies"]):
                     asset_id = ABCE.get_next_asset_id(self.db, settings["first_asset_id"])
-                    total_capex = self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "capacity"].values[0] * self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "uc_x"].values[0] * 1000
-                    capital_payment = self.compute_sinking_fund_payment(total_capex, self.model.unit_specs.loc[i, "unit_life"])
                     self.cur.execute(f"""INSERT INTO assets VALUES
                                        ({asset_id}, {agent_id}, '{unit_type}', '{revealed}',
                                         {completion_pd}, {cancellation_pd},
@@ -102,7 +104,7 @@ class GenCo(Agent):
             self.update_WIP_projects()
 
         # Run the agent behavior choice algorithm
-        if self.is_silent:
+        if self.quiet:
             sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True, stdout=open(os.devnull, "wb"))
         else:
             sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True)
