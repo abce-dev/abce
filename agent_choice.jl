@@ -23,8 +23,13 @@ price_curve_data_file = settings["price_curve_data_file"]
 db_file = settings["db_file"]
 # Constants
 hours_per_year = settings["hours_per_year"]
-num_lags = settings["num_future_periods_considered"]
 demand_vis_horizon = settings["demand_visibility_horizon"]
+consider_future_projects = settings["consider_future_projects"]
+if consider_future_projects
+    num_lags = settings["num_future_periods_considered"]
+else
+    num_lags = 0
+end
 
 # Load the inputs
 db = load_db(db_file)
