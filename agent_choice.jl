@@ -24,6 +24,8 @@ db_file = settings["db_file"]
 # Constants
 hours_per_year = settings["hours_per_year"]
 demand_vis_horizon = settings["demand_visibility_horizon"]
+hist_demand_growth = settings["historical_demand_growth_rate"]
+hist_demand_weight = settings["historical_demand_weight"]
 consider_future_projects = settings["consider_future_projects"]
 if consider_future_projects
     num_lags = settings["num_future_periods_considered"]
