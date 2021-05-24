@@ -84,13 +84,15 @@ class GenCo(Agent):
                 capital_payment = self.compute_sinking_fund_payment(
                                            total_capex,
                                            self.model.unit_specs.loc[i, "unit_life"])
+                print(total_capex, capital_payment)
                 for j in range(initial_assets.loc[i, "num_copies"]):
                     asset_id = ABCE.get_next_asset_id(self.db, settings["first_asset_id"])
-                    self.cur.execute(f"""INSERT INTO assets VALUES
-                                       ({asset_id}, {agent_id}, '{unit_type}',
-                                        '{revealed}', {completion_pd},
-                                        {cancellation_pd}, {retirement_pd},
-                                        {total_capex}, {capital_payment})""")
+                    print(asset_id)
+                    self.cur.execute(f"INSERT INTO assets VALUES " +
+                                     f"({asset_id}, {agent_id}, '{unit_type}', " +
+                                     f"'{revealed}', {completion_pd}, " +
+                                     f"{cancellation_pd}, {retirement_pd}, " +
+                                     f"{total_capex}, {capital_payment})")
 
 
     def step(self):
