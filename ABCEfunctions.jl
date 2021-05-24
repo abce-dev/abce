@@ -2,7 +2,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, load_demand_data, set_forecast_period, extrapolate_demand, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, load_demand_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
 
 #####
 # Setup functions
@@ -76,12 +76,59 @@ function set_forecast_period(df, num_lags)
 end
 
 
-function extrapolate_demand(available_demand, fc_pd)
+function extrapolate_demand(available_demand, fc_pd, mode="flat")
+    if mode == "flat"
+        demand = project_demand_flat(available_demand, fc_pd)
+    elseif mode == "exponential"
+        demand = project_demand_exponential(available_demand, fc_pd)
+    else
+        println(string("The specified demand extrapolation mode, ", mode, ", is not implemented."))
+        println("Please use 'flat' or 'exponential' at this time.")
+        println("Terminating...")
+        exit()
+    end
+
+    return demand
+end
+
+
+function project_demand_flat(available_demand, fc_pd)
     demand = DataFrame(demand = zeros(Float64, convert(Int64, fc_pd)))
     demand[1:size(available_demand)[1], :demand] .= available_demand[!, :demand]
     demand[(size(available_demand)[1] + 1):fc_pd, :demand] .= demand[size(available_demand)[1], :demand] 
     return demand
 end
+
+
+function project_demand_exponential(available_demand, fc_pd)
+    # Create suitable arrays for x (including intercept) and y
+    num_obs = size(available_demand)[1]
+    x = hcat(ones(num_obs), [i for i=0:num_obs-1])
+    y = available_demand[!, :demand]
+
+    # Take the log of y to make the x-y relationship linear
+    y_log = log.(y)
+
+    # Compute the estimated regression coefficient between x and log(y)
+    beta = inv(transpose(x) * x) * transpose(x) * y_log
+
+    # Compute the estimated residual (for display purposes only)
+    error_est = transpose(transpose(beta) * transpose(x)) - y_log
+
+    # Project future demand
+    proj_horiz = fc_pd - num_obs
+    x_proj = hcat(ones(proj_horiz), [i for i=num_obs:fc_pd-1])
+    y_proj = exp.(x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2])
+
+    all_proj = DataFrame(intercept = x_proj[:, 1], x_val = x_proj[:, 2], y_val = y_proj)
+    println(all_proj)
+
+    # Concatenate input and projected demand data into a single DataFrame
+    demand = DataFrame(demand = vcat(available_demand[!, :demand], y_proj))
+
+    return demand
+end
+
 
 
 function allocate_fuel_costs(unit_data, fuel_costs)
@@ -138,14 +185,14 @@ function get_WIP_projects_list(db, pd, agent_id)
 end
 
 
-function get_demand_forecast(db, pd, demand_vis_horizon, agent_id, fc_pd)
+function get_demand_forecast(db, pd, demand_vis_horizon, agent_id, fc_pd, mode="linear")
     # Get a list of forecasted future demand amounts
     # Forecast no increase after the end of the future visibility window
     # Hardcoded visibility window of 5
     vals = (pd, pd + demand_vis_horizon)
     demand_forecast = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
     println(demand_forecast)
-    demand_forecast = extrapolate_demand(demand_forecast, fc_pd)
+    demand_forecast = extrapolate_demand(demand_forecast, fc_pd, mode)
     return demand_forecast
 end
 
