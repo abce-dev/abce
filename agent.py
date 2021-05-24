@@ -60,9 +60,10 @@ class GenCo(Agent):
         # Save parameters to DB table `agent_params`
         self.db = self.model.db
         self.cur = self.db.cursor()
-        self.cur.execute(f"""INSERT INTO agent_params VALUES ({self.unique_id}, 
-                        {self.discount_rate}, {self.tax_rate}, {self.term_growth_rate},
-                        {self.debt_fraction}, {self.debt_cost}, {self.equity_cost},
+        self.cur.execute(f"""INSERT INTO agent_params VALUES ({self.unique_id},
+                        {self.discount_rate}, {self.tax_rate},
+                        {self.term_growth_rate}, {self.debt_fraction},
+                        {self.debt_cost}, {self.equity_cost},
                         {self.interest_cap})""")
 
 
@@ -76,14 +77,20 @@ class GenCo(Agent):
                 completion_pd = 0
                 cancellation_pd = 9999
                 retirement_pd = initial_assets.loc[i, "useful_life"]
-                total_capex = self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "capacity"].values[0] * self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "uc_x"].values[0] * 1000
-                capital_payment = self.compute_sinking_fund_payment(total_capex, self.model.unit_specs.loc[i, "unit_life"])
+                unit_type_mask = self.model.unit_specs["unit_type"] == unit_type
+                total_capex = (self.model.unit_specs.loc[unit_type_mask, "capacity"].values[0]
+                               * self.model.unit_specs.loc[unit_type_mask, "uc_x"].values[0]
+                               * 1000)
+                capital_payment = self.compute_sinking_fund_payment(
+                                           total_capex,
+                                           self.model.unit_specs.loc[i, "unit_life"])
                 for j in range(initial_assets.loc[i, "num_copies"]):
                     asset_id = ABCE.get_next_asset_id(self.db, settings["first_asset_id"])
-                    self.cur.execute(f"""INSERT INTO assets VALUES
-                                       ({asset_id}, {agent_id}, '{unit_type}', '{revealed}',
-                                        {completion_pd}, {cancellation_pd},
-                                        {retirement_pd}, {total_capex}, {capital_payment})""")
+                    self.cur.execute(f"INSERT INTO assets VALUES " +
+                                     f"({asset_id}, {agent_id}, '{unit_type}', " +
+                                     f"'{revealed}', {completion_pd}, " +
+                                     f"{cancellation_pd}, {retirement_pd}, " +
+                                     f"{total_capex}, {capital_payment})")
 
 
     def step(self):
@@ -104,10 +111,14 @@ class GenCo(Agent):
             self.update_WIP_projects()
 
         # Run the agent behavior choice algorithm
+        julia_cmd = ("julia -JabceSysimage.so agent_choice.jl ./settings.yml " +
+                     f"{self.current_step} {self.unique_id}")
         if self.quiet:
-            sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True, stdout=open(os.devnull, "wb"))
+            sp = subprocess.check_call([julia_cmd],
+                                       shell = True,
+                                       stdout=open(os.devnull, "wb"))
         else:
-            sp = subprocess.check_call([f"julia -JabceSysimage.so agent_choice.jl ./settings.yml {self.current_step} {self.unique_id}"], shell = True)
+            sp = subprocess.check_call([julia_cmd], shell = True)
 
         print(f"Agent #{self.unique_id}'s turn is complete.\n")
 
@@ -123,7 +134,11 @@ class GenCo(Agent):
            all_asset_list (list of ints): all asset IDs meeting the above criteria
         """
 
-        all_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND cancellation_pd > {self.current_step} AND retirement_pd > {self.current_step}", self.model.db)
+        all_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
+                                     f"agent_id = {self.unique_id} AND " +
+                                     f"cancellation_pd > {self.current_step} " +
+                                     f"AND retirement_pd > {self.current_step}",
+                                      self.model.db)
         all_asset_list = list(all_asset_list["asset_id"])
         return all_asset_list
 
@@ -136,11 +151,16 @@ class GenCo(Agent):
           - cancellation_pd is in the future (not currently cancelled)
 
         Returns:
-           WIP_project_list (list of ints): all asset IDs meeting the above criteria
+           WIP_project_list (list of ints): all asset IDs meeting the
+             above criteria
         """
 
         cur = self.model.db.cursor()
-        WIP_project_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND completion_pd >= {self.current_step} AND cancellation_pd > {self.current_step}", self.model.db)
+        WIP_project_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
+                                       f"agent_id = {self.unique_id} AND " +
+                                       f"completion_pd >= {self.current_step} " +
+                                       f"AND cancellation_pd > {self.current_step}",
+                                       self.model.db)
         WIP_project_list = list(WIP_project_list["asset_id"])
         return WIP_project_list
 
@@ -158,7 +178,12 @@ class GenCo(Agent):
         """
 
         cur = self.model.db.cursor()
-        op_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE agent_id = {self.unique_id} AND completion_pd <= {self.current_step} AND cancellation_pd > {self.current_step} AND retirement_pd > {self.current_step}", self.model.db)
+        op_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
+                                    f"agent_id = {self.unique_id} AND " +
+                                    f"completion_pd <= {self.current_step} " +
+                                    f"AND cancellation_pd > {self.current_step} "
+                                    f"AND retirement_pd > {self.current_step}",
+                                    self.model.db)
         op_asset_list = list(op_asset_list["asset_id"])
         return op_asset_list
 
@@ -170,7 +195,10 @@ class GenCo(Agent):
             # If there are active construction projects under way:
             for asset_id in self.WIP_projects:
                 # Select the current project's most recent data record
-                WIP_project = pd.read_sql(f"SELECT * FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_step - 1}", self.model.db)
+                WIP_project = pd.read_sql(f"SELECT * FROM WIP_projects WHERE " +
+                                          f"asset_id = {asset_id} AND " +
+                                          f"period = {self.current_step - 1}",
+                                          self.model.db)
 
                 # TODO: implement stochastic RCEC and RTEC escalation
                 # Currently: no escalation
@@ -179,17 +207,25 @@ class GenCo(Agent):
                     # This period's authorized expenditures close out the
                     #    remainder of the project. Update the `assets` table to
                     #    reflect completion status.
-                    cur.execute(f"UPDATE assets SET completion_pd = {self.current_step} WHERE asset_id = {asset_id}")
+                    cur.execute(f"UPDATE assets SET completion_pd = {self.current_step} " +
+                                f"WHERE asset_id = {asset_id}")
 
                     # Compute amount of CapEx from the project (in as-spent, inflation-unadjusted $)
                     total_capex = self.compute_total_capex(asset_id)
-                    cur.execute(f"UPDATE assets SET total_capex = {total_capex} WHERE asset_id = {asset_id}")
+                    cur.execute(f"UPDATE assets SET total_capex = {total_capex} " +
+                                f"WHERE asset_id = {asset_id}")
 
                     # Compute periodic sinking fund payments
-                    unit_type = pd.read_sql(f"SELECT unit_type FROM assets WHERE asset_id = {asset_id}", self.model.db).loc[0, "unit_type"]
-                    unit_life = self.model.unit_specs.loc[self.model.unit_specs["unit_type"] == unit_type, "unit_life"].values[0]
+                    unit_type = (pd.read_sql(f"SELECT unit_type FROM assets " +
+                                             f"WHERE asset_id = {asset_id}",
+                                             self.model.db).loc[0, "unit_type"])
+                    unit_type_mask = self.model.unit_specs["unit_type"] == unit_type
+                    unit_life = (self.model.unit_specs
+                                 .loc[unit_type_mask, "unit_life"]
+                                 .values[0])
                     capex_payment = self.compute_sinking_fund_payment(total_capex, unit_life)
-                    cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} WHERE asset_id = {asset_id}")
+                    cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} " +
+                                f"WHERE asset_id = {asset_id}")
                     db.commit()
 
                 # Set values to update the WIP_project dataframe with new completion data
@@ -199,7 +235,9 @@ class GenCo(Agent):
                 anpe = 0    # Reset to 0 to avoid inter-period contamination
 
                 # Update the `WIP_projects` database table
-                cur.execute(f"INSERT INTO WIP_projects VALUES ({asset_id}, {self.unique_id}, {period}, {rcec}, {rtec}, {anpe})")
+                cur.execute(f"INSERT INTO WIP_projects VALUES " +
+                            f"({asset_id}, {self.unique_id}, {period}, " +
+                            f"{rcec}, {rtec}, {anpe})")
 
         else:
             # If there are no construction projects in progress:
@@ -222,7 +260,8 @@ class GenCo(Agent):
            total_capex (float): total capital expenditures up to the present period
         """
 
-        capex_list = pd.read_sql(f"SELECT anpe FROM WIP_projects WHERE asset_id = {asset_id}", self.model.db)
+        capex_list = pd.read_sql(f"SELECT anpe FROM WIP_projects WHERE " +
+                                 f"asset_id = {asset_id}", self.model.db)
         total_capex = sum(capex_list["anpe"])
         return total_capex
 
@@ -243,7 +282,8 @@ class GenCo(Agent):
              the indicated amortization term
         """
 
-        wacc = self.debt_fraction * self.debt_cost + (1 - self.debt_fraction) * self.equity_cost
+        wacc = (self.debt_fraction * self.debt_cost
+                + (1 - self.debt_fraction) * self.equity_cost)
         cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
         return cap_pmt
 

@@ -64,7 +64,9 @@ class GridModel(Model):
         self.create_price_duration_curve(settings)
 
         # Save price duration data to the database
-        self.price_duration_data.to_sql("price_curve", con = self.db, if_exists = "replace")
+        self.price_duration_data.to_sql("price_curve",
+                                        con = self.db,
+                                        if_exists = "replace")
 
 
     def add_units_to_db(self):
@@ -81,7 +83,10 @@ class GridModel(Model):
             unit_life = self.unit_specs.loc[i, "unit_life"]
             CF = self.unit_specs.loc[i, "CF"]
             # Incorporate unit fuel cost data from the fuel costs file
-            fuel_cost = self.fuel_costs[self.fuel_costs.fuel_type == fuel_type].reset_index().loc[0, "cost_per_mmbtu"]
+            fuel_type_mask = self.fuel_costs.fuel_type == fuel_type
+            fuel_cost = (self.fuel_costs[fuel_type_mask]
+                         .reset_index()
+                         .loc[0, "cost_per_mmbtu"])
 
             # Insert the values into the unit_specs DB table
             self.cur.execute(f"""INSERT INTO unit_specs VALUES
@@ -119,16 +124,26 @@ class GridModel(Model):
     def create_price_duration_curve(self, settings):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
-            self.price_duration_data = pc.load_time_series_data(settings["price_curve_data_file"], file_type="price", subsidy=self.subsidy_amount, output_type = "dataframe")
+            self.price_duration_data = pc.load_time_series_data(
+                                             settings["price_curve_data_file"],
+                                             file_type="price",
+                                             subsidy=self.subsidy_amount,
+                                             output_type = "dataframe")
         else:
             # Create the systemwide merit order curve
             self.merit_curve = pc.create_merit_curve(self.db, self.current_step)
             pc.plot_curve(self.merit_curve, plot_name="merit_curve.png")
             # Load five-minute demand data from file
-            self.demand_data = pc.load_time_series_data(settings["time_series_data_file"], file_type="load", peak_demand=settings["peak_demand"])
+            self.demand_data = pc.load_time_series_data(
+                                     settings["time_series_data_file"],
+                                     file_type="load",
+                                     peak_demand=settings["peak_demand"])
             pc.plot_curve(self.demand_data, plot_name="demand_curve.png")
             # Create the final price duration curve
-            self.price_duration_data = pc.compute_price_duration_curve(self.demand_data, self.merit_curve, settings["price_cap"])
+            self.price_duration_data = pc.compute_price_duration_curve(
+                                              self.demand_data,
+                                              self.merit_curve,
+                                              settings["price_cap"])
             self.price_duration_data = pd.DataFrame({"lamda": self.price_duration_data})
             # Save a plot of the price duration curve
             pc.plot_curve(self.price_duration_data, plot_name="price_duration.png")
@@ -141,7 +156,7 @@ class GridModel(Model):
         self.current_step += 1
         if not self.args.quiet:
             print("\n\n\n")
-        print("\n==========================================================================")
+        print("\n=========================================================================")
         print(f"Model step: {self.current_step}")
         print("==========================================================================")
         self.schedule.step()
@@ -171,7 +186,8 @@ class GridModel(Model):
            projects_to_reveal (pd DataFrame): one-column dataframe of ints,
              listing asset IDs to reveal
         """
-        projects_to_reveal = pd.read_sql("SELECT asset_id FROM assets WHERE revealed = 'false'", self.db)
+        projects_to_reveal = pd.read_sql("SELECT asset_id FROM assets WHERE " +
+                                         "revealed = 'false'", self.db)
         return projects_to_reveal
 
     def reveal_decisions(self, projects_to_reveal):
@@ -184,6 +200,7 @@ class GridModel(Model):
              listing asset IDs to reveal
         """
         for asset_id in projects_to_reveal["asset_id"]:
-            self.cur.execute(f"""UPDATE assets SET revealed = 'true' WHERE asset_id = '{asset_id}'""")
+            self.cur.execute(f"UPDATE assets SET revealed = 'true' WHERE " +
+                             f"asset_id = '{asset_id}'")
         self.db.commit()
 
