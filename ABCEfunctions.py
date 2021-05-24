@@ -10,7 +10,7 @@ def get_next_asset_id(db, first_asset_id):
     else:
         next_id = max_id + 1
 
-    return max_id
+    return next_id
 
 
 
