@@ -51,7 +51,8 @@ def run_model():
     for i in range(settings["num_steps"]):
         abce_model.step()
 
-    db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table';", abce_model.db)
+    db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE " +
+                                  "type='table';", abce_model.db)
     with pd.ExcelWriter(settings["output_file"]) as writer:
         for i in range(len(db_tables)):
             table = db_tables.loc[i, "name"]
