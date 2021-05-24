@@ -27,7 +27,8 @@ def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0, o
         ts_df = organize_price_data(file_name, ts_df, subsidy, output_type)
     elif file_type == "load":
         if peak_demand == 0:
-            print(f"Using default peak demand value of {peak_demand}; a value must be specified if this is incorrect.")
+            print(f"Using default peak demand value of {peak_demand}; " +
+                   "a value must be specified if this is incorrect.")
         ts_df = organize_load_data(ts_df, peak_demand, output_type)
     return ts_df
 
@@ -35,13 +36,16 @@ def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0, o
 def organize_price_data(file_name, price_df, subsidy, output_type):
     if "output" in file_name or "DISPATCH" in file_name:
         # ALEAF output file
-        lamda = price_df.filter(["LMP"], axis=1).iloc[::7].reset_index().drop(labels=["index"], axis=1)
+        lamda = (price_df.filter(["LMP"], axis=1).iloc[::7]
+                 .reset_index().drop(labels=["index"], axis=1))
         lamda = lamda.rename(columns={"LMP": "lamda"})
     else:
         # Assume it's an ERCOT file
-        lamda = price_df.filter(["Total electricity price"], axis=1).rename(columns={"Total electricity price": "lamda"})
+        lamda = (price_df.filter(["Total electricity price"], axis=1)
+                 .rename(columns={"Total electricity price": "lamda"}))
         lamda = lamda.reset_index().drop(labels=["index"], axis=1)
-    lamda = lamda.sort_values(by = ["lamda"], ascending = False).reset_index().drop(labels=["index"], axis=1)
+    lamda = (lamda.sort_values(by = ["lamda"], ascending = False)
+             .reset_index().drop(labels=["index"], axis=1))
     lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x + subsidy))
     if output_type == "np.array":
         lamda = lamda.to_numpy().transpose()[0]
@@ -49,8 +53,10 @@ def organize_price_data(file_name, price_df, subsidy, output_type):
 
 
 def organize_load_data(load_df, peak_demand, output_type):
-    load_duration = load_df.filter(["LoadShape"], axis=1).rename(columns={"LoadShape": "load"})
-    load_duration = load_duration.sort_values(by = ["load"], ascending = False).reset_index().drop(labels=["index"], axis=1)
+    load_duration = (load_df.filter(["LoadShape"], axis=1)
+                     .rename(columns={"LoadShape": "load"}))
+    load_duration = (load_duration.sort_values(by=["load"], ascending=False)
+                     .reset_index().drop(labels=["index"], axis=1))
     load_duration = load_duration * peak_demand
     if output_type == "np.array":
         load_duration = load_duration.to_numpy().transpose()[0]
@@ -58,9 +64,19 @@ def organize_load_data(load_df, peak_demand, output_type):
 
 
 def create_merit_curve(db, current_pd):
-    system_portfolio = pd.read_sql_query("SELECT assets.asset_id, assets.unit_type, capacity, VOM, FC_per_MMBTU, heat_rate FROM assets INNER JOIN unit_specs ON assets.unit_type = unit_specs.unit_type WHERE retirement_pd > 0 AND completion_pd <= 0", db)
-    system_portfolio["MC"] = system_portfolio.apply(lambda df: df["heat_rate"] * df["FC_per_MMBTU"]/1000 + df["VOM"], axis=1)
-    system_portfolio = system_portfolio.sort_values(by = ["MC"], ascending = True).reset_index().drop(labels=["index"], axis=1)
+    system_portfolio = pd.read_sql_query(
+                         "SELECT assets.asset_id, assets.unit_type, " +
+                         "capacity, VOM, FC_per_MMBTU, heat_rate FROM assets" +
+                         "INNER JOIN unit_specs ON assets.unit_type " +
+                         "= unit_specs.unit_type WHERE retirement_pd > 0 " +
+                         "AND completion_pd <= 0", db)
+    system_portfolio["MC"] = (system_portfolio.apply(
+                                lambda df:
+                                  df["heat_rate"] * df["FC_per_MMBTU"]/1000
+                                  + df["VOM"],
+                                axis=1))
+    system_portfolio = (system_portfolio.sort_values(by=["MC"], ascending=True)
+                        .reset_index().drop(labels=["index"], axis=1))
 
     y = np.zeros(int(sum(system_portfolio["capacity"])))
 
@@ -78,7 +94,8 @@ def compute_price_duration_curve(demand, merit_curve, price_cap):
     print("Computing PDC")
     for i in range(len(demand)):
         if int(np.around(demand[i])) >= len(merit_curve):
-            # Demand exceeds all available capacity; set price to administrative maximum
+            # Demand exceeds all available capacity
+            # Set price to administrative maximum
             prices[i] = price_cap
         else:
             prices[i] = merit_curve[int(np.around(demand[i], 0))]
@@ -96,8 +113,11 @@ def plot_curve(data, plot_name="price_curve.png"):
 
 
 def compute_unit_revenue(price_duration_data, unit_VOM, unit_capacity, unit_CF, hours_per_year):
-    active_period_prices = price_duration_data[price_duration_data["lamda"] > unit_VOM]["lamda"]
-    total_revenue = sum(active_period_prices) * unit_capacity * unit_CF * hours_per_year / len(price_duration_data)
+    price_mask = price_duration_data["lambda"] > unit_VOM
+    active_period_prices = price_duration_data[price_mask]["lamda"]
+    total_revenue = (sum(active_period_prices) * unit_capacity
+                     * unit_CF * hours_per_year
+                     / len(price_duration_data))
     return active_period_prices, total_revenue
 
 
