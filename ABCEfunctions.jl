@@ -76,77 +76,6 @@ function set_forecast_period(df, num_lags)
 end
 
 
-function extrapolate_demand(available_demand, fc_pd, settings)
-    mode = settings["demand_projection_mode"]
-    if mode == "flat"
-        demand = project_demand_flat(available_demand, fc_pd)
-    elseif mode == "exp_termrate"
-        term_demand_gr = settings["terminal_demand_growth_rate"]
-        demand = project_demand_exp_termrate(available_demand, fc_pd, term_demand_gr)
-    elseif mode == "exp_fitted"
-        dem_proj_window = settings["demand_projection_window"]
-        demand = project_demand_exp_fitted(available_demand, fc_pd, dem_proj_window)
-    else
-        println(string("The specified demand extrapolation mode, ", mode, ", is not implemented."))
-        println("Please use 'flat', 'exp_termrate', or 'exp_fitted' at this time.")
-        println("Terminating...")
-        exit()
-    end
-
-    return demand
-end
-
-
-function project_demand_flat(available_demand, fc_pd)
-    demand = DataFrame(demand = zeros(Float64, convert(Int64, fc_pd)))
-    demand[1:size(available_demand)[1], :demand] .= available_demand[!, :demand]
-    demand[(size(available_demand)[1] + 1):fc_pd, :demand] .= demand[size(available_demand)[1], :demand] 
-    return demand
-end
-
-
-function project_demand_exp_termrate(available_demand, fc_pd, term_demand_gr)
-    future_demand = ones(fc_pd - size(available_demand)[1])
-    for i = 1:size(future_demand)[1]
-        future_demand[i] = last(available_demand)[1] * (1 + term_demand_gr) ^ i
-    end
-    println(future_demand)
-    demand = DataFrame(demand = vcat(available_demand[!, :demand], future_demand))
-    return demand
-end
-
-function project_demand_exp_fitted(available_demand, fc_pd, dem_proj_window)
-    # Create suitable arrays for x (including intercept) and y
-    num_obs = size(available_demand)[1]
-    x = hcat(ones(num_obs), [i for i=0:num_obs-1])
-    current_obs = min(num_obs, dem_proj_window)
-    y = available_demand[(num_obs-current_obs+1):num_obs, :demand]
-
-    # Take the log of y to make the x-y relationship linear
-    y_log = log.(y)
-
-    # Compute the estimated regression coefficient between x and log(y)
-    beta = inv(transpose(x) * x) * transpose(x) * y_log
-
-    # Compute the estimated residual (for display purposes only)
-    error_est = transpose(transpose(beta) * transpose(x)) - y_log
-
-    # Project future demand
-    proj_horiz = fc_pd - num_obs
-    x_proj = hcat(ones(proj_horiz), [i for i=num_obs:fc_pd-1])
-    y_proj = exp.(x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2])
-
-    all_proj = DataFrame(intercept = x_proj[:, 1], x_val = x_proj[:, 2], y_val = y_proj)
-    println(all_proj)
-
-    # Concatenate input and projected demand data into a single DataFrame
-    demand = DataFrame(demand = vcat(available_demand[!, :demand], y_proj))
-
-    return demand
-end
-
-
-
 function allocate_fuel_costs(unit_data, fuel_costs)
     num_units = size(unit_data)[1]
     unit_data[!, :uc_fuel] = zeros(num_units)
@@ -201,15 +130,99 @@ function get_WIP_projects_list(db, pd, agent_id)
 end
 
 
+function extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
+    mode = settings["demand_projection_mode"]
+    if mode == "flat"
+        demand = project_demand_flat(visible_demand, fc_pd)
+    elseif mode == "exp_termrate"
+        term_demand_gr = settings["terminal_demand_growth_rate"]
+        demand = project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
+    elseif mode == "exp_fitted"
+        demand = project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
+    else
+        println(string("The specified demand extrapolation mode, ", mode, ", is not implemented."))
+        println("Please use 'flat', 'exp_termrate', or 'exp_fitted' at this time.")
+        println("Terminating...")
+        exit()
+    end
+
+    return demand
+end
+
+
+function project_demand_flat(visible_demand, fc_pd)
+    demand = DataFrame(demand = zeros(Float64, convert(Int64, fc_pd)))
+    demand[1:size(visible_demand)[1], :demand] .= visible_demand[!, :demand]
+    demand[(size(visible_demand)[1] + 1):fc_pd, :demand] .= demand[size(visible_demand)[1], :demand] 
+    return demand
+end
+
+
+function project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
+    future_demand = ones(fc_pd - size(visible_demand)[1])
+    for i = 1:size(future_demand)[1]
+        future_demand[i] = last(visible_demand)[1] * (1 + term_demand_gr) ^ i
+    end
+    demand = DataFrame(demand = vcat(visible_demand[!, :demand], future_demand))
+    return demand
+end
+
+
+function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
+    # Retrieve historical data, if available
+    demand_projection_window = settings["demand_projection_window"]
+    demand_history_start = max(0, pd - settings["demand_visibility_horizon"])
+    start_and_end = (demand_history_start, pd)
+    demand_history = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ? ORDER BY period ASC", start_and_end) |> DataFrame
+    #println(demand_history)
+
+    # Create suitable arrays for x (including intercept) and y
+    num_obs = size(visible_demand)[1] + size(demand_history)[1]
+    x = hcat(ones(num_obs), [i for i=0:num_obs-1])
+    if size(demand_history)[1] == 0
+        y = visible_demand[:, :demand]
+    else
+        y = vcat(demand_history[:, "demand"], visible_demand[:, :demand])
+    end
+    #println(y)
+
+    # Take the log of y to make the x-y relationship linear
+    y_log = log.(y)
+
+    # Compute the estimated regression coefficient between x and log(y)
+    beta = inv(transpose(x) * x) * transpose(x) * y_log
+
+    # Compute the estimated residual (for display purposes only)
+    error_est = transpose(transpose(beta) * transpose(x)) - y_log
+
+    # If there isn't enough demand history to fulfill the desired projection
+    #   window, take a weighted average of the computed beta with the known
+    #   historical beta
+    beta[2] = (beta[2] * size(y)[1] + settings["historical_demand_growth_rate"] * (demand_projection_window - size(y)[1])) / demand_projection_window
+
+    # Project future demand
+    proj_horiz = fc_pd - size(visible_demand)[1]
+    x_proj = hcat(ones(proj_horiz), [i for i=size(visible_demand)[1]+size(demand_history)[1]+1:fc_pd+size(demand_history)[1]])
+    y_log_proj = x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2]
+    y_proj = exp.(x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2])
+
+    all_proj = DataFrame(intercept = x_proj[:, 1], x_val = x_proj[:, 2], y_log_proj = y_log_proj, y_val = y_proj)
+    #println(all_proj)
+
+    # Concatenate input and projected demand data into a single DataFrame
+    demand = DataFrame(demand = vcat(visible_demand[!, :demand], y_proj))
+
+    return demand
+end
+
+
 function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
-    # Get a list of forecasted future demand amounts
-    # Forecast no increase after the end of the future visibility window
-    # Hardcoded visibility window of 5
+    # Retrieve 
     demand_vis_horizon = settings["demand_visibility_horizon"]
     vals = (pd, pd + demand_vis_horizon)
-    demand_forecast = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
-    println(demand_forecast)
-    demand_forecast = extrapolate_demand(demand_forecast, fc_pd, settings)
+    visible_demand = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
+    demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
+    println(demand_forecast[1:15, :demand])
     return demand_forecast
 end
 
