@@ -24,6 +24,7 @@ db_file = settings["db_file"]
 # Constants
 hours_per_year = settings["hours_per_year"]
 demand_vis_horizon = settings["demand_visibility_horizon"]
+hist_demand_growth = settings["historical_demand_growth_rate"]
 consider_future_projects = settings["consider_future_projects"]
 if consider_future_projects
     num_lags = settings["num_future_periods_considered"]
@@ -57,7 +58,7 @@ num_alternatives = num_types * (num_lags + 1)
 fc_pd = set_forecast_period(unit_data, num_lags)
 
 # Load the demand data
-available_demand = get_demand_forecast(db, pd, demand_vis_horizon, agent_id, fc_pd)
+available_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 available_demand = get_net_demand(db, pd, agent_id, fc_pd, available_demand)
