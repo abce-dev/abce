@@ -22,10 +22,12 @@ enable_subsidy: True
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
 
-peak_demand: 1700  # MWh, to scale load duration data
+peak_demand: 1600  # MWh, to scale load duration data
 demand_visibility_horizon: 5
-historical_demand_growth_rate: 0.01  # Exponential growth rate of demand
-historical_demand_weight: 5   # Historical rate is weighted worth five years' of new data
+demand_projection_mode: exp_fitted
+demand_projection_window: 10 # Total number of periods used to project demand
+historical_demand_growth_rate: 0.01
+terminal_demand_growth_rate: 0.01  # Exponential growth rate of demand
 
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
