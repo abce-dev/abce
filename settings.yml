@@ -24,7 +24,7 @@ price_cap: 9001
 
 peak_demand: 1600  # MWh, to scale load duration data
 demand_visibility_horizon: 5
-demand_projection_mode: exp_fitted
+demand_projection_mode: exp_termrate     # flat, exp_fitted, or exp_termrate
 demand_projection_window: 10 # Total number of periods used to project demand
 historical_demand_growth_rate: 0.01
 terminal_demand_growth_rate: 0.01  # Exponential growth rate of demand
