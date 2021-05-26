@@ -228,8 +228,8 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
     vals = (pd, pd)
     # Select a list of all current assets, which are not cancelled, retired, or hidden from public view
     current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ? AND revealed = 'true'", vals) |> DataFrame
-    println("Current assets:")
-    println(current_assets)
+    #println("Current assets:")
+    #println(current_assets)
     if size(current_assets)[1] == 0
         println("There are no currently-active generation assets in the system; unpredictable behavior may occur.")
     end
