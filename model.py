@@ -170,10 +170,6 @@ class GridModel(Model):
             print(pd.read_sql("SELECT * FROM assets", self.db))
             print("Table of construction project updates:")
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
-        if self.args.demo:
-            print("\n")
-            user_response = input("Press Enter to continue--")
-            
 
 
     def get_projects_to_reveal(self):
