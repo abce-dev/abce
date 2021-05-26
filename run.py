@@ -37,6 +37,9 @@ def cli_args():
     parser.add_argument("--quiet", "-q",
                           action="store_true",
                           help="Suppress all output except the turn and period counters.")
+    parser.add_argument("--demo", "-d",
+                          action="store_true",
+                          help="Pause the simulation after each step until user presses a key.")
     args = parser.parse_args()
     return args
 
