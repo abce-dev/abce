@@ -36,15 +36,16 @@ def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0, o
 def organize_price_data(file_name, price_df, subsidy, output_type):
     if "output" in file_name or "DISPATCH" in file_name:
         # ALEAF output file
-        lamda = (price_df.filter(["LMP"], axis=1).iloc[::7]
-                 .reset_index().drop(labels=["index"], axis=1))
-        lamda = lamda.rename(columns={"LMP": "lamda"})
+        orig_col_name = "LMP"
+        row_freq = 7
     else:
         # Assume it's an ERCOT file
-        lamda = (price_df.filter(["Total electricity price"], axis=1)
-                 .rename(columns={"Total electricity price": "lamda"}))
-        lamda = lamda.reset_index().drop(labels=["index"], axis=1)
-    lamda = (lamda.sort_values(by = ["lamda"], ascending = False)
+        orig_col_name = "Total electricity price"
+        row_freq = 1
+    # Filter and organize the price data
+    lamda = (price_df.filter([orig_col_name], axis=1).iloc[::row_freq]
+             .rename(columns={orig_col_name: "lamda"})
+             .sort_values(by= ["lamda"], axis=1)
              .reset_index().drop(labels=["index"], axis=1))
     lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x + subsidy))
     if output_type == "np.array":
@@ -92,13 +93,13 @@ def create_merit_curve(db, current_pd):
 def compute_price_duration_curve(demand, merit_curve, price_cap):
     prices = np.zeros(len(demand))
     print("Computing PDC")
-    for i in range(len(demand)):
-        if int(np.around(demand[i])) >= len(merit_curve):
-            # Demand exceeds all available capacity
-            # Set price to administrative maximum
+    max_supply = len(merit_curve)
+    for i, dem in enumerate(np.around(demand).astype(int)):
+        if dem >= max_supply:
+            # Demand exceeds all available capacity; set price to admin. max
             prices[i] = price_cap
         else:
-            prices[i] = merit_curve[int(np.around(demand[i], 0))]
+            prices[i] = merit_curve[dem]
     prices = -np.sort(-prices)
     return prices
 
