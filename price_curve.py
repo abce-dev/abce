@@ -43,9 +43,8 @@ def organize_price_data(file_name, price_df, subsidy, output_type):
         orig_col_name = "Total electricity price"
         row_freq = 1
     # Filter and organize the price data
-    lamda = (price_df.filter([orig_col_name], axis=1).iloc[::row_freq]
-             .rename(columns={orig_col_name: "lamda"})
-             .sort_values(by= ["lamda"], axis=1)
+    lamda = pd.DataFrame({"lamda": price_df[orig_col_name].iloc[::row_freq]})
+    lamda = (lamda.sort_values(by = ["lamda"])
              .reset_index().drop(labels=["index"], axis=1))
     lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x + subsidy))
     if output_type == "np.array":
