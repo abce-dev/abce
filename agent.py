@@ -49,20 +49,17 @@ class GenCo(Agent):
     def assign_parameters(self, params_file):
         # Retrieve parameters from file
         params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
-        self.debt_fraction = params['debt_fraction']
-        self.debt_cost = params['debt_cost']
-        self.equity_cost = params['equity_cost']
-        self.term_growth_rate = params['terminal_growth_rate']
-        self.discount_rate = params['discount_rate']
-        self.tax_rate = params['tax_rate']
-        self.interest_cap = params['interest_cap']
+        print(params)
+        # Assign all parameters from params as member data
+        for key, val in params.items():
+            setattr(self, key, val)
 
         # Save parameters to DB table `agent_params`
         self.db = self.model.db
         self.cur = self.db.cursor()
         self.cur.execute(f"""INSERT INTO agent_params VALUES ({self.unique_id},
                         {self.discount_rate}, {self.tax_rate},
-                        {self.term_growth_rate}, {self.debt_fraction},
+                        {self.terminal_growth_rate}, {self.debt_fraction},
                         {self.debt_cost}, {self.equity_cost},
                         {self.interest_cap})""")
 
