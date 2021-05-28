@@ -37,12 +37,31 @@ def cli_args():
     parser.add_argument("--quiet", "-q",
                           action="store_true",
                           help="Suppress all output except the turn and period counters.")
+    parser.add_argument("--demo", "-d",
+                          action="store_true",
+                          help="Pause the simulation after each step until user presses a key.")
     args = parser.parse_args()
     return args
 
 
+def wait_for_user(is_demo):
+    """
+    If the user specifies the --demo or -d command-line flag, then pause and
+      prompt the user to hit 'enter' after every time-step of the simulation.
+    """
+    if is_demo:
+        print("\n")
+        user_response = input("Press Enter to continue: ")
+
+
 def run_model():
-    
+    """
+    Run the model:
+      - process command-line arguments
+      - read in settings
+      - run the model
+      - pull the completed DB into a pandas DataFrame and save it to xlsx
+    """    
     args = cli_args()
 
     settings = read_settings(args.settings_file)
@@ -50,6 +69,7 @@ def run_model():
     abce_model = GridModel(settings, args)
     for i in range(settings["num_steps"]):
         abce_model.step()
+        wait_for_user(args.demo)
 
     db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE " +
                                   "type='table';", abce_model.db)

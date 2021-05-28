@@ -174,7 +174,6 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     demand_history_start = max(0, pd - settings["demand_visibility_horizon"])
     start_and_end = (demand_history_start, pd)
     demand_history = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ? ORDER BY period ASC", start_and_end) |> DataFrame
-    #println(demand_history)
 
     # Create suitable arrays for x (including intercept) and y
     num_obs = size(visible_demand)[1] + size(demand_history)[1]
@@ -184,7 +183,6 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     else
         y = vcat(demand_history[:, "demand"], visible_demand[:, :demand])
     end
-    #println(y)
 
     # Take the log of y to make the x-y relationship linear
     y_log = log.(y)
@@ -207,11 +205,9 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     y_proj = exp.(x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2])
 
     all_proj = DataFrame(intercept = x_proj[:, 1], x_val = x_proj[:, 2], y_log_proj = y_log_proj, y_val = y_proj)
-    #println(all_proj)
 
     # Concatenate input and projected demand data into a single DataFrame
     demand = DataFrame(demand = vcat(visible_demand[!, :demand], y_proj))
-
     return demand
 end
 
@@ -222,7 +218,6 @@ function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
     vals = (pd, pd + demand_vis_horizon)
     visible_demand = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
     demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
-    println(demand_forecast[1:15, :demand])
     return demand_forecast
 end
 
@@ -233,8 +228,8 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
     vals = (pd, pd)
     # Select a list of all current assets, which are not cancelled, retired, or hidden from public view
     current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ? AND revealed = 'true'", vals) |> DataFrame
-    println("Current assets:")
-    println(current_assets)
+    #println("Current assets:")
+    #println(current_assets)
     if size(current_assets)[1] == 0
         println("There are no currently-active generation assets in the system; unpredictable behavior may occur.")
     end
