@@ -50,9 +50,13 @@ def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0, o
 
 
 def organize_price_data(file_name, price_df, subsidy, output_type):
-    if "output" in file_name or "DISPATCH" in file_name:
-        # ALEAF output file
+    if "output_DISPATCH" in file_name:
+        # Old ALEAF output file format
         orig_col_name = "LMP"
+        row_freq = 7
+    elif "dispatch_summary" in file_name:
+        # New ALEAF output file format
+        orig_col_name = "LMP_dht"
         row_freq = 7
     else:
         # Assume it's an ERCOT file
