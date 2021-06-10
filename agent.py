@@ -29,7 +29,7 @@ class GenCo(Agent):
     A utility company with a certain number of generation assets.
     """
 
-    def __init__(self, genco_id, model, settings, quiet):
+    def __init__(self, genco_id, model, settings, cli_args):
         """
         Initialize a GenCo class object.
 
@@ -55,7 +55,7 @@ class GenCo(Agent):
         self.model = model
         self.gc_params_file = settings["gc_params_file"]
         self.portfolios_file = settings["portfolios_file"]
-        self.quiet = quiet
+        self.quiet = cli_args.quiet
         self.assign_parameters(self.gc_params_file)
         self.add_initial_assets_to_db(settings)
 
