@@ -1,6 +1,8 @@
 # A module allowing interactions between ABCE and A-LEAF
 
+import os
 import pandas as pd
+import openpyxl
 import sqlite3
 
 # import local modules
@@ -15,6 +17,28 @@ def get_new_units(db, current_pd):
     new_assets["num_units"] = 1
     new_assets = new_assets.groupby("unit_type").sum()
     return new_assets
+
+
+def load_excel_workbook(filename):
+    book = openpyxl.load_workbook(filename)
+    writer = pd.ExcelWriter(filename, engine="openpyxl")
+    writer.book = book
+    writer.sheets = dict((sheet.title, sheet) for sheet in book.worksheets)
+
+    return book, writer
+
+
+def set_ALEAF_pwd(ALEAF_master_settings_file, ALEAF_absolute_path):
+    """
+    Inplace operation to update the ALEAF pwd setting to the desired location
+
+    TODO: Fix magic number [4] in update.to_excel() line (should choose row
+      number based on a search for "pwd" in the first column).
+    """
+    book, writer = load_excel_workbook(ALEAF_master_settings_file)
+    update = pd.DataFrame({"Setting": "pwd_location", "Value": f"{ALEAF_absolute_path}"}, index=[0])
+    update.to_excel(writer, "ALEAF Master Setup", startrow=4, startcol=0, header=False, index=False)
+    writer.save()
 
 
 def load_ALEAF_system_portfolio(ALEAF_sys_portfolio_path):
