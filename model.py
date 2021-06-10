@@ -69,7 +69,7 @@ class GridModel(Model):
 
         # Create agents
         for i in range(self.first_agent_id, self.first_agent_id + self.num_agents):
-            gc = GenCo(i, self, settings, self.args.quiet)
+            gc = GenCo(i, self, settings, self.args)
             self.schedule.add(gc)
 
         # Check whether a market price subsidy is in effect, and its value
@@ -184,6 +184,15 @@ class GridModel(Model):
             print(pd.read_sql("SELECT * FROM assets", self.db))
             print("Table of construction project updates:")
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
+
+        print("Running A-LEAF...")
+        aleaf_cmd = "julia /home/kbiegel/kb_aleaf/run.jl"
+        if self.args.quiet:
+            sp = subprocess.check_call([aleaf_cmd],
+                                       shell=True,
+                                       stdout=open(os.devnull, "wb"))
+        else:
+            sp = subprocess.check_call([aleaf_cmd], shell=True)
 
 
     def get_projects_to_reveal(self):
