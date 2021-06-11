@@ -23,13 +23,10 @@ julia_pkg_list = ["CSV",
                   "SQLite",
                   "XLSX"]
 
-conda_list =     ["numpy",
-                  "scipy",
-                  "matplotlib",
-                  "pandas"]
-
-
-
+conda_list = ["numpy",
+              "scipy",
+              "matplotlib",
+              "pandas"]
 
 # Add Julia libraries needed for ALEAF
 # Add and build the optimizer packages
