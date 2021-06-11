@@ -12,6 +12,7 @@
 # limitations under the License.
 ##########################################################################
 
+import os
 import subprocess
 import yaml
 import numpy as np
@@ -24,6 +25,7 @@ from agent import GenCo
 import ABCEfunctions as ABCE
 import seed_creator as sc
 import price_curve as pc
+import ALEAF_interface as ALI
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
@@ -35,11 +37,18 @@ class GridModel(Model):
         price_curve_data_file = settings["price_curve_data_file"]
         time_series_data_file = settings["time_series_data_file"]
         db_file = settings["db_file"]
-        # Get parameters from the settings dictionary
+        # Get agent parameters from the settings dictionary
         self.num_agents = settings["num_agents"]
         self.first_agent_id = settings["first_agent_id"]
         self.first_asset_id = settings["first_asset_id"]
         self.total_forecast_horizon = settings["total_forecast_horizon"]
+        # Get ALEAF parameters from the settings dictionary
+        self.ALEAF_abs_path = settings["ALEAF_abs_path"]
+        self.ALEAF_master_settings_file = settings["ALEAF_master_settings_file"]
+        self.ALEAF_run_type = settings["ALEAF_model_type"]
+        self.ALEAF_region = settings["ALEAF_region"]
+        self.ALEAF_model_settings_file = settings["ALEAF_model_settings_file"]
+        self.ALEAF_portfolio_file = settings["ALEAF_portfolio_file"]
 
         # Copy the command-line arguments as member data
         self.args = args
@@ -81,6 +90,13 @@ class GridModel(Model):
         self.price_duration_data.to_sql("price_curve",
                                         con = self.db,
                                         if_exists = "replace")
+
+        # Update ALEAF 'pwd' setting (telling ALEAF the absolute path to
+        #   its home directory
+        ALEAF_master_settings_path = os.path.join(self.ALEAF_abs_path,
+                                                  "setting",
+                                                  self.ALEAF_master_settings_file)
+        ALI.set_ALEAF_pwd(ALEAF_master_settings_path, self.ALEAF_abs_path)
 
 
     def add_units_to_db(self):
@@ -186,7 +202,12 @@ class GridModel(Model):
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
         print("Running A-LEAF...")
-        aleaf_cmd = "julia /home/kbiegel/kb_aleaf/run.jl"
+        run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
+        ALEAF_master_settings_location = os.path.join(self.ALEAF_abs_path,
+                                                      "setting",
+                                                      self.ALEAF_master_settings_file)
+        ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
+        aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {ALEAF_master_settings_location}"
         if self.args.quiet:
             sp = subprocess.check_call([aleaf_cmd],
                                        shell=True,
