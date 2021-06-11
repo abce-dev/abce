@@ -34,3 +34,12 @@ hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
 consider_future_projects: True
 num_future_periods_considered: 5    # Number of periods for which to consider future projects
+
+
+#### ALEAF SETTINGS
+ALEAF_abs_path: "/home/biegelk/kb_aleaf"
+ALEAF_master_settings_file: "ALEAF_Master.xlsx"
+ALEAF_model_type: "LC_GEP"
+ALEAF_region: "ERCOT"
+ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
+ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
