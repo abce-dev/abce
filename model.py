@@ -30,6 +30,7 @@ import ALEAF_interface as ALI
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
     def __init__(self, settings, args):
+        self.settings = settings
         # Get input file locations from the settings dictionary
         unit_specs_file = settings["unit_specs_file"]
         fuel_data_file = settings["fuel_data_file"]
@@ -45,10 +46,11 @@ class GridModel(Model):
         # Get ALEAF parameters from the settings dictionary
         self.ALEAF_abs_path = settings["ALEAF_abs_path"]
         self.ALEAF_master_settings_file = settings["ALEAF_master_settings_file"]
-        self.ALEAF_run_type = settings["ALEAF_model_type"]
+        self.ALEAF_model_type = settings["ALEAF_model_type"]
         self.ALEAF_region = settings["ALEAF_region"]
         self.ALEAF_model_settings_file = settings["ALEAF_model_settings_file"]
         self.ALEAF_portfolio_file = settings["ALEAF_portfolio_file"]
+        self.ALEAF_scenario_name = settings["ALEAF_scenario_name"]
 
         # Copy the command-line arguments as member data
         self.args = args
@@ -83,6 +85,14 @@ class GridModel(Model):
 
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy(settings)
+        # Generate the path to the ALEAF output file
+        self.ALEAF_output_path = os.path.join(self.ALEAF_abs_path,
+                                              "output",
+                                              self.ALEAF_model_type,
+                                              self.ALEAF_region,
+                                              f"scenario_1_{self.ALEAF_scenario_name}",
+                                              f"{self.ALEAF_scenario_name}__dispatch_summary_OP.csv")
+                                                
         # Create an appropriate price duration curve
         self.create_price_duration_curve(settings)
 
@@ -155,7 +165,7 @@ class GridModel(Model):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
             self.price_duration_data = pc.load_time_series_data(
-                                             settings["price_curve_data_file"],
+                                             self.ALEAF_output_path,
                                              file_type="price",
                                              subsidy=self.subsidy_amount,
                                              output_type = "dataframe")
@@ -189,6 +199,17 @@ class GridModel(Model):
         print("\n=========================================================================")
         print(f"Model step: {self.current_step}")
         print("==========================================================================")
+
+        # Update price data from ALEAF
+        if self.current_step != 0:
+            print("Creating price duration curve...")
+            self.create_price_duration_curve(self.settings)
+
+            # Save price duration data to the database
+            self.price_duration_data.to_sql("price_curve",
+                                            con = self.db,
+                                            if_exists = "replace")
+
         self.schedule.step()
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
