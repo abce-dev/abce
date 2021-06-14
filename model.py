@@ -123,12 +123,9 @@ class GridModel(Model):
             ALI.set_ALEAF_pwd(ALEAF_master_settings_path, self.ALEAF_abs_path)
 
             # Reset the A-LEAF system portfolio by overwriting "ALEAF_ERCOT.xlsx"
-            #    with "ALEAF_ERCOT_original.xlsx"
-            ALEAF_portfolio_original_path = os.path.join(self.ALEAF_abs_path,
-                                                         "data",
-                                                         self.ALEAF_model_type,
-                                                         self.ALEAF_region,
-                                                         f"ALEAF_{self.ALEAF_region}_original.xlsx")
+            #    with the copy of "ALEAF_ERCOT_original.xlsx" which is stored
+            #    in abce/inputs/ALEAF_inputs
+            ALEAF_portfolio_original_path = f"./inputs/ALEAF_inputs/ALEAF_{self.ALEAF_region}_original.xlsx"
             ALEAF_portfolio_new_path = os.path.join(self.ALEAF_abs_path,
                                                     "data",
                                                     self.ALEAF_model_type,
