@@ -56,6 +56,9 @@ def cli_args():
     parser.add_argument("--demo", "-d",
                           action="store_true",
                           help="Pause the simulation after each step until user presses a key.")
+    parser.add_argument("--no_aleaf", "-n",
+                        action="store_true",
+                        help="Run ABCE without ALEAF, using a static price input file (location specified in settings.yml")
     args = parser.parse_args()
     return args
 
