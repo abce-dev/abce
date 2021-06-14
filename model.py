@@ -56,6 +56,18 @@ class GridModel(Model):
         # Copy the command-line arguments as member data
         self.args = args
 
+        # Set the source for price data
+        if self.args.no_aleaf:
+            self.price_curve_data_file = settings["price_curve_data_file"]
+        else:
+            self.price_curve_data_file = os.path.join(self.ALEAF_abs_path,
+                                                      "output",
+                                                      self.ALEAF_model_type,
+                                                      self.ALEAF_region,
+                                                      f"scenario_1_{self.ALEAF_scenario_name}",
+                                                      f"{self.ALEAF_scenario_name}__dispatch_summary_OP.csv")
+
+
         # Determine setting for use of a precomputed price curve
         self.use_precomputed_price_curve = True
         if "use_precomputed_price_curve" in settings:
@@ -181,7 +193,7 @@ class GridModel(Model):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
             self.price_duration_data = pc.load_time_series_data(
-                                             self.ALEAF_output_path,
+                                             self.price_curve_data_file,
                                              file_type="price",
                                              subsidy=self.subsidy_amount,
                                              output_type = "dataframe")
