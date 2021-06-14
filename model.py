@@ -102,26 +102,27 @@ class GridModel(Model):
                                         con = self.db,
                                         if_exists = "replace")
 
-        # Update ALEAF 'pwd' setting (telling ALEAF the absolute path to
-        #   its home directory
-        ALEAF_master_settings_path = os.path.join(self.ALEAF_abs_path,
-                                                  "setting",
-                                                  self.ALEAF_master_settings_file)
-        ALI.set_ALEAF_pwd(ALEAF_master_settings_path, self.ALEAF_abs_path)
+        if not self.args.no_aleaf:
+            # Update ALEAF 'pwd' setting (telling ALEAF the absolute path to
+            #   its home directory
+            ALEAF_master_settings_path = os.path.join(self.ALEAF_abs_path,
+                                                      "setting",
+                                                      self.ALEAF_master_settings_file)
+            ALI.set_ALEAF_pwd(ALEAF_master_settings_path, self.ALEAF_abs_path)
 
-        # Reset the A-LEAF system portfolio by overwriting "ALEAF_ERCOT.xlsx"
-        #    with "ALEAF_ERCOT_original.xlsx"
-        ALEAF_portfolio_original_path = os.path.join(self.ALEAF_abs_path,
-                                                     "data",
-                                                     self.ALEAF_model_type,
-                                                     self.ALEAF_region,
-                                                     f"ALEAF_{self.ALEAF_region}_original.xlsx")
-        ALEAF_portfolio_new_path = os.path.join(self.ALEAF_abs_path,
-                                                "data",
-                                                self.ALEAF_model_type,
-                                                self.ALEAF_region,
-                                                f"ALEAF_{self.ALEAF_region}.xlsx")
-        shutil.copyfile(ALEAF_portfolio_original_path, ALEAF_portfolio_new_path)
+            # Reset the A-LEAF system portfolio by overwriting "ALEAF_ERCOT.xlsx"
+            #    with "ALEAF_ERCOT_original.xlsx"
+            ALEAF_portfolio_original_path = os.path.join(self.ALEAF_abs_path,
+                                                         "data",
+                                                         self.ALEAF_model_type,
+                                                         self.ALEAF_region,
+                                                         f"ALEAF_{self.ALEAF_region}_original.xlsx")
+            ALEAF_portfolio_new_path = os.path.join(self.ALEAF_abs_path,
+                                                    "data",
+                                                    self.ALEAF_model_type,
+                                                    self.ALEAF_region,
+                                                    f"ALEAF_{self.ALEAF_region}.xlsx")
+            shutil.copyfile(ALEAF_portfolio_original_path, ALEAF_portfolio_new_path)
 
 
     def add_units_to_db(self):
@@ -239,29 +240,31 @@ class GridModel(Model):
             print("Table of construction project updates:")
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
-        # Update the A-LEAF system portfolio based on any new units completed
-        #    this round
-        new_units = ALI.get_new_units(self.db, self.current_step)
-        ALEAF_sys_portfolio_path = os.path.join(self.ALEAF_abs_path,
-                                                "data",
-                                                self.ALEAF_model_type,
-                                                self.ALEAF_region,
-                                                self.ALEAF_portfolio_file)
-        ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, self.db, self.current_step)
+        if not self.args.no_aleaf:
+            # Update the A-LEAF system portfolio based on any new units completed
+            #    this round
+            new_units = ALI.get_new_units(self.db, self.current_step)
+            ALEAF_sys_portfolio_path = os.path.join(self.ALEAF_abs_path,
+                                                    "data",
+                                                    self.ALEAF_model_type,
+                                                    self.ALEAF_region,
+                                                    self.ALEAF_portfolio_file)
+            ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, self.db, self.current_step)
 
-        print("Running A-LEAF...")
-        run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
-        ALEAF_master_settings_location = os.path.join(self.ALEAF_abs_path,
-                                                      "setting",
-                                                      self.ALEAF_master_settings_file)
-        ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
-        aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {ALEAF_master_settings_location}"
-        if self.args.quiet:
-            sp = subprocess.check_call([aleaf_cmd],
-                                       shell=True,
-                                       stdout=open(os.devnull, "wb"))
-        else:
-            sp = subprocess.check_call([aleaf_cmd], shell=True)
+            # Run A-LEAF
+            print("Running A-LEAF...")
+            run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
+            ALEAF_master_settings_location = os.path.join(self.ALEAF_abs_path,
+                                                          "setting",
+                                                          self.ALEAF_master_settings_file)
+            ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
+            aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {ALEAF_master_settings_location}"
+            if self.args.quiet:
+                sp = subprocess.check_call([aleaf_cmd],
+                                           shell=True,
+                                           stdout=open(os.devnull, "wb"))
+            else:
+                sp = subprocess.check_call([aleaf_cmd], shell=True)
 
 
     def get_projects_to_reveal(self):
