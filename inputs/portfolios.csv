@@ -1,4 +1,4 @@
 agent_id, unit_type, useful_life, num_copies
-201, smr, 15, 2
-201, large_nuc, 12, 1
-202, smr, 10, 1
+201, Wind, 15, 2
+201, Nuclear, 12, 1
+202, Wind, 10, 1
