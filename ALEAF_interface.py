@@ -38,12 +38,11 @@ def set_ALEAF_pwd(ALEAF_master_settings_file, ALEAF_absolute_path):
     """
     book, writer = load_excel_workbook(ALEAF_master_settings_file)
     update = pd.DataFrame({"Setting": "pwd_location", "Value": f"{ALEAF_absolute_path}"}, index=[0])
-    update.to_excel(writer, "ALEAF Master Setup", startrow=4, startcol=0, header=False, index=False)
+    update.to_excel(writer, sheet_name="ALEAF Master Setup", startrow=4, startcol=0, header=False, index=False)
     writer.save()
 
 
 def update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, db, current_pd):
-    db = sqlite3.connect(db)
     new_assets = get_new_units(db, current_pd)
     book, writer = load_excel_workbook(ALEAF_sys_portfolio_path)
     ALEAF_portfolio = pd.DataFrame(writer.sheets["gen"].values)
@@ -53,7 +52,7 @@ def update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, db, current_pd):
     df = df.drop(df.index[0])
     for unit_type in list(new_assets.index):
         df.loc[(df["bus_i"] == 1) & (df["Unit Type"] == unit_type), "EXUNITS"] += new_assets.loc[unit_type, "num_units"]
-    df.to_excel(writer, header=True, index=False)
+    df.to_excel(writer, sheet_name="gen", header=True, index=False)
     writer.save()
 
 
