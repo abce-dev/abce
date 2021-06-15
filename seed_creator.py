@@ -20,7 +20,38 @@ import sys
 import pandas as pd
 
 # Database Specification:
-                                       # INIT    STEP
+
+
+abce_unit_specs = {"unit_specs":
+                     [("unit_type", "text", "PRIMARY KEY"),
+                      ("fuel_type", "text"),
+                      ("capacity", "real"),
+                      ("uc_x", "real"),
+                      ("d_x", "real"),
+                      ("heat_rate", "real"),
+                      ("VOM", "real"),
+                      ("FOM", "real"),
+                      ("unit_life", "real"),
+                      ("CF", "real"),
+                      ("FC_per_MMBTU", "real")
+                     ]
+
+ALEAF_unit_specs = {"unit_specs":
+                     [("UNIT_TYPE": "text", "PRIMARY KEY"),
+                      ("FUEL": "text"),
+                      ("CAP": "text"),
+                      ("CONSTR_UNIT_COST": "real"),
+                      ("CONSTR_DURATION": "real"),
+                      ("HR": "real"),
+                      ("VOM": "real"),
+                      ("FOM": "real"),
+                      ("FC": "real"),
+                      ("UNIT_LIFE": "real"),
+                      ("AVG_CF": "real"),
+                      ("FFC_PER_MMBTU": "real")
+                     ]
+
+
 abce_tables = {"WIP_projects": 
                  [("asset_id", "integer", "PRIMARY KEY"), # Julia, Python
                   ("agent_id", "text"),
@@ -52,20 +83,6 @@ abce_tables = {"WIP_projects":
                   ("debt_cost", "real"),
                   ("equity_cost", "real"),
                   ("interest_cap", "real")
-                 ],
-
-               "unit_specs":
-                 [("unit_type", "text", "PRIMARY KEY"),
-                  ("fuel_type", "text"),
-                  ("capacity", "real"),
-                  ("uc_x", "real"),
-                  ("d_x", "real"),
-                  ("heat_rate", "real"),
-                  ("VOM", "real"),
-                  ("FOM", "real"),
-                  ("unit_life", "real"),
-                  ("CF", "real"),
-                  ("FC_per_MMBTU", "real")
                  ],
 
                "demand":
@@ -114,6 +131,14 @@ def create_db_file(abce_db):
     return db, cur
 
 
+def choose_unit_spec_format(all_tables, is_aleaf=True):
+    if is_aleaf:
+        all_tables["unit_spec"] = ALEAF_unit_spec
+    else:
+        all_tables["unit_spec"] = abce_unit_spec
+    return all_tables
+
+
 def make_table(cur, table_name):
     sql_cols = []
     for column in abce_tables[table_name]:
@@ -127,6 +152,8 @@ def create_database(db_file_name, replace=False):
     clear_db_file(db_file_name, replace)
     # Create a database seed file and associated cursor object
     db, cur = create_db_file(db_file_name)
+    # Add the appropriate unit_spec table format
+    all_tables = choose_unit_spec_format(abce_tables, is_aleaf=False)
     # Create all tables in the database
     for table in abce_tables:
         make_table(cur, table)
