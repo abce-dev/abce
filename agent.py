@@ -23,6 +23,7 @@ import os
 
 # import local modules
 import ABCEfunctions as ABCE
+import ALEAF_interface as ALI
 
 class GenCo(Agent):
     """ 
@@ -57,7 +58,7 @@ class GenCo(Agent):
         self.portfolios_file = settings["portfolios_file"]
         self.quiet = cli_args.quiet
         self.assign_parameters(self.gc_params_file)
-        self.add_initial_assets_to_db(settings)
+        self.add_initial_assets_to_db(settings, from_ALEAF=True)
 
 
     def assign_parameters(self, params_file):
@@ -78,30 +79,54 @@ class GenCo(Agent):
                         {self.interest_cap})""")
 
 
-    def add_initial_assets_to_db(self, settings):
-        initial_assets = pd.read_csv(self.portfolios_file, skipinitialspace=True)
-        for i in range(len(initial_assets)):
-            if initial_assets.loc[i, "agent_id"] == self.unique_id:
-                agent_id = initial_assets.loc[i, "agent_id"]
-                revealed = "true"
-                unit_type = initial_assets.loc[i, "unit_type"]
-                completion_pd = 0
-                cancellation_pd = 9999
-                retirement_pd = initial_assets.loc[i, "useful_life"]
-                unit_type_mask = self.model.unit_specs["unit_type"] == unit_type
-                total_capex = (self.model.unit_specs.loc[unit_type_mask, "capacity"].values[0]
-                               * self.model.unit_specs.loc[unit_type_mask, "uc_x"].values[0]
-                               * 1000)
-                capital_payment = self.compute_sinking_fund_payment(
-                                           total_capex,
-                                           self.model.unit_specs.loc[i, "unit_life"])
-                for j in range(initial_assets.loc[i, "num_copies"]):
-                    asset_id = ABCE.get_next_asset_id(self.db, settings["first_asset_id"])
-                    self.cur.execute(f"INSERT INTO assets VALUES " +
-                                     f"({asset_id}, {agent_id}, '{unit_type}', " +
-                                     f"'{revealed}', {completion_pd}, " +
-                                     f"{cancellation_pd}, {retirement_pd}, " +
-                                     f"{total_capex}, {capital_payment})")
+    def add_initial_assets_to_db(self, settings, from_ALEAF=False):
+        if from_ALEAF:
+            # This currently assumes only one agent.
+            # Read in the ALEAF system portfolio
+            book, writer = ALI.load_excel_workbook(self.model.ALEAF_portfolio_original_path)
+            pdf = ALI.get_organized_ALEAF_portfolio(writer)
+            # Set the initial asset ID
+            asset_id = settings["first_asset_id"]
+            # Assign all units to this agent, and record each individually in the database
+            for unit_type in list(pdf["Unit Type"]):
+                for j in range(pdf.loc[pdf["Unit Type"] == unit_type, "EXUNITS"].values[0]):
+                    asset_dict = {"asset_id": asset_id,
+                                  "agent_id": self.unique_id,
+                                  "unit_type": unit_type,
+                                  "revealed": "true",
+                                  "completion_pd": 0,
+                                  "cancellation_pd": 9999,
+                                  "retirement_pd": 9999,
+                                  "total_capex": 12345,
+                                  "cap_pmt": 6789}
+                    new_asset = pd.DataFrame(asset_dict, index=[0])
+                    new_asset.to_sql("assets", self.db, if_exists="append", index=False)
+                    asset_id += 1
+            print(pd.read_sql_query("SELECT * FROM assets", self.db))
+        else:
+            initial_assets = pd.read_csv(self.portfolios_file, skipinitialspace=True)
+            for i in range(len(initial_assets)):
+                if initial_assets.loc[i, "agent_id"] == self.unique_id:
+                    agent_id = initial_assets.loc[i, "agent_id"]
+                    revealed = "true"
+                    unit_type = initial_assets.loc[i, "unit_type"]
+                    completion_pd = 0
+                    cancellation_pd = 9999
+                    retirement_pd = initial_assets.loc[i, "useful_life"]
+                    unit_type_mask = self.model.unit_specs["unit_type"] == unit_type
+                    total_capex = (self.model.unit_specs.loc[unit_type_mask, "capacity"].values[0]
+                                   * self.model.unit_specs.loc[unit_type_mask, "uc_x"].values[0]
+                                   * 1000)
+                    capital_payment = self.compute_sinking_fund_payment(
+                                               total_capex,
+                                               self.model.unit_specs.loc[i, "unit_life"])
+                    for j in range(initial_assets.loc[i, "num_copies"]):
+                        asset_id = ABCE.get_next_asset_id(self.db, settings["first_asset_id"])
+                        self.cur.execute(f"INSERT INTO assets VALUES " +
+                                         f"({asset_id}, {agent_id}, '{unit_type}', " +
+                                         f"'{revealed}', {completion_pd}, " +
+                                         f"{cancellation_pd}, {retirement_pd}, " +
+                                         f"{total_capex}, {capital_payment})")
 
 
     def step(self):
