@@ -22,34 +22,32 @@ import pandas as pd
 # Database Specification:
 
 
-abce_unit_specs = {"unit_specs":
-                     [("unit_type", "text", "PRIMARY KEY"),
-                      ("fuel_type", "text"),
-                      ("capacity", "real"),
-                      ("uc_x", "real"),
-                      ("d_x", "real"),
-                      ("heat_rate", "real"),
-                      ("VOM", "real"),
-                      ("FOM", "real"),
-                      ("unit_life", "real"),
-                      ("CF", "real"),
-                      ("FC_per_MMBTU", "real")
-                     ]
+abce_unit_specs = [("unit_type", "text", "PRIMARY KEY"),
+                   ("fuel_type", "text"),
+                   ("capacity", "real"),
+                   ("uc_x", "real"),
+                   ("d_x", "real"),
+                   ("heat_rate", "real"),
+                   ("VOM", "real"),
+                   ("FOM", "real"),
+                   ("unit_life", "real"),
+                   ("CF", "real"),
+                   ("FC_per_MMBTU", "real")
+                  ]
 
-ALEAF_unit_specs = {"unit_specs":
-                     [("UNIT_TYPE": "text", "PRIMARY KEY"),
-                      ("FUEL": "text"),
-                      ("CAP": "text"),
-                      ("CONSTR_UNIT_COST": "real"),
-                      ("CONSTR_DURATION": "real"),
-                      ("HR": "real"),
-                      ("VOM": "real"),
-                      ("FOM": "real"),
-                      ("FC": "real"),
-                      ("UNIT_LIFE": "real"),
-                      ("AVG_CF": "real"),
-                      ("FFC_PER_MMBTU": "real")
-                     ]
+ALEAF_unit_specs = [("UNIT_TYPE", "text", "PRIMARY KEY"),
+                    ("FUEL", "text"),
+                    ("CAP", "text"),
+                    ("CONSTR_UNIT_COST", "real"),
+                    ("CONSTR_DURATION", "real"),
+                    ("HR", "real"),
+                    ("VOM", "real"),
+                    ("FOM", "real"),
+                    ("FC", "real"),
+                    ("UNIT_LIFE", "real"),
+                    ("AVG_CF", "real"),
+                    ("FFC_PER_MMBTU", "real")
+                   ]
 
 
 abce_tables = {"WIP_projects": 
@@ -133,9 +131,9 @@ def create_db_file(abce_db):
 
 def choose_unit_spec_format(all_tables, is_aleaf=True):
     if is_aleaf:
-        all_tables["unit_spec"] = ALEAF_unit_spec
+        all_tables["unit_specs"] = ALEAF_unit_specs
     else:
-        all_tables["unit_spec"] = abce_unit_spec
+        all_tables["unit_specs"] = abce_unit_specs
     return all_tables
 
 
