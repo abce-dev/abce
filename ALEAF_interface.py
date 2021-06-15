@@ -47,15 +47,19 @@ def update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, db, current_pd):
     book, writer = load_excel_workbook(ALEAF_sys_portfolio_path)
     ALEAF_portfolio = pd.DataFrame(writer.sheets["gen"].values)
 
-    df = pd.DataFrame(writer.sheets["gen"].values)
-    df.columns = df.iloc[0]
-    df = df.drop(df.index[0])
+    df = get_organized_ALEAF_portfolio(writer)
     for unit_type in list(new_assets.index):
         df.loc[(df["bus_i"] == 1) & (df["Unit Type"] == unit_type), "EXUNITS"] += new_assets.loc[unit_type, "num_units"]
     df.to_excel(writer, sheet_name="gen", header=True, index=False)
     writer.save()
 
 
+def get_organized_ALEAF_portfolio(writer):
+    df = pd.DataFrame(writer.sheets["gen"].values)
+    df.columns = df.iloc[0]
+    df = df.drop(df.index[0])
+
+    return df
 
 
 
