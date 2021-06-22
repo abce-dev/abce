@@ -23,7 +23,7 @@ enable_subsidy: True
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
 
-peak_demand: 1600  # MWh, to scale load duration data
+peak_demand: 89177  # MWh, to scale load duration data
 demand_visibility_horizon: 5
 demand_projection_mode: exp_termrate     # flat, exp_fitted, or exp_termrate
 demand_projection_window: 10 # Total number of periods used to project demand
@@ -33,7 +33,7 @@ terminal_demand_growth_rate: 0.01  # Exponential growth rate of demand
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
 consider_future_projects: True
-num_future_periods_considered: 5    # Number of periods for which to consider future projects
+num_future_periods_considered: 2    # Number of periods for which to consider future projects
 
 
 #### ALEAF SETTINGS
