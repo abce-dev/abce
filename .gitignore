@@ -11,3 +11,4 @@ abceSysimage.so
 *.db
 precompile.jl
 *cplex*
+*\~\$*
