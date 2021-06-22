@@ -1,6 +1,5 @@
 __pycache__
 *.swp
-*.xlsx
 *.png
 deprecated/*
 data/*.csv
