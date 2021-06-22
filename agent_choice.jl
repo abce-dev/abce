@@ -138,7 +138,7 @@ for i = 1:num_types
         end
 
         # Compute unit revenue, based on the price duration curve loaded from file
-        submarginal_hours = filter(row -> row.lamda > unit_data[i, :VOM] * 1000 + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate]i / 1000), price_curve)
+        submarginal_hours = filter(row -> row.lamda > unit_data[i, :VOM] * 1000 + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate] / 1000), price_curve)
         marginal_hours = filter(row -> row.lamda == unit_data[i, :VOM] * 1000 + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate] / 1000), price_curve)
         if size(marginal_hours)[1] != 0
             marginal_hours_revenue = sum(marginal_hours[!, :lamda]) * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])
