@@ -16,7 +16,6 @@ def get_new_units(db, current_pd):
     # Count the number of units of each type using groupby()
     new_assets["num_units"] = 1
     new_assets = new_assets.groupby("unit_type").sum()
-    print(new_assets)
     return new_assets
 
 
@@ -45,7 +44,6 @@ def set_ALEAF_pwd(ALEAF_master_settings_file, ALEAF_absolute_path):
 def update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, db, current_pd):
     new_assets = get_new_units(db, current_pd)
     book, writer = load_excel_workbook(ALEAF_sys_portfolio_path)
-    ALEAF_portfolio = pd.DataFrame(writer.sheets["gen"].values)
 
     df = get_organized_ALEAF_portfolio(writer)
     for unit_type in list(new_assets.index):
@@ -62,6 +60,16 @@ def get_organized_ALEAF_portfolio(writer):
     return df
 
 
+def update_ALEAF_demand(ALEAF_model_settings_path, db, current_pd):
+    demand = pd.read_sql_query(f"SELECT demand FROM demand WHERE period = {current_pd}", db)
+    book, writer = load_excel_workbook(ALEAF_model_settings_path)
+    sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
+    sim_config.columns = sim_config.iloc[0]
+    sim_config = sim_config.drop(sim_config.index[0])
+
+    sim_config.loc[sim_config["PLOTORDER"] == 1, "PD"] = demand.iloc[0, 0]
+    sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
+    writer.save()
 
 
 
