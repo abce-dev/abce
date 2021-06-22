@@ -64,7 +64,6 @@ class GenCo(Agent):
     def assign_parameters(self, params_file):
         # Retrieve parameters from file
         params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
-        print(params)
         # Assign all parameters from params as member data
         for key, val in params.items():
             setattr(self, key, val)
@@ -81,18 +80,26 @@ class GenCo(Agent):
 
     def add_initial_assets_to_db(self, settings, from_ALEAF=False):
         if from_ALEAF:
+            # Converter for non-ABCE-matching ALEAF unit type names
+            ALEAF_unit_name_converter = {"Solar PV": "PV",
+                                         "Steam": "Coal",
+                                         "CC": "NGCC",
+                                         "CT": "NGCT"}
             # This currently assumes only one agent.
             # Read in the ALEAF system portfolio
-            book, writer = ALI.load_excel_workbook(self.model.ALEAF_portfolio_original_path)
+            book, writer = ALI.load_excel_workbook(self.model.ALEAF_portfolio_defaults)
             pdf = ALI.get_organized_ALEAF_portfolio(writer)
             # Set the initial asset ID
             asset_id = settings["first_asset_id"]
             # Assign all units to this agent, and record each individually in the database
             for unit_type in list(pdf["Unit Type"]):
                 for j in range(pdf.loc[pdf["Unit Type"] == unit_type, "EXUNITS"].values[0]):
+                    abce_unit_type = unit_type
+                    if unit_type in ALEAF_unit_name_converter.keys():
+                        abce_unit_type = ALEAF_unit_name_converter[unit_type]
                     asset_dict = {"asset_id": asset_id,
                                   "agent_id": self.unique_id,
-                                  "unit_type": unit_type,
+                                  "unit_type": abce_unit_type,
                                   "revealed": "true",
                                   "completion_pd": 0,
                                   "cancellation_pd": 9999,
@@ -102,7 +109,6 @@ class GenCo(Agent):
                     new_asset = pd.DataFrame(asset_dict, index=[0])
                     new_asset.to_sql("assets", self.db, if_exists="append", index=False)
                     asset_id += 1
-            print(pd.read_sql_query("SELECT * FROM assets", self.db))
         else:
             initial_assets = pd.read_csv(self.portfolios_file, skipinitialspace=True)
             for i in range(len(initial_assets)):
