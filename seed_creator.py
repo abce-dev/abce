@@ -53,7 +53,6 @@ abce_tables = {"WIP_projects":
                   ("interest_cap", "real")
                  ],
 
-
                "unit_specs":
                  [("unit_type", "text", "PRIMARY KEY"),
                   ("fuel_type", "text"),
