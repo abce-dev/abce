@@ -54,7 +54,7 @@ def update_ALEAF_demand(ALEAF_model_settings_ref, ALEAF_model_settings_remote, d
     sim_config.columns = sim_config.iloc[0]
     sim_config = sim_config.drop(sim_config.index[0])
 
-    sim_config.loc[sim_config["PLOTORDER"] == 1, "PD"] = demand.iloc[0, 0]
+    sim_config.loc[sim_config["Scenario"] == "ABCE_base", "PD"] = demand.iloc[0, 0]
     sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
     writer.save()
 
