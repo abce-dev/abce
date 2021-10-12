@@ -87,7 +87,8 @@ class GenCo(Agent):
                                          "CT": "NGCT"}
             # This currently assumes only one agent.
             # Read in the ALEAF system portfolio
-            book, writer = ALI.prepare_xlsx_data(self.model.ALEAF_portfolio_ref, self.model.ALEAF_portfolio_ref)
+            port_file = f"./inputs/ALEAF_inputs/{self.model.port_file_1a}"
+            book, writer = ALI.prepare_xlsx_data(port_file, self.model.ALEAF_portfolio_ref)
             pdf = ALI.organize_ALEAF_portfolio(writer)
             # Set the initial asset ID
             asset_id = settings["first_asset_id"]
