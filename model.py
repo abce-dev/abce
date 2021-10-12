@@ -53,6 +53,7 @@ class GridModel(Model):
         self.ALEAF_model_settings_file_name = settings["ALEAF_model_settings_file"]
         self.ALEAF_portfolio_file = settings["ALEAF_portfolio_file"]
         self.ALEAF_scenario_name = settings["ALEAF_scenario_name"]
+        self.port_file_1a = settings["port_file_1a"]
 
         # Copy the command-line arguments as member data
         self.args = args
@@ -112,23 +113,23 @@ class GridModel(Model):
 #                                                      self.ALEAF_master_settings_file)
 #            ALI.set_ALEAF_pwd(ALEAF_master_settings_path, self.ALEAF_abs_path)
 
-            # Reset the A-LEAF system portfolio by overwriting "ALEAF_ERCOT.xlsx"
-            #    with the copy of "ALEAF_ERCOT_original.xlsx" which is stored
-            #    in abce/inputs/ALEAF_inputs
-#            self.ALEAF_portfolio_new_path = os.path.join(self.ALEAF_abs_path,
-#                                                         "data",
-#                                                         self.ALEAF_model_type,
-#                                                         self.ALEAF_region,
-#                                                         f"ALEAF_{self.ALEAF_region}.xlsx")
-#            shutil.copyfile(self.ALEAF_portfolio_defaults, self.ALEAF_portfolio_new_path)
+        # Reset the A-LEAF system portfolio by overwriting "ALEAF_ERCOT.xlsx"
+        #    with the copy of "ALEAF_ERCOT_original.xlsx" which is stored
+        #    in abce/inputs/ALEAF_inputs
+        self.ALEAF_portfolio_new_path = os.path.join(self.ALEAF_abs_path,
+                                                     "data",
+                                                     self.ALEAF_model_type,
+                                                     self.ALEAF_region,
+                                                     f"ALEAF_{self.ALEAF_region}.xlsx")
+        shutil.copyfile(f"./inputs/ALEAF_inputs/{self.port_file_1a}", self.ALEAF_portfolio_new_path)
 
-            # Reset the A-LEAF model settings file by overwriting "ALEAF_Master_{model_type}.xlsx"
-            #    with the copy stored in abce/inputs/aleaf_inputs
-#            self.ALEAF_model_settings_original_path = f"./inputs/ALEAF_inputs/ALEAF_Master_{self.ALEAF_model_type}_original.xlsx"
-#            self.ALEAF_model_settings_new_path = os.path.join(self.ALEAF_abs_path,
-#                                                              "setting",
-#                                                              f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
-#            shutil.copyfile(self.ALEAF_model_settings_original_path, self.ALEAF_model_settings_new_path)
+        # Reset the A-LEAF model settings file by overwriting "ALEAF_Master_{model_type}.xlsx"
+        #    with the copy stored in abce/inputs/aleaf_inputs
+        self.ALEAF_model_settings_original_path = f"./inputs/ALEAF_inputs/ALEAF_Master_{self.ALEAF_model_type}_original.xlsx"
+        self.ALEAF_model_settings_new_path = os.path.join(self.ALEAF_abs_path,
+                                                          "setting",
+                                                          f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
+        shutil.copyfile(self.ALEAF_model_settings_original_path, self.ALEAF_model_settings_new_path)
 
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy(settings)
@@ -153,7 +154,7 @@ class GridModel(Model):
         self.ALEAF_model_settings_ref = os.path.join(ALEAF_inputs_path,
                                                      f"ALEAF_Master_{self.ALEAF_model_type}_original.xlsx")
         self.ALEAF_portfolio_ref = os.path.join(ALEAF_inputs_path, 
-                                                f"ALEAF_{self.ALEAF_region}_XXXX.xlsx")
+                                                self.port_file_1a)
 
         # Set the paths to where settings are stored in the ALEAF directory
         ALEAF_settings_path = os.path.join(self.ALEAF_abs_path, "setting")
@@ -186,14 +187,16 @@ class GridModel(Model):
         """
         # Update the ALEAF_Master_LC_GEP.xlsx model settings file:
         #  - Update the peak demand value in the 'Simulation Configuration' tab
-        ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_ref,
+        ALI.update_ALEAF_demand(self.ALEAF_model_settings_ref,
                                         self.ALEAF_model_settings_remote,
-                                        self.db, period=0)
+                                        self.db,
+                                        period=0)
 
         # Update the ALEAF_ERCOT.xlsx system portfolio data:
         ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_ref,
                                           self.ALEAF_portfolio_remote,
-                                          self.db, self.current_step)
+                                          self.db,
+                                          self.current_step)
 
     def add_units_to_db(self, from_ALEAF=False):
         if from_ALEAF:
@@ -420,16 +423,16 @@ class GridModel(Model):
             ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, ALEAF_sys_portfolio_path, self.db, self.current_step)
 
             # Update ALEAF peak demand
-            ALI.update_ALEAF_demand(self.ALEAF_model_settings_new_path, self.db, self.current_step)
+            ALI.update_ALEAF_demand(self.ALEAF_model_settings_new_path,
+                                    self.ALEAF_model_settings_new_path,
+                                    self.db,
+                                    self.current_step)
 
             # Run A-LEAF
             print("Running A-LEAF...")
             run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
-            ALEAF_master_settings_location = os.path.join(self.ALEAF_abs_path,
-                                                          "setting",
-                                                          self.ALEAF_master_settings_file)
             ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
-            aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {ALEAF_master_settings_location}"
+            aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
             if self.args.quiet:
                 sp = subprocess.check_call([aleaf_cmd],
                                            shell=True,
