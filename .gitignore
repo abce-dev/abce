@@ -12,3 +12,5 @@ abceSysimage.so
 precompile.jl
 *cplex*
 *\~\$*
+outputs.xlsx
+*RTM*
