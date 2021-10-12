@@ -19,40 +19,40 @@ def get_new_units(db, current_pd):
     return new_assets
 
 
-def load_excel_workbook(filename):
-    book = openpyxl.load_workbook(filename)
-    writer = pd.ExcelWriter(filename, engine="openpyxl")
+def prepare_xlsx_data(ref_data_file, destination_file):
+    book = openpyxl.load_workbook(ref_data_file)
+    writer = pd.ExcelWriter(destination_file, engine="openpyxl")
     writer.book = book
     writer.sheets = dict((sheet.title, sheet) for sheet in book.worksheets)
 
     return book, writer
 
 
-def set_ALEAF_pwd(ALEAF_master_settings_file, ALEAF_absolute_path):
+def update_ALEAF_master_settings(master_settings_ref, master_settings_remote, ALEAF_abs_path):
     """
     Inplace operation to update the ALEAF pwd setting to the desired location
 
     TODO: Fix magic number [4] in update.to_excel() line (should choose row
       number based on a search for "pwd" in the first column).
     """
-    book, writer = load_excel_workbook(ALEAF_master_settings_file)
-    update = pd.DataFrame({"Setting": "pwd_location", "Value": f"{ALEAF_absolute_path}"}, index=[0])
+    book, writer = prepare_xlsx_data(master_settings_ref, master_settings_remote)
+    update = pd.DataFrame({"Setting": "pwd_location", "Value": f"{ALEAF_abs_path}"}, index=[0])
     update.to_excel(writer, sheet_name="ALEAF Master Setup", startrow=4, startcol=0, header=False, index=False)
     writer.save()
 
 
-def update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, db, current_pd):
+def update_ALEAF_system_portfolio(ALEAF_portfolio_ref, ALEAF_portfolio_remote, db, current_pd):
     new_assets = get_new_units(db, current_pd)
-    book, writer = load_excel_workbook(ALEAF_sys_portfolio_path)
+    book, writer = prepare_xlsx_data(ALEAF_portfolio_ref, ALEAF_portfolio_remote)
 
-    df = get_organized_ALEAF_portfolio(writer)
+    df = organize_ALEAF_portfolio(writer)
     for unit_type in list(new_assets.index):
         df.loc[(df["bus_i"] == 1) & (df["Unit Type"] == unit_type), "EXUNITS"] += new_assets.loc[unit_type, "num_units"]
     df.to_excel(writer, sheet_name="gen", header=True, index=False)
     writer.save()
 
 
-def get_organized_ALEAF_portfolio(writer):
+def organize_ALEAF_portfolio(writer):
     df = pd.DataFrame(writer.sheets["gen"].values)
     df.columns = df.iloc[0]
     df = df.drop(df.index[0])
@@ -60,9 +60,9 @@ def get_organized_ALEAF_portfolio(writer):
     return df
 
 
-def update_ALEAF_demand(ALEAF_model_settings_path, db, current_pd):
-    demand = pd.read_sql_query(f"SELECT demand FROM demand WHERE period = {current_pd}", db)
-    book, writer = load_excel_workbook(ALEAF_model_settings_path)
+def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_remote, db, period=0):
+    demand = pd.read_sql_query(f"SELECT demand FROM demand WHERE period = {period}", db)
+    book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
     sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
     sim_config.columns = sim_config.iloc[0]
     sim_config = sim_config.drop(sim_config.index[0])
