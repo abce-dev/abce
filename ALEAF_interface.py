@@ -47,7 +47,7 @@ def organize_ALEAF_portfolio(writer):
     return df
 
 
-def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_remote, db, period=0):
+def update_ALEAF_demand(ALEAF_model_settings_ref, ALEAF_model_settings_remote, db, period=0):
     demand = pd.read_sql_query(f"SELECT demand FROM demand WHERE period = {period}", db)
     book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
     sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
@@ -57,6 +57,5 @@ def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_r
     sim_config.loc[sim_config["PLOTORDER"] == 1, "PD"] = demand.iloc[0, 0]
     sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
     writer.save()
-
 
 
