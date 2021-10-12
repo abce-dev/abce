@@ -105,14 +105,6 @@ class GridModel(Model):
         #self.fuel_costs = pd.read_csv(fuel_data_file)
         self.add_units_to_db(from_ALEAF=True)
 
-#        if not self.args.no_aleaf:
-#            # Update ALEAF 'pwd' setting (telling ALEAF the absolute path to
-#            #   its home directory
-#            ALEAF_master_settings_path = os.path.join(self.ALEAF_abs_path,
-#                                                      "setting",
-#                                                      self.ALEAF_master_settings_file)
-#            ALI.set_ALEAF_pwd(ALEAF_master_settings_path, self.ALEAF_abs_path)
-
         # Reset the A-LEAF system portfolio by overwriting "ALEAF_ERCOT.xlsx"
         #    with the copy of "ALEAF_ERCOT_original.xlsx" which is stored
         #    in abce/inputs/ALEAF_inputs
