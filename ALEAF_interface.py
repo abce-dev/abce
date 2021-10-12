@@ -28,19 +28,6 @@ def prepare_xlsx_data(ref_data_file, destination_file):
     return book, writer
 
 
-def update_ALEAF_master_settings(master_settings_ref, master_settings_remote, ALEAF_abs_path):
-    """
-    Inplace operation to update the ALEAF pwd setting to the desired location
-
-    TODO: Fix magic number [4] in update.to_excel() line (should choose row
-      number based on a search for "pwd" in the first column).
-    """
-    book, writer = prepare_xlsx_data(master_settings_ref, master_settings_remote)
-    update = pd.DataFrame({"Setting": "pwd_location", "Value": f"{ALEAF_abs_path}"}, index=[0])
-    update.to_excel(writer, sheet_name="ALEAF Master Setup", startrow=4, startcol=0, header=False, index=False)
-    writer.save()
-
-
 def update_ALEAF_system_portfolio(ALEAF_portfolio_ref, ALEAF_portfolio_remote, db, current_pd):
     new_assets = get_new_units(db, current_pd)
     book, writer = prepare_xlsx_data(ALEAF_portfolio_ref, ALEAF_portfolio_remote)

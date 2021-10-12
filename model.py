@@ -184,13 +184,6 @@ class GridModel(Model):
               This function re-initializes the following ALEAF input files from
               reference copies stored in ./inputs/ALEAF_inputs/.
         """
-        # Update the ALEAF_Master.xlsx master settings file:
-        #  - Update the ALEAF 'pwd' setting, which sets the absolute path to the
-        #      main ALEAF directory. Used by ALEAF to set up file paths.
-        ALI.update_ALEAF_master_settings(self.ALEAF_master_settings_ref,
-                                         self.ALEAF_master_settings_remote,
-                                         self.ALEAF_abs_path) 
-
         # Update the ALEAF_Master_LC_GEP.xlsx model settings file:
         #  - Update the peak demand value in the 'Simulation Configuration' tab
         ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_ref,
