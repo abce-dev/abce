@@ -3,7 +3,7 @@
 unit_specs_file: "./inputs/unit_specs.csv"
 fuel_data_file: "./inputs/fuel_costs.csv"
 demand_data_file: "./inputs/demand_data.csv"
-price_curve_data_file: "~/kb_aleaf/output/LC_GEP/ERCOT/scenario_1_Scenario_Base_HR2/Scenario_Base_HR2__dispatch_summary_OP.csv"
+price_curve_data_file: "~/kb_aleaf/output/LC_GEP/ERCOT/scenario_1_ABCE_base/ABCE_base__dispatch_summary_OP.csv"
 #price_curve_data_file: "./inputs/output_DISPATCH_aleafbase.csv"
 #price_curve_data_file: "./inputs/RTM_ORDC_REL_DPLY_PRC_ADDR_RSRV_2019.xlsx"
 port_file_1a: "ALEAF_ERCOT_5units.xlsx"
@@ -17,14 +17,14 @@ first_agent_id: 201
 first_asset_id: 2001
 
 num_agents: 1
-num_steps: 20
+num_steps: 8
 
 use_precomputed_price_curve: True
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
 
-peak_demand: 104512  # MWh, to scale load duration data
+peak_demand: 74545  # MWh, to scale load duration data
 demand_visibility_horizon: 5
 demand_projection_mode: exp_termrate     # flat, exp_fitted, or exp_termrate
 demand_projection_window: 10 # Total number of periods used to project demand
@@ -44,4 +44,4 @@ ALEAF_model_type: "LC_GEP"
 ALEAF_region: "ERCOT"
 ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
 ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
-ALEAF_scenario_name: "Scenario_Base_HR2"
+ALEAF_scenario_name: "ABCE_base"
