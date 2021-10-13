@@ -197,7 +197,8 @@ class GridModel(Model):
                                       "FUEL": "fuel_type",
                                       "CAP": "capacity",
                                       "INVC": "uc_x",
-                                      "HR": "heat_rate"}
+                                      "HR": "heat_rate",
+                                      "CAPCRED": "CF"}
 
             # Set up the header converter from ATBe to ABCE unit_spec format
             ATB_header_converter = {"CAPEX": "uc_x",
@@ -240,7 +241,7 @@ class GridModel(Model):
             # Known names of columns which are filled with "ATB" in the
             #   ALEAF unit_spec sheet, names in the ATB format, plus
             #   capacity factor (CF) which is not given in the ALEAF sheet
-            to_fill = ["CAPEX", "Variable O&M", "Fixed O&M", "Fuel", "CF"]
+            to_fill = ["CAPEX", "Variable O&M", "Fixed O&M", "Fuel"]
 
             for unit_type in list(us_df.index):
                 # Retrieve the ATB search/matching settings for this unit type
@@ -406,13 +407,16 @@ class GridModel(Model):
         if not self.args.no_aleaf:
             # Update the A-LEAF system portfolio based on any new units completed
             #    this round
-            new_units = ALI.get_new_units(self.db, self.current_step)
-            ALEAF_sys_portfolio_path = os.path.join(self.ALEAF_abs_path,
-                                                    "data",
-                                                    self.ALEAF_model_type,
-                                                    self.ALEAF_region,
-                                                    self.ALEAF_portfolio_file)
-            ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, ALEAF_sys_portfolio_path, self.db, self.current_step)
+            # If the current period is 0, then do not update the portfolio
+            #    (already done in self.init())
+            if self.current_step != 0:
+                new_units = ALI.get_new_units(self.db, self.current_step)
+                ALEAF_sys_portfolio_path = os.path.join(self.ALEAF_abs_path,
+                                                        "data",
+                                                        self.ALEAF_model_type,
+                                                        self.ALEAF_region,
+                                                        self.ALEAF_portfolio_file)
+                ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, ALEAF_sys_portfolio_path, self.db, self.current_step)
 
             # Update ALEAF peak demand
             ALI.update_ALEAF_demand(self.ALEAF_model_settings_new_path,
