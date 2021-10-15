@@ -3,9 +3,7 @@
 unit_specs_file: "./inputs/unit_specs.csv"
 fuel_data_file: "./inputs/fuel_costs.csv"
 demand_data_file: "./inputs/demand_data.csv"
-price_curve_data_file: "~/kb_aleaf/output/LC_GEP/ERCOT/scenario_1_ABCE_base/ABCE_base__dispatch_summary_OP.csv"
-#price_curve_data_file: "./inputs/output_DISPATCH_aleafbase.csv"
-#price_curve_data_file: "./inputs/RTM_ORDC_REL_DPLY_PRC_ADDR_RSRV_2019.xlsx"
+seed_dispatch_data_file: "~/abce/inputs/ALEAF_inputs/ABCE_base__dispatch_summary_OP__step_0.csv"
 port_file_1a: "ALEAF_ERCOT_5units.xlsx"
 time_series_data_file: "./inputs/timeseriesParams.xlsx"
 gc_params_file: "./inputs/gc_params.yml"
@@ -17,7 +15,7 @@ first_agent_id: 201
 first_asset_id: 2001
 
 num_agents: 1
-num_steps: 8
+num_steps: 12
 
 use_precomputed_price_curve: True
 enable_subsidy: True
@@ -30,6 +28,7 @@ demand_projection_mode: exp_termrate     # flat, exp_fitted, or exp_termrate
 demand_projection_window: 10 # Total number of periods used to project demand
 historical_demand_growth_rate: 0.01
 terminal_demand_growth_rate: 0.01  # Exponential growth rate of demand
+planning_reserve_margin: 0.1375
 
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
