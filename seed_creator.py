@@ -74,7 +74,13 @@ abce_tables = {"WIP_projects":
                  ],
 
                "price_curve":
-                 [("lamda", "real")]
+                 [("lamda", "real")
+                 ],
+
+               "model_params":
+                 [("parameter", "text"),
+                  ("value", "real")
+                 ]
               }
 
 
