@@ -33,7 +33,6 @@ settings = YAML.load_file(settings_file)
 unit_specs_file = settings["unit_specs_file"]
 fuel_cost_file = settings["fuel_data_file"]
 demand_data_file = settings["demand_data_file"]
-price_curve_data_file = settings["price_curve_data_file"]
 db_file = settings["db_file"]
 # Constants
 hours_per_year = settings["hours_per_year"]
