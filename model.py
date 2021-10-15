@@ -37,9 +37,10 @@ class GridModel(Model):
         unit_specs_file = settings["unit_specs_file"]
         fuel_data_file = settings["fuel_data_file"]
         demand_data_file = settings["demand_data_file"]
-        price_curve_data_file = settings["price_curve_data_file"]
+        price_curve_data_file = settings["seed_dispatch_data_file"]
         time_series_data_file = settings["time_series_data_file"]
         db_file = settings["db_file"]
+        self.port_file_1a = settings["port_file_1a"]
         # Get agent parameters from the settings dictionary
         self.num_agents = settings["num_agents"]
         self.first_agent_id = settings["first_agent_id"]
@@ -53,7 +54,8 @@ class GridModel(Model):
         self.ALEAF_model_settings_file_name = settings["ALEAF_model_settings_file"]
         self.ALEAF_portfolio_file = settings["ALEAF_portfolio_file"]
         self.ALEAF_scenario_name = settings["ALEAF_scenario_name"]
-        self.port_file_1a = settings["port_file_1a"]
+        # Get model/system parameters from the settings dictionary
+        self.planning_reserve_margin = settings["planning_reserve_margin"]
 
         # Copy the command-line arguments as member data
         self.args = args
@@ -67,6 +69,9 @@ class GridModel(Model):
 
         # Load all-period demand data into the database
         self.load_demand_data_to_db(settings)
+
+        # Add model parameters to the database
+        self.load_model_parameters_to_db(settings)
 
         # Set up all ALEAF file paths
         self.set_ALEAF_file_paths()
@@ -90,15 +95,7 @@ class GridModel(Model):
             self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
 
         # Set the source for price data
-        if self.args.no_aleaf:
-            self.price_curve_data_file = settings["price_curve_data_file"]
-        else:
-            self.price_curve_data_file = os.path.join(self.ALEAF_abs_path,
-                                                      "output",
-                                                      self.ALEAF_model_type,
-                                                      self.ALEAF_region,
-                                                      f"scenario_1_{self.ALEAF_scenario_name}",
-                                                      f"{self.ALEAF_scenario_name}__dispatch_summary_OP.csv")
+        self.price_curve_data_file = settings["seed_dispatch_data_file"]
 
         # Load unit type specifications and fuel costs
         #self.unit_specs = pd.read_csv(unit_specs_file)
@@ -133,6 +130,23 @@ class GridModel(Model):
         self.price_duration_data.to_sql("price_curve",
                                         con = self.db,
                                         if_exists = "replace")
+
+        # Check ./outputs/ dir and clear out old files
+        self.ALEAF_output_path = os.path.join(self.ALEAF_abs_path,
+                                              "output",
+                                              self.ALEAF_model_type,
+                                              self.ALEAF_region,
+                                              f"scenario_1_{self.ALEAF_scenario_name}")
+        self.ABCE_output_path = os.path.join(os.getcwd(), "outputs", self.ALEAF_scenario_name)
+        if not os.path.isdir(self.ABCE_output_path):
+            # If the desired output directory doesn't already exist, create it
+            os.makedirs(self.ABCE_output_path, exist_ok=True)
+        else:
+            # Otherwise, delete any existing files in the directory
+            for existing_file in os.listdir(self.ABCE_output_path):
+                os.remove(os.path.join(self.ABCE_output_path, existing_file))
+
+            
 
 
     def set_ALEAF_file_paths(self):
@@ -325,6 +339,12 @@ class GridModel(Model):
         demand_df.to_sql("demand", self.db, if_exists="replace", index_label="period")
 
 
+    def load_model_parameters_to_db(self, settings):
+        # Load specific parameters specified in settings.yml to the database
+        prm = settings["planning_reserve_margin"]
+        self.cur.execute(f"INSERT INTO model_params VALUES ('PRM', {prm})")
+
+
     def set_market_subsidy(self, settings):
         """
         If a subsidy is enabled, set the model's `subsidy_amount` to the
@@ -341,11 +361,15 @@ class GridModel(Model):
             if self.subsidy_enabled and "subsidy_amount" in settings:
                 self.subsidy_amount = settings["subsidy_amount"]
 
-    def create_price_duration_curve(self, settings):
+    def create_price_duration_curve(self, settings, dispatch_data=None):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
+            if self.current_step <= 0:
+                price_curve_data_file = self.price_curve_data_file
+            else:
+                price_curve_data_file = dispatch_data
             self.price_duration_data = pc.load_time_series_data(
-                                             self.price_curve_data_file,
+                                             price_curve_data_file,
                                              file_type="price",
                                              subsidy=self.subsidy_amount,
                                              output_type = "dataframe")
@@ -353,7 +377,7 @@ class GridModel(Model):
             # Create the systemwide merit order curve
             self.merit_curve = pc.create_merit_curve(self.db, self.current_step)
             pc.plot_curve(self.merit_curve, plot_name="merit_curve.png")
-            # Load five-minute demand data from file
+            # Load demand data from file
             self.demand_data = pc.load_time_series_data(
                                      settings["time_series_data_file"],
                                      file_type="load",
@@ -382,8 +406,10 @@ class GridModel(Model):
 
         # Update price data from ALEAF
         if self.current_step != 0:
-            print("Creating price duration curve...")
-            self.create_price_duration_curve(self.settings)
+            new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_step - 1}.csv"
+            new_dispatch_data = os.path.join(self.ABCE_output_path, new_dispatch_data_filename)
+            print(f"Creating price duration curve using file {new_dispatch_data}")
+            self.create_price_duration_curve(self.settings, new_dispatch_data)
 
             # Save price duration data to the database
             self.price_duration_data.to_sql("price_curve",
@@ -436,6 +462,15 @@ class GridModel(Model):
             else:
                 sp = subprocess.check_call([aleaf_cmd], shell=True)
 
+            # Copy all ALEAF output files to the output directory, with
+            #   scenario and step-specific names
+            files_to_save = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
+            for outfile in files_to_save:
+                old_filename = f"{self.ALEAF_scenario_name}__{outfile}.csv"
+                old_filepath = os.path.join(self.ALEAF_output_path, old_filename)
+                new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_step}.csv"
+                new_filepath = os.path.join(self.ABCE_output_path, new_filename)
+                shutil.copy2(old_filepath, new_filepath)
 
     def get_projects_to_reveal(self):
         """
