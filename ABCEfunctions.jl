@@ -232,6 +232,8 @@ function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
     vals = (pd, pd + demand_vis_horizon)
     visible_demand = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
     demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
+    prm = DBInterface.execute(db, "SELECT * FROM model_params WHERE parameter = 'PRM'") |> DataFrame
+    demand_forecast = demand_forecast .* (1 + prm[1, :value])
     return demand_forecast
 end
 
