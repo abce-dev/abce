@@ -6,12 +6,11 @@ data/*.csv
 run.py
 simplified_*
 market.yml
-out.txt
 abceSysimage.so
 *.db
 precompile.jl
 *cplex*
 *\~\$*
-outputs.xlsx
+*outputs*.xlsx
 *RTM*
 outputs/*
