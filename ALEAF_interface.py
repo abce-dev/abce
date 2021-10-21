@@ -47,15 +47,22 @@ def organize_ALEAF_portfolio(writer):
     return df
 
 
-def update_ALEAF_demand(ALEAF_model_settings_ref, ALEAF_model_settings_remote, db, period=0):
-    demand = pd.read_sql_query(f"SELECT demand FROM demand WHERE period = {period}", db)
+def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_remote, db, settings, period=0):
     book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
     sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
     sim_config.columns = sim_config.iloc[0]
     sim_config = sim_config.drop(sim_config.index[0])
 
-    sim_config.loc[sim_config["Scenario"] == "ABCE_base", "PD"] = demand.iloc[0, 0]
+    # If this is the first step of the run, update top-level settings
+    if period == 0:
+        # Update ALEAF scenario name
+        sim_config.loc[0, "Scenario"] = settings["ALEAF_scenario_name"]
+
+    # Update periodic data
+    # Update peak demand (PD, MW)
+    sim_config.loc[sim_config["Scenario"] == settings["ALEAF_scenario_name"], "PD"] = demand.iloc[0, 0]
+
+    # Write the updated sheet to file
     sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
     writer.save()
-
 

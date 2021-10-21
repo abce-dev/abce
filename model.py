@@ -193,9 +193,10 @@ class GridModel(Model):
         """
         # Update the ALEAF_Master_LC_GEP.xlsx model settings file:
         #  - Update the peak demand value in the 'Simulation Configuration' tab
-        ALI.update_ALEAF_demand(self.ALEAF_model_settings_ref,
+        ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_ref,
                                         self.ALEAF_model_settings_remote,
                                         self.db,
+                                        self.settings,
                                         period=0)
 
         # Update the ALEAF_ERCOT.xlsx system portfolio data:
@@ -445,10 +446,11 @@ class GridModel(Model):
                 ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, ALEAF_sys_portfolio_path, self.db, self.current_step)
 
             # Update ALEAF peak demand
-            ALI.update_ALEAF_demand(self.ALEAF_model_settings_new_path,
-                                    self.ALEAF_model_settings_new_path,
-                                    self.db,
-                                    self.current_step)
+            ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_new_path,
+                                            self.ALEAF_model_settings_new_path,
+                                            self.db,
+                                            self.settings,
+                                            self.current_step)
 
             # Run A-LEAF
             print("Running A-LEAF...")
