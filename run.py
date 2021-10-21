@@ -21,6 +21,7 @@ from model import GridModel
 import yaml
 import pandas as pd
 import argparse
+import ABCEfunctions
 
 
 def read_settings(settings_file):
@@ -97,6 +98,9 @@ def run_model():
             table = db_tables.loc[i, "name"]
             final_db = pd.read_sql_query(f"SELECT * FROM {table}", abce_model.db)
             final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
+
+    # Postprocess A-LEAF results
+    ABCEfunctions.process_outputs(settings, abce_model.ABCE_output_path)
 
 
 # Run the model
