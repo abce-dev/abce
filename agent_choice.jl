@@ -146,12 +146,17 @@ for i = 1:num_types
             marginal_hours_revenue = 0
         end
         submarginal_hours_revenue = sum(submarginal_hours[!, :lamda]) * unit_data[i, :capacity]
+        # Calculate forced de-rating factor for wind and solar
+        availability_derate_factor = 1
+        if unit_data[i, :unit_type] == "Wind" || unit_data[i, :unit_type] == "PV"
+            availability_derate_factor = unit_data[i, :CF]
+        end
         fs[!, :Revenue] .= 0.0
-        fs[(j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life]), :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * hours_per_year / size(price_curve)[1]
+        fs[(j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life]), :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor * hours_per_year / size(price_curve)[1]
 
         # Unit generates during all marginal and sub-marginal hours
         num_active_hours = (size(submarginal_hours)[1] + size(marginal_hours)[1] * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])) * hours_per_year / size(price_curve)[1]
-        gen = num_active_hours * unit_data[i, :capacity] * 1000   # kWh
+        gen = num_active_hours * unit_data[i, :capacity] * availability_derate_factor * 1000   # kWh
         fs[(j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life]), :gen] .= gen
 
 
