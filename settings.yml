@@ -1,5 +1,5 @@
 # File locations and runtime options for ABCE
-
+ABCE_abs_path: "/home/biegelk/abce/"
 unit_specs_file: "./inputs/unit_specs.csv"
 fuel_data_file: "./inputs/fuel_costs.csv"
 demand_data_file: "./inputs/demand_data.csv"
@@ -15,7 +15,7 @@ first_agent_id: 201
 first_asset_id: 2001
 
 num_agents: 1
-num_steps: 12
+num_steps: 20
 
 use_precomputed_price_curve: True
 enable_subsidy: True
@@ -29,6 +29,8 @@ demand_projection_window: 10 # Total number of periods used to project demand
 historical_demand_growth_rate: 0.01
 terminal_demand_growth_rate: 0.01  # Exponential growth rate of demand
 planning_reserve_margin: 0.1375
+peak_initial_reserves: 4000    # MW, peak reserves demand (added to PD by agent_choice.jl)
+tax_rate: 0.21
 
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
@@ -43,4 +45,4 @@ ALEAF_model_type: "LC_GEP"
 ALEAF_region: "ERCOT"
 ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
 ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
-ALEAF_scenario_name: "ABCE_base"
+ALEAF_scenario_name: "ABCE_base_derate"
