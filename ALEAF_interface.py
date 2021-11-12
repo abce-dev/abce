@@ -48,10 +48,14 @@ def organize_ALEAF_portfolio(writer):
 
 
 def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_remote, db, settings, period=0):
+    # Read in ALEAF settings from ALEAF_Master_LC_GEP.xlsx-style file
     book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
     sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
     sim_config.columns = sim_config.iloc[0]
     sim_config = sim_config.drop(sim_config.index[0])
+
+    # Read in demand data from DB
+    demand = pd.read_sql_query(f"SELECT demand FROM demand WHERE period = {period}", db)
 
     # If this is the first step of the run, update top-level settings
     if period == 0:
