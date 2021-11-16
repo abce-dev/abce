@@ -186,18 +186,16 @@ def process_dispatch_data(ds_file_list, output_dir, ALEAF_scenario_name):
 
 
 def plot_pdcs(sorted_lmp_data):
-    # Create log-log plots of the suspicious step 2 data, plus periods 1 and 3 for comparison
+    # Create log-log plots of the period-0 A-LEAF dispatch results
     x = np.arange(1, len(sorted_lmp_data)+1, 1)
     fig, ax = plt.subplots()
-    ax.set_title("Log-log plot of price duration curves: steps 1-3")
+    ax.set_title("Log-log plot of period-0 price duration curve")
     ax.set_xlabel("log(period of the year")
     ax.set_ylabel("log(price)")
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.plot(x, sorted_lmp_data["step_1"])
-    ax.plot(x, sorted_lmp_data["step_2"])
-    ax.plot(x, sorted_lmp_data["step_3"])
-    fig.savefig("./pdcs_123.png")
+    ax.plot(x, sorted_lmp_data["step_0"])
+    fig.savefig("./abce_pd0_pdc.png")
 
 
 
