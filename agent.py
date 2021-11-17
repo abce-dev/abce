@@ -58,7 +58,7 @@ class GenCo(Agent):
         self.portfolios_file = settings["portfolios_file"]
         self.quiet = cli_args.quiet
         self.assign_parameters(self.gc_params_file)
-        self.add_initial_assets_to_db(settings, from_ALEAF=True)
+        self.add_initial_assets_to_db(settings)
 
 
     def assign_parameters(self, params_file):
@@ -78,7 +78,7 @@ class GenCo(Agent):
                         {self.interest_cap})""")
 
 
-    def add_initial_assets_to_db(self, settings, from_ALEAF=False):
+    def add_initial_assets_to_db(self, settings):
         # Converter for non-ABCE-matching ALEAF unit type names
         ALEAF_unit_name_converter = {"Solar PV": "PV",
                                      "Steam": "Coal",
