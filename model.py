@@ -88,7 +88,6 @@ class GridModel(Model):
             gc = GenCo(i, self, settings, self.args)
             self.schedule.add(gc)
 
-
         # Determine setting for use of a precomputed price curve
         self.use_precomputed_price_curve = True
         if "use_precomputed_price_curve" in settings:
@@ -99,24 +98,6 @@ class GridModel(Model):
 
         # Load unit type specifications and fuel costs
         self.add_unit_specs_to_db(from_ALEAF=True)
-
-        # Reset the A-LEAF system portfolio by overwriting "ALEAF_ERCOT.xlsx"
-        #    with the copy of "ALEAF_ERCOT_original.xlsx" which is stored
-        #    in abce/inputs/ALEAF_inputs
-        self.ALEAF_portfolio_new_path = os.path.join(self.ALEAF_abs_path,
-                                                     "data",
-                                                     self.ALEAF_model_type,
-                                                     self.ALEAF_region,
-                                                     f"ALEAF_{self.ALEAF_region}.xlsx")
-        shutil.copyfile(f"./inputs/ALEAF_inputs/{self.port_file_1a}", self.ALEAF_portfolio_new_path)
-
-        # Reset the A-LEAF model settings file by overwriting "ALEAF_Master_{model_type}.xlsx"
-        #    with the copy stored in abce/inputs/aleaf_inputs
-        self.ALEAF_model_settings_original_path = f"./inputs/ALEAF_inputs/ALEAF_Master_{self.ALEAF_model_type}_original.xlsx"
-        self.ALEAF_model_settings_new_path = os.path.join(self.ALEAF_abs_path,
-                                                          "setting",
-                                                          f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
-        shutil.copyfile(self.ALEAF_model_settings_original_path, self.ALEAF_model_settings_new_path)
 
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy(settings)
@@ -130,19 +111,16 @@ class GridModel(Model):
                                         if_exists = "replace")
 
         # Check ./outputs/ dir and clear out old files
-        self.ALEAF_output_path = os.path.join(self.ALEAF_abs_path,
-                                              "output",
-                                              self.ALEAF_model_type,
-                                              self.ALEAF_region,
-                                              f"scenario_1_{self.ALEAF_scenario_name}")
-        self.ABCE_output_path = os.path.join(os.getcwd(), "outputs", self.ALEAF_scenario_name)
-        if not os.path.isdir(self.ABCE_output_path):
+        # TODO: replace getcwd() with a command-line argument to specify a 
+        #   non-cwd ABCE absolute path
+        self.ABCE_output_data_path = os.path.join(os.getcwd(), "outputs", self.ALEAF_scenario_name)
+        if not os.path.isdir(self.ABCE_output_data_path):
             # If the desired output directory doesn't already exist, create it
-            os.makedirs(self.ABCE_output_path, exist_ok=True)
+            os.makedirs(self.ABCE_output_data_path, exist_ok=True)
         else:
             # Otherwise, delete any existing files in the directory
-            for existing_file in os.listdir(self.ABCE_output_path):
-                os.remove(os.path.join(self.ABCE_output_path, existing_file))
+            for existing_file in os.listdir(self.ABCE_output_data_path):
+                os.remove(os.path.join(self.ABCE_output_data_path, existing_file))
 
             
 
@@ -180,13 +158,15 @@ class GridModel(Model):
                                                   "output",
                                                   self.ALEAF_model_type,
                                                   self.ALEAF_region,
-                                                  f"scenario_1_{self.ALEAF_scenario_name}",
-                                                  f"{self.ALEAF_scenario_name}__dispatch_summary_OP.csv")
+                                                  f"scenario_1_{self.ALEAF_scenario_name}")
 
 
     def reinitialize_ALEAF_input_data(self):
         """ Setting ALEAF inputs requires overwriting fixed xlsx input files.
-              This function re-initializes the following ALEAF input files from
+              In order to avoid cross-run contamination, these inputs should
+              be reset to the user-provided baseline (the settings files in
+              ./inputs/ALEAF_inputs/) before the simulation starts.
+            This function re-initializes the following ALEAF input files from
               reference copies stored in ./inputs/ALEAF_inputs/.
         """
         # Update the ALEAF_Master_LC_GEP.xlsx model settings file:
@@ -202,6 +182,7 @@ class GridModel(Model):
                                           self.ALEAF_portfolio_remote,
                                           self.db,
                                           self.current_step)
+
 
     def add_unit_specs_to_db(self, from_ALEAF=False):
         """
@@ -340,6 +321,7 @@ class GridModel(Model):
             if self.subsidy_enabled and "subsidy_amount" in settings:
                 self.subsidy_amount = settings["subsidy_amount"]
 
+
     def create_price_duration_curve(self, settings, dispatch_data=None):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
@@ -386,7 +368,7 @@ class GridModel(Model):
         # Update price data from ALEAF
         if self.current_step != 0:
             new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_step - 1}.csv"
-            new_dispatch_data = os.path.join(self.ABCE_output_path, new_dispatch_data_filename)
+            new_dispatch_data = os.path.join(self.ABCE_output_data_path, new_dispatch_data_filename)
             print(f"Creating price duration curve using file {new_dispatch_data}")
             self.create_price_duration_curve(self.settings, new_dispatch_data)
 
@@ -424,8 +406,8 @@ class GridModel(Model):
                 ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, ALEAF_sys_portfolio_path, self.db, self.current_step)
 
             # Update ALEAF peak demand
-            ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_new_path,
-                                            self.ALEAF_model_settings_new_path,
+            ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,
+                                            self.ALEAF_model_settings_remote,
                                             self.db,
                                             self.settings,
                                             self.current_step)
@@ -447,10 +429,11 @@ class GridModel(Model):
             files_to_save = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
             for outfile in files_to_save:
                 old_filename = f"{self.ALEAF_scenario_name}__{outfile}.csv"
-                old_filepath = os.path.join(self.ALEAF_output_path, old_filename)
+                old_filepath = os.path.join(self.ALEAF_output_data_path, old_filename)
                 new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_step}.csv"
-                new_filepath = os.path.join(self.ABCE_output_path, new_filename)
+                new_filepath = os.path.join(self.ABCE_output_data_path, new_filename)
                 shutil.copy2(old_filepath, new_filepath)
+
 
     def get_projects_to_reveal(self):
         """
@@ -469,6 +452,7 @@ class GridModel(Model):
         projects_to_reveal = pd.read_sql("SELECT asset_id FROM assets WHERE " +
                                          "revealed = 'false'", self.db)
         return projects_to_reveal
+
 
     def reveal_decisions(self, projects_to_reveal):
         """
