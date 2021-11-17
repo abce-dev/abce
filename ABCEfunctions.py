@@ -32,14 +32,39 @@ def get_next_asset_id(db, first_asset_id):
 
 
 def process_outputs(settings, output_dir):
+    """
+    A handler function for postprocessing A-LEAF results stored from the
+      individual time-steps of an ABCE simulation run.
+
+    Postprocessing tasks:
+      - "Capacity expansion" (i.e. portfolio composition) (in # of units
+          and MW installed)
+      - System-wide results, e.g. total system costs and weighted-average prices
+      - Generation unit type results: amount of generation and AS, and
+          profitability by unit type
+      - Price data: sorted by time-stamp and from high to low
+    """
+
+    # Postprocessing settings
     ALEAF_scenario_name = settings["ALEAF_scenario_name"]
     file_types = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
+
+    # Get a list of each type of file from the ABCE A-LEAF outputs dir
+    # This will allow postprocessing to work even if some files are missing
     file_lists = {}
     for ftype in file_types:
         file_lists[ftype] = glob.glob(os.path.join(output_dir, f"*{ftype}*"))
+
+    # Postprocess the expansion results
     expansion_results, expansion_results_mw = process_expansion_results(file_lists["expansion_result"], output_dir, ALEAF_scenario_name)
+
+    # Postprocess the system-level results
     system_summary_results = process_system_summary(file_lists["system_summary_OP"], file_lists["dispatch_summary_OP"], output_dir, ALEAF_scenario_name)
+
+    # Postprocess the generation unit type results
     system_tech_results = process_tech_summary(file_lists["system_tech_summary_OP"], output_dir, ALEAF_scenario_name)
+
+    # Postprocess the electricity price data
     unsorted_lmp_data, sorted_lmp_data = process_dispatch_data(file_lists["dispatch_summary_OP"], output_dir, ALEAF_scenario_name)
 
     # Write results to xlsx
@@ -62,6 +87,13 @@ def process_outputs(settings, output_dir):
 
 
 def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name):
+    """
+    Process the "capacity expansion" results output by A-LEAF. For ABCE,
+      A-LEAF should never be able to actually build or retire new units, so
+      this provides both an easy reminder of the portfolio composition but
+      also a diagnostic in case of an incorrect setting that allows A-LEAF
+      to build or retire units.
+    """
     num_files = len(exp_file_list)
     for i in range(num_files):
         file_name = os.path.join(output_dir, f"{ALEAF_scenario_name}__expansion_result__step_{i}.csv")
@@ -91,6 +123,14 @@ def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name):
 
 
 def process_system_summary(ss_file_list, ds_file_list, output_dir, ALEAF_scenario_name):
+    """
+    Process and collect all system-summary data outputs from A-LEAF.
+
+    The average LMP and RMP data in the A-LEAF output files are computed by
+      straight average, whereas I need a weighted average. This function also
+      loads in the dispatch data to quickly compute the correct weighted-
+      average prices for each time step.
+    """
     num_files = len(ss_file_list)
     for i in range(num_files):
         file_name = os.path.join(output_dir, f"{ALEAF_scenario_name}__system_summary_OP__step_{i}.csv")
@@ -123,7 +163,7 @@ def process_system_summary(ss_file_list, ds_file_list, output_dir, ALEAF_scenari
         df.loc[0, "RMP_S"] = s_wap
         df.loc[0, "RMP_NS"] = ns_wap
 
-        # Use the first file as a seed
+        # If this is step 0, use the dataframe as a seed
         if i == 0:
             ss_df = df
         # Append each file's data to the main df
@@ -134,8 +174,13 @@ def process_system_summary(ss_file_list, ds_file_list, output_dir, ALEAF_scenari
 
 
 def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name):
+    """
+    Process all sets of A-LEAF unit-type summary statistics. Cleans up unit
+      type names and then organizes results into a unified dataframe.
+    """
     num_files = len(sts_file_list)
     for i in range(num_files):
+        # Read in the system technology summary for time-step i
         file_name = os.path.join(output_dir, f"{ALEAF_scenario_name}__system_tech_summary_OP__step_{i}.csv")
         df = pd.read_csv(file_name)
 
@@ -144,7 +189,8 @@ def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name):
         unit_types = ["Wind", "Solar", "NGCC", "NGCT", "Advanced Nuclear"]
         df["unit_type"] = unit_types
 
-        # If step 0, use the file to set up DataFrames for all tracked items
+        # If this is step 0, use the file to set up DataFrames for all tracked
+        #   items
         if i == 0:
             gen_df = df[["unit_type", "Generation"]].copy().rename(columns={"Generation": "step_0"})
             rr_df = df[["unit_type", "Reserve_Reg"]].copy().rename(columns={"Reserve_Reg": "step_0"})
@@ -165,16 +211,35 @@ def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name):
 
 
 def process_dispatch_data(ds_file_list, output_dir, ALEAF_scenario_name):
+    """
+    Process all sets of A-LEAF dispatch output data, in order to create
+      dataframes of electricity price (LMP) data. Function filters the raw data
+      to remove redundant LMP entries, and produces time-sorted and
+      high-to-low sorted dataframes of results for all time steps.
+
+    Returns:
+      - unsorted_LMP_data: LMP data for each time step, sorted by timestamp
+      - sorted_LMP_data: LMP data for each time step, sorted high to low
+          (to create price duration curves)
+    """
+
     num_files = len(ds_file_list)
     for i in range(num_files):
+        # Read in the ALEAF dispatch output data for time-step i
         file_name = os.path.join(output_dir, f"{ALEAF_scenario_name}__dispatch_summary_OP__step_{i}.csv")
         df = pd.read_csv(file_name)
 
-        # Filter out duplicate price entries
+        # Filter out duplicate price entries: the dispatch data df has one
+        #   copy of each time period's price data for each unit type. I'm
+        #   filtering for unique time periods by only selecting data for the
+        #   "WIND" generator (though any generator type would work the same).
         df = df[df["UnitGroup"] == "WIND"].reset_index()
+
+        # Create dataframes to hold unsorted and sorted LMP data separately
         unsorted_lmp = pd.DataFrame(df["LMP_dht"].copy())
         sorted_lmp = unsorted_lmp.copy().sort_values(by="LMP_dht", ascending=False, ignore_index=True)
 
+        # Name the new column in each df appropriately
         if i == 0:
             unsorted_lmp_data = unsorted_lmp.rename(columns={"LMP_dht": "step_0"})
             sorted_lmp_data = sorted_lmp.rename(columns={"LMP_dht": "step_0"})
@@ -186,6 +251,10 @@ def process_dispatch_data(ds_file_list, output_dir, ALEAF_scenario_name):
 
 
 def plot_pdcs(sorted_lmp_data):
+    """
+    A function to plot price duration curves. Currently only plots
+      step 0 results.
+    """
     # Create log-log plots of the period-0 A-LEAF dispatch results
     x = np.arange(len(sorted_lmp_data))+1
     fig, ax = plt.subplots()
