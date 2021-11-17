@@ -187,10 +187,10 @@ def process_dispatch_data(ds_file_list, output_dir, ALEAF_scenario_name):
 
 def plot_pdcs(sorted_lmp_data):
     # Create log-log plots of the period-0 A-LEAF dispatch results
-    x = np.arange(1, len(sorted_lmp_data)+1, 1)
+    x = np.arange(len(sorted_lmp_data))+1
     fig, ax = plt.subplots()
     ax.set_title("Log-log plot of period-0 price duration curve")
-    ax.set_xlabel("log(period of the year")
+    ax.set_xlabel("log(period of the year)")
     ax.set_ylabel("log(price)")
     ax.set_xscale("log")
     ax.set_yscale("log")
