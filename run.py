@@ -122,7 +122,7 @@ def run_model():
             final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
 
     # Postprocess A-LEAF results
-    ABCEfunctions.process_outputs(settings, abce_model.ABCE_output_path)
+    ABCEfunctions.process_outputs(settings, abce_model.ABCE_output_data_path)
 
 
 # Run the model
