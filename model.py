@@ -236,16 +236,10 @@ class GridModel(Model):
             # Retrieve the ATB search/matching settings for this unit type
             unit_settings = dict(ATB_settings.loc[unit_type, :])
 
-            for datum in to_fill:
-                if datum in ATB_header_converter.keys():
-                    datum_name = ATB_header_converter[datum]
-                else:
-                    datum_name = datum
-                # TODO: set up an A-LEAF -> ATBe search term converter
-                # Attempt to match all search terms
+            for datum_name in ATB_header_converter.keys():
                 mask = ((ATB_data["technology"] == unit_settings["Tech"]) &
                         (ATB_data["techdetail"] == unit_settings["TechDetail"]) &
-                        (ATB_data["core_metric_parameter"] == datum) &
+                        (ATB_data["core_metric_parameter"] == datum_name) &
                         (ATB_data["core_metric_case"] == unit_settings["Case"]) &
                         (ATB_data["crpyears"] == unit_settings["CRP"]) &
                         (ATB_data["scenario"] == unit_settings["Scenario"]) &
@@ -254,10 +248,10 @@ class GridModel(Model):
                 if sum(mask) != 1:
                     # If the mask matches nothing in ATBe, assume that
                     #   the appropriate value is 0 (e.g. battery VOM cost)
-                    logging.debug(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum} to 0.")
-                    unit_specs_data.loc[unit_type, datum_name] = 0
+                    logging.warn(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
+                    unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = 0
                 else:
-                    unit_specs_data.loc[unit_type, datum_name] = ATB_data.loc[mask, "value"].values[0]
+                    unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
 
             # Retrieve the CRP data to fill the 'unit_life' data field
             unit_specs_data.loc[unit_type, "unit_life"] = unit_settings["CRP"]
