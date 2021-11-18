@@ -34,7 +34,7 @@ class GridModel(Model):
     def __init__(self, settings, args):
         self.settings = settings
         # Get input file locations from the settings dictionary
-        unit_specs_file = settings["unit_specs_file"]
+        unit_specs_file_name = settings["unit_specs_file"]
         fuel_data_file = settings["fuel_data_file"]
         demand_data_file = settings["demand_data_file"]
         price_curve_data_file = settings["seed_dispatch_data_file"]
@@ -48,11 +48,11 @@ class GridModel(Model):
         self.total_forecast_horizon = settings["total_forecast_horizon"]
         # Get ALEAF parameters from the settings dictionary
         self.ALEAF_abs_path = settings["ALEAF_abs_path"]
-        self.ALEAF_master_settings_file = settings["ALEAF_master_settings_file"]
+        self.ALEAF_master_settings_file_name = settings["ALEAF_master_settings_file"]
         self.ALEAF_model_type = settings["ALEAF_model_type"]
         self.ALEAF_region = settings["ALEAF_region"]
         self.ALEAF_model_settings_file_name = settings["ALEAF_model_settings_file"]
-        self.ALEAF_portfolio_file = settings["ALEAF_portfolio_file"]
+        self.ALEAF_portfolio_file_name = settings["ALEAF_portfolio_file"]
         self.ALEAF_scenario_name = settings["ALEAF_scenario_name"]
         # Get model/system parameters from the settings dictionary
         self.planning_reserve_margin = settings["planning_reserve_margin"]
@@ -141,7 +141,7 @@ class GridModel(Model):
         # Set the paths to where settings are stored in the ALEAF directory
         ALEAF_settings_path = os.path.join(self.ALEAF_abs_path, "setting")
         self.ALEAF_master_settings_remote = os.path.join(ALEAF_settings_path,
-                                                         "ALEAF_Master.xlsx")
+                                                         self.ALEAF_master_settings_file_name)
         self.ALEAF_model_settings_remote = os.path.join(ALEAF_settings_path,
                                                         f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
         self.ALEAF_portfolio_remote = os.path.join(self.ALEAF_abs_path,
@@ -401,7 +401,7 @@ class GridModel(Model):
                                                     "data",
                                                     self.ALEAF_model_type,
                                                     self.ALEAF_region,
-                                                    self.ALEAF_portfolio_file)
+                                                    self.ALEAF_portfolio_file_name)
             ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, ALEAF_sys_portfolio_path, self.db, self.current_step)
 
         # Update ALEAF peak demand
