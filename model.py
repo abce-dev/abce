@@ -391,48 +391,47 @@ class GridModel(Model):
             print("Table of construction project updates:")
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
-        if not self.args.no_aleaf:
-            # Update the A-LEAF system portfolio based on any new units completed
-            #    this round
-            # If the current period is 0, then do not update the portfolio
-            #    (already done in self.init())
-            if self.current_step != 0:
-                new_units = ALI.get_new_units(self.db, self.current_step)
-                ALEAF_sys_portfolio_path = os.path.join(self.ALEAF_abs_path,
-                                                        "data",
-                                                        self.ALEAF_model_type,
-                                                        self.ALEAF_region,
-                                                        self.ALEAF_portfolio_file)
-                ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, ALEAF_sys_portfolio_path, self.db, self.current_step)
+        # Update the A-LEAF system portfolio based on any new units completed
+        #    this round
+        # If the current period is 0, then do not update the portfolio
+        #    (already done in self.init())
+        if self.current_step != 0:
+            new_units = ALI.get_new_units(self.db, self.current_step)
+            ALEAF_sys_portfolio_path = os.path.join(self.ALEAF_abs_path,
+                                                    "data",
+                                                    self.ALEAF_model_type,
+                                                    self.ALEAF_region,
+                                                    self.ALEAF_portfolio_file)
+            ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, ALEAF_sys_portfolio_path, self.db, self.current_step)
 
-            # Update ALEAF peak demand
-            ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,
-                                            self.ALEAF_model_settings_remote,
-                                            self.db,
-                                            self.settings,
-                                            self.current_step)
+        # Update ALEAF peak demand
+        ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,
+                                        self.ALEAF_model_settings_remote,
+                                        self.db,
+                                        self.settings,
+                                        self.current_step)
 
-            # Run A-LEAF
-            print("Running A-LEAF...")
-            run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
-            ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
-            aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
-            if self.args.quiet:
-                sp = subprocess.check_call([aleaf_cmd],
-                                           shell=True,
-                                           stdout=open(os.devnull, "wb"))
-            else:
-                sp = subprocess.check_call([aleaf_cmd], shell=True)
+        # Run A-LEAF
+        print("Running A-LEAF...")
+        run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
+        ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
+        aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
+        if self.args.quiet:
+            sp = subprocess.check_call([aleaf_cmd],
+                                       shell=True,
+                                       stdout=open(os.devnull, "wb"))
+        else:
+            sp = subprocess.check_call([aleaf_cmd], shell=True)
 
-            # Copy all ALEAF output files to the output directory, with
-            #   scenario and step-specific names
-            files_to_save = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
-            for outfile in files_to_save:
-                old_filename = f"{self.ALEAF_scenario_name}__{outfile}.csv"
-                old_filepath = os.path.join(self.ALEAF_output_data_path, old_filename)
-                new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_step}.csv"
-                new_filepath = os.path.join(self.ABCE_output_data_path, new_filename)
-                shutil.copy2(old_filepath, new_filepath)
+        # Copy all ALEAF output files to the output directory, with
+        #   scenario and step-specific names
+        files_to_save = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
+        for outfile in files_to_save:
+            old_filename = f"{self.ALEAF_scenario_name}__{outfile}.csv"
+            old_filepath = os.path.join(self.ALEAF_output_data_path, old_filename)
+            new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_step}.csv"
+            new_filepath = os.path.join(self.ABCE_output_data_path, new_filename)
+            shutil.copy2(old_filepath, new_filepath)
 
 
     def get_projects_to_reveal(self):
