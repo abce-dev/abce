@@ -54,16 +54,16 @@ class GenCo(Agent):
 
         super().__init__(genco_id, model)
         self.model = model
-        self.gc_params_file = settings["gc_params_file"]
-        self.portfolios_file = settings["portfolios_file"]
         self.quiet = cli_args.quiet
-        self.assign_parameters(self.gc_params_file)
+        self.assign_parameters(settings)
         self.add_initial_assets_to_db(settings)
 
 
-    def assign_parameters(self, params_file):
+    def assign_parameters(self, settings):
         # Retrieve parameters from file
-        params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
+        gc_params_file_name = os.path.join(settings["ABCE_abs_path"],
+                                           settings["gc_params_file"])
+        params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
         # Assign all parameters from params as member data
         for key, val in params.items():
             setattr(self, key, val)
@@ -86,8 +86,7 @@ class GenCo(Agent):
                                      "CT": "NGCT"}
         # This currently assumes only one agent.
         # Read in the ALEAF system portfolio
-        port_file = f"./inputs/ALEAF_inputs/{self.model.port_file_1a}"
-        book, writer = ALI.prepare_xlsx_data(port_file, self.model.ALEAF_portfolio_ref)
+        book, writer = ALI.prepare_xlsx_data(self.model.ALEAF_portfolio_ref, self.model.ALEAF_portfolio_ref)
         pdf = ALI.organize_ALEAF_portfolio(writer)
         # Set the initial asset ID
         asset_id = settings["first_asset_id"]

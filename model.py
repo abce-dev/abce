@@ -33,12 +33,6 @@ class GridModel(Model):
     ''' A model with some number of GenCos. '''
     def __init__(self, settings, args):
         self.settings = settings
-        # Get input file locations from the settings dictionary
-        demand_data_file = settings["demand_data_file"]
-        price_curve_data_file = settings["seed_dispatch_data_file"]
-        time_series_data_file = settings["time_series_data_file"]
-        db_file = settings["db_file"]
-        self.port_file_1a = settings["port_file_1a"]
         # Get agent parameters from the settings dictionary
         self.num_agents = settings["num_agents"]
         self.first_agent_id = settings["first_agent_id"]
@@ -62,14 +56,15 @@ class GridModel(Model):
         self.current_step = -1
 
         # Initialize database for managing asset and WIP construction project data
-        self.db_file = db_file
+        self.db_file = os.path.join(settings["ABCE_abs_path"],
+                                    settings["db_file"])
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
 
         # Load all-period demand data into the database
-        self.load_demand_data_to_db(settings)
+        self.load_demand_data_to_db(self.settings)
 
         # Add model parameters to the database
-        self.load_model_parameters_to_db(settings)
+        self.load_model_parameters_to_db(self.settings)
 
         # Set up all ALEAF file paths
         self.set_ALEAF_file_paths()
@@ -91,17 +86,14 @@ class GridModel(Model):
         if "use_precomputed_price_curve" in settings:
             self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
 
-        # Set the source for price data
-        self.price_curve_data_file = settings["seed_dispatch_data_file"]
-
         # Load unit type specifications and fuel costs
         self.add_unit_specs_to_db()
 
         # Check whether a market price subsidy is in effect, and its value
-        self.set_market_subsidy(settings)
+        self.set_market_subsidy(self.settings)
                                                
         # Create an appropriate price duration curve
-        self.create_price_duration_curve(settings)
+        self.create_price_duration_curve(self.settings)
 
         # Save price duration data to the database
         self.price_duration_data.to_sql("price_curve",
@@ -134,7 +126,7 @@ class GridModel(Model):
         self.ALEAF_model_settings_ref = os.path.join(ALEAF_inputs_path,
                                                      f"ALEAF_Master_{self.ALEAF_model_type}_original.xlsx")
         self.ALEAF_portfolio_ref = os.path.join(ALEAF_inputs_path, 
-                                                self.port_file_1a)
+                                                self.settings["port_file_1a"])
 
         # Set the paths to where settings are stored in the ALEAF directory
         ALEAF_settings_path = os.path.join(self.ALEAF_abs_path, "setting")
@@ -289,7 +281,9 @@ class GridModel(Model):
 
     def load_demand_data_to_db(self, settings):
         # Load all-period demand data into the database
-        demand_df = pd.read_csv(settings["demand_data_file"]) * settings["peak_demand"]
+        demand_data_file = os.path.join(settings["ABCE_abs_path"],
+                                        settings["demand_data_file"])
+        demand_df = pd.read_csv(demand_data_file) * settings["peak_demand"]
         # Create an expanded range of periods to backfill with demand_df data
         new_index = list(range(self.total_forecast_horizon))
         demand_df = demand_df.reindex(new_index, method="ffill")
@@ -324,7 +318,8 @@ class GridModel(Model):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
             if self.current_step <= 0:
-                price_curve_data_file = self.price_curve_data_file
+                price_curve_data_file = os.path.join(settings["ABCE_abs_path"],
+                                                     settings["seed_dispatch_data_file"])
             else:
                 price_curve_data_file = dispatch_data
             self.price_duration_data = pc.load_time_series_data(
@@ -337,8 +332,10 @@ class GridModel(Model):
             self.merit_curve = pc.create_merit_curve(self.db, self.current_step)
             pc.plot_curve(self.merit_curve, plot_name="merit_curve.png")
             # Load demand data from file
+            time_series_data_file = os.path.join(settings["ABCE_abs_path"],
+                                                 settings["time_series_data_file"])
             self.demand_data = pc.load_time_series_data(
-                                     settings["time_series_data_file"],
+                                     time_series_data_file,
                                      file_type="load",
                                      peak_demand=settings["peak_demand"])
             pc.plot_curve(self.demand_data, plot_name="demand_curve.png")
