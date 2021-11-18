@@ -267,21 +267,3 @@ def plot_pdcs(sorted_lmp_data):
     fig.savefig("./abce_pd0_pdc.png")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
