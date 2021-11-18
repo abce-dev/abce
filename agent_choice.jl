@@ -30,8 +30,6 @@ println("Initializing data...")
 settings_file = ARGS[1]
 settings = YAML.load_file(settings_file)
 # File names
-fuel_cost_file = settings["fuel_data_file"]
-demand_data_file = settings["demand_data_file"]
 db_file = settings["db_file"]
 # Constants
 hours_per_year = settings["hours_per_year"]

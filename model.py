@@ -34,7 +34,6 @@ class GridModel(Model):
     def __init__(self, settings, args):
         self.settings = settings
         # Get input file locations from the settings dictionary
-        fuel_data_file = settings["fuel_data_file"]
         demand_data_file = settings["demand_data_file"]
         price_curve_data_file = settings["seed_dispatch_data_file"]
         time_series_data_file = settings["time_series_data_file"]
