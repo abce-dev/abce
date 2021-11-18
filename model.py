@@ -103,7 +103,7 @@ class GridModel(Model):
         # Check ./outputs/ dir and clear out old files
         # TODO: replace getcwd() with a command-line argument to specify a 
         #   non-cwd ABCE absolute path
-        self.ABCE_output_data_path = os.path.join(os.getcwd(), "outputs", self.ALEAF_scenario_name)
+        self.ABCE_output_data_path = os.path.join(settings["ABCE_abs_path"], "outputs", self.ALEAF_scenario_name)
         if not os.path.isdir(self.ABCE_output_data_path):
             # If the desired output directory doesn't already exist, create it
             os.makedirs(self.ABCE_output_data_path, exist_ok=True)
@@ -248,7 +248,7 @@ class GridModel(Model):
                 if sum(mask) != 1:
                     # If the mask matches nothing in ATBe, assume that
                     #   the appropriate value is 0 (e.g. battery VOM cost)
-                    logging.warn(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
+                    logging.debug(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
                     unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = 0
                 else:
                     unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
