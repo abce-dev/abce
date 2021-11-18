@@ -59,7 +59,7 @@ def process_outputs(settings, output_dir):
     expansion_results, expansion_results_mw = process_expansion_results(file_lists["expansion_result"], output_dir, ALEAF_scenario_name)
 
     # Postprocess the system-level results
-    system_summary_results = process_system_summary(file_lists["system_summary_OP"], file_lists["dispatch_summary_OP"], output_dir, ALEAF_scenario_name)
+    system_summary_results = process_system_summary(file_lists["system_summary_OP"], output_dir, ALEAF_scenario_name)
 
     # Postprocess the generation unit type results
     system_tech_results = process_tech_summary(file_lists["system_tech_summary_OP"], output_dir, ALEAF_scenario_name)
