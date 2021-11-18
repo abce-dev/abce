@@ -34,7 +34,6 @@ class GridModel(Model):
     def __init__(self, settings, args):
         self.settings = settings
         # Get input file locations from the settings dictionary
-        unit_specs_file_name = settings["unit_specs_file"]
         fuel_data_file = settings["fuel_data_file"]
         demand_data_file = settings["demand_data_file"]
         price_curve_data_file = settings["seed_dispatch_data_file"]
@@ -97,7 +96,7 @@ class GridModel(Model):
         self.price_curve_data_file = settings["seed_dispatch_data_file"]
 
         # Load unit type specifications and fuel costs
-        self.add_unit_specs_to_db(from_ALEAF=True)
+        self.add_unit_specs_to_db()
 
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy(settings)
@@ -184,7 +183,7 @@ class GridModel(Model):
                                           self.current_step)
 
 
-    def add_unit_specs_to_db(self, from_ALEAF=False):
+    def add_unit_specs_to_db(self):
         """
         Load in the A-LEAF unit specification data, including looking up data
           from the NREL Annual Technology Baseline (2020) file as specified by

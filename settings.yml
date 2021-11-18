@@ -1,6 +1,5 @@
 # File locations and runtime options for ABCE
 ABCE_abs_path: "/home/biegelk/abce/"
-unit_specs_file: "./inputs/unit_specs.csv"
 fuel_data_file: "./inputs/fuel_costs.csv"
 demand_data_file: "./inputs/demand_data.csv"
 seed_dispatch_data_file: "~/abce/inputs/ALEAF_inputs/ABCE_base__dispatch_summary_OP__step_0.csv"
@@ -15,7 +14,7 @@ first_agent_id: 201
 first_asset_id: 2001
 
 num_agents: 1
-num_steps: 20
+num_steps: 1
 
 use_precomputed_price_curve: True
 enable_subsidy: True
