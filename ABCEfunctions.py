@@ -122,7 +122,7 @@ def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name):
     return exp_df, exp_df_mw
 
 
-def process_system_summary(ss_file_list, ds_file_list, output_dir, ALEAF_scenario_name):
+def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
     """
     Process and collect all system-summary data outputs from A-LEAF.
 
