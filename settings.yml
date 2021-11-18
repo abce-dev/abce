@@ -1,6 +1,5 @@
 # File locations and runtime options for ABCE
 ABCE_abs_path: "/home/biegelk/abce/"
-fuel_data_file: "./inputs/fuel_costs.csv"
 demand_data_file: "./inputs/demand_data.csv"
 seed_dispatch_data_file: "~/abce/inputs/ALEAF_inputs/ABCE_base__dispatch_summary_OP__step_0.csv"
 port_file_1a: "ALEAF_ERCOT_5units.xlsx"
