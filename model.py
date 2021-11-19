@@ -48,6 +48,9 @@ class GridModel(Model):
         self.ALEAF_scenario_name = settings["ALEAF_scenario_name"]
         # Get model/system parameters from the settings dictionary
         self.planning_reserve_margin = settings["planning_reserve_margin"]
+        # Unit conversions
+        self.MW2kW = 1000          # Converts MW to kW
+        self.MMBTU2BTU = 1000000   # Converts MMBTU to BTU
 
         # Copy the command-line arguments as member data
         self.args = args
@@ -184,7 +187,7 @@ class GridModel(Model):
         Data is saved to the database table `unit_specs`.
         """
         # Set up header converter from A-LEAF to ABCE unit_spec format
-        ALEAF_header_converter = {"UNIT_CATEGORY": "unit_type",
+        ALEAF_header_converter = {"UNIT_TYPE": "unit_type",
                                   "FUEL": "fuel_type",
                                   "CAP": "capacity",
                                   "INVC": "uc_x",
@@ -196,11 +199,6 @@ class GridModel(Model):
                                 "Variable O&M": "VOM",
                                 "Fixed O&M": "FOM",
                                 "Fuel": "FC_per_MMBTU"}
-
-        # Set up the unit name converter from ALEAF to ABCE
-        ALEAF_unit_name_converter = {"Solar PV": "PV",
-                                     "Gas CC": "NGCC",
-                                     "Gas CT": "NGCT"}
 
         # Load the unit specs sheet from the settings file
         us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
@@ -221,7 +219,7 @@ class GridModel(Model):
 
         # Load the ATB search settings sheet from ALEAF
         ATB_settings = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="ATB Setting")
-        ATB_settings = ATB_settings.set_index("UNIT_CATEGORY")
+        ATB_settings = ATB_settings.set_index("UNIT_TYPE")
         # Remove duplicates (related to multiple scenarios specified in the
         #   Simulation Configuration tab, which are unneeded here)
         ATB_settings = ATB_settings.loc[ATB_settings["ATB_Setting_ID"] == "ATB_ID_1", :]
@@ -229,12 +227,7 @@ class GridModel(Model):
         # Load the ATB database sheet
         ATB_data = pd.read_csv(self.ATB_remote)
 
-        # Known names of columns which are filled with "ATB" in the
-        #   ALEAF unit_spec sheet, names in the ATB format, plus
-        #   capacity factor (CF) which is not given in the ALEAF sheet
-        to_fill = ["CAPEX", "Variable O&M", "Fixed O&M", "Fuel"]
-
-        for unit_type in list(us_df.index):
+        for unit_type in list(unit_specs_data.index):
             # Retrieve the ATB search/matching settings for this unit type
             unit_settings = dict(ATB_settings.loc[unit_type, :])
 
@@ -261,16 +254,12 @@ class GridModel(Model):
         # Turn 'unit_type' back into a column from the index of unit_specs_data
         unit_specs_data = unit_specs_data.reset_index()
         # Compute fuel cost per kWh; conversion factor of 1e6 is for BTU -> MMBTU
-        unit_specs_data["FC"] = unit_specs_data["FC_per_MMBTU"] * unit_specs_data["heat_rate"] / 1000000
+        unit_specs_data["FC"] = unit_specs_data["FC_per_MMBTU"] * unit_specs_data["heat_rate"] / self.MMBTU2BTU
         # FAKE: give all units a construction duration of 5 years
         unit_specs_data["d_x"] = 5
         # Cast the VOM column as Float64 (fixing specific bug)
         unit_specs_data["VOM"] = unit_specs_data["VOM"].astype("float64")
 
-        # Change unit_specs_data unit_type entries to match ABCE standard
-        for key in ALEAF_unit_name_converter.keys():
-            mask = unit_specs_data["unit_type"] == key
-            unit_specs_data.loc[mask, "unit_type"] = ALEAF_unit_name_converter[key]
         unit_specs_data.to_sql("unit_specs", self.db, if_exists = "replace", index = False)
         self.unit_specs = unit_specs_data
 
@@ -408,6 +397,9 @@ class GridModel(Model):
         else:
             sp = subprocess.check_call([aleaf_cmd], shell=True)
 
+        self.save_ALEAF_outputs()
+
+    def save_ALEAF_outputs(self):
         # Copy all ALEAF output files to the output directory, with
         #   scenario and step-specific names
         files_to_save = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
@@ -417,6 +409,7 @@ class GridModel(Model):
             new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_step}.csv"
             new_filepath = os.path.join(self.ABCE_output_data_path, new_filename)
             shutil.copy2(old_filepath, new_filepath)
+
 
 
     def get_projects_to_reveal(self):
