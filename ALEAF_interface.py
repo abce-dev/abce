@@ -52,7 +52,7 @@ def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_r
     book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
     sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
     sim_config.columns = sim_config.iloc[0]
-    sim_config = sim_config.drop(sim_config.index[0])
+    sim_config = sim_config.drop(sim_config.index[0]).reset_index().drop("index", axis=1)
 
     # Read in demand data from DB
     demand = pd.read_sql_query(f"SELECT demand FROM demand WHERE period = {period}", db)
