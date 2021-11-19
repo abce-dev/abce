@@ -1,6 +1,6 @@
-unit_type,occ_variance
-"Wind",0
-"Solar",0
-"NGCC",0
-"NGCT",0
-"AdvancedNuclear",0
+unit_type,occ_variance,d_x
+"Wind",0,3
+"Solar",0,3
+"NGCC",0,3
+"NGCT",0,2
+"AdvancedNuclear",0,5
