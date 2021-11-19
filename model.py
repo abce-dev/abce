@@ -253,8 +253,8 @@ class GridModel(Model):
         # Compute fuel cost per kWh; conversion factor of 1e6 is for BTU -> MMBTU
         unit_specs_data["FC"] = unit_specs_data["FC_per_MMBTU"] * unit_specs_data["heat_rate"] / self.MMBTU2BTU
 
-        # Retrieve baseline unit construction durations from the ABCE
-        #  supplemental unit specification file
+        # Retrieve non-ALEAF parameters from the ABCE supplemental unit
+        #   specification file
         unit_specs_ABCE = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"],
                                                    self.settings["unit_specs_abce_supp_file"]))
 
