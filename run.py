@@ -14,6 +14,8 @@
 # limitations under the License.
 ##########################################################################
 
+import os
+import subprocess
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 from agent import GenCo
@@ -21,6 +23,7 @@ from model import GridModel
 import yaml
 import pandas as pd
 import argparse
+import ABCEfunctions
 
 
 def read_settings(settings_file):
@@ -56,9 +59,6 @@ def cli_args():
     parser.add_argument("--demo", "-d",
                           action="store_true",
                           help="Pause the simulation after each step until user presses a key.")
-    parser.add_argument("--no_aleaf", "-n",
-                        action="store_true",
-                        help="Run ABCE without ALEAF, using a static price input file (location specified in settings.yml")
     args = parser.parse_args()
     return args
 
@@ -73,6 +73,24 @@ def wait_for_user(is_demo):
         user_response = input("Press Enter to continue: ")
 
 
+def check_julia_environment(ABCE_abs_path):
+    """
+    Check whether Manifest.toml and Project.toml files exist (necessary for
+      Julia to correctly load all dependencies).
+    If either one is not found, run `make_julia_environment.jl` to
+      automatically generate valid .toml files.
+    """
+    if not (os.path.exists(os.path.join(ABCE_abs_path, "Manifest.toml"))
+            and os.path.exists(os.path.join(ABCE_abs_path, "Project.toml"))):
+        julia_cmd = (f"julia {os.path.join(ABCE_abs_path, 'make_julia_environment.jl')}")
+        try:
+            sp = subprocess.check_call([julia_cmd], shell = True)
+            print("Julia environment successfully created.\n\n")
+        except CalledProcessError:
+            print("Cannot proceed without a valid Julia environment. Terminating...")
+            quit()
+
+
 def run_model():
     """
     Run the model:
@@ -84,6 +102,8 @@ def run_model():
     args = cli_args()
 
     settings = read_settings(args.settings_file)
+
+    check_julia_environment(settings["ABCE_abs_path"])
 
     abce_model = GridModel(settings, args)
     for i in range(settings["num_steps"]):
@@ -97,6 +117,9 @@ def run_model():
             table = db_tables.loc[i, "name"]
             final_db = pd.read_sql_query(f"SELECT * FROM {table}", abce_model.db)
             final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
+
+    # Postprocess A-LEAF results
+    ABCEfunctions.process_outputs(settings, abce_model.ABCE_output_data_path)
 
 
 # Run the model

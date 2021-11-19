@@ -23,6 +23,7 @@ import os
 
 # import local modules
 import ABCEfunctions as ABCE
+import ALEAF_interface as ALI
 
 class GenCo(Agent):
     """ 
@@ -53,17 +54,16 @@ class GenCo(Agent):
 
         super().__init__(genco_id, model)
         self.model = model
-        self.gc_params_file = settings["gc_params_file"]
-        self.portfolios_file = settings["portfolios_file"]
         self.quiet = cli_args.quiet
-        self.assign_parameters(self.gc_params_file)
+        self.assign_parameters(settings)
         self.add_initial_assets_to_db(settings)
 
 
-    def assign_parameters(self, params_file):
+    def assign_parameters(self, settings):
         # Retrieve parameters from file
-        params = yaml.load(open(params_file, 'r'), Loader=yaml.FullLoader)
-        print(params)
+        gc_params_file_name = os.path.join(settings["ABCE_abs_path"],
+                                           settings["gc_params_file"])
+        params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
         # Assign all parameters from params as member data
         for key, val in params.items():
             setattr(self, key, val)
@@ -79,29 +79,36 @@ class GenCo(Agent):
 
 
     def add_initial_assets_to_db(self, settings):
-        initial_assets = pd.read_csv(self.portfolios_file, skipinitialspace=True)
-        for i in range(len(initial_assets)):
-            if initial_assets.loc[i, "agent_id"] == self.unique_id:
-                agent_id = initial_assets.loc[i, "agent_id"]
-                revealed = "true"
-                unit_type = initial_assets.loc[i, "unit_type"]
-                completion_pd = 0
-                cancellation_pd = 9999
-                retirement_pd = initial_assets.loc[i, "useful_life"]
-                unit_type_mask = self.model.unit_specs["unit_type"] == unit_type
-                total_capex = (self.model.unit_specs.loc[unit_type_mask, "capacity"].values[0]
-                               * self.model.unit_specs.loc[unit_type_mask, "uc_x"].values[0]
-                               * 1000)
-                capital_payment = self.compute_sinking_fund_payment(
-                                           total_capex,
-                                           self.model.unit_specs.loc[i, "unit_life"])
-                for j in range(initial_assets.loc[i, "num_copies"]):
-                    asset_id = ABCE.get_next_asset_id(self.db, settings["first_asset_id"])
-                    self.cur.execute(f"INSERT INTO assets VALUES " +
-                                     f"({asset_id}, {agent_id}, '{unit_type}', " +
-                                     f"'{revealed}', {completion_pd}, " +
-                                     f"{cancellation_pd}, {retirement_pd}, " +
-                                     f"{total_capex}, {capital_payment})")
+        # Get supplemental ABCE unit data
+        unit_spec_ABCE = pd.read_csv(os.path.join(settings["ABCE_abs_path"], settings["unit_specs_abce_supp_file"]))
+        # This currently assumes only one agent.
+        # Read in the ALEAF system portfolio
+        book, writer = ALI.prepare_xlsx_data(self.model.ALEAF_portfolio_ref, self.model.ALEAF_portfolio_ref)
+        pdf = ALI.organize_ALEAF_portfolio(writer)
+        # Set the initial asset ID
+        asset_id = settings["first_asset_id"]
+        # Assign all units to this agent, and record each individually in the database
+        for unit_type in list(pdf["Unit Type"]):
+            for j in range(pdf.loc[pdf["Unit Type"] == unit_type, "EXUNITS"].values[0]):
+                abce_unit_type = unit_type
+                asset_dict = {"asset_id": asset_id,
+                              "agent_id": self.unique_id,
+                              "unit_type": abce_unit_type,
+                              "revealed": "true",
+                              "completion_pd": 0,
+                              "cancellation_pd": 9999,
+                              "retirement_pd": 9999,
+                              "total_capex": 12345,
+                              "cap_pmt": 6789}
+                new_asset = pd.DataFrame(asset_dict, index=[0])
+                # Use the first asset's DataFrame as the master
+                if asset_id == settings["first_asset_id"]:
+                    master_asset_df = new_asset
+                else:
+                    master_asset_df = master_asset_df.append(new_asset)
+                # Increment to get the asset_id
+                asset_id += 1
+        master_asset_df.to_sql("assets", self.db, if_exists="replace", index=False)
 
 
     def step(self):

@@ -20,7 +20,6 @@ import sys
 import pandas as pd
 
 # Database Specification:
-                                       # INIT    STEP
 abce_tables = {"WIP_projects": 
                  [("asset_id", "integer", "PRIMARY KEY"), # Julia, Python
                   ("agent_id", "text"),
@@ -68,13 +67,20 @@ abce_tables = {"WIP_projects":
                   ("FC_per_MMBTU", "real")
                  ],
 
+
                "demand":
                  [("period", "real"),
                   ("demand", "real")
                  ],
 
                "price_curve":
-                 [("lamda", "real")]
+                 [("lamda", "real")
+                 ],
+
+               "model_params":
+                 [("parameter", "text"),
+                  ("value", "real")
+                 ]
               }
 
 

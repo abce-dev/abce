@@ -30,10 +30,6 @@ println("Initializing data...")
 settings_file = ARGS[1]
 settings = YAML.load_file(settings_file)
 # File names
-unit_specs_file = settings["unit_specs_file"]
-fuel_cost_file = settings["fuel_data_file"]
-demand_data_file = settings["demand_data_file"]
-price_curve_data_file = settings["price_curve_data_file"]
 db_file = settings["db_file"]
 # Constants
 hours_per_year = settings["hours_per_year"]
@@ -45,6 +41,8 @@ if consider_future_projects
 else
     num_lags = 0
 end
+MW2kW = 1000   # Converts MW to kW
+MMBTU2BTU = 1000   # Converts MMBTU to BTU
 
 # Load the inputs
 db = load_db(db_file)
@@ -111,7 +109,7 @@ for i = 1:num_types
 
         # Generate events during the construction period
         head_zeros_series = zeros(j)
-        xtr_exp_per_pd = unit_data[i, :uc_x] * unit_data[i, :capacity] * 1000 / unit_data[i, :d_x]
+        xtr_exp_per_pd = unit_data[i, :uc_x] * unit_data[i, :capacity] * MW2kW / unit_data[i, :d_x]
         xtr_exp_series = ones(unit_data[i, :d_x]) .* xtr_exp_per_pd
         tail_zeros_series = zeros(fc_pd - j - unit_data[i, :d_x])
         xtr_exp = vcat(head_zeros_series, xtr_exp_series, tail_zeros_series)
@@ -138,8 +136,8 @@ for i = 1:num_types
         end
 
         # Compute unit revenue, based on the price duration curve loaded from file
-        submarginal_hours = filter(row -> row.lamda > unit_data[i, :VOM] * 1000 + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate]i / 1000), price_curve)
-        marginal_hours = filter(row -> row.lamda == unit_data[i, :VOM] * 1000 + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate] / 1000), price_curve)
+        submarginal_hours = filter(row -> row.lamda > unit_data[i, :VOM] * MW2kW + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate] / MW2kW), price_curve)
+        marginal_hours = filter(row -> row.lamda == unit_data[i, :VOM] * MW2kW + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate] / MW2kW), price_curve)
         if size(marginal_hours)[1] != 0
             marginal_hours_revenue = sum(marginal_hours[!, :lamda]) * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])
         else
@@ -147,23 +145,28 @@ for i = 1:num_types
             marginal_hours_revenue = 0
         end
         submarginal_hours_revenue = sum(submarginal_hours[!, :lamda]) * unit_data[i, :capacity]
+        # Calculate forced de-rating factor for wind and solar
+        availability_derate_factor = 1
+        if unit_data[i, :unit_type] == "Wind" || unit_data[i, :unit_type] == "Solar" || unit_data[i, :unit_type] == "PV"
+            availability_derate_factor = unit_data[i, :CF]
+        end
         fs[!, :Revenue] .= 0.0
-        fs[(j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life]), :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * hours_per_year / size(price_curve)[1]
+        fs[(j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life]), :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor * hours_per_year / size(price_curve)[1]
 
         # Unit generates during all marginal and sub-marginal hours
         num_active_hours = (size(submarginal_hours)[1] + size(marginal_hours)[1] * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])) * hours_per_year / size(price_curve)[1]
-        gen = num_active_hours * unit_data[i, :capacity] * 1000   # kWh
+        gen = num_active_hours * unit_data[i, :capacity] * availability_derate_factor * MW2kW   # kWh
         fs[(j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life]), :gen] .= gen
 
 
         # Apply reactive functions to the rest of the dataframe
         # Compute total cost of fuel used
-        transform!(fs, [:gen] => ((gen) -> unit_data[i, :FC_per_MMBTU] .* unit_data[i, :heat_rate] ./ 1000000 .* gen) => :Fuel_Cost)
+        transform!(fs, [:gen] => ((gen) -> unit_data[i, :FC_per_MMBTU] .* unit_data[i, :heat_rate] ./ (MW2kW * MMBTU2BTU) .* gen) => :Fuel_Cost)
         # Compute total VOM cost incurred during generation
         transform!(fs, [:gen] => ((gen) -> unit_data[i, :VOM] .* gen) => :VOM_Cost)
         # Compute total FOM cost for the year (non-reactive)
         fs[!, :FOM_Cost] = zeros(size(fs)[1])
-        fs[(j + unit_data[i, :d_x]+1):(j + unit_data[i, :d_x]+unit_data[i, :unit_life]), :FOM_Cost] .= unit_data[i, :FOM] * unit_data[i, :capacity] * 1000
+        fs[(j + unit_data[i, :d_x]+1):(j + unit_data[i, :d_x]+unit_data[i, :unit_life]), :FOM_Cost] .= unit_data[i, :FOM] * unit_data[i, :capacity] * MW2kW
         # Compute EBITDA
         transform!(fs, [:Revenue, :Fuel_Cost, :VOM_Cost, :FOM_Cost] => ((rev, fc, VOM, FOM) -> rev - fc - VOM - FOM) => :EBITDA)
         # Compute EBIT
@@ -185,11 +188,6 @@ for i = 1:num_types
     end
 end
 
-#for i = 1:num_alternatives
-#    if occursin("smr", alternative_names[i])
-#        print(unit_FS_dict[alternative_names[i]])
-#    end
-#end
 println(NPV_results)
 
 if pd == 0
@@ -216,7 +214,7 @@ for i = 1:size(available_demand)[1]
 end
 
 for i = 1:size(unit_FS_dict[alternative_names[1]])[1]
-    @constraint(m, sum(u[j] * unit_FS_dict[alternative_names[j]][i, :gen] for j=1:num_alternatives) / (hours_per_year*1000) <= available_demand[i] * 2)
+    @constraint(m, sum(u[j] * unit_FS_dict[alternative_names[j]][i, :gen] for j=1:num_alternatives) / (hours_per_year*MW2kW) <= available_demand[i] * 2)
 end
 # Constraint on max amount of interest payable per year
 #@constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* agent_params[1, :debt_fraction] .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
@@ -248,7 +246,7 @@ for i = 1:num_alternatives
         for j = 1:unit_qty[i]
             next_id = get_next_asset_id(db)
             # Update `WIP_projects` table
-            rcec = unit_data[unit_index, :uc_x] * unit_data[unit_index, :capacity] * 1000
+            rcec = unit_data[unit_index, :uc_x] * unit_data[unit_index, :capacity] * MW2kW
             rtec = unit_data[unit_index, :d_x]
             WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
             DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)

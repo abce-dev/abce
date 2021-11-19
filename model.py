@@ -18,6 +18,7 @@ import subprocess
 import yaml
 import numpy as np
 import pandas as pd
+import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 
@@ -32,13 +33,6 @@ class GridModel(Model):
     ''' A model with some number of GenCos. '''
     def __init__(self, settings, args):
         self.settings = settings
-        # Get input file locations from the settings dictionary
-        unit_specs_file = settings["unit_specs_file"]
-        fuel_data_file = settings["fuel_data_file"]
-        demand_data_file = settings["demand_data_file"]
-        price_curve_data_file = settings["price_curve_data_file"]
-        time_series_data_file = settings["time_series_data_file"]
-        db_file = settings["db_file"]
         # Get agent parameters from the settings dictionary
         self.num_agents = settings["num_agents"]
         self.first_agent_id = settings["first_agent_id"]
@@ -46,47 +40,41 @@ class GridModel(Model):
         self.total_forecast_horizon = settings["total_forecast_horizon"]
         # Get ALEAF parameters from the settings dictionary
         self.ALEAF_abs_path = settings["ALEAF_abs_path"]
-        self.ALEAF_master_settings_file = settings["ALEAF_master_settings_file"]
+        self.ALEAF_master_settings_file_name = settings["ALEAF_master_settings_file"]
         self.ALEAF_model_type = settings["ALEAF_model_type"]
         self.ALEAF_region = settings["ALEAF_region"]
-        self.ALEAF_model_settings_file = settings["ALEAF_model_settings_file"]
-        self.ALEAF_portfolio_file = settings["ALEAF_portfolio_file"]
+        self.ALEAF_model_settings_file_name = settings["ALEAF_model_settings_file"]
+        self.ALEAF_portfolio_file_name = settings["ALEAF_portfolio_file"]
         self.ALEAF_scenario_name = settings["ALEAF_scenario_name"]
+        # Get model/system parameters from the settings dictionary
+        self.planning_reserve_margin = settings["planning_reserve_margin"]
+        # Unit conversions
+        self.MW2kW = 1000          # Converts MW to kW
+        self.MMBTU2BTU = 1000000   # Converts MMBTU to BTU
 
         # Copy the command-line arguments as member data
         self.args = args
-
-        # Set the source for price data
-        if self.args.no_aleaf:
-            self.price_curve_data_file = settings["price_curve_data_file"]
-        else:
-            self.price_curve_data_file = os.path.join(self.ALEAF_abs_path,
-                                                      "output",
-                                                      self.ALEAF_model_type,
-                                                      self.ALEAF_region,
-                                                      f"scenario_1_{self.ALEAF_scenario_name}",
-                                                      f"{self.ALEAF_scenario_name}__dispatch_summary_OP.csv")
-
-
-        # Determine setting for use of a precomputed price curve
-        self.use_precomputed_price_curve = True
-        if "use_precomputed_price_curve" in settings:
-            self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
 
         # Initialize the model one time step before the true start date
         self.current_step = -1
 
         # Initialize database for managing asset and WIP construction project data
-        self.db_file = db_file
+        self.db_file = os.path.join(settings["ABCE_abs_path"],
+                                    settings["db_file"])
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
 
-        # Load unit type specifications and fuel costs
-        self.unit_specs = pd.read_csv(unit_specs_file)
-        self.fuel_costs = pd.read_csv(fuel_data_file)
-        self.add_units_to_db()
-
         # Load all-period demand data into the database
-        self.load_demand_data_to_db(settings)
+        self.load_demand_data_to_db(self.settings)
+
+        # Add model parameters to the database
+        self.load_model_parameters_to_db(self.settings)
+
+        # Set up all ALEAF file paths
+        self.set_ALEAF_file_paths()
+
+        # If ALEAF is enabled, re-initialize all input data based on local
+        #    reference copies
+        self.reinitialize_ALEAF_input_data()
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
@@ -96,81 +84,202 @@ class GridModel(Model):
             gc = GenCo(i, self, settings, self.args)
             self.schedule.add(gc)
 
+        # Determine setting for use of a precomputed price curve
+        self.use_precomputed_price_curve = True
+        if "use_precomputed_price_curve" in settings:
+            self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
+
+        # Load unit type specifications and fuel costs
+        self.add_unit_specs_to_db()
+
         # Check whether a market price subsidy is in effect, and its value
-        self.set_market_subsidy(settings)
-        # Generate the path to the ALEAF output file
-        self.ALEAF_output_path = os.path.join(self.ALEAF_abs_path,
-                                              "output",
-                                              self.ALEAF_model_type,
-                                              self.ALEAF_region,
-                                              f"scenario_1_{self.ALEAF_scenario_name}",
-                                              f"{self.ALEAF_scenario_name}__dispatch_summary_OP.csv")
-                                                
+        self.set_market_subsidy(self.settings)
+                                               
         # Create an appropriate price duration curve
-        self.create_price_duration_curve(settings)
+        self.create_price_duration_curve(self.settings)
 
         # Save price duration data to the database
         self.price_duration_data.to_sql("price_curve",
                                         con = self.db,
                                         if_exists = "replace")
 
-        if not self.args.no_aleaf:
-            # Update ALEAF 'pwd' setting (telling ALEAF the absolute path to
-            #   its home directory
-            ALEAF_master_settings_path = os.path.join(self.ALEAF_abs_path,
-                                                      "setting",
-                                                      self.ALEAF_master_settings_file)
-            ALI.set_ALEAF_pwd(ALEAF_master_settings_path, self.ALEAF_abs_path)
+        # Check ./outputs/ dir and clear out old files
+        # TODO: replace getcwd() with a command-line argument to specify a 
+        #   non-cwd ABCE absolute path
+        self.ABCE_output_data_path = os.path.join(settings["ABCE_abs_path"], "outputs", self.ALEAF_scenario_name)
+        if not os.path.isdir(self.ABCE_output_data_path):
+            # If the desired output directory doesn't already exist, create it
+            os.makedirs(self.ABCE_output_data_path, exist_ok=True)
+        else:
+            # Otherwise, delete any existing files in the directory
+            for existing_file in os.listdir(self.ABCE_output_data_path):
+                os.remove(os.path.join(self.ABCE_output_data_path, existing_file))
 
-            # Reset the A-LEAF system portfolio by overwriting "ALEAF_ERCOT.xlsx"
-            #    with "ALEAF_ERCOT_original.xlsx"
-            ALEAF_portfolio_original_path = os.path.join(self.ALEAF_abs_path,
-                                                         "data",
-                                                         self.ALEAF_model_type,
-                                                         self.ALEAF_region,
-                                                         f"ALEAF_{self.ALEAF_region}_original.xlsx")
-            ALEAF_portfolio_new_path = os.path.join(self.ALEAF_abs_path,
-                                                    "data",
-                                                    self.ALEAF_model_type,
-                                                    self.ALEAF_region,
-                                                    f"ALEAF_{self.ALEAF_region}.xlsx")
-            shutil.copyfile(ALEAF_portfolio_original_path, ALEAF_portfolio_new_path)
+            
 
 
-    def add_units_to_db(self):
-        for i in range(len(self.unit_specs)):
-            # Get relevant unit specs from file
-            unit_type = self.unit_specs.loc[i, "unit_type"]
-            fuel_type = self.unit_specs.loc[i, "fuel_type"]
-            capacity = self.unit_specs.loc[i, "capacity"]
-            uc_x = self.unit_specs.loc[i, "uc_x"]
-            d_x = self.unit_specs.loc[i, "d_x"]
-            heat_rate = self.unit_specs.loc[i, "heat_rate"]
-            VOM = self.unit_specs.loc[i, "VOM"]
-            FOM = self.unit_specs.loc[i, "FOM"]
-            unit_life = self.unit_specs.loc[i, "unit_life"]
-            CF = self.unit_specs.loc[i, "CF"]
-            # Incorporate unit fuel cost data from the fuel costs file
-            fuel_type_mask = self.fuel_costs.fuel_type == fuel_type
-            fuel_cost = (self.fuel_costs[fuel_type_mask]
-                         .reset_index()
-                         .loc[0, "cost_per_mmbtu"])
+    def set_ALEAF_file_paths(self):
+        """ Set up all absolute paths to ALEAF and its input files, and
+              save them as member data.
+        """
+        # Set file paths of local reference copies of ALEAF input data
+        ALEAF_inputs_path = "./inputs/ALEAF_inputs"
+        self.ALEAF_master_settings_ref = os.path.join(ALEAF_inputs_path,
+                                                      "ALEAF_Master_original.xlsx")
+        self.ALEAF_model_settings_ref = os.path.join(ALEAF_inputs_path,
+                                                     f"ALEAF_Master_{self.ALEAF_model_type}_original.xlsx")
+        self.ALEAF_portfolio_ref = os.path.join(ALEAF_inputs_path, 
+                                                self.settings["port_file_1a"])
 
-            # Insert the values into the unit_specs DB table
-            self.cur.execute(f"""INSERT INTO unit_specs VALUES
-                            ('{unit_type}', '{fuel_type}', {capacity}, {uc_x},
-                             {d_x}, {heat_rate}, {VOM}, {FOM}, {unit_life},
-                             {CF}, {fuel_cost})""")
+        # Set the paths to where settings are stored in the ALEAF directory
+        ALEAF_settings_path = os.path.join(self.ALEAF_abs_path, "setting")
+        self.ALEAF_master_settings_remote = os.path.join(ALEAF_settings_path,
+                                                         self.ALEAF_master_settings_file_name)
+        self.ALEAF_model_settings_remote = os.path.join(ALEAF_settings_path,
+                                                        f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
+        self.ALEAF_portfolio_remote = os.path.join(self.ALEAF_abs_path,
+                                                   "data",
+                                                   self.ALEAF_model_type,
+                                                   self.ALEAF_region,
+                                                   f"ALEAF_{self.ALEAF_region}.xlsx")
+        self.ATB_remote = os.path.join(self.ALEAF_abs_path,
+                                       "data",
+                                       self.ALEAF_model_type,
+                                       self.ALEAF_region,
+                                       "ATBe.csv")
+
+        # Set path to ALEAF outputs
+        self.ALEAF_output_data_path = os.path.join(self.ALEAF_abs_path,
+                                                  "output",
+                                                  self.ALEAF_model_type,
+                                                  self.ALEAF_region,
+                                                  f"scenario_1_{self.ALEAF_scenario_name}")
+
+
+    def reinitialize_ALEAF_input_data(self):
+        """ Setting ALEAF inputs requires overwriting fixed xlsx input files.
+              In order to avoid cross-run contamination, these inputs should
+              be reset to the user-provided baseline (the settings files in
+              ./inputs/ALEAF_inputs/) before the simulation starts.
+            This function re-initializes the following ALEAF input files from
+              reference copies stored in ./inputs/ALEAF_inputs/.
+        """
+        # Update the ALEAF_Master_LC_GEP.xlsx model settings file:
+        #  - Update the peak demand value in the 'Simulation Configuration' tab
+        ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_ref,
+                                        self.ALEAF_model_settings_remote,
+                                        self.db,
+                                        self.settings,
+                                        period=0)
+
+        # Update the ALEAF_ERCOT.xlsx system portfolio data:
+        ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_ref,
+                                          self.ALEAF_portfolio_remote,
+                                          self.db,
+                                          self.current_step)
+
+
+    def add_unit_specs_to_db(self):
+        """
+        Load in the A-LEAF unit specification data, including looking up data
+          from the NREL Annual Technology Baseline (2020) file as specified by
+          the user in ALEAF_Master_LC_GEP.xlsx.
+        Data is saved to the database table `unit_specs`.
+        """
+        # Set up header converter from A-LEAF to ABCE unit_spec format
+        ALEAF_header_converter = {"UNIT_TYPE": "unit_type",
+                                  "FUEL": "fuel_type",
+                                  "CAP": "capacity",
+                                  "INVC": "uc_x",
+                                  "HR": "heat_rate",
+                                  "CAPCRED": "CF"}
+
+        # Set up the header converter from ATBe to ABCE unit_spec format
+        ATB_header_converter = {"CAPEX": "uc_x",
+                                "Variable O&M": "VOM",
+                                "Fixed O&M": "FOM",
+                                "Fuel": "FC_per_MMBTU"}
+
+        # Load the unit specs sheet from the settings file
+        us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
+        # Rename columns and make unit_type the row index
+        us_df = us_df.rename(mapper=ALEAF_header_converter, axis=1)
+        us_df = us_df.set_index("unit_type")
+        # Select only the needed columns by getting the list of headers
+        #   required for the unit_specs DB table
+        self.cur.execute("SELECT * FROM unit_specs")
+        columns_to_select = [item[0] for item in self.cur.description]
+        columns_to_select.remove("unit_type")
+        # Add columns of zeros for columns which will be computed later
+        for column in columns_to_select:
+            if column not in us_df.columns:
+                us_df[column] = 0
+        # Create the final DataFrame for the unit specs data
+        unit_specs_data = us_df[columns_to_select].copy()
+
+        # Load the ATB search settings sheet from ALEAF
+        ATB_settings = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="ATB Setting")
+        ATB_settings = ATB_settings.set_index("UNIT_TYPE")
+        # Remove duplicates (related to multiple scenarios specified in the
+        #   Simulation Configuration tab, which are unneeded here)
+        ATB_settings = ATB_settings.loc[ATB_settings["ATB_Setting_ID"] == "ATB_ID_1", :]
+
+        # Load the ATB database sheet
+        ATB_data = pd.read_csv(self.ATB_remote)
+
+        for unit_type in list(unit_specs_data.index):
+            # Retrieve the ATB search/matching settings for this unit type
+            unit_settings = dict(ATB_settings.loc[unit_type, :])
+
+            for datum_name in ATB_header_converter.keys():
+                mask = ((ATB_data["technology"] == unit_settings["Tech"]) &
+                        (ATB_data["techdetail"] == unit_settings["TechDetail"]) &
+                        (ATB_data["core_metric_parameter"] == datum_name) &
+                        (ATB_data["core_metric_case"] == unit_settings["Case"]) &
+                        (ATB_data["crpyears"] == unit_settings["CRP"]) &
+                        (ATB_data["scenario"] == unit_settings["Scenario"]) &
+                        (ATB_data["core_metric_variable"] == unit_settings["Year"]))
+
+                if sum(mask) != 1:
+                    # If the mask matches nothing in ATBe, assume that
+                    #   the appropriate value is 0 (e.g. battery VOM cost)
+                    logging.debug(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
+                    unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = 0
+                else:
+                    unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
+
+            # Retrieve the CRP data to fill the 'unit_life' data field
+            unit_specs_data.loc[unit_type, "unit_life"] = unit_settings["CRP"]
+
+        # Turn 'unit_type' back into a column from the index of unit_specs_data
+        unit_specs_data = unit_specs_data.reset_index()
+        # Compute fuel cost per kWh; conversion factor of 1e6 is for BTU -> MMBTU
+        unit_specs_data["FC"] = unit_specs_data["FC_per_MMBTU"] * unit_specs_data["heat_rate"] / self.MMBTU2BTU
+        # FAKE: give all units a construction duration of 5 years
+        unit_specs_data["d_x"] = 5
+        # Cast the VOM column as Float64 (fixing specific bug)
+        unit_specs_data["VOM"] = unit_specs_data["VOM"].astype("float64")
+
+        unit_specs_data.to_sql("unit_specs", self.db, if_exists = "replace", index = False)
+        self.unit_specs = unit_specs_data
 
 
     def load_demand_data_to_db(self, settings):
         # Load all-period demand data into the database
-        demand_df = pd.read_csv(settings["demand_data_file"]) * settings["peak_demand"]
+        demand_data_file = os.path.join(settings["ABCE_abs_path"],
+                                        settings["demand_data_file"])
+        demand_df = pd.read_csv(demand_data_file) * settings["peak_demand"]
         # Create an expanded range of periods to backfill with demand_df data
         new_index = list(range(self.total_forecast_horizon))
         demand_df = demand_df.reindex(new_index, method="ffill")
         # Save data to DB
         demand_df.to_sql("demand", self.db, if_exists="replace", index_label="period")
+
+
+    def load_model_parameters_to_db(self, settings):
+        # Load specific parameters specified in settings.yml to the database
+        prm = settings["planning_reserve_margin"]
+        self.cur.execute(f"INSERT INTO model_params VALUES ('PRM', {prm})")
 
 
     def set_market_subsidy(self, settings):
@@ -189,11 +298,17 @@ class GridModel(Model):
             if self.subsidy_enabled and "subsidy_amount" in settings:
                 self.subsidy_amount = settings["subsidy_amount"]
 
-    def create_price_duration_curve(self, settings):
+
+    def create_price_duration_curve(self, settings, dispatch_data=None):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
+            if self.current_step <= 0:
+                price_curve_data_file = os.path.join(settings["ABCE_abs_path"],
+                                                     settings["seed_dispatch_data_file"])
+            else:
+                price_curve_data_file = dispatch_data
             self.price_duration_data = pc.load_time_series_data(
-                                             self.price_curve_data_file,
+                                             price_curve_data_file,
                                              file_type="price",
                                              subsidy=self.subsidy_amount,
                                              output_type = "dataframe")
@@ -201,9 +316,11 @@ class GridModel(Model):
             # Create the systemwide merit order curve
             self.merit_curve = pc.create_merit_curve(self.db, self.current_step)
             pc.plot_curve(self.merit_curve, plot_name="merit_curve.png")
-            # Load five-minute demand data from file
+            # Load demand data from file
+            time_series_data_file = os.path.join(settings["ABCE_abs_path"],
+                                                 settings["time_series_data_file"])
             self.demand_data = pc.load_time_series_data(
-                                     settings["time_series_data_file"],
+                                     time_series_data_file,
                                      file_type="load",
                                      peak_demand=settings["peak_demand"])
             pc.plot_curve(self.demand_data, plot_name="demand_curve.png")
@@ -230,8 +347,10 @@ class GridModel(Model):
 
         # Update price data from ALEAF
         if self.current_step != 0:
-            print("Creating price duration curve...")
-            self.create_price_duration_curve(self.settings)
+            new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_step - 1}.csv"
+            new_dispatch_data = os.path.join(self.ABCE_output_data_path, new_dispatch_data_filename)
+            print(f"Creating price duration curve using file {new_dispatch_data}")
+            self.create_price_duration_curve(self.settings, new_dispatch_data)
 
             # Save price duration data to the database
             self.price_duration_data.to_sql("price_curve",
@@ -252,31 +371,45 @@ class GridModel(Model):
             print("Table of construction project updates:")
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
-        if not self.args.no_aleaf:
-            # Update the A-LEAF system portfolio based on any new units completed
-            #    this round
-            new_units = ALI.get_new_units(self.db, self.current_step)
-            ALEAF_sys_portfolio_path = os.path.join(self.ALEAF_abs_path,
-                                                    "data",
-                                                    self.ALEAF_model_type,
-                                                    self.ALEAF_region,
-                                                    self.ALEAF_portfolio_file)
-            ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, self.db, self.current_step)
+        # Update the A-LEAF system portfolio based on any new units completed
+        #    this round
+        # If the current period is 0, then do not update the portfolio
+        #    (already done in self.init())
+        if self.current_step != 0:
+            ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_remote, self.ALEAF_portfolio_remote, self.db, self.current_step)
 
-            # Run A-LEAF
-            print("Running A-LEAF...")
-            run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
-            ALEAF_master_settings_location = os.path.join(self.ALEAF_abs_path,
-                                                          "setting",
-                                                          self.ALEAF_master_settings_file)
-            ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
-            aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {ALEAF_master_settings_location}"
-            if self.args.quiet:
-                sp = subprocess.check_call([aleaf_cmd],
-                                           shell=True,
-                                           stdout=open(os.devnull, "wb"))
-            else:
-                sp = subprocess.check_call([aleaf_cmd], shell=True)
+        # Update ALEAF peak demand
+        ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,
+                                        self.ALEAF_model_settings_remote,
+                                        self.db,
+                                        self.settings,
+                                        self.current_step)
+
+        # Run A-LEAF
+        print("Running A-LEAF...")
+        run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
+        ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
+        aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
+        if self.args.quiet:
+            sp = subprocess.check_call([aleaf_cmd],
+                                       shell=True,
+                                       stdout=open(os.devnull, "wb"))
+        else:
+            sp = subprocess.check_call([aleaf_cmd], shell=True)
+
+        self.save_ALEAF_outputs()
+
+    def save_ALEAF_outputs(self):
+        # Copy all ALEAF output files to the output directory, with
+        #   scenario and step-specific names
+        files_to_save = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
+        for outfile in files_to_save:
+            old_filename = f"{self.ALEAF_scenario_name}__{outfile}.csv"
+            old_filepath = os.path.join(self.ALEAF_output_data_path, old_filename)
+            new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_step}.csv"
+            new_filepath = os.path.join(self.ABCE_output_data_path, new_filename)
+            shutil.copy2(old_filepath, new_filepath)
+
 
 
     def get_projects_to_reveal(self):
@@ -296,6 +429,7 @@ class GridModel(Model):
         projects_to_reveal = pd.read_sql("SELECT asset_id FROM assets WHERE " +
                                          "revealed = 'false'", self.db)
         return projects_to_reveal
+
 
     def reveal_decisions(self, projects_to_reveal):
         """

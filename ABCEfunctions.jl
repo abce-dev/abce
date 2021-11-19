@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, load_demand_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
 
 #####
 # Setup functions
@@ -74,12 +74,6 @@ function load_unit_type_data(unit_data_file)
     unit_data = CSV.read(unit_data_file, DataFrame)
     num_types = size(unit_data)[1]
     return unit_data, num_types
-end
-
-
-function load_demand_data(demand_data_file)
-    demand_data = CSV.read(demand_data_file, DataFrame)
-    return demand_data
 end
 
 
@@ -232,6 +226,8 @@ function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
     vals = (pd, pd + demand_vis_horizon)
     visible_demand = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
     demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
+    prm = DBInterface.execute(db, "SELECT * FROM model_params WHERE parameter = 'PRM'") |> DataFrame
+    demand_forecast = demand_forecast .* (1 + prm[1, :value]) .+ settings["peak_initial_reserves"]
     return demand_forecast
 end
 
@@ -242,8 +238,6 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
     vals = (pd, pd)
     # Select a list of all current assets, which are not cancelled, retired, or hidden from public view
     current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ? AND revealed = 'true'", vals) |> DataFrame
-    #println("Current assets:")
-    #println(current_assets)
     if size(current_assets)[1] == 0
         println("There are no currently-active generation assets in the system; unpredictable behavior may occur.")
     end
