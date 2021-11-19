@@ -255,8 +255,14 @@ class GridModel(Model):
         unit_specs_data = unit_specs_data.reset_index()
         # Compute fuel cost per kWh; conversion factor of 1e6 is for BTU -> MMBTU
         unit_specs_data["FC"] = unit_specs_data["FC_per_MMBTU"] * unit_specs_data["heat_rate"] / self.MMBTU2BTU
-        # FAKE: give all units a construction duration of 5 years
-        unit_specs_data["d_x"] = 5
+
+        # Retrieve baseline unit construction durations from the ABCE
+        #  supplemental unit specification file
+        unit_specs_ABCE = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"],
+                                                   self.settings["unit_specs_abce_supp_file"]))
+        for i in range(len(unit_specs_data)):
+            unit_type = unit_specs_data.loc[i, "unit_type"]
+            unit_specs_data.loc[i, "d_x"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["d_x"].values[0]
         # Cast the VOM column as Float64 (fixing specific bug)
         unit_specs_data["VOM"] = unit_specs_data["VOM"].astype("float64")
 
