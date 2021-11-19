@@ -147,7 +147,7 @@ for i = 1:num_types
         submarginal_hours_revenue = sum(submarginal_hours[!, :lamda]) * unit_data[i, :capacity]
         # Calculate forced de-rating factor for wind and solar
         availability_derate_factor = 1
-        if unit_data[i, :unit_type] == "Wind" || unit_data[i, :unit_type] == "PV"
+        if unit_data[i, :unit_type] == "Wind" || unit_data[i, :unit_type] == "Solar" || unit_data[i, :unit_type] == "PV"
             availability_derate_factor = unit_data[i, :CF]
         end
         fs[!, :Revenue] .= 0.0
@@ -188,11 +188,6 @@ for i = 1:num_types
     end
 end
 
-#for i = 1:num_alternatives
-#    if occursin("smr", alternative_names[i])
-#        print(unit_FS_dict[alternative_names[i]])
-#    end
-#end
 println(NPV_results)
 
 if pd == 0
