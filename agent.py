@@ -79,11 +79,8 @@ class GenCo(Agent):
 
 
     def add_initial_assets_to_db(self, settings):
-        # Converter for non-ABCE-matching ALEAF unit type names
-        ALEAF_unit_name_converter = {"Solar PV": "PV",
-                                     "Steam": "Coal",
-                                     "CC": "NGCC",
-                                     "CT": "NGCT"}
+        # Get supplemental ABCE unit data
+        unit_spec_ABCE = pd.read_csv(os.path.join(settings["ABCE_abs_path"], settings["unit_specs_abce_supp_file"]))
         # This currently assumes only one agent.
         # Read in the ALEAF system portfolio
         book, writer = ALI.prepare_xlsx_data(self.model.ALEAF_portfolio_ref, self.model.ALEAF_portfolio_ref)
@@ -94,8 +91,6 @@ class GenCo(Agent):
         for unit_type in list(pdf["Unit Type"]):
             for j in range(pdf.loc[pdf["Unit Type"] == unit_type, "EXUNITS"].values[0]):
                 abce_unit_type = unit_type
-                if unit_type in ALEAF_unit_name_converter.keys():
-                    abce_unit_type = ALEAF_unit_name_converter[unit_type]
                 asset_dict = {"asset_id": asset_id,
                               "agent_id": self.unique_id,
                               "unit_type": abce_unit_type,
