@@ -136,6 +136,8 @@ class GridModel(Model):
                                                         f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
         self.ALEAF_portfolio_remote = os.path.join(self.ALEAF_abs_path,
                                                    "data",
+                                                   self.ALEAF_model_type,
+                                                   self.ALEAF_region,
                                                    f"ALEAF_{self.ALEAF_region}.xlsx")
         self.ATB_remote = os.path.join(self.ALEAF_abs_path,
                                        "data",
@@ -385,13 +387,7 @@ class GridModel(Model):
         # If the current period is 0, then do not update the portfolio
         #    (already done in self.init())
         if self.current_step != 0:
-            new_units = ALI.get_new_units(self.db, self.current_step)
-            ALEAF_sys_portfolio_path = os.path.join(self.ALEAF_abs_path,
-                                                    "data",
-                                                    self.ALEAF_model_type,
-                                                    self.ALEAF_region,
-                                                    self.ALEAF_portfolio_file_name)
-            ALI.update_ALEAF_system_portfolio(ALEAF_sys_portfolio_path, ALEAF_sys_portfolio_path, self.db, self.current_step)
+            ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_remote, self.ALEAF_portfolio_remote, self.db, self.current_step)
 
         # Update ALEAF peak demand
         ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,
