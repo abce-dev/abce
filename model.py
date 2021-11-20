@@ -248,6 +248,9 @@ class GridModel(Model):
                 else:
                     unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
 
+            # Retrieve the units' is_VRE status
+            unit_specs_data.loc[unit_type, "is_VRE"] = us_df[us_df.index == unit_type]["VRE_Flag"].values[0]
+
         # Turn 'unit_type' back into a column from the index of unit_specs_data
         unit_specs_data = unit_specs_data.reset_index()
         # Compute fuel cost per kWh; conversion factor of 1e6 is for BTU -> MMBTU
@@ -265,7 +268,6 @@ class GridModel(Model):
             unit_specs_data.loc[i, "d_x"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["d_x"].values[0]
             # Set unit useful life for this unit
             unit_specs_data.loc[i, "unit_life"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["unit_life"].values[0]
-
 
         # Cast the VOM column as Float64 (fixing specific bug)
         unit_specs_data["VOM"] = unit_specs_data["VOM"].astype("float64")
