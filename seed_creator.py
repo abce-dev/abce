@@ -64,7 +64,8 @@ abce_tables = {"WIP_projects":
                   ("FOM", "real"),
                   ("unit_life", "real"),
                   ("CF", "real"),
-                  ("FC_per_MMBTU", "real")
+                  ("FC_per_MMBTU", "real"),
+                  ("is_VRE", "text")
                  ],
 
 
