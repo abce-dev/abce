@@ -77,6 +77,9 @@ class GenCo(Agent):
                         {self.debt_cost}, {self.equity_cost},
                         {self.interest_cap})""")
 
+        # Miscellaneous parameters
+        self.MW2kW = 1000   # Convert MW to kW
+
 
     def add_initial_assets_to_db(self, settings):
         # Get supplemental ABCE unit data
@@ -92,7 +95,7 @@ class GenCo(Agent):
             for j in range(pdf.loc[pdf["Unit Type"] == unit_type, "EXUNITS"].values[0]):
                 abce_unit_type = unit_type
                 # Dummy unit capex assignment (temporary) XXXX
-                unit_capex = 12345
+                unit_capex = self.compute_total_capex_preexisting(unit_type)
                 # Using the unit life as the financing lifetime
                 unit_life = self.model.unit_specs[self.model.unit_specs["unit_type"] == unit_type]["unit_life"].values[0]
                 unit_cap_pmt = self.compute_sinking_fund_payment(unit_capex, unit_life)
@@ -234,7 +237,7 @@ class GenCo(Agent):
                                 f"WHERE asset_id = {asset_id}")
 
                     # Compute amount of CapEx from the project (in as-spent, inflation-unadjusted $)
-                    total_capex = self.compute_total_capex(asset_id)
+                    total_capex = self.compute_total_capex_newbuild(asset_id)
                     cur.execute(f"UPDATE assets SET total_capex = {total_capex} " +
                                 f"WHERE asset_id = {asset_id}")
 
@@ -270,8 +273,31 @@ class GenCo(Agent):
         db.commit()
 
 
-    def compute_total_capex(self, asset_id):
+    def compute_total_capex_preexisting(self, unit_type):
         """
+        Compute total capex for units which already exist at the start of the
+          run. These units are currently assumed to cost exactly their
+          type's estimated construction cost, per the unit_specs data.
+
+        Args:
+          unit_type (str): unit type corresponding with a type given in the
+            A-LEAF specification
+
+        Returns:
+          total_capex (float): total capital expenditures for the asset
+        """
+        unit_data = self.model.unit_specs[self.model.unit_specs["unit_type"] == unit_type]
+        unit_cost_per_kW = unit_data["uc_x"].values[0]    # $/kW
+        unit_capacity = unit_data["capacity"].values[0]   # MW
+
+        total_capex = unit_cost_per_kW * unit_capacity * self.MW2kW
+
+        return total_capex
+
+
+    def compute_total_capex_newbuild(self, asset_id):
+        """
+        For assets which are newly completed during any period except period 0:
         Retrieve all previously-recorded capital expenditures for the indicated
         asset from the database, and sum them to return the total capital
         expenditure (up to the current period).
