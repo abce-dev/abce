@@ -95,7 +95,9 @@ class GenCo(Agent):
             for j in range(pdf.loc[pdf["Unit Type"] == unit_type, "EXUNITS"].values[0]):
                 # Compute unit capex according to its unit type specification
                 unit_capex = self.compute_total_capex_preexisting(unit_type)
-                # Using the unit life as the financing lifetime
+                # Compute the asset's annual capital payment, as if the asset
+                #   were not paid off. Use the asset's unit_life value as the
+                #   repayment term for financing.
                 unit_life = self.model.unit_specs[self.model.unit_specs["unit_type"] == unit_type]["unit_life"].values[0]
                 unit_cap_pmt = self.compute_sinking_fund_payment(unit_capex, unit_life)
 
