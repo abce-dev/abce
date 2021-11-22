@@ -91,6 +91,11 @@ class GenCo(Agent):
         for unit_type in list(pdf["Unit Type"]):
             for j in range(pdf.loc[pdf["Unit Type"] == unit_type, "EXUNITS"].values[0]):
                 abce_unit_type = unit_type
+                # Dummy unit capex assignment (temporary) XXXX
+                unit_capex = 12345
+                # Using the unit life as the financing lifetime
+                unit_life = self.model.unit_specs[self.model.unit_specs["unit_type"] == unit_type]["unit_life"].values[0]
+                unit_cap_pmt = self.compute_sinking_fund_payment(unit_capex, unit_life)
                 asset_dict = {"asset_id": asset_id,
                               "agent_id": self.unique_id,
                               "unit_type": abce_unit_type,
@@ -98,8 +103,8 @@ class GenCo(Agent):
                               "completion_pd": 0,
                               "cancellation_pd": 9999,
                               "retirement_pd": 9999,
-                              "total_capex": 12345,
-                              "cap_pmt": 6789}
+                              "total_capex": unit_capex,
+                              "cap_pmt": unit_cap_pmt}
                 new_asset = pd.DataFrame(asset_dict, index=[0])
                 # Use the first asset's DataFrame as the master
                 if asset_id == settings["first_asset_id"]:
