@@ -79,6 +79,11 @@ class GridModel(Model):
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
 
+        # Add unit type specifications to database, including all parameters
+        #   to be loaded from the ATB database and the ABCE supplemental
+        #   data file
+        self.add_unit_specs_to_db()
+
         # Create agents
         for i in range(self.first_agent_id, self.first_agent_id + self.num_agents):
             gc = GenCo(i, self, settings, self.args)
@@ -88,9 +93,6 @@ class GridModel(Model):
         self.use_precomputed_price_curve = True
         if "use_precomputed_price_curve" in settings:
             self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
-
-        # Load unit type specifications and fuel costs
-        self.add_unit_specs_to_db()
 
         # Check whether a market price subsidy is in effect, and its value
         self.set_market_subsidy(self.settings)
