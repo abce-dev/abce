@@ -145,9 +145,10 @@ for i = 1:num_types
             marginal_hours_revenue = 0
         end
         submarginal_hours_revenue = sum(submarginal_hours[!, :lamda]) * unit_data[i, :capacity]
-        # Calculate forced de-rating factor for wind and solar
+        # Calculate forced de-rating factor for units marked as VRE in the
+        #   A-LEAF input files
         availability_derate_factor = 1
-        if unit_data[i, :unit_type] == "Wind" || unit_data[i, :unit_type] == "Solar" || unit_data[i, :unit_type] == "PV"
+        if convert(Int64, unit_data[i, "is_VRE"][1]) == 1
             availability_derate_factor = unit_data[i, :CF]
         end
         fs[!, :Revenue] .= 0.0
