@@ -43,9 +43,9 @@ do
 
     # Check for ABCE_DIR environment variable
     if [ -z "${ABCE_DIR+x}" ]; then
-        echo "Environment variable \$ABCE_DIR is unset."
-        echo "Using the current directory as the ABCE top-level directory."
-        echo "To avoid this message, please set \$ABCE_DIR to point to the ABCE directory which contains run.py."
+        printf "Environment variable \$ABCE_DIR is unset.\n"
+        printf "Using the current directory as the ABCE top-level directory.\n"
+        printf "To avoid this message, please set \$ABCE_DIR to point to the ABCE directory which contains run.py.\n"
         $ABCE_DIR="."
     fi
 
@@ -57,13 +57,13 @@ do
     #   parentheses, separated only by returns (no commas
     #   or semicolons)
     tests_to_run=("bash $test_dir_path/crash_test.sh $ABCE_DIR/run.py"
-                  "echo \"Tests complete.\n\n\"")
+                  "printf \"Tests complete.\n\n\"")
     IFS=""
 
     # Explain the pre-push test to the user
-    echo "ABCE will be tested before the push continues."
-    echo "Current tests:"
-    echo "  - Crash test\n\n\n"
+    printf "ABCE will be tested before the push continues.\n"
+    printf "Current tests:\n"
+    printf "  - Crash test\n\n\n\n"
 
     # Run all tests
     for cmd in ${tests_to_run[*]}
@@ -75,12 +75,15 @@ do
         #   is nonzero
         if [ $? -ne 0 ]
         then
-            echo "Test unsuccessful; aborting push."
+            printf "Test unsuccessful; aborting push.\n"
             exit 1
         else
-            echo "Test successful; proceeding to push.\n\n"
+            printf "Test successful.\n\n"
         fi
     done
+
+    # If nothing has gone wrong yet, then all tests have passed
+    printf "All tests passed. Proceeding to Git push...\n\n\n"
 done
 
 exit 0
