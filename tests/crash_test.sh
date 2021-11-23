@@ -15,10 +15,10 @@ echo "Warning: This test does NOT guarantee code is working correctly! It only d
 # If no CL was given, throw an error and exit with return code 1
 if [ -z "${1+x}" ]
 then
-    run_script_path="$1"
-else
     echo "No path specified for the crash test; aborting."
     exit 1
+else
+    run_script_path="$1"
 fi
 
 # Run the test
