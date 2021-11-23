@@ -105,7 +105,7 @@ def run_model():
 
     check_julia_environment(settings["ABCE_abs_path"])
 
-    abce_model = GridModel(settings, args)
+    abce_model = GridModel(args.settings_file, settings, args)
     for i in range(settings["num_steps"]):
         abce_model.step()
         wait_for_user(args.demo)
