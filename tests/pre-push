@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # An example hook script to verify what is about to be pushed.  Called by "git
 # push" after it has checked the remote status, but before anything has been
@@ -46,17 +46,17 @@ do
         echo "Environment variable \$ABCE_DIR is unset."
         echo "Using the current directory as the ABCE top-level directory."
         echo "To avoid this message, please set \$ABCE_DIR to point to the ABCE directory which contains run.py."
-        $ABCE_DIR="./"
+        $ABCE_DIR="."
     fi
 
     # Set test directory
-    test_dir_path="$ABCE_DIR/tests/"
+    test_dir_path="$ABCE_DIR/tests"
 
     # List of calls for tests to run
     # Add additional tests on subsequent lines inside the
     #   parentheses, separated only by returns (no commas
     #   or semicolons)
-    tests_to_run=("bash ./crash_test.sh $ABCE_DIR/run.py"
+    tests_to_run=("bash $test_dir_path/crash_test.sh $ABCE_DIR/run.py"
                   "echo \"Tests complete.\n\n\"")
     IFS=""
 
