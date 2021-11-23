@@ -36,8 +36,6 @@ println("Initializing data...")
 db_file = joinpath(settings["ABCE_abs_path"], settings["db_file"])
 # Constants
 hours_per_year = settings["hours_per_year"]
-demand_vis_horizon = settings["demand_visibility_horizon"]
-hist_demand_growth = settings["historical_demand_growth_rate"]
 consider_future_projects = settings["consider_future_projects"]
 if consider_future_projects
     num_lags = settings["num_future_periods_considered"]
@@ -59,9 +57,6 @@ agent_projects = get_WIP_projects_list(db, pd, agent_id)
 # Get agent financial parameters
 agent_params = get_agent_params(db, agent_id)
 d = agent_params[1, :discount_rate]
-
-# Set an average e- price
-avg_e_price = 0.08    # $/kWh, avg electricity price
 
 # System parameters
 # Read unit operational data (unit_data) and number of unit types (num_types)
@@ -273,10 +268,6 @@ end
 WIP_projects = get_WIP_projects_list(db, pd, agent_id)
 # Authorize ANPE for the upcoming period (default: $1B/year)
 authorize_anpe(db, agent_id, pd, WIP_projects, unit_data)
-
-# Show final assets and WIP_projects tables
-#show_table(db, "assets")
-#show_table(db, "WIP_projects")
 
 # End
 println("\n Julia: finishing")
