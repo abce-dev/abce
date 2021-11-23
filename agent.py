@@ -12,6 +12,7 @@
 # limitations under the License.
 ##########################################################################
 
+import numpy as np
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 import yaml
@@ -90,9 +91,22 @@ class GenCo(Agent):
         pdf = ALI.organize_ALEAF_portfolio(writer)
         # Set the initial asset ID
         asset_id = settings["first_asset_id"]
+
+        # Retrieve the dataframe of mandatory unit retirement periods for
+        #   this agent
+        ret_df = self.get_agent_retirement_data(settings)
+
         # Assign all units to this agent, and record each individually in the database
         for unit_type in list(pdf["Unit Type"]):
+            # Retrieve and the list of retirement period data for this
+            #   unit type and agent, and create the cumulative-sum threshold
+            #   mapping
+            unit_rets = self.create_unit_type_retirement_df(ret_df, unit_type, asset_id)
+
             for j in range(pdf.loc[pdf["Unit Type"] == unit_type, "EXUNITS"].values[0]):
+                # Assign the appropriate retirement period
+                retirement_pd = self.assign_retirement_pd(unit_rets, asset_id)
+
                 # Compute unit capex according to its unit type specification
                 unit_capex = self.compute_total_capex_preexisting(unit_type)
                 # Compute the asset's annual capital payment, as if the asset
@@ -108,7 +122,7 @@ class GenCo(Agent):
                               "revealed": "true",
                               "completion_pd": 0,
                               "cancellation_pd": 9999,
-                              "retirement_pd": 9999,
+                              "retirement_pd": retirement_pd,
                               "total_capex": unit_capex,
                               "cap_pmt": unit_cap_pmt}
                 new_asset = pd.DataFrame(asset_dict, index=[0])
@@ -341,7 +355,70 @@ class GenCo(Agent):
         return cap_pmt
 
 
+    def get_agent_retirement_data(self, settings):
+        """
+        Retrieve the dataframe of mandatory unit retirement periods for
+          this agent
+
+        Args:
+          settings: settings dictionary
+
+        Returns:
+          ret_df: dataframe of all unit-type retirement data for this agent
+        """
+        ret_data_file = os.path.join(settings["ABCE_abs_path"],
+                                     settings["retirement_period_specs_file"])
+        ret_df = pd.read_csv(ret_data_file, comment="#")
+        ret_df = ret_df[ret_df["agent_id"] == self.unique_id].copy()
+
+        return ret_df
 
 
+    def create_unit_type_retirement_df(self, ret_df, unit_type, next_asset_id):
+        """
+        Create the step-function mapping to determine which units receive
+        which mandatory retirement periods.
+        """
+        # Filter the df of retirement period data for the current unit type
+        unit_rets = ret_df[ret_df["unit_type"] == unit_type].copy()
 
+        # Sort from lowest to highest retirement period
+        unit_rets = unit_rets.sort_values(by="retirement_pd", axis=0, ascending=True, ignore_index=True)
+
+        # Generate the thresholds for each retirement period, starting with
+        #   the next available asset id. These thresholds indicate the
+        #   END (NON-INCLUSIVE) of each assignment interval. That is, a row
+        #   with an rp_threshold of 2005 and a retirement_pd of 12 means that
+        #   any assets with IDs strictly less than 2005 will receive a
+        #   retirement_pd of 12 (unless they qualify for a lower threshold
+        #   category).
+        unit_rets["rp_threshold"] = np.cumsum(unit_rets["num_copies"].to_numpy(), axis=0) + next_asset_id
+
+        return unit_rets
+
+
+    def assign_retirement_pd(self, unit_rets, current_asset_id):
+        """
+        Compare the current asset ID against the classification thresholds in
+          unit_rets, to determine the asset's mandatory retirement period.
+
+        Args:
+          unit_rets (DataFrame): retirement threshold mapping for current agent and
+            unit type
+          current_asset_id (int): unique identifier for the current asset
+
+        Returns:
+          retirement_pd (int): mandatory retirement period for this asset
+        """
+
+        # If no retirement period is specified, set the asset to never retire
+        #    (i.e. retirement period is a Large Number)
+        retirement_pd = 9999
+
+        for i in range(len(unit_rets)):
+            if current_asset_id < unit_rets.loc[i, "rp_threshold"]:
+                retirement_pd = unit_rets.loc[i, "retirement_pd"]
+                break   # Once the correct bin is found, exit the loop
+
+        return retirement_pd
 
