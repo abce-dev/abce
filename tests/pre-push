@@ -52,22 +52,34 @@ do
                 # Explain the pre-push test to the user
                 echo "ABCE will be tested before the push continues."
                 echo "Current tests:"
-                echo "  - Check to ensure ABCE runs to completion without crashing (with current settings)"
-                echo "Hint: you may want to set num_steps to a small number in settings.yml to speed up testing."
+                echo "  - Crash test\n\n\n"
 
-                # Run the test
-                script_path="$ABCE_DIR/run.py"
-		run_cmd="python3 $script_path -f"
-                ${run_cmd}
+                # Test directory
+                test_dir_path="$ABCE_DIR/tests/"
 
-                # Exit without completing the push if the return code is nonzero
-                if [ $? -ne 0 ]
-                then
-                    echo "Test unsuccessful; aborting push."
-                    exit 1
-                else
-                    echo "Test successful; proceeding to push.\n\n"
-                fi
+                # List of calls for tests to run
+                # Add additional tests on subsequent lines inside the
+                #   parentheses, separated only by returns (no commas
+                #   or semicolons)
+                tests_to_run=("bash ./crash_test.sh $ABCE_DIR/run.py")
+                IFS=""
+
+                # Run all tests
+                for cmd in ${tests_to_run[*]}
+                do
+                    # Run the test
+                    eval "$cmd"
+
+                    # Exit without completing the push if the return code
+                    #   is nonzero
+                    if [ $? -ne 0 ]
+                    then
+                        echo "Test unsuccessful; aborting push."
+                        exit 1
+                    else
+                        echo "Test successful; proceeding to push.\n\n"
+                    fi
+                done
 	fi
 done
 
