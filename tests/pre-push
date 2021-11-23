@@ -26,61 +26,61 @@ z40=0000000000000000000000000000000000000000
 
 while read local_ref local_sha remote_ref remote_sha
 do
-	if [ "$local_sha" = $z40 ]
-	then
-		# Handle delete
-		:
-	else
-		if [ "$remote_sha" = $z40 ]
-		then
-			# New branch, examine all commits
-			range="$local_sha"
-		else
-			# Update to existing branch, examine new commits
-			range="$remote_sha..$local_sha"
-		fi
+    if [ "$local_sha" = $z40 ]
+    then
+        # Handle delete
+        :
+    else
+        if [ "$remote_sha" = $z40 ]
+        then
+            # New branch, examine all commits
+            range="$local_sha"
+        else
+            # Update to existing branch, examine new commits
+            range="$remote_sha..$local_sha"
+        fi
+    fi
 
-                # Check for ABCE_DIR environment variable
-                if [ -z "${ABCE_DIR+x}" ]
-                then
-                    echo "Environment variable \$ABCE_DIR is unset."
-                    echo "Using the current directory as the ABCE top-level directory."
-                    echo "To avoid this message, please set \$ABCE_DIR to point to the ABCE directory which contains run.py."
-                    $ABCE_DIR="./"
-                fi
+    # Check for ABCE_DIR environment variable
+    if [ -z "${ABCE_DIR+x}" ]; then
+        echo "Environment variable \$ABCE_DIR is unset."
+        echo "Using the current directory as the ABCE top-level directory."
+        echo "To avoid this message, please set \$ABCE_DIR to point to the ABCE directory which contains run.py."
+        $ABCE_DIR="./"
+    fi
 
-                # Explain the pre-push test to the user
-                echo "ABCE will be tested before the push continues."
-                echo "Current tests:"
-                echo "  - Crash test\n\n\n"
+    # Set test directory
+    test_dir_path="$ABCE_DIR/tests/"
 
-                # Test directory
-                test_dir_path="$ABCE_DIR/tests/"
+    # List of calls for tests to run
+    # Add additional tests on subsequent lines inside the
+    #   parentheses, separated only by returns (no commas
+    #   or semicolons)
+    tests_to_run=("bash ./crash_test.sh $ABCE_DIR/run.py"
+                  "echo \"Tests complete.\n\n\"")
+    IFS=""
 
-                # List of calls for tests to run
-                # Add additional tests on subsequent lines inside the
-                #   parentheses, separated only by returns (no commas
-                #   or semicolons)
-                tests_to_run=("bash ./crash_test.sh $ABCE_DIR/run.py")
-                IFS=""
+    # Explain the pre-push test to the user
+    echo "ABCE will be tested before the push continues."
+    echo "Current tests:"
+    echo "  - Crash test\n\n\n"
 
-                # Run all tests
-                for cmd in ${tests_to_run[*]}
-                do
-                    # Run the test
-                    eval "$cmd"
+    # Run all tests
+    for cmd in ${tests_to_run[*]}
+    do
+        # Run the test
+        eval "$cmd"
 
-                    # Exit without completing the push if the return code
-                    #   is nonzero
-                    if [ $? -ne 0 ]
-                    then
-                        echo "Test unsuccessful; aborting push."
-                        exit 1
-                    else
-                        echo "Test successful; proceeding to push.\n\n"
-                    fi
-                done
-	fi
+        # Exit without completing the push if the return code
+        #   is nonzero
+        if [ $? -ne 0 ]
+        then
+            echo "Test unsuccessful; aborting push."
+            exit 1
+        else
+            echo "Test successful; proceeding to push.\n\n"
+        fi
+    done
 done
 
 exit 0
