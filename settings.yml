@@ -3,6 +3,7 @@ ABCE_abs_path: "/home/biegelk/abce/"
 demand_data_file: "inputs/demand_data.csv"
 seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_base__dispatch_summary_OP__step_0.csv"
 unit_specs_abce_supp_file: "inputs/unit_specs_abce_supplemental.csv"
+retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
 port_file_1a: "ALEAF_ERCOT_5units.xlsx"
 time_series_data_file: "inputs/timeseriesParams.xlsx"
 gc_params_file: "inputs/gc_params.yml"
@@ -14,7 +15,7 @@ first_agent_id: 201
 first_asset_id: 2001
 
 num_agents: 1
-num_steps: 7
+num_steps: 1
 
 use_precomputed_price_curve: True
 enable_subsidy: True
