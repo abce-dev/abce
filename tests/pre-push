@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# An example hook script to verify what is about to be pushed.  Called by "git
+# A hook script to verify what is about to be pushed.  Called by "git
 # push" after it has checked the remote status, but before anything has been
 # pushed.  If this script exits with a non-zero status nothing will be pushed.
 #
@@ -16,8 +16,15 @@
 #
 #   <local ref> <local sha1> <remote ref> <remote sha1>
 #
-# This sample shows how to prevent push of commits where the log message starts
-# with "WIP" (work in progress).
+# This hook executes all tests whose commands are specified in the 
+# $tests_to_run array. To add new tests, simply extend the array (inside
+# the parentheses) using newlines, like this:
+#
+# tests_to_run=("bash $test_cmd_1"
+#               "bash $test_cmd_2"
+#               "python3 $test_cmd_3")
+#
+# All new tests should be created as scripts and stored in the /tests/ dir.
 
 remote="$1"
 url="$2"
@@ -26,6 +33,9 @@ z40=0000000000000000000000000000000000000000
 
 while read local_ref local_sha remote_ref remote_sha
 do
+
+    ### GIT WIZARDRY, DO NOT EDIT
+
     if [ "$local_sha" = $z40 ]
     then
         # Handle delete
@@ -40,6 +50,8 @@ do
             range="$remote_sha..$local_sha"
         fi
     fi
+
+    ### TESTS BEGIN HERE
 
     # Check for ABCE_DIR environment variable
     if [ -z "${ABCE_DIR+x}" ]; then
