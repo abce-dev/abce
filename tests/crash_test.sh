@@ -2,10 +2,19 @@
 #
 # crash_test.sh: tests whether ABCE crashes in a two-period sim run
 #
-# This is a pre-push test script for ABCE.
-# It is called by the git pre-push hook.
+# This is a pre-push test script for ABCE, called by the git pre-push hook.
 # This test checks whether ABCE crashes during a two-period simulation run,
 #   with the current code configuration and settings.
+#
+# This test uses two periods in order to test intra-period functions and
+#   the handoff between time periods. If ABCE doesn't crash in the first
+#   two periods, or in the data-saving and -loading routines which connect
+#   time periods, it usually won't crash due to a code bug later on.
+#
+# Note that ABCE may still crash in later periods, even if the code passes
+#   this test. For example, if agents don't build enough new capacity, 
+#   A-LEAF may crash due to an infeasible problem in later time periods.
+# This test will NOT detect that kind of outcome.
 
 # Describe the test to the user
 printf "TEST: ABCE simple crash test\n\n"
