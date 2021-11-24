@@ -11,17 +11,7 @@ printf "If ABCE does not crash (i.e. it runs to completion and returns an exit c
 printf "If something happens and ABCE returns any non-zero return code, the test fails.\n\n"
 printf "Warning: This test does NOT guarantee code is working correctly! It only detects fatal crashes.\n\n"
 
-# Use the CL argument to set the path to run.py
-# If no CL was given, throw an error and exit with return code 1
-if [ -z "${1+x}" ]
-then
-    printf "No path specified for the crash test; aborting.\n\n"
-    exit 1
-else
-    run_script_path="$1"
-fi
-
 # Run the test
-run_cmd="python3 $run_script_path -f"
+run_cmd="python3 $ABCE_DIR/run.py -f --settings_file=$ABCE_DIR/pre_push_test_settings.yml"
 ${run_cmd}
 

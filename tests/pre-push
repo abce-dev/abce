@@ -44,20 +44,16 @@ do
     # Check for ABCE_DIR environment variable
     if [ -z "${ABCE_DIR+x}" ]; then
         printf "Environment variable \$ABCE_DIR is unset.\n"
-        printf "Using the current directory as the ABCE top-level directory.\n"
-        printf "To avoid this message, please set \$ABCE_DIR to point to the ABCE directory which contains run.py.\n"
-        $ABCE_DIR="."
+        printf "Please set \$ABCE_DIR to point to the ABCE directory which contains run.py.\n"
+        printf "Aborting..."
+        exit 1
     fi
-
-    # Set test directory
-    test_dir_path="$ABCE_DIR/tests"
 
     # List of calls for tests to run
     # Add additional tests on subsequent lines inside the
     #   parentheses, separated only by returns (no commas
     #   or semicolons)
-    tests_to_run=("bash $test_dir_path/crash_test.sh $ABCE_DIR/run.py"
-                  "printf \"Tests complete.\n\n\"")
+    tests_to_run=("bash $ABCE_DIR/tests/crash_test.sh")
     IFS=""
 
     # Explain the pre-push test to the user
