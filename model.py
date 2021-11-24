@@ -31,7 +31,8 @@ import ALEAF_interface as ALI
 
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
-    def __init__(self, settings, args):
+    def __init__(self, settings_file_name, settings, args):
+        self.settings_file_name = settings_file_name
         self.settings = settings
         # Get agent parameters from the settings dictionary
         self.num_agents = settings["num_agents"]

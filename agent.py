@@ -155,7 +155,8 @@ class GenCo(Agent):
             self.update_WIP_projects()
 
         # Run the agent behavior choice algorithm
-        julia_cmd = ("julia -JabceSysimage.so agent_choice.jl ./settings.yml " +
+        julia_cmd = ("julia -JabceSysimage.so agent_choice.jl " +
+                     f"{self.model.settings_file_name.name} " +
                      f"{self.current_step} {self.unique_id}")
         if self.quiet:
             sp = subprocess.check_call([julia_cmd],
