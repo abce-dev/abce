@@ -1,14 +1,17 @@
 #!/bin/sh
 #
-# A pre-push test script for ABCE
-# Tests to see whether an ABCE run crashes with current code
-#   configuration and settings.
+# crash_test.sh: tests whether ABCE crashes in a two-period sim run
+#
+# This is a pre-push test script for ABCE.
+# It is called by the git pre-push hook.
+# This test checks whether ABCE crashes during a two-period simulation run,
+#   with the current code configuration and settings.
 
 # Describe the test to the user
 printf "TEST: ABCE simple crash test\n\n"
-printf "This test will run ABCE using whatever settings currently exist in settings.yml.\n"
-printf "If ABCE does not crash (i.e. it runs to completion and returns an exit code of 0, the test passes.\n"
-printf "If something happens and ABCE returns any non-zero return code, the test fails.\n\n"
+printf "This test will run ABCE for exactly 2 periods, using whatever other settings currently exist in settings.yml.\n"
+printf "If ABCE does not crash (i.e. it runs to completion and returns an exit code of 0), the test passes.\n"
+printf "If something bad happens and ABCE returns any non-zero return code, the test fails.\n\n"
 printf "Warning: This test does NOT guarantee code is working correctly! It only detects fatal crashes.\n\n"
 
 # Set pre-push test settings file name
