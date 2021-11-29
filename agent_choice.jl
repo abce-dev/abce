@@ -95,8 +95,11 @@ unit_FS_dict = create_unit_FS_dict(unit_data, fc_pd, num_lags)
 #    final financial statement
 for i = 1:num_types
     for j = 0:num_lags
-        name = string(unit_data[i, :unit_type], "_lag-", j)
+        # Set up parameters for this alternative
+        unit_type = unit_data[i, :unit_type]
+        name = string(unit_type, "_lag-", j)
         fs = unit_FS_dict[name]
+        unit_type_data = filter(row -> row.unit_type == unit_type, unit_data)
 
         # Generate events during the construction period
         head_zeros_series = zeros(j)
