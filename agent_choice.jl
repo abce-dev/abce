@@ -82,14 +82,7 @@ unit_data[!, :FCF_NPV] = zeros(Float64, num_types)
 
 # NPV is the only decision criterion, so create a dataframe to hold the results
 #    for each alternative
-alternative_names = Vector{String}()
-for i = 1:num_types
-    for j = 0:num_lags
-        name = string(unit_data[i, :unit_type], "_lag-", j)
-        push!(alternative_names, name)
-    end
-end
-NPV_results = DataFrame(name = alternative_names, NPV = zeros(num_alternatives))
+alternative_names, NPV_results = create_NPV_results_df(unit_data, num_lags)
 
 # Create per-unit financial statement tables
 println("Creating and populating unit financial statements for NPV calculation")

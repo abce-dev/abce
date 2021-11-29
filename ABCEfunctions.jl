@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events, create_NPV_results_df
 
 #####
 # Setup functions
@@ -91,6 +91,28 @@ function allocate_fuel_costs(unit_data, fuel_costs)
         unit_data[i, :uc_fuel] = fuel_costs[fuel_costs[!, :fuel_type] == unit_data[i, :fuel_type], :cost_per_mmbtu]
     end
     return unit_data
+end
+
+"""
+    create_NPV_results_DF(unit_data_df, num_lags)
+
+Create a dataframe to hold the results of NPV calculations for the various
+  types, expanded by the number of allowed lags.
+"""
+function create_NPV_results_df(unit_data, num_lags)
+    alternative_names = Vector{String}()
+    num_alternatives = size(unit_data)[1] * (num_lags + 1)
+
+    for i = 1:size(unit_data)[1]
+        for j = 0:num_lags
+            name = string(unit_data[i, :unit_type], "_lag-", j)
+            push!(alternative_names, name)
+        end
+    end
+
+    NPV_results = DataFrame(name=alternative_names, NPV=zeros(num_alternatives))
+    return alternative_names, NPV_results
+
 end
 
 
