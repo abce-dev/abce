@@ -16,7 +16,13 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events, create_NPV_results_df
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events, create_NPV_results_df, generate_xtr_exp_profile
+
+#####
+# Constants
+#####
+MW2kW = 1000   # Conversion factor from MW to kW
+
 
 #####
 # Setup functions
@@ -129,6 +135,62 @@ function create_unit_FS_dict(unit_data, fc_pd, num_lags)
     end
     return fs_dict
 end
+
+
+"""
+    populate_unit_alternative_FS(unit_type, unit_data, lag, fc_pd)
+
+For a given project alternative (unit type + lag duration), calculate out its
+marginal contribution to the financial statements.
+"""
+function populate_unit_alternative_FS(unit_type, unit_data, lag, unit_FS_dict, fc_pd)
+    name = string(unit_type, "_lag-", lag)
+    fs = unit_FS_dict[name]
+
+end
+
+
+"""
+    generate_xtr_cost_profile(unit_type_data, lag)
+
+Creates a uniform expenditure profile for a potential construction project,
+and appends appropriate numbers of leading and lagging zeros (no construction 
+expenditures outside the construction period).
+
+Arguments:
+  unit_type_data: the appropriate unit specification data row for the current
+    alternative's unit type, selected from the set of all unit specifications
+    (called 'unit_data' in the main file)
+  lag (int): the amount of delay before the start of construction for the 
+    current project alternative
+  fc_pd: total forecast period for all unit types. Defined by the longest 
+    lag + construction duration + economic life of any available project
+    alternative.
+
+Returns:
+  xtr_exp_column: the construction expenditure profile of the project, padded
+    with zeros to indicate no construction costs outside the construction
+    period.
+"""
+function generate_xtr_exp_profile(unit_type_data, lag, fc_pd)
+    # No construction expenditures before the project begins
+    head_zeros = zeros(lag)
+
+    # Uniformly distribute projected total project costs over the construction
+    #   period
+    xtr_exp_per_pd = unit_type_data[1, :uc_x] * unit_type_data[1, :capacity] * MW2kW / unit_type_data[1, :d_x]
+    xtr_exp = ones(unit_type_data[1, :d_x]) .* xtr_exp_per_pd
+
+    # No construction expenditures from the end of construction until the end
+    #   of the model's forecast period
+    tail_zeros = zeros(fc_pd - lag - unit_type_data[1, :d_x])
+
+    # Concatenate the above series into one
+    xtr_exp_column = vcat(head_zeros, xtr_exp, tail_zeros)
+
+    return xtr_exp_column
+end
+
 
 
 #####

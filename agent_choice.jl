@@ -101,13 +101,10 @@ for i = 1:num_types
         fs = unit_FS_dict[name]
         unit_type_data = filter(row -> row.unit_type == unit_type, unit_data)
 
-        # Generate events during the construction period
-        head_zeros_series = zeros(j)
-        xtr_exp_per_pd = unit_data[i, :uc_x] * unit_data[i, :capacity] * MW2kW / unit_data[i, :d_x]
-        xtr_exp_series = ones(unit_data[i, :d_x]) .* xtr_exp_per_pd
-        tail_zeros_series = zeros(fc_pd - j - unit_data[i, :d_x])
-        xtr_exp = vcat(head_zeros_series, xtr_exp_series, tail_zeros_series)
-        fs[!, :xtr_exp] .= xtr_exp
+        # Generate the alternative's construction expenditure profile and save
+        #   it to the FS
+        fs[!, :xtr_exp] = generate_xtr_exp_profile(unit_type_data, j, fc_pd)
+
         for k = j+1:j+unit_data[i, :d_x]
             # Uniformly distribute construction costs over the construction duration
             fs[k, :remaining_debt_principal] = sum(fs[1:k, :xtr_exp]) * agent_params[1, :debt_fraction]
