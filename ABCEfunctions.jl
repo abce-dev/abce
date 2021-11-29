@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events, create_NPV_results_df, generate_xtr_exp_profile
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series
 
 #####
 # Constants
@@ -190,6 +190,19 @@ function generate_xtr_exp_profile(unit_type_data, lag, fc_pd)
 
     return xtr_exp_column
 end
+
+
+"""
+    set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
+
+Set up the record of the accrual of debt during construction.
+"""
+function set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
+    for i = lag+1:lag+unit_type_data[1, :d_x]
+        unit_fs[i, :remaining_debt_principal] = sum(unit_fs[1:i, :xtr_exp]) * agent_params[1, :debt_fraction]
+    end
+end
+
 
 
 

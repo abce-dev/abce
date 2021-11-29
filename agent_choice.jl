@@ -105,10 +105,10 @@ for i = 1:num_types
         #   it to the FS
         fs[!, :xtr_exp] = generate_xtr_exp_profile(unit_type_data, j, fc_pd)
 
-        for k = j+1:j+unit_data[i, :d_x]
-            # Uniformly distribute construction costs over the construction duration
-            fs[k, :remaining_debt_principal] = sum(fs[1:k, :xtr_exp]) * agent_params[1, :debt_fraction]
-        end
+        # Set up the time-series of outstanding debt principal based on this
+        #   expenditure profile: sets unit_fs[!, :remaining_debt_principal]
+        #   for all construction periods
+        set_initial_debt_principal_series(fs, unit_type_data, j, agent_params)
 
         # Generate prime-mover events from the end of construction to the end of the unit's life
         for k = (j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life])
