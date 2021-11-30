@@ -76,7 +76,7 @@ class GenCo(Agent):
         self.cur.execute(f"""INSERT INTO agent_params VALUES ({self.unique_id},
                         {self.discount_rate}, {self.tax_rate},
                         {self.terminal_growth_rate}, {self.debt_fraction},
-                        {self.debt_cost}, {self.equity_cost},
+                        {self.cost_of_debt}, {self.cost_of_equity},
                         {self.interest_cap})""")
 
         # Miscellaneous parameters
@@ -355,8 +355,8 @@ class GenCo(Agent):
              the indicated amortization term
         """
 
-        wacc = (self.debt_fraction * self.debt_cost
-                + (1 - self.debt_fraction) * self.equity_cost)
+        wacc = (self.debt_fraction * self.cost_of_debt
+                + (1 - self.debt_fraction) * self.cost_of_equity)
         cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
         return cap_pmt
 

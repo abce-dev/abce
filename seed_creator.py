@@ -48,8 +48,8 @@ abce_tables = {"WIP_projects":
                   ("tax_rate", "real"),
                   ("term_growth_rate", "real"),
                   ("debt_fraction", "real"),
-                  ("debt_cost", "real"),
-                  ("equity_cost", "real"),
+                  ("cost_of_debt", "real"),
+                  ("cost_of_equity", "real"),
                   ("interest_cap", "real")
                  ],
 
