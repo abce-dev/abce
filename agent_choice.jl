@@ -111,20 +111,8 @@ for i = 1:num_types
         set_initial_debt_principal_series(fs, unit_type_data, j, agent_params)
 
         # Generate prime-mover events from the end of construction to the end of the unit's life
-        for k = (j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life])
-            # Apply constant debt payment (sinking fund at cost of debt)
-            # This amount is always calculated based on the amount of debt outstanding at
-            #    the project's completion
-            fs[k, :debt_payment] = fs[j + unit_data[i, :d_x], :remaining_debt_principal] .* d ./ (1 - (1+d) .^ (-1*unit_data[i, :unit_life]))
-            # Determine portion of payment which pays down interest (instead of principal)
-            fs[k, :interest_due] = fs[k-1, :remaining_debt_principal] * d
-            # Update the amount of principal remaining at the end of the year
-            fs[k, :remaining_debt_principal] = fs[k-1, :remaining_debt_principal] - (fs[k, :debt_payment] - fs[k, :interest_due])
+        generate_prime_movers(unit_type_data, fs, j, agent_params[1, :cost_of_debt])
 
-            # Apply straight-line depreciation, based on debt outstanding at
-            #    the project's completion
-            fs[k, :depreciation] = fs[j + unit_data[i, :d_x], :xtr_exp] ./ unit_data[i, :unit_life]
-        end
 
         # Compute unit revenue, based on the price duration curve loaded from file
         submarginal_hours = filter(row -> row.lamda > unit_data[i, :VOM] * MW2kW + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate] / MW2kW), price_curve)
@@ -164,13 +152,13 @@ for i = 1:num_types
         # Compute EBIT
         transform!(fs, [:EBITDA, :depreciation] => ((EBITDA, dep) -> EBITDA - dep) => :EBIT)
         # Compute EBT
-        transform!(fs, [:EBIT, :interest_due] => ((EBIT, interest) -> EBIT - interest) => :EBT)
+        transform!(fs, [:EBIT, :interest_payment] => ((EBIT, interest) -> EBIT - interest) => :EBT)
         # Compute taxes owed
         transform!(fs, [:EBT] => ((EBT) -> EBT .* agent_params[1, :tax_rate]) => :tax_owed)
         # Compute net income
         transform!(fs, [:EBT, :tax_owed] => ((EBT, tax) -> EBT - tax) => :Net_Income)
         # Compute FCF
-        transform!(fs, [:Net_Income, :interest_due, :xtr_exp] => ((NI, interest, xtr_exp) -> NI + interest - xtr_exp) => :FCF)
+        transform!(fs, [:Net_Income, :interest_payment, :xtr_exp] => ((NI, interest, xtr_exp) -> NI + interest - xtr_exp) => :FCF)
 
         # Add column of compounded discount factors
         transform!(fs, [:year] => ((year) -> (1+d) .^ (-1 .* (year .- 1))) => :d_factor)

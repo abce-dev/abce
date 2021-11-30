@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers
 
 #####
 # Constants
@@ -359,7 +359,7 @@ function create_unit_FS_dict(unit_data, fc_pd, num_lags)
         for j = 0:num_lags
             short_name = unit_data[i, :unit_type]
             unit_name = string(short_name, "_lag-", j)
-            unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
+            unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_payment = zeros(fc_pd), depreciation = zeros(fc_pd))
             fs_dict[unit_name] = unit_FS
         end
     end
@@ -434,6 +434,47 @@ function set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_p
 end
 
 
+"""
+    generate_prime_movers(unit_type_data, unit_fs, lag, d)
+
+Generate the "prime mover" time series during the operating life of the plant:
+  - debt payments
+  - interest due
+  - remaining debt principal
+  - depreciation
+Revenue is calculated in a separate function.
+"""
+function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
+    unit_d_x = unit_type_data[1, :d_x]
+    unit_op_life = unit_type_data[1, :unit_life]
+    for i = (lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life)
+        # Apply a constant debt payment (sinking fund at cost of debt), based
+        #   on the amount of debt outstanding at the end of the xtr project
+        unit_fs[i, :debt_payment] = unit_fs[lag + unit_d_x, :remaining_debt_principal] .* cod ./ (1 - (1+cod) .^ (-1*unit_op_life))
+
+        # Determine the portion of each payment which pays down interest
+        #   (instead of principal)
+        unit_fs[i, :interest_payment] = unit_fs[i-1, :remaining_debt_principal] * cod
+
+        # Update the amount of principal remaining at the end of the period
+        unit_fs[i, :remaining_debt_principal] = unit_fs[i-1, :remaining_debt_principal] - (unit_fs[i, :debt_payment] - unit_fs[i, :interest_payment])
+
+        # Apply straight-line depreciation, based on debt outstanding at the
+        #   project's completion
+        unit_fs[i, :depreciation] = unit_fs[lag + unit_d_x, :xtr_exp] ./ unit_op_life
+    end
+
+end
+
+
+
+
+
+
+
+
+
 
 
 end
+
