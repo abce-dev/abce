@@ -99,110 +99,6 @@ function allocate_fuel_costs(unit_data, fuel_costs)
     return unit_data
 end
 
-"""
-    create_NPV_results_DF(unit_data_df, num_lags)
-
-Create a dataframe to hold the results of NPV calculations for the various
-  types, expanded by the number of allowed lags.
-"""
-function create_NPV_results_df(unit_data, num_lags)
-    alternative_names = Vector{String}()
-    num_alternatives = size(unit_data)[1] * (num_lags + 1)
-
-    for i = 1:size(unit_data)[1]
-        for j = 0:num_lags
-            name = string(unit_data[i, :unit_type], "_lag-", j)
-            push!(alternative_names, name)
-        end
-    end
-
-    NPV_results = DataFrame(name=alternative_names, NPV=zeros(num_alternatives))
-    return alternative_names, NPV_results
-
-end
-
-
-function create_unit_FS_dict(unit_data, fc_pd, num_lags)
-    fs_dict = Dict()
-    num_types = size(unit_data)[1]
-    for i = 1:num_types
-        for j = 0:num_lags
-            short_name = unit_data[i, :unit_type]
-            unit_name = string(short_name, "_lag-", j)
-            unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
-            fs_dict[unit_name] = unit_FS
-        end
-    end
-    return fs_dict
-end
-
-
-"""
-    populate_unit_alternative_FS(unit_type, unit_data, lag, fc_pd)
-
-For a given project alternative (unit type + lag duration), calculate out its
-marginal contribution to the financial statements.
-"""
-function populate_unit_alternative_FS(unit_type, unit_data, lag, unit_FS_dict, fc_pd)
-    name = string(unit_type, "_lag-", lag)
-    fs = unit_FS_dict[name]
-
-end
-
-
-"""
-    generate_xtr_cost_profile(unit_type_data, lag)
-
-Creates a uniform expenditure profile for a potential construction project,
-and appends appropriate numbers of leading and lagging zeros (no construction 
-expenditures outside the construction period).
-
-Arguments:
-  unit_type_data: the appropriate unit specification data row for the current
-    alternative's unit type, selected from the set of all unit specifications
-    (called 'unit_data' in the main file)
-  lag (int): the amount of delay before the start of construction for the 
-    current project alternative
-  fc_pd: total forecast period for all unit types. Defined by the longest 
-    lag + construction duration + economic life of any available project
-    alternative.
-
-Returns:
-  xtr_exp_column: the construction expenditure profile of the project, padded
-    with zeros to indicate no construction costs outside the construction
-    period.
-"""
-function generate_xtr_exp_profile(unit_type_data, lag, fc_pd)
-    # No construction expenditures before the project begins
-    head_zeros = zeros(lag)
-
-    # Uniformly distribute projected total project costs over the construction
-    #   period
-    xtr_exp_per_pd = unit_type_data[1, :uc_x] * unit_type_data[1, :capacity] * MW2kW / unit_type_data[1, :d_x]
-    xtr_exp = ones(unit_type_data[1, :d_x]) .* xtr_exp_per_pd
-
-    # No construction expenditures from the end of construction until the end
-    #   of the model's forecast period
-    tail_zeros = zeros(fc_pd - lag - unit_type_data[1, :d_x])
-
-    # Concatenate the above series into one
-    xtr_exp_column = vcat(head_zeros, xtr_exp, tail_zeros)
-
-    return xtr_exp_column
-end
-
-
-"""
-    set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
-
-Set up the record of the accrual of debt during construction.
-"""
-function set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
-    for i = lag+1:lag+unit_type_data[1, :d_x]
-        unit_fs[i, :remaining_debt_principal] = sum(unit_fs[1:i, :xtr_exp]) * agent_params[1, :debt_fraction]
-    end
-end
-
 
 
 
@@ -433,19 +329,109 @@ end
 # NPV functions
 #####
 
+"""
+    create_NPV_results_DF(unit_data_df, num_lags)
+
+Create a dataframe to hold the results of NPV calculations for the various
+  types, expanded by the number of allowed lags.
+"""
+function create_NPV_results_df(unit_data, num_lags)
+    alternative_names = Vector{String}()
+    num_alternatives = size(unit_data)[1] * (num_lags + 1)
+
+    for i = 1:size(unit_data)[1]
+        for j = 0:num_lags
+            name = string(unit_data[i, :unit_type], "_lag-", j)
+            push!(alternative_names, name)
+        end
+    end
+
+    NPV_results = DataFrame(name=alternative_names, NPV=zeros(num_alternatives))
+    return alternative_names, NPV_results
+
+end
 
 
+function create_unit_FS_dict(unit_data, fc_pd, num_lags)
+    fs_dict = Dict()
+    num_types = size(unit_data)[1]
+    for i = 1:num_types
+        for j = 0:num_lags
+            short_name = unit_data[i, :unit_type]
+            unit_name = string(short_name, "_lag-", j)
+            unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
+            fs_dict[unit_name] = unit_FS
+        end
+    end
+    return fs_dict
+end
 
 
+"""
+    populate_unit_alternative_FS(unit_type, unit_data, lag, fc_pd)
+
+For a given project alternative (unit type + lag duration), calculate out its
+marginal contribution to the financial statements.
+"""
+function populate_unit_alternative_FS(unit_type, unit_data, lag, unit_FS_dict, fc_pd)
+    name = string(unit_type, "_lag-", lag)
+    fs = unit_FS_dict[name]
+
+end
 
 
+"""
+    generate_xtr_cost_profile(unit_type_data, lag)
+
+Creates a uniform expenditure profile for a potential construction project,
+and appends appropriate numbers of leading and lagging zeros (no construction 
+expenditures outside the construction period).
+
+Arguments:
+  unit_type_data: the appropriate unit specification data row for the current
+    alternative's unit type, selected from the set of all unit specifications
+    (called 'unit_data' in the main file)
+  lag (int): the amount of delay before the start of construction for the 
+    current project alternative
+  fc_pd: total forecast period for all unit types. Defined by the longest 
+    lag + construction duration + economic life of any available project
+    alternative.
+
+Returns:
+  xtr_exp_column: the construction expenditure profile of the project, padded
+    with zeros to indicate no construction costs outside the construction
+    period.
+"""
+function generate_xtr_exp_profile(unit_type_data, lag, fc_pd)
+    # No construction expenditures before the project begins
+    head_zeros = zeros(lag)
+
+    # Uniformly distribute projected total project costs over the construction
+    #   period
+    xtr_exp_per_pd = unit_type_data[1, :uc_x] * unit_type_data[1, :capacity] * MW2kW / unit_type_data[1, :d_x]
+    xtr_exp = ones(unit_type_data[1, :d_x]) .* xtr_exp_per_pd
+
+    # No construction expenditures from the end of construction until the end
+    #   of the model's forecast period
+    tail_zeros = zeros(fc_pd - lag - unit_type_data[1, :d_x])
+
+    # Concatenate the above series into one
+    xtr_exp_column = vcat(head_zeros, xtr_exp, tail_zeros)
+
+    return xtr_exp_column
+end
 
 
+"""
+    set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
 
-
-
-
-
+Set up the record of the accrual of debt during construction.
+"""
+function set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
+    for i = lag+1:lag+unit_type_data[1, :d_x]
+        unit_fs[i, :remaining_debt_principal] = sum(unit_fs[1:i, :xtr_exp]) * agent_params[1, :debt_fraction]
+    end
+end
 
 
 
