@@ -113,30 +113,8 @@ for i = 1:num_types
         # Generate prime-mover events from the end of construction to the end of the unit's life
         generate_prime_movers(unit_type_data, fs, j, agent_params[1, :cost_of_debt])
 
-
-        # Compute unit revenue, based on the price duration curve loaded from file
-        submarginal_hours = filter(row -> row.lamda > unit_data[i, :VOM] * MW2kW + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate] / MW2kW), price_curve)
-        marginal_hours = filter(row -> row.lamda == unit_data[i, :VOM] * MW2kW + (unit_data[i, :FC_per_MMBTU] * unit_data[i, :heat_rate] / MW2kW), price_curve)
-        if size(marginal_hours)[1] != 0
-            marginal_hours_revenue = sum(marginal_hours[!, :lamda]) * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])
-        else
-            # There were no hours where this unit (or an equivalently-priced one) was marginal
-            marginal_hours_revenue = 0
-        end
-        submarginal_hours_revenue = sum(submarginal_hours[!, :lamda]) * unit_data[i, :capacity]
-        # Calculate forced de-rating factor for units marked as VRE in the
-        #   A-LEAF input files
-        availability_derate_factor = 1
-        if convert(Int64, unit_data[i, "is_VRE"][1]) == 1
-            availability_derate_factor = unit_data[i, :CF]
-        end
-        fs[!, :Revenue] .= 0.0
-        fs[(j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life]), :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor * hours_per_year / size(price_curve)[1]
-
-        # Unit generates during all marginal and sub-marginal hours
-        num_active_hours = (size(submarginal_hours)[1] + size(marginal_hours)[1] * unit_data[i, :capacity] / (unit_data[i, :capacity] + size(marginal_hours)[1])) * hours_per_year / size(price_curve)[1]
-        gen = num_active_hours * unit_data[i, :capacity] * availability_derate_factor * MW2kW   # kWh
-        fs[(j + unit_data[i, :d_x] + 1):(j + unit_data[i, :d_x] + unit_data[i, :unit_life]), :gen] .= gen
+        # Forecast unit revenue ($/period) and generation (kWh/period)
+        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, j)
 
 
         # Apply reactive functions to the rest of the dataframe

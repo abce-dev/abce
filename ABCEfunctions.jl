@@ -16,12 +16,13 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen
 
 #####
 # Constants
 #####
 MW2kW = 1000   # Conversion factor from MW to kW
+hours_per_year = 8760   # Number of hours in a year (without final 0.25 day)
 
 
 #####
@@ -467,14 +468,153 @@ function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
 end
 
 
+"""
+    forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag)
+
+Forecast the revenue which will be earned by the current unit type,
+and the total generation (in kWh) of the unit, per time period.
+
+This function assumes the unit will be a pure price-taker: it will generate
+  during all hours for which it is a marginal or submarginal unit.
+If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
+  de-rating factor is applied to its availability during hours when it is
+  eligible to generate.
+"""
+function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag)
+    # Compute estimated revenue from submarginal hours
+    num_submarg_hours, submarginal_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_curve)
+
+    # Compute estimated revenue from marginal hours
+    num_marg_hours, marginal_hours_revenue = compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
+
+    # If the unit is VRE, assign an appropriate availability derate factor
+    availability_derate_factor = compute_VRE_derate_factor(unit_type_data)
+
+    # Compute total projected revenue, with VRE adjustment if appropriate, and
+    #   save to the unit financial statement
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+
+    # Compute the unit's total generation for each period, in kWh
+    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag)
+
+end
+
+
+"""
+    compute_submarginal_hours_revenue(unit_type_data, price_curve)
+
+Compute revenue accrued to the unit during hours when it is a submarginal
+bidder into the wholesale market, assuming the unit is a pure price taker.
+"""
+function compute_submarginal_hours_revenue(unit_type_data, price_curve)
+    # Get a list of all hours and their prices during which the unit would 
+    #   be sub-marginal, from the price-duration curve
+    submarginal_hours = filter(row -> row.lamda > unit_type_data[1, :VOM] * MW2kW + (unit_type_data[1, :FC_per_MMBTU] * unit_type_data[1, :heat_rate] / MW2kW), price_curve)
+
+    # Create a conversion factor from number of periods in the price curve
+    #   to hours (price curve may be in hours or five-minute periods)
+    convert_to_hours = hours_per_year / size(price_curve)[1]
+
+    # Compute total number of submarginal hours
+    num_submarg_hours = size(submarginal_hours)[1] * convert_to_hours
+
+    # Calculate total revenue from submarginal hours
+    submarginal_hours_revenue = sum(submarginal_hours[!, :lamda] * unit_type_data[1, :capacity]) * convert_to_hours
+
+    return num_submarg_hours, submarginal_hours_revenue
+end
+
+
+"""
+    compute_marginal_hours_revenue(unit_type_data, price_curve, db)
+
+Compute revenue accrued to the unit during hours when it is the marginal
+bidder into the wholesale market, assuming the unit is a pure price taker.
+The unit "takes credit" for a percentage of the marginal-hour revenue
+corresponding to the percentage of unit-type capacity it comprises.
+For example, a 200-MW NGCC unit in a system with 1000 MW of total NGCC capacity
+receives 200/1000 = 20% of the revenues during hours when NGCC is marginal.
+"""
+function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
+    # Get a list of all hours and their prices during which the unit would 
+    #   be marginal, from the price-duration curve
+    marginal_hours = filter(row -> row.lamda == unit_type_data[1, :VOM] * MW2kW + (unit_type_data[1, :FC_per_MMBTU] * unit_type_data[1, :heat_rate] / MW2kW), price_curve)
+
+    # Compute the total capacity of this unit type in the current system
+    command = string("SELECT asset_id FROM assets WHERE unit_type == '", unit_type_data[1, :unit_type], "' AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd)
+    system_type_list = DBInterface.execute(db, command) |> DataFrame
+    system_type_capacity = size(system_type_list)[1]
+
+    # Create a conversion factor from number of periods in the price curve
+    #   to hours (price curve may be in hours or five-minute periods)
+    convert_to_hours = hours_per_year / size(price_curve)[1]
+
+    # Compute effective number of marginal hours
+    num_marg_hours = size(marginal_hours)[1] * unit_type_data[1, :capacity] / system_type_capacity * convert_to_hours
+
+    if size(marginal_hours)[1] == 0
+        marginal_hours_revenue = 0
+    else
+        marginal_hours_revenue = sum(marginal_hours[!, :lamda]) * unit_type_data[1, :capacity] / system_type_capacity * convert_to_hours
+    end
+
+    return num_marg_hours, marginal_hours_revenue
+end
+
+
+"""
+    compute_VRE_derate_factor(unit_type_data)
+
+If the unit is declared as `is_VRE` in the A-LEAF inputs, return an
+availability derating factor equal to its capacity credit factor.
+"""
+function compute_VRE_derate_factor(unit_type_data)
+    availability_derate_factor = 1
+
+    # Julia reads booleans as UInt8, so have to convert to something sensible
+    if convert(Int64, unit_type_data[1, "is_VRE"][1]) == 1
+        availability_derate_factor = unit_type_data[1, :CF]
+    end
+
+    return availability_derate_factor   
+end
 
 
 
+"""
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+
+Compute the final projected revenue stream for the current unit type, adjusting
+unit availability if it is a VRE type.
+"""
+function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+    # Helpful short variables
+    unit_d_x = unit_type_data[1, :d_x]
+    unit_op_life = unit_type_data[1, :unit_life]
+
+    # Add a Revenue column to the financial statement dataframe
+    unit_fs[!, :Revenue] .= 0.0
+
+    # Compute final projected revenue figures
+    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+end
 
 
 
+"""
+    compute_total_generation(unit_type_data, unit_fs, availability_derate_factor, lag)
 
+Calculate the unit's total generation for the period, in kWh.
+"""
+function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag)
+    # Helpful short variable names
+    unit_d_x = unit_type_data[1, :d_x]
+    unit_op_life = unit_type_data[1, :unit_life]
 
+    # Compute total generation
+    gen = (num_submarg_hours + num_marg_hours) * unit_type_data[1, :capacity] * availability_derate_factor * MW2kW   # in kWh
+    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :gen] .= gen
+end
 
 end
 
