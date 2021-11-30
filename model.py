@@ -296,6 +296,9 @@ class GridModel(Model):
         prm = settings["planning_reserve_margin"]
         self.cur.execute(f"INSERT INTO model_params VALUES ('PRM', {prm})")
 
+        tax_rate = settings["tax_rate"]
+        self.cur.execute(f"INSERT INTO model_params VALUES ('tax_rate', {tax_rate})")
+
 
     def set_market_subsidy(self, settings):
         """
