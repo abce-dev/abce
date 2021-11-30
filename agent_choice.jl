@@ -122,11 +122,16 @@ for i = 1:num_types
         # Propagate the accounting logic (EBITDA --> FCF)
         propagate_accounting_line_items(fs, db)
 
-        # Add column of compounded discount factors
-        transform!(fs, [:year] => ((year) -> (1+d) .^ (-1 .* (year .- 1))) => :d_factor)
-        # Discount unit FCF NPV values and save to the NPV_results dataframe
-        NPV_results[findall(NPV_results.name .== name)[1], :NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
-        unit_data[i, :FCF_NPV] = transpose(fs[!, :FCF]) * fs[!, :d_factor]
+        # Compute this unit alternative's FCF NPV
+        FCF_NPV = compute_alternative_NPV(fs, agent_params)
+
+        # Save the NPV result
+        NPV_results[findall(NPV_results.name .== name)[1], :NPV] = FCF_NPV
+        unit_data[i, :FCF_NPV] = FCF_NPV
+
+        # DEBUG: write out the NPV calculations to csv files
+        file_path = joinpath(".", string(name, "_FS.csv"))
+        CSV.write(file_path, fs)
     end
 end
 
