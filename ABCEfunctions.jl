@@ -16,12 +16,13 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs
 
 #####
 # Constants
 #####
-MW2kW = 1000   # Conversion factor from MW to kW
+MW2kW = 1000            # Conversion factor from MW to kW
+MMBTU2BTU = 1000        # Conversion factor from MMBTU to BTu
 hours_per_year = 8760   # Number of hours in a year (without final 0.25 day)
 
 
@@ -615,6 +616,54 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
     gen = (num_submarg_hours + num_marg_hours) * unit_type_data[1, :capacity] * availability_derate_factor * MW2kW   # in kWh
     unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :gen] .= gen
 end
+
+
+"""
+    forecast_unit_op_costs(unit_type_data, unit_fs)
+
+Forecast cost line items for the current unit:
+ - fuel cost
+ - VOM
+ - FOM
+"""
+function forecast_unit_op_costs(unit_type_data, unit_fs, lag)
+    # Helpful short variable names
+    unit_d_x = unit_type_data[1, :d_x]
+    unit_op_life = unit_type_data[1, :unit_life]
+
+    # Compute total fuel cost
+    transform!(unit_fs, [:gen] => ((gen) -> unit_type_data[1, :FC_per_MMBTU] .* unit_type_data[1, :heat_rate] .* (MW2kW * MMBTU2BTU) .* gen) => :Fuel_Cost)
+
+    # Compute total VOM cost incurred during generation
+    transform!(unit_fs, [:gen] => ((gen) -> unit_type_data[1, :VOM] .* gen) => :VOM_Cost)
+
+    # Compute total FOM cost for each period
+    unit_fs[!, :FOM_Cost] = zeros(size(unit_fs)[1])
+    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :FOM_Cost] .= unit_type_data[1, :FOM] * unit_type_data[1, :capacity] * MW2kW
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 end
 

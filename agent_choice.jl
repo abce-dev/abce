@@ -116,15 +116,9 @@ for i = 1:num_types
         # Forecast unit revenue ($/period) and generation (kWh/period)
         forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, j)
 
+        # Forecast unit costs: fuel cost, VOM, and FOM
+        forecast_unit_op_costs(unit_type_data, fs, j)
 
-        # Apply reactive functions to the rest of the dataframe
-        # Compute total cost of fuel used
-        transform!(fs, [:gen] => ((gen) -> unit_data[i, :FC_per_MMBTU] .* unit_data[i, :heat_rate] ./ (MW2kW * MMBTU2BTU) .* gen) => :Fuel_Cost)
-        # Compute total VOM cost incurred during generation
-        transform!(fs, [:gen] => ((gen) -> unit_data[i, :VOM] .* gen) => :VOM_Cost)
-        # Compute total FOM cost for the year (non-reactive)
-        fs[!, :FOM_Cost] = zeros(size(fs)[1])
-        fs[(j + unit_data[i, :d_x]+1):(j + unit_data[i, :d_x]+unit_data[i, :unit_life]), :FOM_Cost] .= unit_data[i, :FOM] * unit_data[i, :capacity] * MW2kW
         # Compute EBITDA
         transform!(fs, [:Revenue, :Fuel_Cost, :VOM_Cost, :FOM_Cost] => ((rev, fc, VOM, FOM) -> rev - fc - VOM - FOM) => :EBITDA)
         # Compute EBIT
