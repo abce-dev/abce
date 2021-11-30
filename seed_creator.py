@@ -56,16 +56,16 @@ abce_tables = {"WIP_projects":
                "unit_specs":
                  [("unit_type", "text", "PRIMARY KEY"),
                   ("fuel_type", "text"),
-                  ("capacity", "real"),
-                  ("uc_x", "real"),
-                  ("d_x", "real"),
-                  ("heat_rate", "real"),
-                  ("VOM", "real"),
-                  ("FOM", "real"),
-                  ("unit_life", "real"),
-                  ("CF", "real"),
-                  ("FC_per_MMBTU", "real"),
-                  ("is_VRE", "text")
+                  ("capacity", "real"),        # MW
+                  ("uc_x", "real"),            # $/kW
+                  ("d_x", "real"),             # years
+                  ("heat_rate", "real"),       # BTU/Wh
+                  ("VOM", "real"),             # $/MWh
+                  ("FOM", "real"),             # $/kW-yr
+                  ("unit_life", "real"),       # years
+                  ("CF", "real"),              # frac
+                  ("FC_per_MMBTU", "real"),    # $/MMBTU
+                  ("is_VRE", "text")           # boolean
                  ],
 
 
