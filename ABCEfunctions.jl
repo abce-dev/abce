@@ -430,31 +430,8 @@ end
 
 
 #####
-# NPV transformation functions
+# NPV functions
 #####
-
-function add_xtr_events(unit_data, unit_num, unit_FS_dict, agent_params)
-    # Generate the events which occur during the construction period:
-    #    construction expenditures and the accrual of debt
-    unit_num = convert(Int64, unit_num)
-    for i = 1:unit_data[unit_num, :d_x]
-        # Linearly distribute construction costs over the construction duration
-        unit_FS_dict[i, :xtr_exp] = unit_data[unit_num, :uc_x] * unit_data[unit_num, :capacity] * 1000 / unit_data[unit_num, :d_x]
-        unit_FS_dict[i, :remaining_debt_principal] = sum(fs[j, :xtr_exp] for j in 1:i) * agent_params[:debt_fraction]
-    end
-end
-
-
-#function generate_operation_prime_movers(unit_data, unit_num, unit_FS_dict, agent_params)
-    # Generate the prime-mover events which occur during the plant's operation:
-    #   capital repayment, total amount of generation, and depreciation
-#    for i = (unit_data[unit_num, :d_x] + 1):(unit_data[unit_num, :d_x] + unit_data[unit_num, :unit_life])
-        # Apply a constant debt payment (sinking fund at the cost of debt)
-#    end
-#end
-
-
-
 
 
 
