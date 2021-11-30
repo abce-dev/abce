@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items
 
 #####
 # Constants
@@ -644,12 +644,44 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag)
 end
 
 
+"""
+    propagate_accounting_line_items(unit_fs, db)
 
+Compute out and save all accounting line items:
+ - EBITDA
+ - EBIT
+ - EBT
+ - taxes owed
+ - Net Income
+ - Free Cash Flow
+"""
+function propagate_accounting_line_items(unit_fs, db)
+    # Compute EBITDA
+    transform!(unit_fs, [:Revenue, :Fuel_Cost, :VOM_Cost, :FOM_Cost] => ((rev, fc, VOM, FOM) -> rev - fc - VOM - FOM) => :EBITDA)
 
+    # Compute EBIT
+    transform!(unit_fs, [:EBITDA, :depreciation] => ((EBITDA, dep) -> EBITDA - dep) => :EBIT)
 
+    # Compute EBT
+    transform!(unit_fs, [:EBIT, :interest_payment] => ((EBIT, interest) -> EBIT - interest) => :EBT)
 
+    # Retrieve the system corporate tax rate from the database
+    command = string("SELECT value FROM model_params WHERE parameter == 'tax_rate'")
+    # Extract the value into a temporary dataframe
+    tax_rate = DBInterface.execute(db, command) |> DataFrame
+    # Pull out the bare value
+    tax_rate = tax_rate[1, :value]
 
+    # Compute taxes owed
+    transform!(unit_fs, [:EBT] => ((EBT) -> EBT .* tax_rate) => :Tax_Owed)
 
+    # Compute net income
+    transform!(unit_fs, [:EBT, :Tax_Owed] => ((EBT, tax_owed) -> EBT - tax_owed) => :Net_Income)
+
+    # Compute free cash flow (FCF)
+    transform!(unit_fs, [:Net_Income, :interest_payment, :xtr_exp] => ((NI, interest, xtr_exp) -> NI + interest - xtr_exp) => :FCF)
+
+end
 
 
 

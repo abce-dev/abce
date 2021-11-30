@@ -110,7 +110,7 @@ for i = 1:num_types
         #   for all construction periods
         set_initial_debt_principal_series(fs, unit_type_data, j, agent_params)
 
-        # Generate prime-mover events from the end of construction to the end of the unit's life
+        # Generate "prime movers" (debt payments and depreciation)
         generate_prime_movers(unit_type_data, fs, j, agent_params[1, :cost_of_debt])
 
         # Forecast unit revenue ($/period) and generation (kWh/period)
@@ -119,18 +119,8 @@ for i = 1:num_types
         # Forecast unit costs: fuel cost, VOM, and FOM
         forecast_unit_op_costs(unit_type_data, fs, j)
 
-        # Compute EBITDA
-        transform!(fs, [:Revenue, :Fuel_Cost, :VOM_Cost, :FOM_Cost] => ((rev, fc, VOM, FOM) -> rev - fc - VOM - FOM) => :EBITDA)
-        # Compute EBIT
-        transform!(fs, [:EBITDA, :depreciation] => ((EBITDA, dep) -> EBITDA - dep) => :EBIT)
-        # Compute EBT
-        transform!(fs, [:EBIT, :interest_payment] => ((EBIT, interest) -> EBIT - interest) => :EBT)
-        # Compute taxes owed
-        transform!(fs, [:EBT] => ((EBT) -> EBT .* agent_params[1, :tax_rate]) => :tax_owed)
-        # Compute net income
-        transform!(fs, [:EBT, :tax_owed] => ((EBT, tax) -> EBT - tax) => :Net_Income)
-        # Compute FCF
-        transform!(fs, [:Net_Income, :interest_payment, :xtr_exp] => ((NI, interest, xtr_exp) -> NI + interest - xtr_exp) => :FCF)
+        # Propagate the accounting logic (EBITDA --> FCF)
+        propagate_accounting_line_items(fs, db)
 
         # Add column of compounded discount factors
         transform!(fs, [:year] => ((year) -> (1+d) .^ (-1 .* (year .- 1))) => :d_factor)
