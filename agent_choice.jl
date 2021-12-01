@@ -128,10 +128,6 @@ for i = 1:num_types
         # Save the NPV result
         NPV_results[findall(NPV_results.name .== name)[1], :NPV] = FCF_NPV
         unit_data[i, :FCF_NPV] = FCF_NPV
-
-        # DEBUG: write out the NPV calculations to csv files
-        file_path = joinpath(".", string(name, "_FS.csv"))
-        CSV.write(file_path, fs)
     end
 end
 

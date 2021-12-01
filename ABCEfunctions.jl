@@ -514,8 +514,6 @@ function compute_submarginal_hours_revenue(unit_type_data, price_curve)
     # Marginal cost unit conversion:
     #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
     submarginal_hours = filter(row -> row.lamda > unit_type_data[1, :VOM] + unit_type_data[1, :FC_per_MWh], price_curve)
-    check_path = string("./submarginal_hours_", unit_type_data[1, :unit_type], ".csv")
-    CSV.write(check_path, submarginal_hours)
 
     # Create a conversion factor from number of periods in the price curve
     #   to hours (price curve may be in hours or five-minute periods)
