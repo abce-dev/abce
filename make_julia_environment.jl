@@ -21,7 +21,8 @@ julia_pkg_list = ["CSV",
                   "PowerModels",
                   "PyCall",
                   "SQLite",
-                  "XLSX"]
+                  "XLSX",
+                  "YAML"]
 
 conda_list = ["numpy",
               "scipy",
