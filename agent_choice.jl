@@ -14,10 +14,12 @@
 # limitations under the License.
 ##########################################################################
 
-println("\n-----------------------------------------------------------")
-println("Julia agent choice algorithm: starting")
-println("Loading packages...")
-using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, Printf, YAML, SQLite
+using Logging
+
+@info "-----------------------------------------------------------"
+@info "Julia agent choice algorithm: starting"
+@info "Loading packages..."
+using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite
 
 # Load settings and file locations from the settings file
 settings_file = ARGS[1]
@@ -27,10 +29,11 @@ settings = YAML.load_file(settings_file)
 julia_ABCE_module = joinpath(settings["ABCE_abs_path"], "ABCEfunctions.jl")
 include(julia_ABCE_module)
 using .ABCEfunctions
-println("Packages loaded successfully.")
+
+@info "Packages loaded successfully."
 
 ###### Set up inputs
-println("Initializing data...")
+@info "Initializing data..."
 
 # File names
 db_file = joinpath(settings["ABCE_abs_path"], settings["db_file"])
@@ -85,7 +88,7 @@ unit_data[!, :FCF_NPV] = zeros(Float64, num_types)
 alternative_names, NPV_results = create_NPV_results_df(unit_data, num_lags)
 
 # Create per-unit financial statement tables
-println("Creating and populating unit financial statements for NPV calculation")
+@info "Creating and populating unit financial statements for NPV calculation"
 unit_FS_dict = create_unit_FS_dict(unit_data, fc_pd, num_lags)
 
 # Populate financial statements with top-line data
@@ -137,11 +140,11 @@ if pd == 0
     println(unit_data)
 end
 
-println("Data initialized.")
+@info "Data initialized."
 
 ###### Set up the model
 # Create the model
-println("Setting up model...")
+@info "Setting up model..."
 m = Model(GLPK.Optimizer)
 # Turn on higher model verbosity for debugging
 #set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
@@ -164,19 +167,19 @@ end
 
 #@objective(m, Max, transpose(u) * unit_data[!, :FCF_NPV] - 0.25 * sum((available_demand[i] - sum(u))^2 for i=1:size(available_demand)[0]))
 @objective(m, Max, transpose(u) * NPV_results[!, :NPV])
-println("Model set up.")
+@info "Model set up."
 
 
 ###### Solve the model
-println("Solving problem...")
+@info "Solving optimization problem..."
 optimize!(m)
 status = termination_status.(m)
 unit_qty = value.(u)
 
 
 ###### Display the results
-println(status)
-println("Units to build:")
+@info status
+@info "Units to build:"
 println(hcat(alternative_names, DataFrame(units = unit_qty)))
 
 
@@ -214,6 +217,6 @@ WIP_projects = get_WIP_projects_list(db, pd, agent_id)
 authorize_anpe(db, agent_id, pd, WIP_projects, unit_data)
 
 # End
-println("\n Julia: finishing")
-println("\n-----------------------------------------------------------")
+@info "Julia: finishing"
+@info "-----------------------------------------------------------"
 
