@@ -22,7 +22,8 @@ export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_ty
 # Constants
 #####
 MW2kW = 1000            # Conversion factor from MW to kW
-MMBTU2BTU = 1000        # Conversion factor from MMBTU to BTu
+MMBTU2BTU = 1000000     # Conversion factor from MMBTU to BTu
+kW2W = 1000             # Conversion factor from kW to W
 hours_per_year = 8760   # Number of hours in a year (without final 0.25 day)
 
 
@@ -510,7 +511,11 @@ bidder into the wholesale market, assuming the unit is a pure price taker.
 function compute_submarginal_hours_revenue(unit_type_data, price_curve)
     # Get a list of all hours and their prices during which the unit would 
     #   be sub-marginal, from the price-duration curve
-    submarginal_hours = filter(row -> row.lamda > unit_type_data[1, :VOM] * MW2kW + (unit_type_data[1, :FC_per_MMBTU] * unit_type_data[1, :heat_rate] / MW2kW), price_curve)
+    # Marginal cost unit conversion:
+    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
+    submarginal_hours = filter(row -> row.lamda > unit_type_data[1, :VOM] + unit_type_data[1, :FC_per_MWh], price_curve)
+    check_path = string("./submarginal_hours_", unit_type_data[1, :unit_type], ".csv")
+    CSV.write(check_path, submarginal_hours)
 
     # Create a conversion factor from number of periods in the price curve
     #   to hours (price curve may be in hours or five-minute periods)
@@ -539,7 +544,9 @@ receives 200/1000 = 20% of the revenues during hours when NGCC is marginal.
 function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
     # Get a list of all hours and their prices during which the unit would 
     #   be marginal, from the price-duration curve
-    marginal_hours = filter(row -> row.lamda == unit_type_data[1, :VOM] * MW2kW + (unit_type_data[1, :FC_per_MMBTU] * unit_type_data[1, :heat_rate] / MW2kW), price_curve)
+    # Marginal cost unit convertion:
+    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
+    marginal_hours = filter(row -> row.lamda == unit_type_data[1, :VOM] + unit_type_data[1, :FC_per_MWh], price_curve)
 
     # Compute the total capacity of this unit type in the current system
     command = string("SELECT asset_id FROM assets WHERE unit_type == '", unit_type_data[1, :unit_type], "' AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd)
@@ -614,6 +621,7 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
 
     # Compute total generation
     gen = (num_submarg_hours + num_marg_hours) * unit_type_data[1, :capacity] * availability_derate_factor * MW2kW   # in kWh
+    println(string("Unit type = ", unit_type_data[1, :unit_type], "   |   gen = ", gen))
     unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :gen] .= gen
 end
 
@@ -632,12 +640,18 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag)
     unit_op_life = unit_type_data[1, :unit_life]
 
     # Compute total fuel cost
-    transform!(unit_fs, [:gen] => ((gen) -> unit_type_data[1, :FC_per_MMBTU] .* unit_type_data[1, :heat_rate] .* (MW2kW * MMBTU2BTU) .* gen) => :Fuel_Cost)
+    # Unit conversions:
+    #  gen [kWh/year] * FC_per_MWh [$/MWh] * [1 MWh / 1000 kWh] = $/year
+    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[1, :FC_per_MWh] ./ MW2kW) => :Fuel_Cost)
 
     # Compute total VOM cost incurred during generation
-    transform!(unit_fs, [:gen] => ((gen) -> unit_type_data[1, :VOM] .* gen) => :VOM_Cost)
+    # Unit conversions:
+    #   gen [kWh/year] * VOM [$/MWh] * [1 MWh / 1000 kWh] = $/year
+    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[1, :VOM] ./ MW2kW) => :VOM_Cost)
 
     # Compute total FOM cost for each period
+    # Unit conversions:
+    #   FOM [$/kW-year] * capacity [MW] * [1000 kW / 1 MW] = $/year
     unit_fs[!, :FOM_Cost] = zeros(size(unit_fs)[1])
     unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :FOM_Cost] .= unit_type_data[1, :FOM] * unit_type_data[1, :capacity] * MW2kW
 

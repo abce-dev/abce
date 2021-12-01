@@ -201,7 +201,7 @@ class GridModel(Model):
         ATB_header_converter = {"CAPEX": "uc_x",
                                 "Variable O&M": "VOM",
                                 "Fixed O&M": "FOM",
-                                "Fuel": "FC_per_MMBTU"}
+                                "Fuel": "FC_per_MWh"}
 
         # Load the unit specs sheet from the settings file
         us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
@@ -256,8 +256,6 @@ class GridModel(Model):
 
         # Turn 'unit_type' back into a column from the index of unit_specs_data
         unit_specs_data = unit_specs_data.reset_index()
-        # Compute fuel cost per kWh; conversion factor of 1e6 is for BTU -> MMBTU
-        unit_specs_data["FC"] = unit_specs_data["FC_per_MMBTU"] * unit_specs_data["heat_rate"] / self.MMBTU2BTU
 
         # Retrieve non-ALEAF parameters from the ABCE supplemental unit
         #   specification file
