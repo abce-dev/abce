@@ -143,38 +143,13 @@ end
 @info "Data initialized."
 
 ###### Set up the model
-# Create the model
-@info "Setting up model..."
-m = Model(GLPK.Optimizer)
-# Turn on higher model verbosity for debugging
-#set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
-@variable(m, u[1:num_alternatives] >= 0, Int)
-@variable(m, z[1:fc_pd])
-
-# Restrict total construction to be less than maximum available demand (subject to capacity factor)
-# To prevent unwanted infeasibility, convert nonpositive available_demand values to 0
-for i = 1:size(available_demand)[1]
-    if available_demand[i] < 0
-        available_demand[i] = 0
-    end
-end
-
-for i = 1:size(unit_FS_dict[alternative_names[1]])[1]
-    @constraint(m, sum(u[j] * unit_FS_dict[alternative_names[j]][i, :gen] for j=1:num_alternatives) / (hours_per_year*MW2kW) <= available_demand[i] * 2)
-end
-# Constraint on max amount of interest payable per year
-#@constraint(m, transpose(u) * (unit_data[!, :uc_x] .* unit_data[!, :capacity] .* agent_params[1, :debt_fraction] .* d ./ (1 .- (1+d) .^ (-1 .* unit_data[!, :unit_life]))) <= agent_params[1, :interest_cap])
-
-#@objective(m, Max, transpose(u) * unit_data[!, :FCF_NPV] - 0.25 * sum((available_demand[i] - sum(u))^2 for i=1:size(available_demand)[0]))
-@objective(m, Max, transpose(u) * NPV_results[!, :NPV])
-@info "Model set up."
-
+m = set_up_model(unit_FS_dict, available_demand, NPV_results)
 
 ###### Solve the model
 @info "Solving optimization problem..."
 optimize!(m)
 status = termination_status.(m)
-unit_qty = value.(u)
+unit_qty = value.(m[:u])
 
 
 ###### Display the results

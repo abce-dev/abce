@@ -14,9 +14,9 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV
+using SQLite, DataFrames, CSV, JuMP, GLPK
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model
 
 #####
 # Constants
@@ -717,8 +717,52 @@ end
 
 
 
+### JuMP optimization model initialization
+"""
+    set_up_model(unit_FS_dict, fc_pd, available_demand, NPV_results)
 
+Set up the JuMP optimization model, including variables, constraints, and the
+objective function.
 
+Returns:
+  m (JuMP model object)
+"""
+function set_up_model(unit_FS_dict, available_demand, NPV_results)
+    # Create the model object
+    @info "Setting up model..."
+    m = Model(GLPK.Optimizer)
+
+    # For debugging, enable the following line to increase verbosity
+    # set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+
+    # Parameter names
+    alternative_names = [item for item in keys(unit_FS_dict)]
+    num_alternatives = size(alternative_names)[1]
+    num_time_periods = size(unit_FS_dict[alternative_names[1]])[1]
+
+    # Set up variables
+    # Number of units of each type to build: must be Integer
+    @variable(m, u[1:num_alternatives] >= 0, Int)
+
+    # To prevent unnecessary infeasibility conditions, convert nonpositive
+    #   available_demand values to 0
+    for i = 1:size(available_demand)[1]
+        if available_demand[i] < 0
+            available_demand[i] = 0
+        end
+    end
+
+    # Restrict total construction to be less than maximum available demand
+    for i = 1:num_time_periods
+        @constraint(m, sum(u[j] * unit_FS_dict[alternative_names[j]][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
+    end
+
+    # Create the objective function 
+    @objective(m, Max, transpose(u) * NPV_results[!, :NPV])
+    @info "Optimization model set up."
+
+    return m
+end
 
 
 
