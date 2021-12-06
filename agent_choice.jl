@@ -96,7 +96,8 @@ available_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 available_demand = get_net_demand(db, pd, agent_id, fc_pd, available_demand)
-println(DataFrame(net_demand = available_demand)[1:10, :])
+@info "Available demand:"
+@info DataFrame(net_demand = available_demand)[1:10, :]
 
 # Load the price data
 price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
@@ -155,10 +156,12 @@ for i = 1:num_types
     end
 end
 
-println(NPV_results)
+@info "NPV results:"
+@info NPV_results
 
 if pd == 0
-    println(unit_data)
+    @info "Unit data loaded:"
+    @info unit_data
 end
 
 @info "Data initialized."
@@ -176,7 +179,7 @@ unit_qty = value.(m[:u])
 ###### Display the results
 @info status
 @info "Units to build:"
-println(hcat(alternative_names, DataFrame(units = unit_qty)))
+@info hcat(alternative_names, DataFrame(units = unit_qty))
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
