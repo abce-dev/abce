@@ -14,7 +14,7 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK
+using SQLite, DataFrames, CSV, JuMP, GLPK, Logging
 
 export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model
 
@@ -36,8 +36,8 @@ function load_db(db_file)
         db = SQLite.DB(db_file)
         return db
     catch e
-        println("Couldn't load the database:")
-        println(e)
+        @error "Couldn't load the database:"
+        @error e
         exit()
     end
 end
@@ -48,8 +48,8 @@ function get_agent_params(db, agent_id)
         command = string("SELECT * FROM agent_params WHERE agent_id = ", agent_id)
         df = DBInterface.execute(db, command) |> DataFrame
     catch e
-        println("Could not get agent parameters from file:")
-        println(e)
+        @error "Could not get agent parameters from file:"
+        @error e
         exit()
     end
 end
@@ -96,8 +96,8 @@ end
 function show_table(db, table_name)
     command = string("SELECT * FROM ", string(table_name))
     df = DBInterface.execute(db, command) |> DataFrame
-    println(string("\nTable \'", table_name, "\':"))
-    println(df)
+    @info string("\nTable \'", table_name, "\':")
+    @info df
     return df
 end
 
@@ -120,9 +120,9 @@ function extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
     elseif mode == "exp_fitted"
         demand = project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     else
-        println(string("The specified demand extrapolation mode, ", mode, ", is not implemented."))
-        println("Please use 'flat', 'exp_termrate', or 'exp_fitted' at this time.")
-        println("Terminating...")
+        @error string("The specified demand extrapolation mode, ", mode, ", is not implemented.")
+        @error "Please use 'flat', 'exp_termrate', or 'exp_fitted' at this time."
+        @error "Terminating..."
         exit()
     end
 
@@ -211,7 +211,7 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
     # Select a list of all current assets, which are not cancelled, retired, or hidden from public view
     current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ? AND revealed = 'true'", vals) |> DataFrame
     if size(current_assets)[1] == 0
-        println("There are no currently-active generation assets in the system; unpredictable behavior may occur.")
+        @warn "There are no currently-active generation assets in the system; unpredictable behavior may occur."
     end
     current_assets[!, :capacity] = zeros(size(current_assets)[1])
     current_assets[!, :CF] = zeros(size(current_assets)[1])
@@ -271,7 +271,7 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
             asset_vals = (new_asset_id, string(agent_id), "gas", "no", "no", 9999, 0)
             DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", xtr_vals)
             DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)", asset_vals)
-            println(string("Created project ", new_asset_id))
+            @info string("Created project ", new_asset_id)
 
             # Update the list of WIP construction projects and return it
             project_list = get_WIP_projects_list(db, agent_id)
@@ -282,8 +282,8 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
             return project_list
         end
     catch e
-        println("Could not insert a seed project into the agent's project list")
-        println(e)
+        @error "Could not insert a seed project into the agent's project list"
+        @error e
         exit()
     end
 end
@@ -595,7 +595,6 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
 
     # Compute total generation
     gen = (num_submarg_hours + num_marg_hours) * unit_type_data[1, :capacity] * availability_derate_factor * MW2kW   # in kWh
-    println(string("Unit type = ", unit_type_data[1, :unit_type], "   |   gen = ", gen))
     unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :gen] .= gen
 end
 
