@@ -43,30 +43,6 @@ function load_db(db_file)
 end
 
 
-function get_current_period()
-    try
-        pd = parse(Int64, ARGS[2])
-        return pd
-    catch e
-        println("Couldn't retrieve a period number from the command line:")
-        println(e)
-        exit()
-    end
-end
-
-
-function get_agent_id()
-    try
-        agent_id = parse(Int64, ARGS[3])
-        return agent_id
-    catch e
-        println("Couldn't retrieve the agent ID from the command line:")
-        println(e)
-        exit()
-    end
-end
-
-
 function get_agent_params(db, agent_id)
     try
         command = string("SELECT * FROM agent_params WHERE agent_id = ", agent_id)
