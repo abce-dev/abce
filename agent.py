@@ -161,8 +161,9 @@ class GenCo(Agent):
         sysimage_path = os.path.join(self.settings["ABCE_abs_path"],
                                      "abceSysimage.so")
         julia_cmd = (f"julia -J{sysimage_path} {agent_choice_path} " +
-                     f"{self.model.settings_file_name.name} " +
-                     f"{self.current_step} {self.unique_id}")
+                     f"--settings_file={self.model.settings_file_name.name} " +
+                     f"--current_pd={self.current_step} " +
+                     f"--agent_id={self.unique_id}")
         if self.quiet:
             sp = subprocess.check_call([julia_cmd],
                                        shell = True,
