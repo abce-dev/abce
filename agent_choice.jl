@@ -19,10 +19,29 @@ using Logging
 @info "-----------------------------------------------------------"
 @info "Julia agent choice algorithm: starting"
 @info "Loading packages..."
-using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite
+using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
+
+# Set up command-line parser
+s = ArgParseSettings()
+@add_arg_table s begin
+    "--settings_file"
+        help = "absolute path to the settings file"
+        required = true
+    "--agent_id"
+        help = "unique ID number of the agent"
+        arg_type = Int
+        required = true
+    "--current_pd"
+        help = "current ABCE time period"
+        arg_type = Int
+        required = true
+end
+
+# Retrieve parsed arguments from command line
+CLI_args = parse_args(s)
 
 # Load settings and file locations from the settings file
-settings_file = ARGS[1]
+settings_file = CLI_args["settings_file"]
 settings = YAML.load_file(settings_file)
 
 # Include local ABCE functions module
@@ -50,8 +69,10 @@ MMBTU2BTU = 1000   # Converts MMBTU to BTU
 
 # Load the inputs
 db = load_db(db_file)
-pd = get_current_period()
-agent_id = get_agent_id()
+#pd = get_current_period()
+pd = CLI_args["current_pd"]
+agent_id = CLI_args["agent_id"]
+#agent_id = get_agent_id()
 
 # Set up agent-specific data
 # Get a list of all ongoing construction projects for the current agent
@@ -194,4 +215,6 @@ authorize_anpe(db, agent_id, pd, WIP_projects, unit_data)
 # End
 @info "Julia: finishing"
 @info "-----------------------------------------------------------"
+
+
 
