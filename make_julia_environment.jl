@@ -3,7 +3,8 @@ using Pkg
 # Activate local environment
 Pkg.activate(".")
 
-julia_pkg_list = ["CSV",
+julia_pkg_list = ["ArgParse",
+                  "CSV",
                   "Cbc",
                   "Conda",
                   "DataFrames",
