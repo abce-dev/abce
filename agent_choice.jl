@@ -18,19 +18,22 @@ println("\n-----------------------------------------------------------")
 println("Julia agent choice algorithm: starting")
 println("Loading packages...")
 using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, Printf, YAML, SQLite
-# Include localy module of ABCE functions
-include("./ABCEfunctions.jl")
+
+# Load settings and file locations from the settings file
+settings_file = ARGS[1]
+settings = YAML.load_file(settings_file)
+
+# Include local ABCE functions module
+julia_ABCE_module = joinpath(settings["ABCE_abs_path"], "ABCEfunctions.jl")
+include(julia_ABCE_module)
 using .ABCEfunctions
 println("Packages loaded successfully.")
 
 ###### Set up inputs
 println("Initializing data...")
 
-# Load settings and file locations from the settings file
-settings_file = ARGS[1]
-settings = YAML.load_file(settings_file)
 # File names
-db_file = settings["db_file"]
+db_file = joinpath(settings["ABCE_abs_path"], settings["db_file"])
 # Constants
 hours_per_year = settings["hours_per_year"]
 demand_vis_horizon = settings["demand_visibility_horizon"]
