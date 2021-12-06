@@ -56,6 +56,7 @@ class GenCo(Agent):
         super().__init__(genco_id, model)
         self.model = model
         self.quiet = cli_args.quiet
+        self.settings = settings
         self.assign_parameters(settings)
         self.add_initial_assets_to_db(settings)
 
@@ -155,7 +156,11 @@ class GenCo(Agent):
             self.update_WIP_projects()
 
         # Run the agent behavior choice algorithm
-        julia_cmd = ("julia -JabceSysimage.so agent_choice.jl " +
+        agent_choice_path = os.path.join(self.settings["ABCE_abs_path"],
+                                         "agent_choice.jl")
+        sysimage_path = os.path.join(self.settings["ABCE_abs_path"],
+                                     "abceSysimage.so")
+        julia_cmd = (f"julia -J{sysimage_path} {agent_choice_path} " +
                      f"{self.model.settings_file_name.name} " +
                      f"{self.current_step} {self.unique_id}")
         if self.quiet:

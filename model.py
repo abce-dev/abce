@@ -71,7 +71,7 @@ class GridModel(Model):
         self.load_model_parameters_to_db(self.settings)
 
         # Set up all ALEAF file paths
-        self.set_ALEAF_file_paths()
+        self.set_ALEAF_file_paths(settings)
 
         # If ALEAF is enabled, re-initialize all input data based on local
         #    reference copies
@@ -121,12 +121,12 @@ class GridModel(Model):
             
 
 
-    def set_ALEAF_file_paths(self):
+    def set_ALEAF_file_paths(self, settings):
         """ Set up all absolute paths to ALEAF and its input files, and
               save them as member data.
         """
         # Set file paths of local reference copies of ALEAF input data
-        ALEAF_inputs_path = "./inputs/ALEAF_inputs"
+        ALEAF_inputs_path = os.path.join(settings["ABCE_abs_path"], "inputs/ALEAF_inputs")
         self.ALEAF_master_settings_ref = os.path.join(ALEAF_inputs_path,
                                                       "ALEAF_Master_original.xlsx")
         self.ALEAF_model_settings_ref = os.path.join(ALEAF_inputs_path,
