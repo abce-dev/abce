@@ -14,9 +14,18 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV
+using SQLite, DataFrames, CSV, JuMP, GLPK, Logging
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, add_xtr_events
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model
+
+#####
+# Constants
+#####
+MW2kW = 1000            # Conversion factor from MW to kW
+MMBTU2BTU = 1000000     # Conversion factor from MMBTU to BTu
+kW2W = 1000             # Conversion factor from kW to W
+hours_per_year = 8760   # Number of hours in a year (without final 0.25 day)
+
 
 #####
 # Setup functions
@@ -27,32 +36,8 @@ function load_db(db_file)
         db = SQLite.DB(db_file)
         return db
     catch e
-        println("Couldn't load the database:")
-        println(e)
-        exit()
-    end
-end
-
-
-function get_current_period()
-    try
-        pd = parse(Int64, ARGS[2])
-        return pd
-    catch e
-        println("Couldn't retrieve a period number from the command line:")
-        println(e)
-        exit()
-    end
-end
-
-
-function get_agent_id()
-    try
-        agent_id = parse(Int64, ARGS[3])
-        return agent_id
-    catch e
-        println("Couldn't retrieve the agent ID from the command line:")
-        println(e)
+        @error "Couldn't load the database:"
+        @error e
         exit()
     end
 end
@@ -63,8 +48,8 @@ function get_agent_params(db, agent_id)
         command = string("SELECT * FROM agent_params WHERE agent_id = ", agent_id)
         df = DBInterface.execute(db, command) |> DataFrame
     catch e
-        println("Could not get agent parameters from file:")
-        println(e)
+        @error "Could not get agent parameters from file:"
+        @error e
         exit()
     end
 end
@@ -94,19 +79,6 @@ function allocate_fuel_costs(unit_data, fuel_costs)
 end
 
 
-function create_unit_FS_dict(unit_data, fc_pd, num_lags)
-    fs_dict = Dict()
-    num_types = size(unit_data)[1]
-    for i = 1:num_types
-        for j = 0:num_lags
-            short_name = unit_data[i, :unit_type]
-            unit_name = string(short_name, "_lag-", j)
-            unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_due = zeros(fc_pd), depreciation = zeros(fc_pd))
-            fs_dict[unit_name] = unit_FS
-        end
-    end
-    return fs_dict
-end
 
 
 #####
@@ -124,8 +96,8 @@ end
 function show_table(db, table_name)
     command = string("SELECT * FROM ", string(table_name))
     df = DBInterface.execute(db, command) |> DataFrame
-    println(string("\nTable \'", table_name, "\':"))
-    println(df)
+    @info string("\nTable \'", table_name, "\':")
+    @info df
     return df
 end
 
@@ -148,9 +120,9 @@ function extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
     elseif mode == "exp_fitted"
         demand = project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     else
-        println(string("The specified demand extrapolation mode, ", mode, ", is not implemented."))
-        println("Please use 'flat', 'exp_termrate', or 'exp_fitted' at this time.")
-        println("Terminating...")
+        @error string("The specified demand extrapolation mode, ", mode, ", is not implemented.")
+        @error "Please use 'flat', 'exp_termrate', or 'exp_fitted' at this time."
+        @error "Terminating..."
         exit()
     end
 
@@ -239,7 +211,7 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
     # Select a list of all current assets, which are not cancelled, retired, or hidden from public view
     current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ? AND revealed = 'true'", vals) |> DataFrame
     if size(current_assets)[1] == 0
-        println("There are no currently-active generation assets in the system; unpredictable behavior may occur.")
+        @warn "There are no currently-active generation assets in the system; unpredictable behavior may occur."
     end
     current_assets[!, :capacity] = zeros(size(current_assets)[1])
     current_assets[!, :CF] = zeros(size(current_assets)[1])
@@ -299,7 +271,7 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
             asset_vals = (new_asset_id, string(agent_id), "gas", "no", "no", 9999, 0)
             DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", xtr_vals)
             DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)", asset_vals)
-            println(string("Created project ", new_asset_id))
+            @info string("Created project ", new_asset_id)
 
             # Update the list of WIP construction projects and return it
             project_list = get_WIP_projects_list(db, agent_id)
@@ -310,8 +282,8 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
             return project_list
         end
     catch e
-        println("Could not insert a seed project into the agent's project list")
-        println(e)
+        @error "Could not insert a seed project into the agent's project list"
+        @error e
         exit()
     end
 end
@@ -333,42 +305,426 @@ end
 
 
 #####
-# NPV transformation functions
+# NPV functions
 #####
 
-function add_xtr_events(unit_data, unit_num, unit_FS_dict, agent_params)
-    # Generate the events which occur during the construction period:
-    #    construction expenditures and the accrual of debt
-    unit_num = convert(Int64, unit_num)
-    for i = 1:unit_data[unit_num, :d_x]
-        # Linearly distribute construction costs over the construction duration
-        unit_FS_dict[i, :xtr_exp] = unit_data[unit_num, :uc_x] * unit_data[unit_num, :capacity] * 1000 / unit_data[unit_num, :d_x]
-        unit_FS_dict[i, :remaining_debt_principal] = sum(fs[j, :xtr_exp] for j in 1:i) * agent_params[:debt_fraction]
+"""
+    create_NPV_results_DF(unit_data_df, num_lags)
+
+Create a dataframe to hold the results of NPV calculations for the various
+  types, expanded by the number of allowed lags.
+"""
+function create_NPV_results_df(unit_data, num_lags)
+    alternative_names = Vector{String}()
+    num_alternatives = size(unit_data)[1] * (num_lags + 1)
+
+    for i = 1:size(unit_data)[1]
+        for j = 0:num_lags
+            name = string(unit_data[i, :unit_type], "_lag-", j)
+            push!(alternative_names, name)
+        end
+    end
+
+    NPV_results = DataFrame(name=alternative_names, NPV=zeros(num_alternatives))
+    return alternative_names, NPV_results
+
+end
+
+
+function create_unit_FS_dict(unit_data, fc_pd, num_lags)
+    fs_dict = Dict()
+    num_types = size(unit_data)[1]
+    for i = 1:num_types
+        for j = 0:num_lags
+            short_name = unit_data[i, :unit_type]
+            unit_name = string(short_name, "_lag-", j)
+            unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_payment = zeros(fc_pd), depreciation = zeros(fc_pd))
+            fs_dict[unit_name] = unit_FS
+        end
+    end
+    return fs_dict
+end
+
+
+"""
+    generate_xtr_cost_profile(unit_type_data, lag)
+
+Creates a uniform expenditure profile for a potential construction project,
+and appends appropriate numbers of leading and lagging zeros (no construction 
+expenditures outside the construction period).
+
+Arguments:
+  unit_type_data: the appropriate unit specification data row for the current
+    alternative's unit type, selected from the set of all unit specifications
+    (called 'unit_data' in the main file)
+  lag (int): the amount of delay before the start of construction for the 
+    current project alternative
+  fc_pd: total forecast period for all unit types. Defined by the longest 
+    lag + construction duration + economic life of any available project
+    alternative.
+
+Returns:
+  xtr_exp_column: the construction expenditure profile of the project, padded
+    with zeros to indicate no construction costs outside the construction
+    period.
+"""
+function generate_xtr_exp_profile(unit_type_data, lag, fc_pd)
+    # No construction expenditures before the project begins
+    head_zeros = zeros(lag)
+
+    # Uniformly distribute projected total project costs over the construction
+    #   period
+    xtr_exp_per_pd = unit_type_data[1, :uc_x] * unit_type_data[1, :capacity] * MW2kW / unit_type_data[1, :d_x]
+    xtr_exp = ones(unit_type_data[1, :d_x]) .* xtr_exp_per_pd
+
+    # No construction expenditures from the end of construction until the end
+    #   of the model's forecast period
+    tail_zeros = zeros(fc_pd - lag - unit_type_data[1, :d_x])
+
+    # Concatenate the above series into one
+    xtr_exp_column = vcat(head_zeros, xtr_exp, tail_zeros)
+
+    return xtr_exp_column
+end
+
+
+"""
+    set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
+
+Set up the record of the accrual of debt during construction.
+"""
+function set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
+    for i = lag+1:lag+unit_type_data[1, :d_x]
+        unit_fs[i, :remaining_debt_principal] = sum(unit_fs[1:i, :xtr_exp]) * agent_params[1, :debt_fraction]
     end
 end
 
 
-#function generate_operation_prime_movers(unit_data, unit_num, unit_FS_dict, agent_params)
-    # Generate the prime-mover events which occur during the plant's operation:
-    #   capital repayment, total amount of generation, and depreciation
-#    for i = (unit_data[unit_num, :d_x] + 1):(unit_data[unit_num, :d_x] + unit_data[unit_num, :unit_life])
-        # Apply a constant debt payment (sinking fund at the cost of debt)
-#    end
-#end
+"""
+    generate_prime_movers(unit_type_data, unit_fs, lag, d)
+
+Generate the "prime mover" time series during the operating life of the plant:
+  - debt payments
+  - interest due
+  - remaining debt principal
+  - depreciation
+Revenue is calculated in a separate function.
+"""
+function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
+    unit_d_x = unit_type_data[1, :d_x]
+    unit_op_life = unit_type_data[1, :unit_life]
+    for i = (lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life)
+        # Apply a constant debt payment (sinking fund at cost of debt), based
+        #   on the amount of debt outstanding at the end of the xtr project
+        unit_fs[i, :debt_payment] = unit_fs[lag + unit_d_x, :remaining_debt_principal] .* cod ./ (1 - (1+cod) .^ (-1*unit_op_life))
+
+        # Determine the portion of each payment which pays down interest
+        #   (instead of principal)
+        unit_fs[i, :interest_payment] = unit_fs[i-1, :remaining_debt_principal] * cod
+
+        # Update the amount of principal remaining at the end of the period
+        unit_fs[i, :remaining_debt_principal] = unit_fs[i-1, :remaining_debt_principal] - (unit_fs[i, :debt_payment] - unit_fs[i, :interest_payment])
+
+        # Apply straight-line depreciation, based on debt outstanding at the
+        #   project's completion
+        unit_fs[i, :depreciation] = unit_fs[lag + unit_d_x, :xtr_exp] ./ unit_op_life
+    end
+
+end
+
+
+"""
+    forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag)
+
+Forecast the revenue which will be earned by the current unit type,
+and the total generation (in kWh) of the unit, per time period.
+
+This function assumes the unit will be a pure price-taker: it will generate
+  during all hours for which it is a marginal or submarginal unit.
+If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
+  de-rating factor is applied to its availability during hours when it is
+  eligible to generate.
+"""
+function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag)
+    # Compute estimated revenue from submarginal hours
+    num_submarg_hours, submarginal_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_curve)
+
+    # Compute estimated revenue from marginal hours
+    num_marg_hours, marginal_hours_revenue = compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
+
+    # If the unit is VRE, assign an appropriate availability derate factor
+    availability_derate_factor = compute_VRE_derate_factor(unit_type_data)
+
+    # Compute total projected revenue, with VRE adjustment if appropriate, and
+    #   save to the unit financial statement
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+
+    # Compute the unit's total generation for each period, in kWh
+    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag)
+
+end
+
+
+"""
+    compute_submarginal_hours_revenue(unit_type_data, price_curve)
+
+Compute revenue accrued to the unit during hours when it is a submarginal
+bidder into the wholesale market, assuming the unit is a pure price taker.
+"""
+function compute_submarginal_hours_revenue(unit_type_data, price_curve)
+    # Get a list of all hours and their prices during which the unit would 
+    #   be sub-marginal, from the price-duration curve
+    # Marginal cost unit conversion:
+    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
+    submarginal_hours = filter(row -> row.lamda > unit_type_data[1, :VOM] + unit_type_data[1, :FC_per_MWh], price_curve)
+
+    # Create a conversion factor from number of periods in the price curve
+    #   to hours (price curve may be in hours or five-minute periods)
+    convert_to_hours = hours_per_year / size(price_curve)[1]
+
+    # Compute total number of submarginal hours
+    num_submarg_hours = size(submarginal_hours)[1] * convert_to_hours
+
+    # Calculate total revenue from submarginal hours
+    submarginal_hours_revenue = sum(submarginal_hours[!, :lamda] * unit_type_data[1, :capacity]) * convert_to_hours
+
+    return num_submarg_hours, submarginal_hours_revenue
+end
+
+
+"""
+    compute_marginal_hours_revenue(unit_type_data, price_curve, db)
+
+Compute revenue accrued to the unit during hours when it is the marginal
+bidder into the wholesale market, assuming the unit is a pure price taker.
+The unit "takes credit" for a percentage of the marginal-hour revenue
+corresponding to the percentage of unit-type capacity it comprises.
+For example, a 200-MW NGCC unit in a system with 1000 MW of total NGCC capacity
+receives 200/1000 = 20% of the revenues during hours when NGCC is marginal.
+"""
+function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
+    # Get a list of all hours and their prices during which the unit would 
+    #   be marginal, from the price-duration curve
+    # Marginal cost unit convertion:
+    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
+    marginal_hours = filter(row -> row.lamda == unit_type_data[1, :VOM] + unit_type_data[1, :FC_per_MWh], price_curve)
+
+    # Compute the total capacity of this unit type in the current system
+    command = string("SELECT asset_id FROM assets WHERE unit_type == '", unit_type_data[1, :unit_type], "' AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd)
+    system_type_list = DBInterface.execute(db, command) |> DataFrame
+    system_type_capacity = size(system_type_list)[1]
+
+    # Create a conversion factor from number of periods in the price curve
+    #   to hours (price curve may be in hours or five-minute periods)
+    convert_to_hours = hours_per_year / size(price_curve)[1]
+
+    # Compute effective number of marginal hours
+    num_marg_hours = size(marginal_hours)[1] * unit_type_data[1, :capacity] / system_type_capacity * convert_to_hours
+
+    if size(marginal_hours)[1] == 0
+        marginal_hours_revenue = 0
+    else
+        marginal_hours_revenue = sum(marginal_hours[!, :lamda]) * unit_type_data[1, :capacity] / system_type_capacity * convert_to_hours
+    end
+
+    return num_marg_hours, marginal_hours_revenue
+end
+
+
+"""
+    compute_VRE_derate_factor(unit_type_data)
+
+If the unit is declared as `is_VRE` in the A-LEAF inputs, return an
+availability derating factor equal to its capacity credit factor.
+"""
+function compute_VRE_derate_factor(unit_type_data)
+    availability_derate_factor = 1
+
+    # Julia reads booleans as UInt8, so have to convert to something sensible
+    if convert(Int64, unit_type_data[1, "is_VRE"][1]) == 1
+        availability_derate_factor = unit_type_data[1, :CF]
+    end
+
+    return availability_derate_factor   
+end
 
 
 
+"""
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+
+Compute the final projected revenue stream for the current unit type, adjusting
+unit availability if it is a VRE type.
+"""
+function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+    # Helpful short variables
+    unit_d_x = unit_type_data[1, :d_x]
+    unit_op_life = unit_type_data[1, :unit_life]
+
+    # Add a Revenue column to the financial statement dataframe
+    unit_fs[!, :Revenue] .= 0.0
+
+    # Compute final projected revenue figures
+    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+end
 
 
 
+"""
+    compute_total_generation(unit_type_data, unit_fs, availability_derate_factor, lag)
+
+Calculate the unit's total generation for the period, in kWh.
+"""
+function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag)
+    # Helpful short variable names
+    unit_d_x = unit_type_data[1, :d_x]
+    unit_op_life = unit_type_data[1, :unit_life]
+
+    # Compute total generation
+    gen = (num_submarg_hours + num_marg_hours) * unit_type_data[1, :capacity] * availability_derate_factor * MW2kW   # in kWh
+    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :gen] .= gen
+end
+
+
+"""
+    forecast_unit_op_costs(unit_type_data, unit_fs)
+
+Forecast cost line items for the current unit:
+ - fuel cost
+ - VOM
+ - FOM
+"""
+function forecast_unit_op_costs(unit_type_data, unit_fs, lag)
+    # Helpful short variable names
+    unit_d_x = unit_type_data[1, :d_x]
+    unit_op_life = unit_type_data[1, :unit_life]
+
+    # Compute total fuel cost
+    # Unit conversions:
+    #  gen [kWh/year] * FC_per_MWh [$/MWh] * [1 MWh / 1000 kWh] = $/year
+    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[1, :FC_per_MWh] ./ MW2kW) => :Fuel_Cost)
+
+    # Compute total VOM cost incurred during generation
+    # Unit conversions:
+    #   gen [kWh/year] * VOM [$/MWh] * [1 MWh / 1000 kWh] = $/year
+    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[1, :VOM] ./ MW2kW) => :VOM_Cost)
+
+    # Compute total FOM cost for each period
+    # Unit conversions:
+    #   FOM [$/kW-year] * capacity [MW] * [1000 kW / 1 MW] = $/year
+    unit_fs[!, :FOM_Cost] = zeros(size(unit_fs)[1])
+    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :FOM_Cost] .= unit_type_data[1, :FOM] * unit_type_data[1, :capacity] * MW2kW
+
+end
+
+
+"""
+    propagate_accounting_line_items(unit_fs, db)
+
+Compute out and save all accounting line items:
+ - EBITDA
+ - EBIT
+ - EBT
+ - taxes owed
+ - Net Income
+ - Free Cash Flow
+"""
+function propagate_accounting_line_items(unit_fs, db)
+    # Compute EBITDA
+    transform!(unit_fs, [:Revenue, :Fuel_Cost, :VOM_Cost, :FOM_Cost] => ((rev, fc, VOM, FOM) -> rev - fc - VOM - FOM) => :EBITDA)
+
+    # Compute EBIT
+    transform!(unit_fs, [:EBITDA, :depreciation] => ((EBITDA, dep) -> EBITDA - dep) => :EBIT)
+
+    # Compute EBT
+    transform!(unit_fs, [:EBIT, :interest_payment] => ((EBIT, interest) -> EBIT - interest) => :EBT)
+
+    # Retrieve the system corporate tax rate from the database
+    command = string("SELECT value FROM model_params WHERE parameter == 'tax_rate'")
+    # Extract the value into a temporary dataframe
+    tax_rate = DBInterface.execute(db, command) |> DataFrame
+    # Pull out the bare value
+    tax_rate = tax_rate[1, :value]
+
+    # Compute taxes owed
+    transform!(unit_fs, [:EBT] => ((EBT) -> EBT .* tax_rate) => :Tax_Owed)
+
+    # Compute net income
+    transform!(unit_fs, [:EBT, :Tax_Owed] => ((EBT, tax_owed) -> EBT - tax_owed) => :Net_Income)
+
+    # Compute free cash flow (FCF)
+    transform!(unit_fs, [:Net_Income, :interest_payment, :xtr_exp] => ((NI, interest, xtr_exp) -> NI + interest - xtr_exp) => :FCF)
+
+end
+
+
+"""
+    compute_alternative_NPV(unit_fs, agent_params)
+
+For this project alternative (unit type + lag time), compute the project's FCF NPV.
+"""
+function compute_alternative_NPV(unit_fs, agent_params)
+    # Discount rate is WACC
+    d = agent_params[1, :debt_fraction] * agent_params[1, :cost_of_debt] + (1 - agent_params[1, :debt_fraction]) * agent_params[1, :cost_of_equity]
+
+    # Add a column of compounded discount factors to the dataframe
+    transform!(unit_fs, [:year] => ((year) -> (1+d) .^ (-1 .* (year .- 1))) => :discount_factor)
+
+    # Discount the alternative's FCF NPV
+    FCF_NPV = transpose(unit_fs[!, :FCF]) * unit_fs[!, :discount_factor]
+
+    return FCF_NPV
+
+end
 
 
 
+### JuMP optimization model initialization
+"""
+    set_up_model(unit_FS_dict, fc_pd, available_demand, NPV_results)
 
+Set up the JuMP optimization model, including variables, constraints, and the
+objective function.
 
+Returns:
+  m (JuMP model object)
+"""
+function set_up_model(unit_FS_dict, available_demand, NPV_results)
+    # Create the model object
+    @info "Setting up model..."
+    m = Model(GLPK.Optimizer)
 
+    # For debugging, enable the following line to increase verbosity
+    # set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
 
+    # Parameter names
+    alternative_names = [item for item in keys(unit_FS_dict)]
+    num_alternatives = size(alternative_names)[1]
+    num_time_periods = size(unit_FS_dict[alternative_names[1]])[1]
 
+    # Set up variables
+    # Number of units of each type to build: must be Integer
+    @variable(m, u[1:num_alternatives] >= 0, Int)
+
+    # To prevent unnecessary infeasibility conditions, convert nonpositive
+    #   available_demand values to 0
+    for i = 1:size(available_demand)[1]
+        if available_demand[i] < 0
+            available_demand[i] = 0
+        end
+    end
+
+    # Restrict total construction to be less than maximum available demand
+    for i = 1:num_time_periods
+        @constraint(m, sum(u[j] * unit_FS_dict[alternative_names[j]][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
+    end
+
+    # Create the objective function 
+    @objective(m, Max, transpose(u) * NPV_results[!, :NPV])
+    @info "Optimization model set up."
+
+    return m
+end
 
 
 
@@ -377,3 +733,4 @@ end
 
 
 end
+

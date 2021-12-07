@@ -42,4 +42,4 @@ run(`julia --trace-compile=precompile.jl agent_choice.jl ./settings.yml 20 201`)
 
 # Create `abceSysimage.so` using the specified packages and the newly
 #   generated `precompile.jl` file.
-create_sysimage([:CSV, :JuMP, :GLPK, :DataFrames, :SQLite]; sysimage_path="abceSysimage.so", precompile_statements_file="./precompile.jl")
+create_sysimage([:CSV, :JuMP, :GLPK, :DataFrames, :SQLite, :LinearAlgebra, :YAML]; sysimage_path="abceSysimage.so", precompile_statements_file="./precompile.jl")

@@ -86,14 +86,12 @@ def organize_load_data(load_df, peak_demand, output_type):
 def create_merit_curve(db, current_pd):
     system_portfolio = pd.read_sql_query(
                          "SELECT assets.asset_id, assets.unit_type, " +
-                         "capacity, VOM, FC_per_MMBTU, heat_rate FROM assets " +
+                         "capacity, VOM, FC_per_MWh, heat_rate FROM assets " +
                          "INNER JOIN unit_specs ON assets.unit_type " +
                          "= unit_specs.unit_type WHERE retirement_pd > 0 " +
                          "AND completion_pd <= 0", db)
     system_portfolio["MC"] = (system_portfolio.apply(
-                                lambda df:
-                                  df["heat_rate"] * df["FC_per_MMBTU"]/1000
-                                  + df["VOM"],
+                                lambda df: df["FC_per_MWh"] + df["VOM"],
                                 axis=1))
     system_portfolio = (system_portfolio.sort_values(by=["MC"], ascending=True)
                         .reset_index().drop(labels=["index"], axis=1))

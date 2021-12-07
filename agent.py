@@ -76,7 +76,7 @@ class GenCo(Agent):
         self.cur.execute(f"""INSERT INTO agent_params VALUES ({self.unique_id},
                         {self.discount_rate}, {self.tax_rate},
                         {self.terminal_growth_rate}, {self.debt_fraction},
-                        {self.debt_cost}, {self.equity_cost},
+                        {self.cost_of_debt}, {self.cost_of_equity},
                         {self.interest_cap})""")
 
         # Miscellaneous parameters
@@ -161,8 +161,9 @@ class GenCo(Agent):
         sysimage_path = os.path.join(self.settings["ABCE_abs_path"],
                                      "abceSysimage.so")
         julia_cmd = (f"julia -J{sysimage_path} {agent_choice_path} " +
-                     f"{self.model.settings_file_name.name} " +
-                     f"{self.current_step} {self.unique_id}")
+                     f"--settings_file={self.model.settings_file_name.name} " +
+                     f"--current_pd={self.current_step} " +
+                     f"--agent_id={self.unique_id}")
         if self.quiet:
             sp = subprocess.check_call([julia_cmd],
                                        shell = True,
@@ -355,8 +356,8 @@ class GenCo(Agent):
              the indicated amortization term
         """
 
-        wacc = (self.debt_fraction * self.debt_cost
-                + (1 - self.debt_fraction) * self.equity_cost)
+        wacc = (self.debt_fraction * self.cost_of_debt
+                + (1 - self.debt_fraction) * self.cost_of_equity)
         cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
         return cap_pmt
 
