@@ -347,19 +347,6 @@ end
 
 
 """
-    populate_unit_alternative_FS(unit_type, unit_data, lag, fc_pd)
-
-For a given project alternative (unit type + lag duration), calculate out its
-marginal contribution to the financial statements.
-"""
-function populate_unit_alternative_FS(unit_type, unit_data, lag, unit_FS_dict, fc_pd)
-    name = string(unit_type, "_lag-", lag)
-    fs = unit_FS_dict[name]
-
-end
-
-
-"""
     generate_xtr_cost_profile(unit_type_data, lag)
 
 Creates a uniform expenditure profile for a potential construction project,
