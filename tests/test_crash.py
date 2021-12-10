@@ -26,7 +26,7 @@ def test_crash(current_dir):
     # Set up some file paths.
     abce_dir = os.path.join(current_dir, "..")
     run_script = os.path.join(abce_dir, "run.py")
-    settings_file = os.path.join(abce_dir, "settings.yml")
+    settings_file = os.path.join(current_dir, "settings.yml")
 
     # Make sure environment files with dependencies are copied into the
     #   tests/ dir
