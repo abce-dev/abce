@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess as sp
 import pytest
+import logging
 
 @pytest.fixture
 def current_dir():
@@ -24,7 +25,15 @@ def current_dir():
 
 def test_crash(current_dir):
     # Set up some file paths.
-    abce_dir = os.path.join(current_dir, "..")
+    abce_dir = None
+    if os.path.exists(os.path.join(current_dir, "run.py")):
+        abce_dir = current_dir
+    elif os.path.exists(os.path.join(current_dir, "..", "run.py")):
+        abce_dir = os.path.join(current_dir, "..")
+    else:
+        logging.error("Could not find the ABCE home directory.")
+        logging.error("Be sure the testing script is in (or one directory")
+        logging.error("below) the abce toplevel directory.")
     run_script = os.path.join(abce_dir, "run.py")
     settings_file = os.path.join(current_dir, "settings.yml")
 
