@@ -25,17 +25,22 @@ def current_dir():
 
 def test_crash(current_dir):
     # Set up some file paths.
+    # Check current dir and one level above for run.py; if found, use that
+    #   dir as the ABCE toplevel dir
     abce_dir = None
     if os.path.exists(os.path.join(current_dir, "run.py")):
         abce_dir = current_dir
     elif os.path.exists(os.path.join(current_dir, "..", "run.py")):
         abce_dir = os.path.join(current_dir, "..")
-    else:
+
+    try:
+        run_script = os.path.join(abce_dir, "run.py")
+        settings_file = os.path.join(current_dir, "settings.yml")
+    except(TypeError):
         logging.error("Could not find the ABCE home directory.")
         logging.error("Be sure the testing script is in (or one directory")
         logging.error("below) the abce toplevel directory.")
-    run_script = os.path.join(abce_dir, "run.py")
-    settings_file = os.path.join(current_dir, "settings.yml")
+
 
     # Make sure environment files with dependencies are copied into the
     #   tests/ dir
