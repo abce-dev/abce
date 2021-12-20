@@ -2,7 +2,7 @@
 #
 # These tests require the following file tree structure:
 #
-#. abce
+#. abce/
 #├── run.py
 #├── settings.yml
 #├── Manifest.toml
@@ -33,6 +33,8 @@ def test_crash(current_dir):
     elif os.path.exists(os.path.join(current_dir, "..", "run.py")):
         abce_dir = os.path.join(current_dir, "..")
 
+    # Try to set up the relevant run-script and settings-file paths; if not
+    #   found, alert the user
     try:
         run_script = os.path.join(abce_dir, "run.py")
         settings_file = os.path.join(current_dir, "settings.yml")
@@ -40,7 +42,6 @@ def test_crash(current_dir):
         logging.error("Could not find the ABCE home directory.")
         logging.error("Be sure the testing script is in (or one directory")
         logging.error("below) the abce toplevel directory.")
-
 
     # Make sure environment files with dependencies are copied into the
     #   tests/ dir
