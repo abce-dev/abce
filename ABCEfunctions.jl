@@ -111,12 +111,14 @@ end
 
 
 function get_current_assets_list(db, pd, agent_id)
-    # Get a list of all of the agent's currently-operating assets and their types
-    SQL_get_assets = SQLite.Stmt(db, string("SELECT asset_id, unit_type FROM assets WHERE agent_id = ", agent_id, " AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd))
+    # Get a list of all of the agent's currently-operating assets, plus their
+    #   unit type and mandatory retirement date
+    SQL_get_assets = SQLite.Stmt(db, string("SELECT asset_id, unit_type, retirement_pd FROM assets WHERE agent_id = ", agent_id, " AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd))
     asset_list = DBInterface.execute(SQL_get_assets) |> DataFrame
 
     # Count the number of assets by type
-    asset_counts = combine(groupby(asset_list, [:unit_type]), nrow => :count)
+    asset_counts = combine(groupby(asset_list, [:unit_type, :retirement_pd]), nrow => :count)
+    @info asset_counts
 
     return asset_list, asset_counts
 end
