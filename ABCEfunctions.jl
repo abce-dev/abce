@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV, JuMP, GLPK, Logging
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list
 
 #####
 # Constants
@@ -107,6 +107,18 @@ function get_WIP_projects_list(db, pd, agent_id)
     SQL_get_proj = SQLite.Stmt(db, string("SELECT asset_id FROM assets WHERE agent_id = ", agent_id, " AND completion_pd > ", pd, " AND cancellation_pd > ", pd))
     project_list = DBInterface.execute(SQL_get_proj) |> DataFrame
     return project_list
+end
+
+
+function get_current_assets_list(db, pd, agent_id)
+    # Get a list of all of the agent's currently-operating assets and their types
+    SQL_get_assets = SQLite.Stmt(db, string("SELECT asset_id, unit_type FROM assets WHERE agent_id = ", agent_id, " AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd))
+    asset_list = DBInterface.execute(SQL_get_assets) |> DataFrame
+
+    # Count the number of assets by type
+    asset_counts = combine(groupby(asset_list, [:unit_type]), nrow => :count)
+
+    return asset_list, asset_counts
 end
 
 
@@ -253,7 +265,6 @@ function get_unit_specs(db)
     df[!, :unit_life] = convert.(Int64, df[:, :unit_life])
     return df, num_types
 end
-
 
 
 function ensure_projects_not_empty(db, agent_id, project_list, current_period)
