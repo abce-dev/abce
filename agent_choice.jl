@@ -77,6 +77,8 @@ agent_id = CLI_args["agent_id"]
 # Set up agent-specific data
 # Get a list of all ongoing construction projects for the current agent
 agent_projects = get_WIP_projects_list(db, pd, agent_id)
+# Get a list of all operating assets owned by the current agent
+agent_assets, asset_counts = get_current_assets_list(db, pd, agent_id)
 
 # Get agent financial parameters
 agent_params = get_agent_params(db, agent_id)
