@@ -322,6 +322,41 @@ end
 #####
 
 """
+    create_decision_dfs(   , mode)
+
+
+mode options:
+  new_xtr: expects to extract only `unit_type` from the dataframe
+  ret: extracts `unit_type` and `ret_pd` from the dataframe
+
+"""
+function create_decision_dfs(alts_df, num_lags, mode)
+
+    if mode == "new_xtr"
+        columns_to_get = [:unit_type]
+    elif mode == "ret"
+        columns_to_get = [:unit_type, :retirement_pd]
+    end
+
+    # Empty vector to store names for alternatives
+    names = []
+
+#   for i in 1:size(df)[1]
+#       for j in 0:num_lags - 1
+#            
+#
+#       end
+#   end
+
+
+
+end
+
+
+
+
+
+"""
     create_NPV_results_DF(unit_data_df, num_lags)
 
 Create a dataframe to hold the results of NPV calculations for the various
@@ -458,7 +493,7 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag)
+function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag, mode="new_xtr")
     # Compute estimated revenue from submarginal hours
     num_submarg_hours, submarginal_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_curve)
 
@@ -470,10 +505,10 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db,
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, mode)
 
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag)
+    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, mode)
 
 end
 
@@ -569,7 +604,7 @@ end
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, mode)
     # Helpful short variables
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
@@ -577,8 +612,19 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
     # Add a Revenue column to the financial statement dataframe
     unit_fs[!, :Revenue] .= 0.0
 
-    # Compute final projected revenue figures
-    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+    # In "new_xtr" mode, revenues START accruing after the lag plus construction duration
+    # In "retire" mode, revenues CEASE accruing after the lag
+    if mode == "new_xtr"
+        rev_start = lag + unit_d_x + 1
+        rev_end = lag + unit_d_x + unit_op_life
+    elseif mode == "retire"
+        rev_start = 1
+        rev_end = lag
+    end
+
+    # Compute final projected revenue series
+    unit_fs[rev_start:rev_end, :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+
 end
 
 
@@ -588,7 +634,7 @@ end
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag)
+function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, mode)
     # Helpful short variable names
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
