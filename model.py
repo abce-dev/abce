@@ -235,24 +235,27 @@ class GridModel(Model):
             unit_settings = dict(ATB_settings.loc[unit_type, :])
 
             for datum_name in ATB_header_converter.keys():
-                mask = ((ATB_data["technology"] == unit_settings["Tech"]) &
-                        (ATB_data["techdetail"] == unit_settings["TechDetail"]) &
-                        (ATB_data["core_metric_parameter"] == datum_name) &
-                        (ATB_data["core_metric_case"] == unit_settings["Case"]) &
-                        (ATB_data["crpyears"] == unit_settings["CRP"]) &
-                        (ATB_data["scenario"] == unit_settings["Scenario"]) &
-                        (ATB_data["core_metric_variable"] == unit_settings["Year"]))
+                if unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] == "ATB":
+                    mask = ((ATB_data["technology"] == unit_settings["Tech"]) &
+                            (ATB_data["techdetail"] == unit_settings["TechDetail"]) &
+                            (ATB_data["core_metric_parameter"] == datum_name) &
+                            (ATB_data["core_metric_case"] == unit_settings["Case"]) &
+                            (ATB_data["crpyears"] == unit_settings["CRP"]) &
+                            (ATB_data["scenario"] == unit_settings["Scenario"]) &
+                            (ATB_data["core_metric_variable"] == unit_settings["Year"]))
 
-                if sum(mask) != 1:
-                    # If the mask matches nothing in ATBe, assume that
-                    #   the appropriate value is 0 (e.g. battery VOM cost)
-                    logging.debug(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
-                    unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = 0
-                else:
-                    unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
+                    if sum(mask) != 1:
+                        # If the mask matches nothing in ATBe, assume that
+                        #   the appropriate value is 0 (e.g. battery VOM cost)
+                        logging.debug(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
+                        unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = 0
+                    else:
+                        unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
 
             # Retrieve the units' is_VRE status
             unit_specs_data.loc[unit_type, "is_VRE"] = us_df[us_df.index == unit_type]["VRE_Flag"].values[0]
+
+        print(unit_specs_data)
 
         # Turn 'unit_type' back into a column from the index of unit_specs_data
         unit_specs_data = unit_specs_data.reset_index()
@@ -270,8 +273,9 @@ class GridModel(Model):
             # Set unit useful life for this unit
             unit_specs_data.loc[i, "unit_life"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["unit_life"].values[0]
 
-        # Cast the VOM column as Float64 (fixing specific bug)
+        # Cast the VOM and FOM columns as Float64 (fixing specific bug)
         unit_specs_data["VOM"] = unit_specs_data["VOM"].astype("float64")
+        unit_specs_data["FOM"] = unit_specs_data["FOM"].astype("float64")
 
         unit_specs_data.to_sql("unit_specs", self.db, if_exists = "replace", index = False)
         self.unit_specs = unit_specs_data
