@@ -645,7 +645,19 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
 
     # Compute total generation
     gen = (num_submarg_hours + num_marg_hours) * unit_type_data[1, :capacity] * availability_derate_factor * MW2kW   # in kWh
-    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :gen] .= gen
+
+    # In "new_xtr" mode, generation persists from end of construction to end of life
+    # In "retire" mode, generation persists from first period to retirement period
+    if mode == "new_xtr"
+        gen_start = lag + unit_d_x + 1
+        gen_end = lag + unit_d_x + unit_op_life
+    elseif mode == "retire"
+        gen_start = 1
+        gen_end = orig_ret_pd
+    end
+
+    # Distribute generation values time series
+    unit_fs[gen_start:gen_end, :gen] .= gen
 end
 
 
