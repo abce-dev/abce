@@ -669,7 +669,7 @@ Forecast cost line items for the current unit:
  - VOM
  - FOM
 """
-function forecast_unit_op_costs(unit_type_data, unit_fs, lag, mode)
+function forecast_unit_op_costs(unit_type_data, unit_fs, lag, orig_ret_pd, mode)
     # Helpful short variable names
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
@@ -696,7 +696,7 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag, mode)
         op_end = lag + unit_d_x + unit_op_life
     elseif mode == "retire"
         op_start = 1
-        op_end = lag
+        op_end = orig_ret_pd
     end
 
     unit_fs[op_start:op_end, :FOM_Cost] .= unit_type_data[1, :FOM] * unit_type_data[1, :capacity] * MW2kW
