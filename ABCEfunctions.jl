@@ -493,7 +493,7 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag, mode="new_xtr")
+function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag, mode="new_xtr", ret_pd=9999)
     # Compute estimated revenue from submarginal hours
     num_submarg_hours, submarginal_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_curve)
 
@@ -503,12 +503,16 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db,
     # If the unit is VRE, assign an appropriate availability derate factor
     availability_derate_factor = compute_VRE_derate_factor(unit_type_data)
 
+    # Compute the original retirement period
+    # Minimum of ret_pd or size of the unit FS (i.e. the forecast period)
+    orig_ret_pd = min(size(unit_fs)[1], ret_pd)
+
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, mode)
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, orig_ret_pd, mode)
 
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, mode)
+    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, orig_ret_pd, mode)
 
 end
 
@@ -604,7 +608,7 @@ end
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, mode)
+function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, orig_ret_pd, mode)
     # Helpful short variables
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
@@ -619,7 +623,7 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
         rev_end = lag + unit_d_x + unit_op_life
     elseif mode == "retire"
         rev_start = 1
-        rev_end = lag
+        rev_end = orig_ret_pd
     end
 
     # Compute final projected revenue series
@@ -634,7 +638,7 @@ end
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, mode)
+function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, orig_ret_pd, mode)
     # Helpful short variable names
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
