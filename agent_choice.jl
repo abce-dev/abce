@@ -158,6 +158,40 @@ for i = 1:num_types
     end
 end
 
+# Create a dataframe to store results for retirement NPV calculations
+ret_FS_dict = create_ret_FS_dict(asset_counts, fc_pd, num_lags)
+
+# Compute dataframes for retiring existing assets
+for i = 1:size(asset_counts)[1]
+    for j = 1:num_lags
+        name = string(asset_counts[i, :unit_type], "_", asset_counts[i, :retirement_pd], "_lag-", j)
+        fs = unit_FS_dict[name]
+        unit_type_data = filter(row -> row.unit_type == unit_type, unit_type)
+
+        # Implies any retiring unit is 100% paid off; need to implement tracking of debt repayments
+
+        # Forecast unit revenue ($/period) and generation (kWh/period)
+        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, j, mode="retire")
+
+        # Forecast unit costs: fuel cost, VOM, and FOM
+        forecast_unit_op_costs(unit_type_data, fs, j, mode="retire")
+
+        # Propagate the accounting logic (EBITDA --> FCF)
+        propagate_accounting_line_items(fs, db)
+
+        # Compute this unit alternative's FCF NPV
+        FCF_NPV = compute_alternative_NPV(fs, agent_params)
+
+        # Save the NPV result
+        NPV_results[findall(NPV_results.name .== name)[1], :NPV] = FCF_NPV
+        unit_data[i, :FCF_NPV] = FCF_NPV
+       
+
+    end
+end
+
+
+
 @info "NPV results:"
 @info NPV_results
 
