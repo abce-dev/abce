@@ -653,7 +653,7 @@ Forecast cost line items for the current unit:
  - VOM
  - FOM
 """
-function forecast_unit_op_costs(unit_type_data, unit_fs, lag)
+function forecast_unit_op_costs(unit_type_data, unit_fs, lag, mode)
     # Helpful short variable names
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
@@ -672,7 +672,18 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag)
     # Unit conversions:
     #   FOM [$/kW-year] * capacity [MW] * [1000 kW / 1 MW] = $/year
     unit_fs[!, :FOM_Cost] = zeros(size(unit_fs)[1])
-    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :FOM_Cost] .= unit_type_data[1, :FOM] * unit_type_data[1, :capacity] * MW2kW
+
+    # In "new_xtr" mode, op costs last from the end of construction to the unit's end of life
+    # In "retire" mode, op costs last until the end of the lag
+    if mode == "new_xtr"
+        op_start = lag + unit_d_x + 1
+        op_end = lag + unit_d_x + unit_op_life
+    elseif mode == "retire"
+        op_start = 1
+        op_end = lag
+    end
+
+    unit_fs[op_start:op_end, :FOM_Cost] .= unit_type_data[1, :FOM] * unit_type_data[1, :capacity] * MW2kW
 
 end
 
