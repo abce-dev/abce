@@ -113,7 +113,7 @@ alternative_names, NPV_results = create_NPV_results_df(unit_data, num_lags)
 
 # Create per-unit financial statement tables
 @info "Creating and populating unit financial statements for NPV calculation"
-unit_FS_dict = create_unit_FS_dict(unit_data, fc_pd, num_lags)
+unit_FS_dict = create_FS_dict(unit_data, fc_pd, num_lags)
 
 # Populate financial statements with top-line data
 # This data is deterministic, and is on a per-unit basis (not per-kW or per-kWh)
@@ -158,42 +158,50 @@ for i = 1:num_types
     end
 end
 
+@info "xtr NPV results:"
+@info NPV_results
+
+
+# Create a dataframe to hold NPV results for each retirement alternative
+ret_alt_names, ret_NPV_results = create_NPV_results_df(asset_counts, num_lags; mode="retire")
+
 # Create a dataframe to store results for retirement NPV calculations
-ret_FS_dict = create_ret_FS_dict(asset_counts, fc_pd, num_lags)
+ret_FS_dict = create_FS_dict(asset_counts, fc_pd, num_lags; mode="retire")
 
 # Compute dataframes for retiring existing assets
 for i = 1:size(asset_counts)[1]
     for j = 1:num_lags
         name = string(asset_counts[i, :unit_type], "_", asset_counts[i, :retirement_pd], "_lag-", j)
-        fs = unit_FS_dict[name]
-        unit_type_data = filter(row -> row.unit_type == unit_type, unit_type)
+        original_ret_pd = asset_counts[i, :retirement_pd]
+        fs = ret_FS_dict[name]
+        unit_type_data = filter(row -> row.unit_type == asset_counts[i, :unit_type], unit_data)
 
         # Implies any retiring unit is 100% paid off; need to implement tracking of debt repayments
 
         # Forecast unit revenue ($/period) and generation (kWh/period)
-        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, j, mode="retire")
+        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, j; mode="retire", orig_ret_pd=original_ret_pd)
 
         # Forecast unit costs: fuel cost, VOM, and FOM
-        forecast_unit_op_costs(unit_type_data, fs, j, mode="retire")
+        forecast_unit_op_costs(unit_type_data, fs, j; mode="retire", orig_ret_pd=original_ret_pd)
 
         # Propagate the accounting logic (EBITDA --> FCF)
         propagate_accounting_line_items(fs, db)
+
+        # Subtract realized FCF to get marginal FCF impact
+        compute_retirement_delta_FCF(fs, j)
 
         # Compute this unit alternative's FCF NPV
         FCF_NPV = compute_alternative_NPV(fs, agent_params)
 
         # Save the NPV result
-        NPV_results[findall(NPV_results.name .== name)[1], :NPV] = FCF_NPV
-        unit_data[i, :FCF_NPV] = FCF_NPV
-       
-
+        ret_NPV_results[findall(ret_NPV_results.name .== name)[1], :NPV] = FCF_NPV
     end
 end
 
 
 
-@info "NPV results:"
-@info NPV_results
+@info "ret NPV results:"
+@info ret_NPV_results
 
 if pd == 0
     @info "Unit data loaded:"
