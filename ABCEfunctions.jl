@@ -679,8 +679,6 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
 
     unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[1, :FOM] .* unit_type_data[1, :capacity] .* MW2kW
 
-    @info unit_fs
-
 end
 
 
