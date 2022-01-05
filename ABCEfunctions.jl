@@ -763,7 +763,7 @@ end
 
 ### JuMP optimization model initialization
 """
-    set_up_model(unit_FS_dict, fc_pd, available_demand, NPV_results)
+    set_up_model(unit_FS_dict, ret_fs_dict, fc_pd, available_demand, NPV_results, ret_NPV_results)
 
 Set up the JuMP optimization model, including variables, constraints, and the
 objective function.
@@ -771,7 +771,7 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(unit_FS_dict, available_demand, NPV_results)
+function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, ret_NPV_results)
     # Create the model object
     @info "Setting up model..."
     m = Model(GLPK.Optimizer)
@@ -779,10 +779,14 @@ function set_up_model(unit_FS_dict, available_demand, NPV_results)
     # For debugging, enable the following line to increase verbosity
     # set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
 
+    # Concatenate all results into unified data structures
+    all_FS_dict = merge(unit_FS_dict, ret_FS_dict)
+    all_NPV_results = vcat(NPV_results, ret_NPV_results)
+
     # Parameter names
-    alternative_names = [item for item in keys(unit_FS_dict)]
-    num_alternatives = size(alternative_names)[1]
-    num_time_periods = size(unit_FS_dict[alternative_names[1]])[1]
+    alternative_names = [item for item in keys(all_FS_dict)]
+    num_alternatives = size(all_NPV_results)[1]
+    num_time_periods = size(all_FS_dict[alternative_names[1]])[1]
 
     # Set up variables
     # Number of units of each type to build: must be Integer
@@ -798,11 +802,11 @@ function set_up_model(unit_FS_dict, available_demand, NPV_results)
 
     # Restrict total construction to be less than maximum available demand
     for i = 1:num_time_periods
-        @constraint(m, sum(u[j] * unit_FS_dict[alternative_names[j]][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
+        @constraint(m, sum(u[j] * all_FS_dict[alternative_names[j]][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
     end
 
     # Create the objective function 
-    @objective(m, Max, transpose(u) * NPV_results[!, :NPV])
+    @objective(m, Max, transpose(u) * all_NPV_results[!, :NPV])
     @info "Optimization model set up."
 
     return m

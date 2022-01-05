@@ -211,7 +211,7 @@ end
 @info "Data initialized."
 
 ###### Set up the model
-m = set_up_model(unit_FS_dict, available_demand, NPV_results)
+m = set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, ret_NPV_results)
 
 ###### Solve the model
 @info "Solving optimization problem..."
@@ -221,9 +221,12 @@ unit_qty = value.(m[:u])
 
 
 ###### Display the results
+all_alternatives = [item for item in keys(merge(unit_FS_dict, ret_FS_dict))]
+all_results = hcat(all_alternatives, DataFrame(units = unit_qty))
+sort!(all_results, [:x1])
 @info status
 @info "Units to build:"
-@info hcat(alternative_names, DataFrame(units = unit_qty))
+@info all_results
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
