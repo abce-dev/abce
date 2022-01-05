@@ -170,7 +170,7 @@ ret_FS_dict = create_FS_dict(asset_counts, fc_pd, num_lags; mode="retire")
 
 # Compute dataframes for retiring existing assets
 for i = 1:size(asset_counts)[1]
-    for j = 1:num_lags
+    for j = 0:num_lags
         name = string(asset_counts[i, :unit_type], "_", asset_counts[i, :retirement_pd], "_lag-", j)
         original_ret_pd = asset_counts[i, :retirement_pd]
         fs = ret_FS_dict[name]
