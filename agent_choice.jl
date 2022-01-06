@@ -233,9 +233,10 @@ for i = 1:num_alternatives
     name = split(all_results[i, :name], "_")
     if size(name)[1] == 2
         unit_type, lag = name
+        lag = parse(Int64, split(lag, "-")[2])
         #unit_type = join(deleteat!(split(alternative_names[i], "_"), size(split(alternative_names[i], "_"))[1]), "_")
         unit_index = findall(unit_data.unit_type .== unit_type)[1]
-        if occursin("0", alternative_names[i])
+        if lag == 0
             # Only record projects starting this period
             for j = 1:unit_qty[i]
                 next_id = get_next_asset_id(db)
@@ -257,7 +258,8 @@ for i = 1:num_alternatives
         end
     elseif size(name)[1] == 3
         unit_type, ret_pd, lag = name
-        if lag = 0
+        lag = parse(Int64, split(lag, "-")[2])
+        if lag == 0
             # Only enforce retirements in the current period
             command = string("SELECT asset_id FROM assets WHERE unit_type = ", unit_type, " AND retirement_pd = ", ret_pd, " AND agent_id = ", agent_id)
             df = DBInterface.execute(command) |> DataFrame
