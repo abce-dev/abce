@@ -184,11 +184,11 @@ for i = 1:size(asset_counts)[1]
         # Forecast unit costs: fuel cost, VOM, and FOM
         forecast_unit_op_costs(unit_type_data, fs, j; mode="retire", orig_ret_pd=original_ret_pd)
 
+        # Convert to marginal deltas
+        convert_to_marginal_delta_FS(fs, j)
+
         # Propagate the accounting logic (EBITDA --> FCF)
         propagate_accounting_line_items(fs, db)
-
-        # Subtract realized FCF to get marginal FCF impact
-        compute_retirement_delta_FCF(fs, j)
 
         # Compute this unit alternative's FCF NPV
         FCF_NPV = compute_alternative_NPV(fs, agent_params)
@@ -211,7 +211,7 @@ end
 @info "Data initialized."
 
 ###### Set up the model
-m = set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, ret_NPV_results)
+m = set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, ret_NPV_results, asset_counts)
 
 ###### Solve the model
 @info "Solving optimization problem..."
@@ -221,9 +221,8 @@ unit_qty = value.(m[:u])
 
 
 ###### Display the results
-all_alternatives = [item for item in keys(merge(unit_FS_dict, ret_FS_dict))]
+all_alternatives = vcat(NPV_results, ret_NPV_results)[!, :name]
 all_results = hcat(all_alternatives, DataFrame(units = unit_qty))
-sort!(all_results, [:x1])
 @info status
 @info "Units to build:"
 @info all_results
