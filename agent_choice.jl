@@ -230,28 +230,40 @@ all_results = hcat(all_alternatives, DataFrame(units = unit_qty))
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
 for i = 1:num_alternatives
-    unit_type = join(deleteat!(split(alternative_names[i], "_"), size(split(alternative_names[i], "_"))[1]), "_")
-    unit_index = findall(unit_data.unit_type .== unit_type)[1]
-    if occursin("0", alternative_names[i])
-        # Only record projects starting this period
-        for j = 1:unit_qty[i]
-            next_id = get_next_asset_id(db)
-            # Update `WIP_projects` table
-            rcec = unit_data[unit_index, :uc_x] * unit_data[unit_index, :capacity] * MW2kW
-            rtec = unit_data[unit_index, :d_x]
-            WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
-            DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)
+    name = split(all_results[i, :name], "_")
+    if size(name)[1] == 2
+        unit_type, lag = name
+        #unit_type = join(deleteat!(split(alternative_names[i], "_"), size(split(alternative_names[i], "_"))[1]), "_")
+        unit_index = findall(unit_data.unit_type .== unit_type)[1]
+        if occursin("0", alternative_names[i])
+            # Only record projects starting this period
+            for j = 1:unit_qty[i]
+                next_id = get_next_asset_id(db)
+                # Update `WIP_projects` table
+                rcec = unit_data[unit_index, :uc_x] * unit_data[unit_index, :capacity] * MW2kW
+                rtec = unit_data[unit_index, :d_x]
+                WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
+                DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)
 
-            # Update `assets` table
-            revealed = "false"
-            completion_pd = pd + unit_data[unit_index, :d_x]
-            cancellation_pd = 9999
-            retirement_pd = pd + unit_data[unit_index, :d_x] + unit_data[unit_index, :unit_life]
-            total_capex = 0    # Only updated once project is complete
-            cap_pmt = 0
-            assets_vals = (next_id, agent_id, unit_type, revealed, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
-            DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
+                # Update `assets` table
+                revealed = "false"
+                completion_pd = pd + unit_data[unit_index, :d_x]
+                cancellation_pd = 9999
+                retirement_pd = pd + unit_data[unit_index, :d_x] + unit_data[unit_index, :unit_life]
+                total_capex = 0    # Only updated once project is complete
+                cap_pmt = 0
+                assets_vals = (next_id, agent_id, unit_type, revealed, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
+                DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
         end
+    elseif size(name)[1] == 3
+        unit_type, ret_pd, lag = name
+        if lag = 0
+            # Only enforce retirements in the current period
+            command = string("SELECT asset_id FROM assets WHERE unit_type = ", unit_type, " AND retirement_pd = ", ret_pd, " AND agent_id = ", agent_id)
+            df = DBInterface.execute(command) |> DataFrame
+
+        end
+    end
     end
 end
 
