@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV, JuMP, GLPK, Logging
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, compute_retirement_delta_FCF
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS
 
 #####
 # Constants
@@ -723,19 +723,21 @@ end
 
 
 """
-    compute_retirement_delta_FCF(unit_fs, lag)
+    convert_to_marginal_delta_FS(unit_fs, lag)
 
 For this project alternative, compute the delta between the original projected
 FCF (without premature retirement) and the new projected FCF (with premature
 retirement).
 """
-function compute_retirement_delta_FCF(unit_fs, lag)
-    # Set delta-FCF during lag to 0 (no change, asset operates in both cases)
-    unit_fs[1:lag, :FCF] .= 0
-
-    # Set all other values to their negative (indicating lost profits and
-    #   avoided losses)
-    unit_fs[!, :FCF] .= -unit_fs[!, :FCF]
+function convert_to_marginal_delta_FS(unit_fs, lag; mode="new_xtr")
+    cols_to_invert = [col for col in names(unit_fs) if col != "year"]
+    for col in cols_to_invert
+        # Set values to 0 during the lag (no change)
+        unit_fs[1:lag, col] .= 0
+        # Invert values post-retirement to indicate lost revenues/generation
+        #   and avoided costs
+        unit_fs[!, col] .= -unit_fs[!, col]
+    end
 
 end
 
@@ -771,13 +773,13 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, ret_NPV_results)
+function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, ret_NPV_results, asset_counts)
     # Create the model object
     @info "Setting up model..."
     m = Model(GLPK.Optimizer)
 
     # For debugging, enable the following line to increase verbosity
-    # set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+    #set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
 
     # Concatenate all results into unified data structures
     all_FS_dict = merge(unit_FS_dict, ret_FS_dict)
@@ -802,7 +804,23 @@ function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, 
 
     # Restrict total construction to be less than maximum available demand
     for i = 1:num_time_periods
-        @constraint(m, sum(u[j] * all_FS_dict[alternative_names[j]][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
+        @constraint(m, sum(u[j] * all_FS_dict[all_NPV_results[j, :name]][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
+    end
+
+    for i = 1:size(all_NPV_results)[1]
+        name = split(all_NPV_results[i, :name], "_")
+        if size(name)[1] == 2
+            @constraint(m, u[i] .<= 100)
+        elseif size(name)[1] == 3
+            unit_type, ret_pd, lag = name
+            ret_pd = parse(Int64, ret_pd)
+            println(unit_type, ret_pd)
+            asset_count = filter([:unit_type, :retirement_pd] => (x, y) -> x == unit_type && y == ret_pd, asset_counts)[1, :count]
+            max_retirement = min(asset_count, 50)
+            println(max_retirement)
+            @constraint(m, u[i] .<= max_retirement)
+        end
+
     end
 
     # Create the objective function 
