@@ -229,9 +229,11 @@ all_results = hcat(all_alternatives, DataFrame(units = unit_qty))
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
-for i = 1:num_alternatives
-    name = split(all_results[i, :name], "_")
+for i = 1:size(all_results)[1]
+    name = split(all_results[i, :x1], "_")
+    println(name)
     if size(name)[1] == 2
+        println("2")
         unit_type, lag = name
         lag = parse(Int64, split(lag, "-")[2])
         #unit_type = join(deleteat!(split(alternative_names[i], "_"), size(split(alternative_names[i], "_"))[1]), "_")
@@ -255,17 +257,22 @@ for i = 1:num_alternatives
                 cap_pmt = 0
                 assets_vals = (next_id, agent_id, unit_type, revealed, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
                 DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
+            end
         end
     elseif size(name)[1] == 3
         unit_type, ret_pd, lag = name
         lag = parse(Int64, split(lag, "-")[2])
+        # Only enforce retirements in the current period
         if lag == 0
-            # Only enforce retirements in the current period
-            command = string("SELECT asset_id FROM assets WHERE unit_type = ", unit_type, " AND retirement_pd = ", ret_pd, " AND agent_id = ", agent_id)
-            df = DBInterface.execute(command) |> DataFrame
-
+            # Select assets which match on type, agent owner, and mandatory retirement date
+            df = DBInterface.execute(db, "SELECT asset_id FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?", (unit_type, ret_pd, agent_id)) |> DataFrame
+            # Retire as many existing assets as indicated by u
+            for j = 1:unit_qty[i]
+                asset_to_retire = df[convert(Int64, j), :asset_id]
+                @info string("asset to retire: ", asset_to_retire)
+                DBInterface.execute(db, "UPDATE assets SET retirement_pd = ? WHERE asset_id = ?", (pd, asset_to_retire))
+            end
         end
-    end
     end
 end
 
