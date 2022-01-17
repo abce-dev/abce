@@ -814,10 +814,8 @@ function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, 
         elseif size(name)[1] == 3
             unit_type, ret_pd, lag = name
             ret_pd = parse(Int64, ret_pd)
-            println(unit_type, ret_pd)
             asset_count = filter([:unit_type, :retirement_pd] => (x, y) -> x == unit_type && y == ret_pd, asset_counts)[1, :count]
             max_retirement = min(asset_count, 50)
-            println(max_retirement)
             @constraint(m, u[i] .<= max_retirement)
         end
 
