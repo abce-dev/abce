@@ -339,7 +339,7 @@ function create_NPV_results_df(data, num_lags; mode="new_xtr")
     for i = 1:size(data)[1]
         for j = 0:num_lags
             if mode == "new_xtr"
-                name = string(data[i, :unit_type], "_lag-", j)
+                name = string(data[i, :unit_type], "_0_lag-", j)
             elseif mode == "retire"
                 name = string(data[i, :unit_type], "_", data[i, :retirement_pd], "_lag-", j)
             end
@@ -360,7 +360,7 @@ function create_FS_dict(data, fc_pd, num_lags; mode="new_xtr")
         for j = 0:num_lags
             # Create alternative names according to mode
             if mode == "new_xtr"
-                unit_name = string(data[i, :unit_type], "_lag-", j)
+                unit_name = string(data[i, :unit_type], "_0_lag-", j)
             elseif mode == "retire"
                 unit_name = string(data[i, :unit_type], "_", data[i, :retirement_pd], "_lag-", j)
             end
@@ -773,7 +773,7 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, ret_NPV_results, asset_counts)
+function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
     # Create the model object
     @info "Setting up model..."
     m = Model(GLPK.Optimizer)
@@ -783,7 +783,7 @@ function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, 
 
     # Concatenate all results into unified data structures
     all_FS_dict = merge(unit_FS_dict, ret_FS_dict)
-    all_NPV_results = vcat(NPV_results, ret_NPV_results)
+    all_NPV_results = vcat(new_xtr_NPV_df, ret_NPV_df)
 
     # Parameter names
     alternative_names = [item for item in keys(all_FS_dict)]
@@ -792,7 +792,7 @@ function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, 
 
     # Set up variables
     # Number of units of each type to build: must be Integer
-    @variable(m, u[1:num_alternatives] >= 0, Int)
+    @variable(m, u[1:size(all_NPV_results)[1]] >= 0, Int)
 
     # To prevent unnecessary infeasibility conditions, convert nonpositive
     #   available_demand values to 0
@@ -804,16 +804,15 @@ function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, NPV_results, 
 
     # Restrict total construction to be less than maximum available demand
     for i = 1:num_time_periods
-        @constraint(m, sum(u[j] * all_FS_dict[all_NPV_results[j, :name]][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
+        @constraint(m, sum(u[j] * all_FS_dict[string(all_NPV_results[j, :unit_type], "_", all_NPV_results[j, :retirement_pd], "_lag-", all_NPV_results[j, :lag])][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
     end
 
     for i = 1:size(all_NPV_results)[1]
-        name = split(all_NPV_results[i, :name], "_")
-        if size(name)[1] == 2
+        if all_NPV_results[i, :project_type] == "new_xtr"
             @constraint(m, u[i] .<= 100)
-        elseif size(name)[1] == 3
-            unit_type, ret_pd, lag = name
-            ret_pd = parse(Int64, ret_pd)
+        elseif all_NPV_results[i, :project_type] == "retirement"
+            unit_type = all_NPV_results[i, :unit_type]
+            ret_pd = all_NPV_results[i, :retirement_pd]
             asset_count = filter([:unit_type, :retirement_pd] => (x, y) -> x == unit_type && y == ret_pd, asset_counts)[1, :count]
             max_retirement = min(asset_count, 50)
             @constraint(m, u[i] .<= max_retirement)
