@@ -193,7 +193,7 @@ class GridModel(Model):
         ALEAF_header_converter = {"UNIT_TYPE": "unit_type",
                                   "FUEL": "fuel_type",
                                   "CAP": "capacity",
-                                  "INVC": "uc_x",
+                                  "CAPEX": "uc_x",
                                   "HR": "heat_rate",
                                   "CAPCRED": "CF"}
 
@@ -217,6 +217,7 @@ class GridModel(Model):
         for column in columns_to_select:
             if column not in us_df.columns:
                 us_df[column] = 0
+        us_df["FC_per_MWh"] = "ATB"
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
 
@@ -247,7 +248,7 @@ class GridModel(Model):
                     if sum(mask) != 1:
                         # If the mask matches nothing in ATBe, assume that
                         #   the appropriate value is 0 (e.g. battery VOM cost)
-                        logging.debug(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
+                        logging.warn(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
                         unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = 0
                     else:
                         unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
@@ -255,7 +256,9 @@ class GridModel(Model):
             # Retrieve the units' is_VRE status
             unit_specs_data.loc[unit_type, "is_VRE"] = us_df[us_df.index == unit_type]["VRE_Flag"].values[0]
 
-        print(unit_specs_data)
+        # Convert the uc_x column to numeric
+        unit_specs_data["uc_x"] = pd.to_numeric(unit_specs_data["uc_x"])
+        unit_specs_data["FC_per_MWh"] = pd.to_numeric(unit_specs_data["FC_per_MWh"])
 
         # Turn 'unit_type' back into a column from the index of unit_specs_data
         unit_specs_data = unit_specs_data.reset_index()
