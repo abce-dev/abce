@@ -328,20 +328,34 @@ end
 Create a dataframe to hold the results of NPV calculations for the various
   types, expanded by the number of allowed lags.
 
-mode options:
-  new_xtr: for new construction, uses unit specification as input
-  retire: for retiring existing assets, uses asset counts from DB as input
-"""
-function create_NPV_results_df(data, num_lags; mode="new_xtr")
-    alternative_names = Vector{String}()
-    num_alternatives = size(data)[1] * (num_lags + 1)
+Arguments:
+  unit_data_df (DataFrame): unit data, depending on mode specification:
+    new_xtr: unit specification data from DB
+    retire: asset counts pivot table (agent's # of existing assets by type
+        and retirement pd)
 
-    for i = 1:size(data)[1]
+  num_lags (int): number of lags the agent considers (spec'd in settings.yml)
+
+  mode options:
+    new_xtr: for new construction, uses unit specification as input
+    retire: for retiring existing assets, uses asset counts from DB as input
+"""
+function create_NPV_results_df(unit_data_df, num_lags; mode="new_xtr")
+    alternative_names = Vector{String}()
+    num_entries = size(unit_data_df)[1]
+    num_alternatives = size(unit_data_df)[1] * (num_lags + 1)
+
+    for i = 1:num_entries
         for j = 0:num_lags
             if mode == "new_xtr"
-                name = string(data[i, :unit_type], "_0_lag-", j)
+                name = string(unit_data_df[i, :unit_type], "_0_lag-", j)
             elseif mode == "retire"
-                name = string(data[i, :unit_type], "_", data[i, :retirement_pd], "_lag-", j)
+                name = string(unit_data_df[i, :unit_type], "_", unit_data_df[i, :retirement_pd], "_lag-", j)
+            else
+                # mode is invalid
+                @error string("Invalid agent decision option provided: ", mode)
+                @error "Please specify either 'new_xtr' or 'retire'."
+                exit()
             end
             push!(alternative_names, name)
         end
