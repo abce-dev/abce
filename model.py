@@ -182,12 +182,16 @@ class GridModel(Model):
                                           self.current_step)
 
 
-    def add_unit_specs_to_db(self):
+    def initialize_unit_specs_df(self):
         """
-        Load in the A-LEAF unit specification data, including looking up data
-          from the NREL Annual Technology Baseline (2020) file as specified by
-          the user in ALEAF_Master_LC_GEP.xlsx.
-        Data is saved to the database table `unit_specs`.
+        Initialize the unit_specs dataframe, using data from the A-LEAF input
+        file. Convert column headers to the ABCE standard names. Set up blank
+        columns for values which will be added or computed later.
+
+        Returns:
+          unit_specs_data (DataFrame): dataframe containing the initial unit
+            specs values loaded from the A-LEAF input. Still contains "ATB"
+            entries for values to be searched, and several 0-columns.
         """
         # Set up header converter from A-LEAF to ABCE unit_spec format
         ALEAF_header_converter = {"UNIT_TYPE": "unit_type",
@@ -198,24 +202,6 @@ class GridModel(Model):
                                   "FC": "FC_per_MWh",
                                   "CAPCRED": "CF",
                                   "VRE_Flag": "is_VRE"}
-
-        # Set up the header converter from ATBe to ABCE unit_spec format
-        ATB_header_converter = {"CAPEX": "uc_x",
-                                "Variable O&M": "VOM",
-                                "Fixed O&M": "FOM",
-                                "Fuel": "FC_per_MWh"}
-
-        # Set up the converter between A-LEAF input sheet search terms and
-        #   ATB column headers
-        ATB_search_terms_map = {"technology": "Tech",
-                                "techdetail": "TechDetail",
-                                "core_metric_case": "Case",
-                                "crpyears": "CRP",
-                                "scenario": "Scenario",
-                                "core_metric_variable": "Year"}
-
-        ### Data initialization and matching of column headers between the
-        ###   A-LEAF and ABCE standards
 
         # Load the unit specs sheet from the settings file
         us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
@@ -243,6 +229,36 @@ class GridModel(Model):
 
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
+
+        return unit_specs_data
+
+
+    def add_unit_specs_to_db(self):
+        """
+        Load in the A-LEAF unit specification data, including looking up data
+          from the NREL Annual Technology Baseline (2020) file as specified by
+          the user in ALEAF_Master_LC_GEP.xlsx.
+        Data is saved to the database table `unit_specs`.
+        """
+        # Read data from A-LEAF input file; convert column headers to ABCE
+        #   standard; set up placeholder columns for values to be computed
+        #   later
+        unit_specs_data = self.initialize_unit_specs_df()
+
+        # Set up the header converter from ATBe to ABCE unit_spec format
+        ATB_header_converter = {"CAPEX": "uc_x",
+                                "Variable O&M": "VOM",
+                                "Fixed O&M": "FOM",
+                                "Fuel": "FC_per_MWh"}
+
+        # Set up the converter between A-LEAF input sheet search terms and
+        #   ATB column headers
+        ATB_search_terms_map = {"technology": "Tech",
+                                "techdetail": "TechDetail",
+                                "core_metric_case": "Case",
+                                "crpyears": "CRP",
+                                "scenario": "Scenario",
+                                "core_metric_variable": "Year"}
 
 
         ### ATB data matching
