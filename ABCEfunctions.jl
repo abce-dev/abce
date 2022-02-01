@@ -104,6 +104,8 @@ end
 
 function get_WIP_projects_list(db, pd, agent_id)
     # Get a list of all WIP (non-complete, non-cancelled) projects for the given agent
+    # Time-period convention:
+    #   <status>_pd == "the first period where this asset has status <status>"
     SQL_get_proj = SQLite.Stmt(db, string("SELECT asset_id FROM assets WHERE agent_id = ", agent_id, " AND completion_pd > ", pd, " AND cancellation_pd > ", pd))
     project_list = DBInterface.execute(SQL_get_proj) |> DataFrame
     return project_list
@@ -113,6 +115,8 @@ end
 function get_current_assets_list(db, pd, agent_id)
     # Get a list of all of the agent's currently-operating assets, plus their
     #   unit type and mandatory retirement date
+    # Time-period convention:
+    #   <status>_pd == "the first period where this asset has status <status>"
     SQL_get_assets = SQLite.Stmt(db, string("SELECT asset_id, unit_type, retirement_pd FROM assets WHERE agent_id = ", agent_id, " AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd))
     asset_list = DBInterface.execute(SQL_get_assets) |> DataFrame
 
