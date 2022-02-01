@@ -205,6 +205,15 @@ class GridModel(Model):
                                 "Fixed O&M": "FOM",
                                 "Fuel": "FC_per_MWh"}
 
+        # Set up the converter between A-LEAF input sheet search terms and
+        #   ATB column headers
+        ATB_search_terms_map = {"technology": "Tech",
+                                "techdetail": "TechDetail",
+                                "core_metric_case": "Case",
+                                "crpyears": "CRP",
+                                "scenario": "Scenario",
+                                "core_metric_variable": "Year"}
+
         ### Data initialization and matching of column headers between the
         ###   A-LEAF and ABCE standards
 
@@ -254,13 +263,11 @@ class GridModel(Model):
 
             for datum_name in ATB_header_converter.keys():
                 if unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] == "ATB":
-                    mask = ((ATB_data["technology"] == unit_settings["Tech"]) &
-                            (ATB_data["techdetail"] == unit_settings["TechDetail"]) &
-                            (ATB_data["core_metric_parameter"] == datum_name) &
-                            (ATB_data["core_metric_case"] == unit_settings["Case"]) &
-                            (ATB_data["crpyears"] == unit_settings["CRP"]) &
-                            (ATB_data["scenario"] == unit_settings["Scenario"]) &
-                            (ATB_data["core_metric_variable"] == unit_settings["Year"]))
+                    # Construct the mask using the ATB search terms map
+                    #   defined earlier
+                    mask = (ATB_data["core_metric_parameter"] == datum_name)
+                    for ATB_key, ALEAF_key in ATB_search_terms_map.items():
+                        mask = mask & (ATB_data[ATB_key] == unit_settings[ALEAF_key])
 
                     if sum(mask) != 1:
                         # If the mask matches nothing in ATBe, assume that
