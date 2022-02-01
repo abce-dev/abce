@@ -195,7 +195,9 @@ class GridModel(Model):
                                   "CAP": "capacity",
                                   "CAPEX": "uc_x",
                                   "HR": "heat_rate",
-                                  "CAPCRED": "CF"}
+                                  "FC": "FC_per_MWh",
+                                  "CAPCRED": "CF",
+                                  "VRE_Flag": "is_VRE"}
 
         # Set up the header converter from ATBe to ABCE unit_spec format
         ATB_header_converter = {"CAPEX": "uc_x",
@@ -203,23 +205,38 @@ class GridModel(Model):
                                 "Fixed O&M": "FOM",
                                 "Fuel": "FC_per_MWh"}
 
+        ### Data initialization and matching of column headers between the
+        ###   A-LEAF and ABCE standards
+
         # Load the unit specs sheet from the settings file
         us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
-        # Rename columns and make unit_type the row index
+
+        # Rename columns from the A-LEAF standard to ABCE standard, and make
+        #   "unit_type" the row index
         us_df = us_df.rename(mapper=ALEAF_header_converter, axis=1)
         us_df = us_df.set_index("unit_type")
-        # Select only the needed columns by getting the list of headers
-        #   required for the unit_specs DB table
+
+        # Now that column names match the ABCE standard, select all columns
+        #   from the df which have a matching column in the unit_specs DB table
+        # This ensures that only columns which will be used are selected.
+        # Load the list of column headers from the DB into the cursor object
         self.cur.execute("SELECT * FROM unit_specs")
+        # Convert this result into a list
         columns_to_select = [item[0] for item in self.cur.description]
+        # "unit_type" is not needed as it is the index
         columns_to_select.remove("unit_type")
-        # Add columns of zeros for columns which will be computed later
+
+        # Some columns are not pulled from the A-LEAF input data, and will
+        #   be computed or added later on. Initialize these columns as zeroes.
         for column in columns_to_select:
             if column not in us_df.columns:
                 us_df[column] = 0
-        us_df["FC_per_MWh"] = "ATB"
+
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
+
+
+        ### ATB data matching
 
         # Load the ATB search settings sheet from ALEAF
         ATB_settings = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="ATB Setting")
@@ -253,10 +270,8 @@ class GridModel(Model):
                     else:
                         unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
 
-            # Retrieve the units' is_VRE status
-            unit_specs_data.loc[unit_type, "is_VRE"] = us_df[us_df.index == unit_type]["VRE_Flag"].values[0]
-
-        # Convert the uc_x column to numeric
+        # Spot fix for data type bug: convert "uc_x" and "FC_per_MWh" to
+        #   numeric, now that the ATB data has been filled in.
         unit_specs_data["uc_x"] = pd.to_numeric(unit_specs_data["uc_x"])
         unit_specs_data["FC_per_MWh"] = pd.to_numeric(unit_specs_data["FC_per_MWh"])
 
