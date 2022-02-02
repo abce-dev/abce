@@ -237,29 +237,39 @@ all_results = hcat(vcat(new_xtr_NPV_df, ret_NPV_df)[!, [:unit_type, :project_typ
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
 for i = 1:size(all_results)[1]
+
+    # Add all new construction projects
     if all_results[i, :project_type] == "new_xtr"
         unit_index = findall(unit_data.unit_type .== all_results[i, :unit_type])[1]
+
+        # Only record projects starting this period
         if all_results[i, :lag] == 0 && all_results[i, :units_to_execute] != 0
-            # Only record projects starting this period
+
+            # Retrieve or set values common to all units of this type
+            rcec = unit_data[unit_index, :uc_x] * unit_data[unit_index, :capacity] * MW2kW
+            rtec = unit_data[unit_index, :d_x]
+            revealed = "false"
+            completion_pd = pd + unit_data[unit_index, :d_x]
+            cancellation_pd = 9999
+            retirement_pd = pd + unit_data[unit_index, :d_x] + unit_data[unit_index, :unit_life]
+            total_capex = 0    # Only updated once project is complete
+            cap_pmt = 0
+
+            # Add a number of project instances equal to the 'units_to_execute'
+            #   value from the solution vector
             for j = 1:all_results[i, :units_to_execute]
                 next_id = get_next_asset_id(db)
                 # Update `WIP_projects` table
-                rcec = unit_data[unit_index, :uc_x] * unit_data[unit_index, :capacity] * MW2kW
-                rtec = unit_data[unit_index, :d_x]
                 WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
                 DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)
 
                 # Update `assets` table
-                revealed = "false"
-                completion_pd = pd + unit_data[unit_index, :d_x]
-                cancellation_pd = 9999
-                retirement_pd = pd + unit_data[unit_index, :d_x] + unit_data[unit_index, :unit_life]
-                total_capex = 0    # Only updated once project is complete
-                cap_pmt = 0
                 assets_vals = (next_id, agent_id, all_results[i, :unit_type], revealed, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
                 DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
             end
         end
+
+    # Record asset retirements slated to occur immediately
     elseif all_results[i, :project_type] == "retirement"
         # Only enforce retirements in the current period
         if all_results[i, :lag] == 0 && all_results[i, :units_to_execute] != 0
