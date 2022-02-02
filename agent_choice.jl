@@ -123,12 +123,11 @@ unit_FS_dict = create_FS_dict(unit_data, fc_pd, num_lags)
 #    u[] value to determine the actual impact of the units chosen on the GC's
 #    final financial statement
 for i = 1:num_types
-    for j = 0:num_lags
+    for lag = 0:num_lags
         # Set up parameters for this alternative
         unit_type = unit_data[i, :unit_type]
         project_type = "new_xtr"
         original_ret_pd = 9999
-        lag = j
         name = string(unit_type, "_0_lag-", lag)
         fs = unit_FS_dict[name]
         unit_type_data = filter(row -> row.unit_type == unit_type, unit_data)
@@ -177,10 +176,9 @@ ret_FS_dict = create_FS_dict(asset_counts, fc_pd, num_lags; mode="retire")
 
 # Compute dataframes for retiring existing assets
 for i = 1:size(asset_counts)[1]
-    for j = 0:num_lags
+    for lag = 0:num_lags
         unit_type = asset_counts[i, :unit_type]
         original_ret_pd = asset_counts[i, :retirement_pd]
-        lag = j
         name = string(asset_counts[i, :unit_type], "_", asset_counts[i, :retirement_pd], "_lag-", lag)
         fs = ret_FS_dict[name]
         unit_type_data = filter(row -> row.unit_type == asset_counts[i, :unit_type], unit_data)
