@@ -312,8 +312,8 @@ class GridModel(Model):
 
     def finalize_unit_specs_data(self, unit_specs_data):
         """
-        Fix type issues, fill in supplemental unit specification data from
-          ABCE files, and finalize the layout of the dataframe.
+        Fill in supplemental unit specification data from
+          ABCE files and finalize the layout of the dataframe.
 
         Arguments:
           unit_specs_data (DataFrame)
@@ -321,13 +321,6 @@ class GridModel(Model):
         Returns:
           unit_specs_data (DataFrame)
         """
-        # Spot fix for data type bug: convert "uc_x" and "FC_per_MWh" to
-        #   numeric, now that the ATB data has been filled in.
-#        unit_specs_data["uc_x"] = pd.to_numeric(unit_specs_data["uc_x"])
-#        unit_specs_data["FC_per_MWh"] = pd.to_numeric(unit_specs_data["FC_per_MWh"])
-#        unit_specs_data["VOM"] = pd.to_numeric(unit_specs_data["VOM"])
-#        unit_specs_data["FOM"] = pd.to_numeric(unit_specs_data["FOM"])
-
         # Turn 'unit_type' back into a column from the index of unit_specs_data
         unit_specs_data = unit_specs_data.reset_index()
 
@@ -375,7 +368,7 @@ class GridModel(Model):
         unit_specs_data = self.fill_unit_data_from_ATB(unit_specs_data)
 
         # Finalize the unit_specs_data dataframe, including ABCE supplemental
-        #   data, type fixes, and layout change
+        #   data and layout change
         unit_specs_data = self.finalize_unit_specs_data(unit_specs_data)
 
         # Save the finalized unit specs data to the DB, and set the member data
