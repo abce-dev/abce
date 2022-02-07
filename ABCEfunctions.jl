@@ -629,7 +629,8 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
     # In "new_xtr" mode, revenues START accruing after the lag plus
     #   construction duration
     # In "retire" mode, revenues start in the current period and CEASE accruing
-    #   after the lag
+    #   after the soonest of {the lag, the mandatory retirement period, the end
+    #   of the forecast period}.
     if mode == "new_xtr"
         rev_start = lag + unit_d_x + 1
         rev_end = lag + unit_d_x + unit_op_life
@@ -664,7 +665,9 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
     gen = (num_submarg_hours + num_marg_hours) * unit_type_data[1, :capacity] * availability_derate_factor * MW2kW   # in kWh
 
     # In "new_xtr" mode, generation persists from end of construction to end of life
-    # In "retire" mode, generation persists from first period to retirement period
+    # In "retire" mode, generation occurs from the current period to the
+    #   soonest of {the lag, the mandatory retirement period, the end of the
+    #   forecast period}.
     if mode == "new_xtr"
         gen_start = lag + unit_d_x + 1
         gen_end = lag + unit_d_x + unit_op_life
