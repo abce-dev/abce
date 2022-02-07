@@ -345,6 +345,13 @@ Arguments:
     retire: for retiring existing assets, uses asset counts from DB as input
 """
 function create_NPV_results_df(unit_data_df, num_lags; mode="new_xtr")
+    if !(mode in ["new_xtr", "retire"])
+        # Invalid mode supplied; alert the user and exit
+        @error string("Invalid decision vector type specified: ", mode)
+        @error "Please ensure that 'mode' is set to either 'new_xtr' or 'retire'."
+        exit()
+    end
+
     alternative_names = Vector{String}()
     num_entries = size(unit_data_df)[1]
     num_alternatives = size(unit_data_df)[1] * (num_lags + 1)
@@ -355,11 +362,6 @@ function create_NPV_results_df(unit_data_df, num_lags; mode="new_xtr")
                 name = string(unit_data_df[i, :unit_type], "_0_lag-", j)
             elseif mode == "retire"
                 name = string(unit_data_df[i, :unit_type], "_", unit_data_df[i, :retirement_pd], "_lag-", j)
-            else
-                # mode is invalid
-                @error string("Invalid agent decision option provided: ", mode)
-                @error "Please specify either 'new_xtr' or 'retire'."
-                exit()
             end
             push!(alternative_names, name)
         end
