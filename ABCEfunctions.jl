@@ -325,6 +325,16 @@ end
 # NPV functions
 #####
 
+function check_valid_vector_mode(mode)
+    if !(mode in ["new_xtr", "retire"])
+        # Invalid mode supplied; alert the user and exit
+        @error string("Invalid decision vector type specified: ", mode)
+        @error "Please ensure that 'mode' is set to either 'new_xtr' or 'retire'."
+        exit()
+    end
+end
+
+
 
 """
     create_NPV_results_DF(unit_data_df, num_lags; mode="new_xtr")
@@ -345,12 +355,7 @@ Arguments:
     retire: for retiring existing assets, uses asset counts from DB as input
 """
 function create_NPV_results_df(unit_data_df, num_lags; mode="new_xtr")
-    if !(mode in ["new_xtr", "retire"])
-        # Invalid mode supplied; alert the user and exit
-        @error string("Invalid decision vector type specified: ", mode)
-        @error "Please ensure that 'mode' is set to either 'new_xtr' or 'retire'."
-        exit()
-    end
+    check_valid_vector_mode(mode)
 
     alternative_names = Vector{String}()
     num_entries = size(unit_data_df)[1]
@@ -374,6 +379,8 @@ end
 
 
 function create_FS_dict(data, fc_pd, num_lags; mode="new_xtr")
+    check_valid_vector_mode(mode)
+
     fs_dict = Dict()
     num_alts = size(data)[1]
     for i = 1:num_alts
@@ -493,6 +500,8 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   eligible to generate.
 """
 function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag; mode="new_xtr", orig_ret_pd=9999)
+    check_valid_vector_mode(mode)
+
     # Compute estimated revenue from submarginal hours
     num_submarg_hours, submarginal_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_curve)
 
@@ -608,6 +617,8 @@ Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
 function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag; mode, orig_ret_pd=9999)
+    check_valid_vector_mode(mode)
+
     # Helpful short variables
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
@@ -643,6 +654,8 @@ end
 Calculate the unit's total generation for the period, in kWh.
 """
 function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag; mode, orig_ret_pd=9999)
+    check_valid_vector_mode(mode)
+
     # Helpful short variable names
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
@@ -677,6 +690,8 @@ Forecast cost line items for the current unit:
  - FOM
 """
 function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", orig_ret_pd=9999)
+    check_valid_vector_mode(mode)
+
     # Helpful short variable names
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
