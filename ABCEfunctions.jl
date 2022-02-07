@@ -695,13 +695,12 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     if mode == "new_xtr"
         pre_zeros = zeros(lag + unit_d_x)
         op_ones = ones(unit_op_life)
-        post_zeros = zeros(size(unit_fs)[1] - lag - unit_d_x - unit_op_life)
-        unit_fs[!, :FOM_Cost] = vcat(pre_zeros, op_ones, post_zeros)
     elseif mode == "retire"
+        pre_zeros = zeros(0)
         op_ones = ones(min(unit_op_life, size(unit_fs)[1], orig_ret_pd))
-        post_zeros = zeros(size(unit_fs)[1] - size(op_ones)[1])
-        unit_fs[!, :FOM_Cost] = vcat(op_ones, post_zeros)
     end
+    post_zeros = zeros(size(unit_fs)[1] - size(pre_zeros)[1] - size(op_ones)[1])
+    unit_fs[!, :FOM_Cost] = vcat(pre_zeros, op_ones, post_zeros)
 
     unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[1, :FOM] .* unit_type_data[1, :capacity] .* MW2kW
 
