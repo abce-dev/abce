@@ -613,14 +613,19 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
     # Add a Revenue column to the financial statement dataframe
     unit_fs[!, :Revenue] .= 0.0
 
-    # In "new_xtr" mode, revenues START accruing after the lag plus construction duration
-    # In "retire" mode, revenues CEASE accruing after the lag
+    # In "new_xtr" mode, revenues START accruing after the lag plus
+    #   construction duration
+    # In "retire" mode, revenues start in the current period and CEASE accruing
+    #   after the lag
     if mode == "new_xtr"
         rev_start = lag + unit_d_x + 1
         rev_end = lag + unit_d_x + unit_op_life
     elseif mode == "retire"
         rev_start = 1
-        rev_end = orig_ret_pd
+        # The maximum end of revenue period is capped at the length of the
+        #   unit_fs dataframe (as some units with unspecified retirement
+        #   periods default to a retirement period of 9999).
+        rev_end = min(orig_ret_pd, size(unit_fs)[1])
     end
 
     # Compute final projected revenue series
@@ -650,6 +655,9 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
         gen_end = lag + unit_d_x + unit_op_life
     elseif mode == "retire"
         gen_start = 1
+        # The maximum end of generation period is capped at the length of the
+        #   unit_fs dataframe (as some units with unspecified retirement
+        #   periods default to a retirement period of 9999).
         gen_end = min(orig_ret_pd, size(unit_fs)[1])
     end
 
