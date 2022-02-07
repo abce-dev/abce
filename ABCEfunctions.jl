@@ -638,7 +638,7 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
         # The maximum end of revenue period is capped at the length of the
         #   unit_fs dataframe (as some units with unspecified retirement
         #   periods default to a retirement period of 9999).
-        rev_end = min(orig_ret_pd, size(unit_fs)[1])
+        rev_end = min(lag, orig_ret_pd, size(unit_fs)[1])
     end
 
     # Compute final projected revenue series
@@ -673,7 +673,7 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
         # The maximum end of generation period is capped at the length of the
         #   unit_fs dataframe (as some units with unspecified retirement
         #   periods default to a retirement period of 9999).
-        gen_end = min(orig_ret_pd, size(unit_fs)[1])
+        gen_end = min(lag, orig_ret_pd, size(unit_fs)[1])
     end
 
     # Distribute generation values time series
