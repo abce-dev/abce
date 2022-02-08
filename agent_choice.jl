@@ -125,12 +125,12 @@ unit_FS_dict = create_FS_dict(unit_data, fc_pd, num_lags)
 for i = 1:num_types
     for lag = 0:num_lags
         # Set up parameters for this alternative
-        unit_type = unit_data[i, :unit_type]
+        unit_entry = unit_data[i, :]
         project_type = "new_xtr"
         original_ret_pd = 9999
-        name = string(unit_type, "_0_lag-", lag)
+        name = string(unit_entry[:unit_type], "_0_lag-", lag)
         fs = unit_FS_dict[name]
-        unit_type_data = filter(row -> row.unit_type == unit_type, unit_data)
+        unit_type_data = filter(row -> row.unit_type == unit_entry[:unit_type], unit_data)
 
         # Generate the alternative's construction expenditure profile and save
         #   it to the FS
@@ -157,7 +157,7 @@ for i = 1:num_types
         FCF_NPV = compute_alternative_NPV(fs, agent_params)
 
         # Save the NPV result
-        push!(new_xtr_NPV_df, [unit_type project_type original_ret_pd lag FCF_NPV])
+        push!(new_xtr_NPV_df, [unit_entry[:unit_type] project_type original_ret_pd lag FCF_NPV])
         unit_data[i, :FCF_NPV] = FCF_NPV
     end
 end
@@ -177,19 +177,18 @@ ret_FS_dict = create_FS_dict(asset_counts, fc_pd, num_lags; mode="retire")
 # Compute dataframes for retiring existing assets
 for i = 1:size(asset_counts)[1]
     for lag = 0:num_lags
-        unit_type = asset_counts[i, :unit_type]
-        original_ret_pd = asset_counts[i, :retirement_pd]
-        name = string(asset_counts[i, :unit_type], "_", asset_counts[i, :retirement_pd], "_lag-", lag)
+        asset_entry = asset_counts[i, :]
+        name = string(asset_entry[:unit_type], "_", asset_entry[:retirement_pd], "_lag-", lag)
         fs = ret_FS_dict[name]
-        unit_type_data = filter(row -> row.unit_type == asset_counts[i, :unit_type], unit_data)
+        unit_type_data = filter(row -> row.unit_type == asset_entry[:unit_type], unit_data)
 
         # Implies any retiring unit is 100% paid off; need to implement tracking of debt repayments
 
         # Forecast unit revenue ($/period) and generation (kWh/period)
-        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, lag; mode="retire", orig_ret_pd=original_ret_pd)
+        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, lag; mode="retire", orig_ret_pd=asset_entry[:retirement_pd])
 
         # Forecast unit costs: fuel cost, VOM, and FOM
-        forecast_unit_op_costs(unit_type_data, fs, lag; mode="retire", orig_ret_pd=original_ret_pd)
+        forecast_unit_op_costs(unit_type_data, fs, lag; mode="retire", orig_ret_pd=asset_entry[:retirement_pd])
 
         # Convert to marginal deltas
         convert_to_marginal_delta_FS(fs, lag)
@@ -201,7 +200,7 @@ for i = 1:size(asset_counts)[1]
         FCF_NPV = compute_alternative_NPV(fs, agent_params)
 
         # Save the NPV result
-        push!(ret_NPV_df, [unit_type "retirement" original_ret_pd lag FCF_NPV])
+        push!(ret_NPV_df, [asset_entry[:unit_type] "retirement" asset_entry[:retirement_pd] lag FCF_NPV])
     end
 end
 
@@ -218,7 +217,7 @@ end
 @info "Data initialized."
 
 ###### Set up the model
-m = set_up_model(unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
+m = set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
 
 ###### Solve the model
 @info "Solving optimization problem..."
