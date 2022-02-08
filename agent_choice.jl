@@ -77,6 +77,8 @@ agent_id = CLI_args["agent_id"]
 # Set up agent-specific data
 # Get a list of all ongoing construction projects for the current agent
 agent_projects = get_WIP_projects_list(db, pd, agent_id)
+# Get a list of all operating assets owned by the current agent
+agent_assets, asset_counts = get_current_assets_list(db, pd, agent_id)
 
 # Get agent financial parameters
 agent_params = get_agent_params(db, agent_id)
@@ -85,6 +87,7 @@ d = agent_params[1, :discount_rate]
 # System parameters
 # Read unit operational data (unit_data) and number of unit types (num_types)
 unit_data, num_types = get_unit_specs(db)
+@info unit_data
 num_alternatives = num_types * (num_lags + 1)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
@@ -108,10 +111,11 @@ unit_data[!, :FCF_NPV] = zeros(Float64, num_types)
 # NPV is the only decision criterion, so create a dataframe to hold the results
 #    for each alternative
 alternative_names, NPV_results = create_NPV_results_df(unit_data, num_lags)
+new_xtr_NPV_df = DataFrame(unit_type = String[], project_type = String[], retirement_pd = Any[], lag = Any[], NPV = Float64[])
 
 # Create per-unit financial statement tables
 @info "Creating and populating unit financial statements for NPV calculation"
-unit_FS_dict = create_unit_FS_dict(unit_data, fc_pd, num_lags)
+unit_FS_dict = create_FS_dict(unit_data, fc_pd, num_lags)
 
 # Populate financial statements with top-line data
 # This data is deterministic, and is on a per-unit basis (not per-kW or per-kWh)
@@ -119,30 +123,32 @@ unit_FS_dict = create_unit_FS_dict(unit_data, fc_pd, num_lags)
 #    u[] value to determine the actual impact of the units chosen on the GC's
 #    final financial statement
 for i = 1:num_types
-    for j = 0:num_lags
+    for lag = 0:num_lags
         # Set up parameters for this alternative
-        unit_type = unit_data[i, :unit_type]
-        name = string(unit_type, "_lag-", j)
+        unit_entry = unit_data[i, :]
+        project_type = "new_xtr"
+        original_ret_pd = 9999
+        name = string(unit_entry[:unit_type], "_0_lag-", lag)
         fs = unit_FS_dict[name]
-        unit_type_data = filter(row -> row.unit_type == unit_type, unit_data)
+        unit_type_data = filter(row -> row.unit_type == unit_entry[:unit_type], unit_data)
 
         # Generate the alternative's construction expenditure profile and save
         #   it to the FS
-        fs[!, :xtr_exp] = generate_xtr_exp_profile(unit_type_data, j, fc_pd)
+        fs[!, :xtr_exp] = generate_xtr_exp_profile(unit_type_data, lag, fc_pd)
 
         # Set up the time-series of outstanding debt principal based on this
         #   expenditure profile: sets unit_fs[!, :remaining_debt_principal]
         #   for all construction periods
-        set_initial_debt_principal_series(fs, unit_type_data, j, agent_params)
+        set_initial_debt_principal_series(fs, unit_type_data, lag, agent_params)
 
         # Generate "prime movers" (debt payments and depreciation)
-        generate_prime_movers(unit_type_data, fs, j, agent_params[1, :cost_of_debt])
+        generate_prime_movers(unit_type_data, fs, lag, agent_params[1, :cost_of_debt])
 
         # Forecast unit revenue ($/period) and generation (kWh/period)
-        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, j)
+        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, lag)
 
         # Forecast unit costs: fuel cost, VOM, and FOM
-        forecast_unit_op_costs(unit_type_data, fs, j)
+        forecast_unit_op_costs(unit_type_data, fs, lag)
 
         # Propagate the accounting logic (EBITDA --> FCF)
         propagate_accounting_line_items(fs, db)
@@ -151,13 +157,57 @@ for i = 1:num_types
         FCF_NPV = compute_alternative_NPV(fs, agent_params)
 
         # Save the NPV result
-        NPV_results[findall(NPV_results.name .== name)[1], :NPV] = FCF_NPV
+        push!(new_xtr_NPV_df, [unit_entry[:unit_type] project_type original_ret_pd lag FCF_NPV])
         unit_data[i, :FCF_NPV] = FCF_NPV
     end
 end
 
-@info "NPV results:"
-@info NPV_results
+@info "xtr NPV results:"
+@info new_xtr_NPV_df
+
+
+# Create a dataframe to hold NPV results for each retirement alternative
+ret_alt_names, ret_NPV_results = create_NPV_results_df(asset_counts, num_lags; mode="retire")
+ret_NPV_df = DataFrame(unit_type = String[], project_type = String[], retirement_pd = Any[], lag = Any[], NPV = Float64[])
+
+# Create a dataframe to store results for retirement NPV calculations
+ret_FS_dict = create_FS_dict(asset_counts, fc_pd, num_lags; mode="retire")
+
+
+# Compute dataframes for retiring existing assets
+for i = 1:size(asset_counts)[1]
+    for lag = 0:num_lags
+        asset_entry = asset_counts[i, :]
+        name = string(asset_entry[:unit_type], "_", asset_entry[:retirement_pd], "_lag-", lag)
+        fs = ret_FS_dict[name]
+        unit_type_data = filter(row -> row.unit_type == asset_entry[:unit_type], unit_data)
+
+        # Implies any retiring unit is 100% paid off; need to implement tracking of debt repayments
+
+        # Forecast unit revenue ($/period) and generation (kWh/period)
+        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, lag; mode="retire", orig_ret_pd=asset_entry[:retirement_pd])
+
+        # Forecast unit costs: fuel cost, VOM, and FOM
+        forecast_unit_op_costs(unit_type_data, fs, lag; mode="retire", orig_ret_pd=asset_entry[:retirement_pd])
+
+        # Convert to marginal deltas
+        convert_to_marginal_delta_FS(fs, lag)
+
+        # Propagate the accounting logic (EBITDA --> FCF)
+        propagate_accounting_line_items(fs, db)
+
+        # Compute this unit alternative's FCF NPV
+        FCF_NPV = compute_alternative_NPV(fs, agent_params)
+
+        # Save the NPV result
+        push!(ret_NPV_df, [asset_entry[:unit_type] "retirement" asset_entry[:retirement_pd] lag FCF_NPV])
+    end
+end
+
+
+
+@info "ret NPV results:"
+@info ret_NPV_df
 
 if pd == 0
     @info "Unit data loaded:"
@@ -167,7 +217,7 @@ end
 @info "Data initialized."
 
 ###### Set up the model
-m = set_up_model(unit_FS_dict, available_demand, NPV_results)
+m = set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
 
 ###### Solve the model
 @info "Solving optimization problem..."
@@ -177,34 +227,60 @@ unit_qty = value.(m[:u])
 
 
 ###### Display the results
+all_alternatives = vcat(NPV_results, ret_NPV_results)[!, :name]
+all_results = hcat(vcat(new_xtr_NPV_df, ret_NPV_df)[!, [:unit_type, :project_type, :retirement_pd, :lag]], DataFrame(units_to_execute = unit_qty))
 @info status
 @info "Units to build:"
-@info hcat(alternative_names, DataFrame(units = unit_qty))
+@info all_results
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
-for i = 1:num_alternatives
-    unit_type = join(deleteat!(split(alternative_names[i], "_"), size(split(alternative_names[i], "_"))[1]), "_")
-    unit_index = findall(unit_data.unit_type .== unit_type)[1]
-    if occursin("0", alternative_names[i])
-        # Only record projects starting this period
-        for j = 1:unit_qty[i]
-            next_id = get_next_asset_id(db)
-            # Update `WIP_projects` table
-            rcec = unit_data[unit_index, :uc_x] * unit_data[unit_index, :capacity] * MW2kW
-            rtec = unit_data[unit_index, :d_x]
-            WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
-            DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)
+for i = 1:size(all_results)[1]
+    result = all_results[i, :]
 
-            # Update `assets` table
+    # Add all new construction projects
+    if result[:project_type] == "new_xtr"
+        unit_index = findall(unit_data.unit_type .== result[:unit_type])[1]
+        unit_type_data = unit_data[unit_index, :]
+
+        # Only record projects starting this period
+        if result[:lag] == 0 && result[:units_to_execute] != 0
+
+            # Retrieve or set values common to all units of this type
+            rcec = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW
+            rtec = unit_type_data[:d_x]
             revealed = "false"
-            completion_pd = pd + unit_data[unit_index, :d_x]
+            completion_pd = pd + unit_type_data[:d_x]
             cancellation_pd = 9999
-            retirement_pd = pd + unit_data[unit_index, :d_x] + unit_data[unit_index, :unit_life]
+            retirement_pd = pd + unit_type_data[:d_x] + unit_type_data[:unit_life]
             total_capex = 0    # Only updated once project is complete
             cap_pmt = 0
-            assets_vals = (next_id, agent_id, unit_type, revealed, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
-            DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
+
+            # Add a number of project instances equal to the 'units_to_execute'
+            #   value from the solution vector
+            for j = 1:result[:units_to_execute]
+                next_id = get_next_asset_id(db)
+                # Update `WIP_projects` table
+                WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
+                DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)
+
+                # Update `assets` table
+                assets_vals = (next_id, agent_id, result[:unit_type], revealed, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
+                DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
+            end
+        end
+
+    # Record asset retirements slated to occur immediately
+    elseif result[:project_type] == "retirement"
+        # Only enforce retirements in the current period
+        if result[:lag] == 0 && result[:units_to_execute] != 0
+            # Select assets which match on type, agent owner, and mandatory retirement date
+            df = DBInterface.execute(db, "SELECT asset_id FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?", (result[:unit_type], result[:retirement_pd], agent_id)) |> DataFrame
+            # Retire as many existing assets as indicated by u
+            for j = 1:result[:units_to_execute]
+                asset_to_retire = df[convert(Int64, j), :asset_id]
+                DBInterface.execute(db, "UPDATE assets SET retirement_pd = ? WHERE asset_id = ?", (pd, asset_to_retire))
+            end
         end
     end
 end

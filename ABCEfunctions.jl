@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV, JuMP, GLPK, Logging
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_unit_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS
 
 #####
 # Constants
@@ -104,9 +104,27 @@ end
 
 function get_WIP_projects_list(db, pd, agent_id)
     # Get a list of all WIP (non-complete, non-cancelled) projects for the given agent
+    # Time-period convention:
+    #   <status>_pd == "the first period where this asset has status <status>"
     SQL_get_proj = SQLite.Stmt(db, string("SELECT asset_id FROM assets WHERE agent_id = ", agent_id, " AND completion_pd > ", pd, " AND cancellation_pd > ", pd))
     project_list = DBInterface.execute(SQL_get_proj) |> DataFrame
     return project_list
+end
+
+
+function get_current_assets_list(db, pd, agent_id)
+    # Get a list of all of the agent's currently-operating assets, plus their
+    #   unit type and mandatory retirement date
+    # Time-period convention:
+    #   <status>_pd == "the first period where this asset has status <status>"
+    SQL_get_assets = SQLite.Stmt(db, string("SELECT asset_id, unit_type, retirement_pd FROM assets WHERE agent_id = ", agent_id, " AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd))
+    asset_list = DBInterface.execute(SQL_get_assets) |> DataFrame
+
+    # Count the number of assets by type
+    asset_counts = combine(groupby(asset_list, [:unit_type, :retirement_pd]), nrow => :count)
+    @info asset_counts
+
+    return asset_list, asset_counts
 end
 
 
@@ -255,7 +273,6 @@ function get_unit_specs(db)
 end
 
 
-
 function ensure_projects_not_empty(db, agent_id, project_list, current_period)
     # FAKE: only exists to ensure the Julia and Python scripts actually have something to do
     try
@@ -308,19 +325,49 @@ end
 # NPV functions
 #####
 
+function check_valid_vector_mode(mode)
+    if !(mode in ["new_xtr", "retire"])
+        # Invalid mode supplied; alert the user and exit
+        @error string("Invalid decision vector type specified: ", mode)
+        @error "Please ensure that 'mode' is set to either 'new_xtr' or 'retire'."
+        exit()
+    end
+end
+
+
+
 """
-    create_NPV_results_DF(unit_data_df, num_lags)
+    create_NPV_results_DF(unit_data_df, num_lags; mode="new_xtr")
 
 Create a dataframe to hold the results of NPV calculations for the various
   types, expanded by the number of allowed lags.
-"""
-function create_NPV_results_df(unit_data, num_lags)
-    alternative_names = Vector{String}()
-    num_alternatives = size(unit_data)[1] * (num_lags + 1)
 
-    for i = 1:size(unit_data)[1]
+Arguments:
+  unit_data_df (DataFrame): unit data, depending on mode specification:
+    new_xtr: unit specification data from DB
+    retire: asset counts pivot table (agent's # of existing assets by type
+        and retirement pd)
+
+  num_lags (int): number of lags the agent considers (spec'd in settings.yml)
+
+  mode options:
+    new_xtr: for new construction, uses unit specification as input
+    retire: for retiring existing assets, uses asset counts from DB as input
+"""
+function create_NPV_results_df(unit_data_df, num_lags; mode="new_xtr")
+    check_valid_vector_mode(mode)
+
+    alternative_names = Vector{String}()
+    num_entries = size(unit_data_df)[1]
+    num_alternatives = num_entries * (num_lags + 1)
+
+    for i = 1:num_entries
         for j = 0:num_lags
-            name = string(unit_data[i, :unit_type], "_lag-", j)
+            if mode == "new_xtr"
+                name = string(unit_data_df[i, :unit_type], "_0_lag-", j)
+            elseif mode == "retire"
+                name = string(unit_data_df[i, :unit_type], "_", unit_data_df[i, :retirement_pd], "_lag-", j)
+            end
             push!(alternative_names, name)
         end
     end
@@ -331,13 +378,20 @@ function create_NPV_results_df(unit_data, num_lags)
 end
 
 
-function create_unit_FS_dict(unit_data, fc_pd, num_lags)
+function create_FS_dict(data, fc_pd, num_lags; mode="new_xtr")
+    check_valid_vector_mode(mode)
+
     fs_dict = Dict()
-    num_types = size(unit_data)[1]
-    for i = 1:num_types
+    num_alts = size(data)[1]
+    for i = 1:num_alts
         for j = 0:num_lags
-            short_name = unit_data[i, :unit_type]
-            unit_name = string(short_name, "_lag-", j)
+            # Create alternative names according to mode
+            if mode == "new_xtr"
+                unit_name = string(data[i, :unit_type], "_0_lag-", j)
+            elseif mode == "retire"
+                unit_name = string(data[i, :unit_type], "_", data[i, :retirement_pd], "_lag-", j)
+            end
+            # Set up the alternative's FS dataframe
             unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_payment = zeros(fc_pd), depreciation = zeros(fc_pd))
             fs_dict[unit_name] = unit_FS
         end
@@ -434,7 +488,7 @@ end
 
 
 """
-    forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag)
+    forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag; mode, ret_pd)
 
 Forecast the revenue which will be earned by the current unit type,
 and the total generation (in kWh) of the unit, per time period.
@@ -445,7 +499,9 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag)
+function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag; mode="new_xtr", orig_ret_pd=9999)
+    check_valid_vector_mode(mode)
+
     # Compute estimated revenue from submarginal hours
     num_submarg_hours, submarginal_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_curve)
 
@@ -455,12 +511,16 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db,
     # If the unit is VRE, assign an appropriate availability derate factor
     availability_derate_factor = compute_VRE_derate_factor(unit_type_data)
 
+    # Compute the original retirement period
+    # Minimum of ret_pd or size of the unit FS (i.e. the forecast period)
+    ret_pd = min(size(unit_fs)[1], orig_ret_pd)
+
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag; mode=mode, orig_ret_pd=ret_pd)
 
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag)
+    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag; mode=mode, orig_ret_pd=ret_pd)
 
 end
 
@@ -551,12 +611,14 @@ end
 
 
 """
-    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag; mode, orig_ret_pd)
 
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag)
+function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag; mode, orig_ret_pd=9999)
+    check_valid_vector_mode(mode)
+
     # Helpful short variables
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
@@ -564,37 +626,75 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
     # Add a Revenue column to the financial statement dataframe
     unit_fs[!, :Revenue] .= 0.0
 
-    # Compute final projected revenue figures
-    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+    # In "new_xtr" mode, revenues START accruing after the lag plus
+    #   construction duration
+    # In "retire" mode, revenues start in the current period and CEASE accruing
+    #   after the soonest of {the lag, the mandatory retirement period, the end
+    #   of the forecast period}.
+    if mode == "new_xtr"
+        rev_start = lag + unit_d_x + 1
+        rev_end = lag + unit_d_x + unit_op_life
+    elseif mode == "retire"
+        rev_start = 1
+        # The maximum end of revenue period is capped at the length of the
+        #   unit_fs dataframe (as some units with unspecified retirement
+        #   periods default to a retirement period of 9999).
+        rev_end = min(lag, orig_ret_pd, size(unit_fs)[1])
+    end
+
+    # Compute final projected revenue series
+    unit_fs[rev_start:rev_end, :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+
 end
 
 
 
 """
-    compute_total_generation(unit_type_data, unit_fs, availability_derate_factor, lag)
+    compute_total_generation(unit_type_data, unit_fs, availability_derate_factor, lag; mode, orig_ret_pd)
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag)
+function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag; mode, orig_ret_pd=9999)
+    check_valid_vector_mode(mode)
+
     # Helpful short variable names
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
 
     # Compute total generation
     gen = (num_submarg_hours + num_marg_hours) * unit_type_data[1, :capacity] * availability_derate_factor * MW2kW   # in kWh
-    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :gen] .= gen
+
+    # In "new_xtr" mode, generation persists from end of construction to end of life
+    # In "retire" mode, generation occurs from the current period to the
+    #   soonest of {the lag, the mandatory retirement period, the end of the
+    #   forecast period}.
+    if mode == "new_xtr"
+        gen_start = lag + unit_d_x + 1
+        gen_end = lag + unit_d_x + unit_op_life
+    elseif mode == "retire"
+        gen_start = 1
+        # The maximum end of generation period is capped at the length of the
+        #   unit_fs dataframe (as some units with unspecified retirement
+        #   periods default to a retirement period of 9999).
+        gen_end = min(lag, orig_ret_pd, size(unit_fs)[1])
+    end
+
+    # Distribute generation values time series
+    unit_fs[gen_start:gen_end, :gen] .= gen
 end
 
 
 """
-    forecast_unit_op_costs(unit_type_data, unit_fs)
+    forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode, orig_ret_pd)
 
 Forecast cost line items for the current unit:
  - fuel cost
  - VOM
  - FOM
 """
-function forecast_unit_op_costs(unit_type_data, unit_fs, lag)
+function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", orig_ret_pd=9999)
+    check_valid_vector_mode(mode)
+
     # Helpful short variable names
     unit_d_x = unit_type_data[1, :d_x]
     unit_op_life = unit_type_data[1, :unit_life]
@@ -612,8 +712,17 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag)
     # Compute total FOM cost for each period
     # Unit conversions:
     #   FOM [$/kW-year] * capacity [MW] * [1000 kW / 1 MW] = $/year
-    unit_fs[!, :FOM_Cost] = zeros(size(unit_fs)[1])
-    unit_fs[(lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life), :FOM_Cost] .= unit_type_data[1, :FOM] * unit_type_data[1, :capacity] * MW2kW
+    if mode == "new_xtr"
+        pre_zeros = zeros(lag + unit_d_x)
+        op_ones = ones(unit_op_life)
+    elseif mode == "retire"
+        pre_zeros = zeros(0)
+        op_ones = ones(min(unit_op_life, size(unit_fs)[1], orig_ret_pd))
+    end
+    post_zeros = zeros(size(unit_fs)[1] - size(pre_zeros)[1] - size(op_ones)[1])
+    unit_fs[!, :FOM_Cost] = vcat(pre_zeros, op_ones, post_zeros)
+
+    unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[1, :FOM] .* unit_type_data[1, :capacity] .* MW2kW
 
 end
 
@@ -659,6 +768,26 @@ end
 
 
 """
+    convert_to_marginal_delta_FS(unit_fs, lag)
+
+For this project alternative, compute the delta between the original projected
+FCF (without premature retirement) and the new projected FCF (with premature
+retirement).
+"""
+function convert_to_marginal_delta_FS(unit_fs, lag; mode="new_xtr")
+    cols_to_invert = [col for col in names(unit_fs) if col != "year"]
+    for col in cols_to_invert
+        # Set values to 0 during the lag (no change)
+        unit_fs[1:lag, col] .= 0
+        # Invert values post-retirement to indicate lost revenues/generation
+        #   and avoided costs
+        unit_fs[!, col] .= -unit_fs[!, col]
+    end
+
+end
+
+
+"""
     compute_alternative_NPV(unit_fs, agent_params)
 
 For this project alternative (unit type + lag time), compute the project's FCF NPV.
@@ -681,7 +810,7 @@ end
 
 ### JuMP optimization model initialization
 """
-    set_up_model(unit_FS_dict, fc_pd, available_demand, NPV_results)
+    set_up_model(unit_FS_dict, ret_fs_dict, fc_pd, available_demand, NPV_results, ret_NPV_results)
 
 Set up the JuMP optimization model, including variables, constraints, and the
 objective function.
@@ -689,18 +818,22 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(unit_FS_dict, available_demand, NPV_results)
+function set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
     # Create the model object
     @info "Setting up model..."
     m = Model(GLPK.Optimizer)
 
     # For debugging, enable the following line to increase verbosity
-    # set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+    #set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+
+    # Concatenate all results into unified data structures
+    all_FS_dict = merge(unit_FS_dict, ret_FS_dict)
+    all_NPV_results = vcat(new_xtr_NPV_df, ret_NPV_df)
 
     # Parameter names
-    alternative_names = [item for item in keys(unit_FS_dict)]
-    num_alternatives = size(alternative_names)[1]
-    num_time_periods = size(unit_FS_dict[alternative_names[1]])[1]
+    alternative_names = [item for item in keys(all_FS_dict)]
+    num_alternatives = size(all_NPV_results)[1]
+    num_time_periods = size(all_FS_dict[alternative_names[1]])[1]
 
     # Set up variables
     # Number of units of each type to build: must be Integer
@@ -716,11 +849,24 @@ function set_up_model(unit_FS_dict, available_demand, NPV_results)
 
     # Restrict total construction to be less than maximum available demand
     for i = 1:num_time_periods
-        @constraint(m, sum(u[j] * unit_FS_dict[alternative_names[j]][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
+        @constraint(m, sum(u[j] * all_FS_dict[string(all_NPV_results[j, :unit_type], "_", all_NPV_results[j, :retirement_pd], "_lag-", all_NPV_results[j, :lag])][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
+    end
+
+    for i = 1:num_alternatives
+        if all_NPV_results[i, :project_type] == "new_xtr"
+            @constraint(m, u[i] .<= settings["max_type_newbuilds_per_pd"])
+        elseif all_NPV_results[i, :project_type] == "retirement"
+            unit_type = all_NPV_results[i, :unit_type]
+            ret_pd = all_NPV_results[i, :retirement_pd]
+            asset_count = filter([:unit_type, :retirement_pd] => (x, y) -> x == unit_type && y == ret_pd, asset_counts)[1, :count]
+            max_retirement = min(asset_count, settings["max_type_rets_per_pd"])
+            @constraint(m, u[i] .<= max_retirement)
+        end
+
     end
 
     # Create the objective function 
-    @objective(m, Max, transpose(u) * NPV_results[!, :NPV])
+    @objective(m, Max, transpose(u) * all_NPV_results[!, :NPV])
     @info "Optimization model set up."
 
     return m

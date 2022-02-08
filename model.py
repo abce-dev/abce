@@ -182,78 +182,145 @@ class GridModel(Model):
                                           self.current_step)
 
 
-    def add_unit_specs_to_db(self):
+    def initialize_unit_specs_df(self):
         """
-        Load in the A-LEAF unit specification data, including looking up data
-          from the NREL Annual Technology Baseline (2020) file as specified by
-          the user in ALEAF_Master_LC_GEP.xlsx.
-        Data is saved to the database table `unit_specs`.
+        Initialize the unit_specs dataframe, using data from the A-LEAF input
+        file. Convert column headers to the ABCE standard names. Set up blank
+        columns for values which will be added or computed later.
+
+        Returns:
+          unit_specs_data (DataFrame): dataframe containing the initial unit
+            specs values loaded from the A-LEAF input. Still contains "ATB"
+            entries for values to be searched, and several 0-columns.
         """
         # Set up header converter from A-LEAF to ABCE unit_spec format
         ALEAF_header_converter = {"UNIT_TYPE": "unit_type",
                                   "FUEL": "fuel_type",
                                   "CAP": "capacity",
-                                  "INVC": "uc_x",
+                                  "CAPEX": "uc_x",
                                   "HR": "heat_rate",
-                                  "CAPCRED": "CF"}
+                                  "FC": "FC_per_MWh",
+                                  "CAPCRED": "CF",
+                                  "VRE_Flag": "is_VRE"}
 
+        # Load the unit specs sheet from the settings file
+        us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
+
+        # Rename columns from the A-LEAF standard to ABCE standard, and make
+        #   "unit_type" the row index
+        us_df = us_df.rename(mapper=ALEAF_header_converter, axis=1)
+        us_df = us_df.set_index("unit_type")
+
+        # Now that column names match the ABCE standard, select all columns
+        #   from the df which have a matching column in the unit_specs DB table
+        # This ensures that only columns which will be used are selected.
+        # Load the list of column headers from the DB into the cursor object
+        self.cur.execute("SELECT * FROM unit_specs")
+        # Convert this result into a list
+        columns_to_select = [item[0] for item in self.cur.description]
+        # "unit_type" is not needed as it is the index
+        columns_to_select.remove("unit_type")
+
+        # Some columns are not pulled from the A-LEAF input data, and will
+        #   be computed or added later on. Initialize these columns as zeroes.
+        for column in columns_to_select:
+            if column not in us_df.columns:
+                us_df[column] = 0
+
+        # Create the final DataFrame for the unit specs data
+        unit_specs_data = us_df[columns_to_select].copy()
+
+        return unit_specs_data
+
+
+    def fill_unit_data_from_ATB(self, unit_specs_data):
+        """
+            In the A-LEAF unit specification, some data values may be
+            initialized as "ATB", indicating that appropriate values should be
+            retrieved from the ATB data sheet.
+
+            This function matches the relevant unit data type with ATB search
+            terms from the A-LEAF "ATB Setting" tab, filters the ATB data, and
+            overwrites "ATB" entries with the appropriate data.
+
+            Arguments:
+              unit_specs_data (DataFrame)
+
+            Returns:
+              unit_specs_data (DataFrame): with all "ATB" values filled
+        """
         # Set up the header converter from ATBe to ABCE unit_spec format
         ATB_header_converter = {"CAPEX": "uc_x",
                                 "Variable O&M": "VOM",
                                 "Fixed O&M": "FOM",
                                 "Fuel": "FC_per_MWh"}
 
-        # Load the unit specs sheet from the settings file
-        us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
-        # Rename columns and make unit_type the row index
-        us_df = us_df.rename(mapper=ALEAF_header_converter, axis=1)
-        us_df = us_df.set_index("unit_type")
-        # Select only the needed columns by getting the list of headers
-        #   required for the unit_specs DB table
-        self.cur.execute("SELECT * FROM unit_specs")
-        columns_to_select = [item[0] for item in self.cur.description]
-        columns_to_select.remove("unit_type")
-        # Add columns of zeros for columns which will be computed later
-        for column in columns_to_select:
-            if column not in us_df.columns:
-                us_df[column] = 0
-        # Create the final DataFrame for the unit specs data
-        unit_specs_data = us_df[columns_to_select].copy()
+        # Set up the converter between A-LEAF input sheet search terms and
+        #   ATB column headers
+        ATB_search_terms_map = {"technology": "Tech",
+                                "techdetail": "TechDetail",
+                                "core_metric_case": "Case",
+                                "crpyears": "CRP",
+                                "scenario": "Scenario",
+                                "core_metric_variable": "Year"}
 
         # Load the ATB search settings sheet from ALEAF
         ATB_settings = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="ATB Setting")
         ATB_settings = ATB_settings.set_index("UNIT_TYPE")
-        # Remove duplicates (related to multiple scenarios specified in the
-        #   Simulation Configuration tab, which are unneeded here)
+
+        # Remove extraneous scenarios from the loaded A-LEAF ATB settings.
+        #   Some versions of the A-LEAF input sheet may include multiple
+        #   scenarios; all but the first will be ignored. ABCE does not allow
+        #   multiple scenarios, so this simply prevents issues arising from
+        #   copy-and-pasting from example A-LEAF inputs.
         ATB_settings = ATB_settings.loc[ATB_settings["ATB_Setting_ID"] == "ATB_ID_1", :]
 
         # Load the ATB database sheet
         ATB_data = pd.read_csv(self.ATB_remote)
 
+        # Fill values for each unit type
         for unit_type in list(unit_specs_data.index):
             # Retrieve the ATB search/matching settings for this unit type
             unit_settings = dict(ATB_settings.loc[unit_type, :])
 
+            # Fill all necessary columns for this unit type
             for datum_name in ATB_header_converter.keys():
-                mask = ((ATB_data["technology"] == unit_settings["Tech"]) &
-                        (ATB_data["techdetail"] == unit_settings["TechDetail"]) &
-                        (ATB_data["core_metric_parameter"] == datum_name) &
-                        (ATB_data["core_metric_case"] == unit_settings["Case"]) &
-                        (ATB_data["crpyears"] == unit_settings["CRP"]) &
-                        (ATB_data["scenario"] == unit_settings["Scenario"]) &
-                        (ATB_data["core_metric_variable"] == unit_settings["Year"]))
+                if unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] == "ATB":
+                    # Construct the mask using the ATB search terms map
+                    #   defined earlier
+                    mask = (ATB_data["core_metric_parameter"] == datum_name)
+                    for ATB_key, ALEAF_key in ATB_search_terms_map.items():
+                        mask = mask & (ATB_data[ATB_key] == unit_settings[ALEAF_key])
 
-                if sum(mask) != 1:
-                    # If the mask matches nothing in ATBe, assume that
-                    #   the appropriate value is 0 (e.g. battery VOM cost)
-                    logging.debug(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
-                    unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = 0
-                else:
-                    unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
+                    if sum(mask) != 1:
+                        # If the mask matches nothing in ATBe, assume that
+                        #   the appropriate value is 0 (e.g. battery VOM cost),
+                        #   but warn the user.
+                        logging.warn(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
+                        unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = 0
+                    else:
+                        unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
 
-            # Retrieve the units' is_VRE status
-            unit_specs_data.loc[unit_type, "is_VRE"] = us_df[us_df.index == unit_type]["VRE_Flag"].values[0]
+        # Set newly-filled ATB data columns to numeric data types
+        #   Columns initialized with "ATB" will be a non-numeric data type,
+        #   which causes problems later if not converted.
+        for ATB_key, ABCE_key in ATB_header_converter.items():
+            unit_specs_data[ABCE_key] = pd.to_numeric(unit_specs_data[ABCE_key])
 
+        return unit_specs_data
+
+
+    def finalize_unit_specs_data(self, unit_specs_data):
+        """
+        Fill in supplemental unit specification data from
+          ABCE files and finalize the layout of the dataframe.
+
+        Arguments:
+          unit_specs_data (DataFrame)
+
+        Returns:
+          unit_specs_data (DataFrame)
+        """
         # Turn 'unit_type' back into a column from the index of unit_specs_data
         unit_specs_data = unit_specs_data.reset_index()
 
@@ -270,9 +337,41 @@ class GridModel(Model):
             # Set unit useful life for this unit
             unit_specs_data.loc[i, "unit_life"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["unit_life"].values[0]
 
-        # Cast the VOM column as Float64 (fixing specific bug)
-        unit_specs_data["VOM"] = unit_specs_data["VOM"].astype("float64")
+        return unit_specs_data
 
+
+
+
+    def add_unit_specs_to_db(self):
+        """
+        This function loads all unit specification data and saves it to the
+          database, as well as to the member data `self.unit_specs`.
+        The following steps are performed:
+          - Initial data is loaded from the A-LEAF input file.
+          - The initial data is updated to follow ABCE format conventions.
+          - Data values initialized as "ATB" are searched for and filled from
+              the NREL Annual Technology Baseline (2020) (ATB) file.
+          - The final unit specification data is loaded from ABCE supplemental
+              files.
+          - Final formatting steps.
+          - Data is saved to the database table `unit_specs` and to
+              self.unit_specs.
+        """
+
+        # Read data from A-LEAF input file; convert column headers to ABCE
+        #   standard; set up placeholder columns for values to be computed
+        #   later
+        unit_specs_data = self.initialize_unit_specs_df()
+
+        # Match any data values initialized as "ATB" to appropriate entries in
+        #   the ATB data sheet, and overwrite them.
+        unit_specs_data = self.fill_unit_data_from_ATB(unit_specs_data)
+
+        # Finalize the unit_specs_data dataframe, including ABCE supplemental
+        #   data and layout change
+        unit_specs_data = self.finalize_unit_specs_data(unit_specs_data)
+
+        # Save the finalized unit specs data to the DB, and set the member data
         unit_specs_data.to_sql("unit_specs", self.db, if_exists = "replace", index = False)
         self.unit_specs = unit_specs_data
 
