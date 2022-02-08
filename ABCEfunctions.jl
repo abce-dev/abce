@@ -854,12 +854,12 @@ function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_d
 
     for i = 1:num_alternatives
         if all_NPV_results[i, :project_type] == "new_xtr"
-            @constraint(m, u[i] .<= 100)
+            @constraint(m, u[i] .<= settings["max_type_newbuilds_per_pd"])
         elseif all_NPV_results[i, :project_type] == "retirement"
             unit_type = all_NPV_results[i, :unit_type]
             ret_pd = all_NPV_results[i, :retirement_pd]
             asset_count = filter([:unit_type, :retirement_pd] => (x, y) -> x == unit_type && y == ret_pd, asset_counts)[1, :count]
-            max_retirement = min(asset_count, 50)
+            max_retirement = min(asset_count, settings["max_type_rets_per_pd"])
             @constraint(m, u[i] .<= max_retirement)
         end
 
