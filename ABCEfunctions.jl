@@ -359,7 +359,7 @@ function create_NPV_results_df(unit_data_df, num_lags; mode="new_xtr")
 
     alternative_names = Vector{String}()
     num_entries = size(unit_data_df)[1]
-    num_alternatives = size(unit_data_df)[1] * (num_lags + 1)
+    num_alternatives = num_entries * (num_lags + 1)
 
     for i = 1:num_entries
         for j = 0:num_lags
@@ -837,7 +837,7 @@ function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_d
 
     # Set up variables
     # Number of units of each type to build: must be Integer
-    @variable(m, u[1:size(all_NPV_results)[1]] >= 0, Int)
+    @variable(m, u[1:num_alternatives] >= 0, Int)
 
     # To prevent unnecessary infeasibility conditions, convert nonpositive
     #   available_demand values to 0
@@ -852,7 +852,7 @@ function set_up_model(unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_d
         @constraint(m, sum(u[j] * all_FS_dict[string(all_NPV_results[j, :unit_type], "_", all_NPV_results[j, :retirement_pd], "_lag-", all_NPV_results[j, :lag])][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
     end
 
-    for i = 1:size(all_NPV_results)[1]
+    for i = 1:num_alternatives
         if all_NPV_results[i, :project_type] == "new_xtr"
             @constraint(m, u[i] .<= 100)
         elseif all_NPV_results[i, :project_type] == "retirement"
