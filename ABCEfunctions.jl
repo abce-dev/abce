@@ -849,7 +849,7 @@ function set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new
 
     # Restrict total construction to be less than maximum available demand
     for i = 1:num_time_periods
-        @constraint(m, sum(u[j] * all_FS_dict[string(all_NPV_results[j, :unit_type], "_", all_NPV_results[j, :retirement_pd], "_lag-", all_NPV_results[j, :lag])][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*0.0)
+        @constraint(m, sum(u[j] * all_FS_dict[string(all_NPV_results[j, :unit_type], "_", all_NPV_results[j, :retirement_pd], "_lag-", all_NPV_results[j, :lag])][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
     end
 
     for i = 1:num_alternatives
