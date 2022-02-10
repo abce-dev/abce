@@ -22,7 +22,7 @@ import pandas as pd
 # Database Specification:
 abce_tables = {"WIP_projects": 
                  [("asset_id", "integer", "PRIMARY KEY"), # Julia, Python
-                  ("agent_id", "text"),
+                  ("agent_id", "integer"),
                   ("period", "real"),
                   ("rcec", "real"),
                   ("rtec", "real"),
@@ -31,7 +31,7 @@ abce_tables = {"WIP_projects":
 
                "assets":
                  [("asset_id", "integer", "PRIMARY KEY"),
-                  ("agent_id", "text"),
+                  ("agent_id", "integer"),
                   ("unit_type", "text"),
                   ("revealed", "text"),
                   #("start_pd", "real"),  #TODO: implement start period record
