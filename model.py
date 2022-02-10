@@ -472,6 +472,10 @@ class GridModel(Model):
                                             con = self.db,
                                             if_exists = "replace")
 
+        # Update all WIP projects
+        if self.current_step > 0:
+            self.update_WIP_projects()
+
         # Iterate through all agent turns
         self.schedule.step()
         if not self.args.quiet:
@@ -559,4 +563,130 @@ class GridModel(Model):
             self.cur.execute(f"UPDATE assets SET revealed = 'true' WHERE " +
                              f"asset_id = '{asset_id}'")
         self.db.commit()
+
+
+    def update_WIP_projects(self):
+        """
+        Update the status and projections-to-completion for all current WIP
+        projects.
+
+        This function iterates over all WIP projects which are currently
+        ongoing (not cancelled or completed).
+          1. A stochastic escalation generator extends the projected cost
+               and/or schedule to completion according to the project type.
+          2. The current ANPE amount is applied to the outstanding RCEC.
+          3. If this is enough to complete the project, the project is marked
+               as completed ('completion_pd' in the 'assets' table is set to
+               the current period).
+          4. The new project status, including updated RCEC and RTEC, is saved
+               to the 'WIP_projects' table.
+        """
+
+        # Get a list of all currently-active construction projects
+        WIP_projects = pd.read_sql("SELECT * FROM assets WHERE " +
+                                   f"completion_pd > {self.current_step} AND " +
+                                   f"cancellation_pd > {self.current_step}",
+                                   self.db)
+
+        # Update each project one at a time
+        for asset_id in WIP_projects.asset_id:
+            # Select this project's most recent data record
+            project_data = pd.read_sql("SELECT * FROM WIP_projects WHERE " +
+                                       f"asset_id = {asset_id} AND " +
+                                       f"period = {self.current_step - 1}",
+                                       self.db)
+
+            temp_asset_data = pd.read_sql("SELECT * FROM assets WHERE " +
+                                          f"asset_id = {asset_id}", self.db)
+
+            project_data = project_data.merge(temp_asset_data,
+                                              how = "inner",
+                                              on = ["asset_id", "agent_id"])
+
+            # TODO: implement stochastic RCEC and RTEC escalation
+            # Currently: no escalation, projects proceed exactly on budget
+            #   and schedule
+            new_rcec = max(project_data.loc[0, "rcec"] - project_data.loc[0, "anpe"], 0)
+            new_rtec = project_data.loc[0, "rtec"] - 1
+            new_anpe = 0   # Reset to 0 to avoid inter-period contamination
+
+
+            # If this period's authorized expenditures (ANPE) clear the RCEC,
+            #   then the project is complete
+            if project_data.loc[0, "anpe"] > new_rcec:
+                # Record the project's completion period as the current period
+                self.cur.execute(f"UPDATE assets " +
+                                 f"SET completion_pd = {self.current_step} " +
+                                 f"WHERE asset_id = {asset_id}")
+
+                # Compute and record the total CapEx for the project
+                total_capex = self.compute_total_capex_newbuild(asset_id)
+                self.cur.execute(f"UPDATE assets " +
+                                 f"SET total_capex = {total_capex} " +
+                                 f"WHERE asset_id = {asset_id}")
+
+                # Compute periodic sinking fund payments
+                unit_type_mask = self.unit_specs["unit_type"] == project_data.unit_type
+                unit_life = self.unit_specs.loc[unit_type_mask, "unit_life"].values[0]
+                capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], total_capex, unit_life)
+                cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} " +
+                            f"WHERE asset_id = {asset_id}")
+                self.db.commit()
+
+            # Update the 'WIP_projects' table with new RCEC/RTEC/ANPE values
+            self.cur.execute("INSERT INTO WIP_projects VALUES " +
+                             f"({asset_id}, " +
+                             f"{project_data.agent_id.values[0]}, " +
+                             f"{self.current_step}, " +
+                             f"{new_rcec}, {new_rtec}, {new_anpe})")
+
+            # Save changes to the database
+            self.db.commit()
+
+
+    def compute_total_capex_newbuild(self, asset_id):
+        """
+        For assets which are newly completed during any period except period 0:
+        Retrieve all previously-recorded capital expenditures (via 'anpe', i.e.
+        "Authorized Next-Period Expenditures") for the indicated asset ID from
+        the database, and sum them to return the total capital expenditure (up
+        to the current period).
+
+        Args:
+          asset_id (int): asset for which to compute total capex
+
+        Returns:
+          total_capex (float): total capital expenditures up to the present period
+        """
+
+        total_capex = pd.read_sql("SELECT SUM(anpe) FROM WIP_projects WHERE " +
+                                 f"asset_id = {asset_id}", self.db)
+        return total_capex
+
+
+    def compute_sinking_fund_payment(self, agent_id, total_capex, term):
+        """
+        Compute a constant sinking-fund payment based on a total capital-
+        expenditures amount and the life of the investment, using the specified
+        agent's financial parameters.
+
+        Args:
+          agent_id (int): the unique ID of the owning agent, to retrieve
+            financial data
+          total_capex (float): total capital expenditures on the project
+          term (int or float): term over which to amortize capex
+
+        Returns:
+          cap_pmt (float): equal capital repayments to make over the course
+            of the indicated amortization term
+        """
+
+        agent_params = pd.read_sql("SELECT * FROM agent_params WHERE " +
+                                   f"agent_id = {agent_id}", self.db)        
+
+        wacc = (agent_params.debt_fraction * agent_params.cost_of_debt
+                + (1 - agent_params.debt_fraction) * agent_params.cost_of_equity)
+        cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
+        return cap_pmt
+
 
