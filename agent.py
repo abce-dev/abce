@@ -114,7 +114,7 @@ class GenCo(Agent):
                 #   were not paid off. Use the asset's unit_life value as the
                 #   repayment term for financing.
                 unit_life = self.model.unit_specs[self.model.unit_specs["unit_type"] == unit_type]["unit_life"].values[0]
-                unit_cap_pmt = self.compute_sinking_fund_payment(unit_capex, unit_life)
+                unit_cap_pmt = self.model.compute_sinking_fund_payment(self.unique_id, unit_capex, unit_life)
 
                 # Create the dictionary of asset characteristics
                 asset_dict = {"asset_id": asset_id,
@@ -149,11 +149,6 @@ class GenCo(Agent):
         # Get lists of all assets, all WIP projects, and all operating assets
         self.all_assets = self.get_current_asset_list()
         self.op_assets = self.get_operating_asset_list()
-
-        # Update the status of each current WIP project
-        #if self.current_step > 0:
-        #    self.WIP_projects = self.get_WIP_project_list()
-        #    self.update_WIP_projects()
 
         # Run the agent behavior choice algorithm
         agent_choice_path = os.path.join(self.settings["ABCE_abs_path"],
@@ -239,65 +234,6 @@ class GenCo(Agent):
         return op_asset_list
 
 
-    def update_WIP_projects(self):
-        db = self.model.db
-        cur = db.cursor()
-        if self.WIP_projects:
-            # If there are active construction projects under way:
-            for asset_id in self.WIP_projects:
-                # Select the current project's most recent data record
-                WIP_project = pd.read_sql(f"SELECT * FROM WIP_projects WHERE " +
-                                          f"asset_id = {asset_id} AND " +
-                                          f"period = {self.current_step - 1}",
-                                          self.model.db)
-
-                # TODO: implement stochastic RCEC and RTEC escalation
-                # Currently: no escalation
-
-                if WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"] <= 0:
-                    # This period's authorized expenditures close out the
-                    #    remainder of the project. Update the `assets` table to
-                    #    reflect completion status.
-                    cur.execute(f"UPDATE assets SET completion_pd = {self.current_step} " +
-                                f"WHERE asset_id = {asset_id}")
-
-                    # Compute amount of CapEx from the project (in as-spent, inflation-unadjusted $)
-                    total_capex = self.compute_total_capex_newbuild(asset_id)
-                    cur.execute(f"UPDATE assets SET total_capex = {total_capex} " +
-                                f"WHERE asset_id = {asset_id}")
-
-                    # Compute periodic sinking fund payments
-                    unit_type = (pd.read_sql(f"SELECT unit_type FROM assets " +
-                                             f"WHERE asset_id = {asset_id}",
-                                             self.model.db).loc[0, "unit_type"])
-                    unit_type_mask = self.model.unit_specs["unit_type"] == unit_type
-                    unit_life = (self.model.unit_specs
-                                 .loc[unit_type_mask, "unit_life"]
-                                 .values[0])
-                    capex_payment = self.compute_sinking_fund_payment(total_capex, unit_life)
-                    cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} " +
-                                f"WHERE asset_id = {asset_id}")
-                    db.commit()
-
-                # Set values to update the WIP_project dataframe with new completion data
-                period = self.current_step
-                rcec = max(WIP_project.loc[0, "rcec"] - WIP_project.loc[0, "anpe"], 0)
-                rtec = WIP_project.loc[0, "rtec"] - 1
-                anpe = 0    # Reset to 0 to avoid inter-period contamination
-
-                # Update the `WIP_projects` database table
-                cur.execute(f"INSERT INTO WIP_projects VALUES " +
-                            f"({asset_id}, {self.unique_id}, {period}, " +
-                            f"{rcec}, {rtec}, {anpe})")
-
-        else:
-            # If there are no construction projects in progress:
-            print(f"Agent {self.unique_id} has no ongoing construction projects.")
-
-        # Commit the changes to the database
-        db.commit()
-
-
     def compute_total_capex_preexisting(self, unit_type):
         """
         Compute total capex for units which already exist at the start of the
@@ -318,48 +254,6 @@ class GenCo(Agent):
         total_capex = unit_cost_per_kW * unit_capacity * self.MW2kW
 
         return total_capex
-
-
-    def compute_total_capex_newbuild(self, asset_id):
-        """
-        For assets which are newly completed during any period except period 0:
-        Retrieve all previously-recorded capital expenditures for the indicated
-        asset from the database, and sum them to return the total capital
-        expenditure (up to the current period).
-
-        Args:
-           asset_id (int): asset for which to compute capex
-
-        Returns:
-           total_capex (float): total capital expenditures up to the present period
-        """
-
-        capex_list = pd.read_sql(f"SELECT anpe FROM WIP_projects WHERE " +
-                                 f"asset_id = {asset_id}", self.model.db)
-        total_capex = sum(capex_list["anpe"])
-        return total_capex
-
-
-    def compute_sinking_fund_payment(self, total_capex, term):
-        """
-        Compute a constant sinking-fund payment based on a total capital
-        expenditures amount and the life of the unit, using the agent's
-        financial parameters.
-
-        Args:
-           total_capex (float): total capital expenditures on the project
-           term (int or float): term over which to amortize capital
-             expenditures
-
-        Returns:
-           cap_pmt (float): equal capital repayments to make over the course of
-             the indicated amortization term
-        """
-
-        wacc = (self.debt_fraction * self.cost_of_debt
-                + (1 - self.debt_fraction) * self.cost_of_equity)
-        cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
-        return cap_pmt
 
 
     def get_agent_retirement_data(self, settings):
