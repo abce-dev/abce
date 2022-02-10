@@ -606,8 +606,11 @@ class GridModel(Model):
             # TODO: implement stochastic RCEC and RTEC escalation
             # Currently: no escalation, projects proceed exactly on budget
             #   and schedule
-            new_rcec = max(project_data.loc[0, "rcec"] - project_data.loc[0, "anpe"], 0)
-            new_rtec = project_data.loc[0, "rtec"] - 1
+            new_rcec, new_rtec = self.escalate_rcec_and_rtec(project_data.loc[0, "unit_type"],
+                                                        project_data.loc[0, "rcec"],
+                                                        project_data.loc[0, "rtec"])
+            new_rcec = max(new_rcec - project_data.loc[0, "anpe"], 0)
+            new_rtec = new_rtec - 1
             new_anpe = 0   # Reset to 0 to avoid inter-period contamination
 
 
@@ -689,4 +692,18 @@ class GridModel(Model):
         cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
         return cap_pmt
 
+
+    def escalate_rcec_and_rtec(self, unit_type, rcec, rtec):
+        """
+        Generate escalation for a unit's remaining cost expected to completion
+        (RCEC) and remaining time expected to completion (RTEC).
+        """
+        # Retrieve unit type data for easy access
+        unit_type_data = self.unit_specs[self.unit_specs["unit_type"] == unit_type]
+
+        # Compute time delay
+
+        # Compute cost delay
+
+        return rcec, rtec
 
