@@ -206,10 +206,17 @@ class GridModel(Model):
         # Load the unit specs sheet from the settings file
         us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
 
-        # Rename columns from the A-LEAF standard to ABCE standard, and make
-        #   "unit_type" the row index
+        # Load the supplemental ABCE unit specs data
+        supp_data_file = os.path.join(self.settings["ABCE_abs_path"],
+                                      self.settings["unit_specs_abce_supp_file"])
+        us_df_abce = pd.read_csv(supp_data_file)
+
+        # Rename columns from the A-LEAF standard to ABCE standard
         us_df = us_df.rename(mapper=ALEAF_header_converter, axis=1)
-        us_df = us_df.set_index("unit_type")
+
+        # Inner-join the data from the supplemental file onto the main unit
+        #   specifications dataframe
+        us_df = us_df.merge(us_df_abce, how = "inner", on = "unit_type")
 
         # Now that column names match the ABCE standard, select all columns
         #   from the df which have a matching column in the unit_specs DB table
@@ -218,17 +225,17 @@ class GridModel(Model):
         self.cur.execute("SELECT * FROM unit_specs")
         # Convert this result into a list
         columns_to_select = [item[0] for item in self.cur.description]
-        # "unit_type" is not needed as it is the index
-        columns_to_select.remove("unit_type")
 
-        # Some columns are not pulled from the A-LEAF input data, and will
-        #   be computed or added later on. Initialize these columns as zeroes.
+        # If any columns are not pulled from the A-LEAF or ABCE supplemental
+        #   input data, and will be computed/added later on: initialize these
+        #   columns as zeroes.
         for column in columns_to_select:
             if column not in us_df.columns:
                 us_df[column] = 0
 
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
+        unit_specs_data = unit_specs_data.set_index("unit_type")
 
         return unit_specs_data
 
@@ -310,38 +317,6 @@ class GridModel(Model):
         return unit_specs_data
 
 
-    def finalize_unit_specs_data(self, unit_specs_data):
-        """
-        Fill in supplemental unit specification data from
-          ABCE files and finalize the layout of the dataframe.
-
-        Arguments:
-          unit_specs_data (DataFrame)
-
-        Returns:
-          unit_specs_data (DataFrame)
-        """
-        # Turn 'unit_type' back into a column from the index of unit_specs_data
-        unit_specs_data = unit_specs_data.reset_index()
-
-        # Retrieve non-ALEAF parameters from the ABCE supplemental unit
-        #   specification file
-        unit_specs_ABCE = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"],
-                                                   self.settings["unit_specs_abce_supp_file"]))
-
-        # Set unit baseline construction duration and life from supplemental data
-        for i in range(len(unit_specs_data)):
-            unit_type = unit_specs_data.loc[i, "unit_type"]
-            # Set construction duration for this unit
-            unit_specs_data.loc[i, "d_x"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["d_x"].values[0]
-            # Set unit useful life for this unit
-            unit_specs_data.loc[i, "unit_life"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["unit_life"].values[0]
-
-        return unit_specs_data
-
-
-
-
     def add_unit_specs_to_db(self):
         """
         This function loads all unit specification data and saves it to the
@@ -367,9 +342,8 @@ class GridModel(Model):
         #   the ATB data sheet, and overwrite them.
         unit_specs_data = self.fill_unit_data_from_ATB(unit_specs_data)
 
-        # Finalize the unit_specs_data dataframe, including ABCE supplemental
-        #   data and layout change
-        unit_specs_data = self.finalize_unit_specs_data(unit_specs_data)
+        # Reset the index of unit_specs_data so that "unit_type" is a column
+        unit_specs_data = unit_specs_data.reset_index()
 
         # Save the finalized unit specs data to the DB, and set the member data
         unit_specs_data.to_sql("unit_specs", self.db, if_exists = "replace", index = False)
