@@ -349,6 +349,8 @@ class GridModel(Model):
         unit_specs_data.to_sql("unit_specs", self.db, if_exists = "replace", index = False)
         self.unit_specs = unit_specs_data
 
+        print(self.unit_specs)
+
 
     def load_demand_data_to_db(self, settings):
         # Load all-period demand data into the database
