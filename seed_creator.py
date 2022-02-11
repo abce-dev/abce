@@ -65,7 +65,9 @@ abce_tables = {"WIP_projects":
                   ("unit_life", "real"),       # years
                   ("CF", "real"),              # frac
                   ("FC_per_MWh", "real"),      # $/MWh
-                  ("is_VRE", "text")           # boolean
+                  ("is_VRE", "text"),          # boolean
+                  ("occ_variance", "real"),    # variance of overnight capital cost
+                  ("d_x_variance", "real")     # variance of construction duration
                  ],
 
 
