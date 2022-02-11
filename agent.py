@@ -113,7 +113,7 @@ class GenCo(Agent):
                 # Compute the asset's annual capital payment, as if the asset
                 #   were not paid off. Use the asset's unit_life value as the
                 #   repayment term for financing.
-                unit_life = self.model.unit_specs[self.model.unit_specs["unit_type"] == unit_type]["unit_life"].values[0]
+                unit_life = self.model.unit_specs.loc[unit_type, "unit_life"]
                 unit_cap_pmt = self.model.compute_sinking_fund_payment(self.unique_id, unit_capex, unit_life)
 
                 # Create the dictionary of asset characteristics
@@ -247,9 +247,9 @@ class GenCo(Agent):
         Returns:
           total_capex (float): total capital expenditures for the asset
         """
-        unit_data = self.model.unit_specs[self.model.unit_specs["unit_type"] == unit_type]
-        unit_cost_per_kW = unit_data["uc_x"].values[0]    # $/kW
-        unit_capacity = unit_data["capacity"].values[0]   # MW
+        unit_data = self.model.unit_specs.loc[unit_type, :]
+        unit_cost_per_kW = unit_data["uc_x"]    # $/kW
+        unit_capacity = unit_data["capacity"]   # MW
 
         total_capex = unit_cost_per_kW * unit_capacity * self.MW2kW
 

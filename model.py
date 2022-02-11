@@ -342,12 +342,17 @@ class GridModel(Model):
         #   the ATB data sheet, and overwrite them.
         unit_specs_data = self.fill_unit_data_from_ATB(unit_specs_data)
 
+        # Save the finalized unit_specs_data (with "unit_type" as its index)
+        #   as Model member data
+        self.unit_specs = unit_specs_data
+
         # Reset the index of unit_specs_data so that "unit_type" is a column
+        # This is ONLY needed for the save to DB, as the DB can't accommodate
+        #   named rows. self.unit_specs still has unit_type as its index.
         unit_specs_data = unit_specs_data.reset_index()
 
         # Save the finalized unit specs data to the DB, and set the member data
         unit_specs_data.to_sql("unit_specs", self.db, if_exists = "replace", index = False)
-        self.unit_specs = unit_specs_data
 
         print(self.unit_specs)
 
@@ -605,8 +610,7 @@ class GridModel(Model):
                                  f"WHERE asset_id = {asset_id}")
 
                 # Compute periodic sinking fund payments
-                unit_type_mask = self.unit_specs["unit_type"] == project_data.unit_type
-                unit_life = self.unit_specs.loc[unit_type_mask, "unit_life"].values[0]
+                unit_life = self.unit_specs.loc[unit_type, "unit_life"]
                 capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], total_capex, unit_life)
                 cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} " +
                             f"WHERE asset_id = {asset_id}")
@@ -675,7 +679,7 @@ class GridModel(Model):
         (RCEC) and remaining time expected to completion (RTEC).
         """
         # Retrieve unit type data for easy access
-        unit_type_data = self.unit_specs[self.unit_specs["unit_type"] == unit_type]
+        unit_type_data = self.unit_specs.loc[unit_type, :]
 
         # Compute time delay
 
