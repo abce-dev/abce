@@ -110,11 +110,14 @@ class GenCo(Agent):
 
                 # Compute unit capex according to its unit type specification
                 unit_capex = self.compute_total_capex_preexisting(unit_type)
+                # Default: assume all existing assets have 0 outstanding
+                #   financing balance. To add obligations for capital payments
+                #   on pre-existing assets, uncomment the code lines below.
                 # Compute the asset's annual capital payment, as if the asset
                 #   were not paid off. Use the asset's unit_life value as the
                 #   repayment term for financing.
-                unit_life = self.model.unit_specs.loc[unit_type, "unit_life"]
-                unit_cap_pmt = self.model.compute_sinking_fund_payment(self.unique_id, unit_capex, unit_life)
+                #unit_life = self.model.unit_specs.loc[unit_type, "unit_life"]
+                #unit_cap_pmt = self.model.compute_sinking_fund_payment(self.unique_id, unit_capex, unit_life)
 
                 # Create the dictionary of asset characteristics
                 asset_dict = {"asset_id": asset_id,
@@ -125,7 +128,7 @@ class GenCo(Agent):
                               "cancellation_pd": 9999,
                               "retirement_pd": retirement_pd,
                               "total_capex": unit_capex,
-                              "cap_pmt": unit_cap_pmt}
+                              "cap_pmt": 0}
                 new_asset = pd.DataFrame(asset_dict, index=[0])
 
                 # Use the first asset's DataFrame as the master
