@@ -565,24 +565,14 @@ class GridModel(Model):
 
         # Get a list of all currently-active construction projects
         WIP_projects = pd.read_sql("SELECT * FROM assets WHERE " +
-                                   f"completion_pd > {self.current_step} AND " +
+                                   f"completion_pd >= {self.current_step} AND " +
                                    f"cancellation_pd > {self.current_step}",
                                    self.db)
 
         # Update each project one at a time
         for asset_id in WIP_projects.asset_id:
             # Select this project's most recent data record
-            project_data = pd.read_sql("SELECT * FROM WIP_projects WHERE " +
-                                       f"asset_id = {asset_id} AND " +
-                                       f"period = {self.current_step - 1}",
-                                       self.db)
-
-            temp_asset_data = pd.read_sql("SELECT * FROM assets WHERE " +
-                                          f"asset_id = {asset_id}", self.db)
-
-            project_data = project_data.merge(temp_asset_data,
-                                              how = "inner",
-                                              on = ["asset_id", "agent_id"])
+            project_data = self.retrieve_project_data(asset_id)
 
             # TODO: implement stochastic RCEC and RTEC escalation
             # Currently: no escalation, projects proceed exactly on budget
@@ -594,37 +584,67 @@ class GridModel(Model):
             new_rtec = new_rtec - 1
             new_anpe = 0   # Reset to 0 to avoid inter-period contamination
 
-
             # If this period's authorized expenditures (ANPE) clear the RCEC,
             #   then the project is complete
-            if project_data.loc[0, "anpe"] > new_rcec:
+            if new_rcec <= 0:
                 # Record the project's completion period as the current period
-                self.cur.execute(f"UPDATE assets " +
-                                 f"SET completion_pd = {self.current_step} " +
-                                 f"WHERE asset_id = {asset_id}")
+                self.record_completed_xtr_project(project_data)
 
-                # Compute and record the total CapEx for the project
-                total_capex = self.compute_total_capex_newbuild(asset_id)
-                self.cur.execute(f"UPDATE assets " +
-                                 f"SET total_capex = {total_capex} " +
-                                 f"WHERE asset_id = {asset_id}")
+            # Record updates to the WIP project's status
+            self.record_WIP_project_updates(project_data, new_rcec, new_rtec, new_anpe)
 
-                # Compute periodic sinking fund payments
-                unit_life = self.unit_specs.loc[unit_type, "unit_life"]
-                capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], total_capex, unit_life)
-                cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} " +
-                            f"WHERE asset_id = {asset_id}")
-                self.db.commit()
 
-            # Update the 'WIP_projects' table with new RCEC/RTEC/ANPE values
-            self.cur.execute("INSERT INTO WIP_projects VALUES " +
-                             f"({asset_id}, " +
-                             f"{project_data.agent_id.values[0]}, " +
-                             f"{self.current_step}, " +
-                             f"{new_rcec}, {new_rtec}, {new_anpe})")
+    def retrieve_project_data(self, asset_id):
+        project_data = pd.read_sql("SELECT * FROM WIP_projects WHERE " +
+                                   f"asset_id = {asset_id} AND " +
+                                   f"period = {self.current_step - 1}",
+                                   self.db)
 
-            # Save changes to the database
-            self.db.commit()
+        temp_asset_data = pd.read_sql("SELECT * FROM assets WHERE " +
+                                      f"asset_id = {asset_id}", self.db)
+
+        project_data = project_data.merge(temp_asset_data,
+                                          how = "inner",
+                                          on = ["asset_id", "agent_id"])
+
+        return project_data
+
+
+    def record_completed_xtr_project(self, project_data):
+        asset_id = project_data.loc[0, "asset_id"]
+
+        # Record the project's completion period as the current period
+        self.cur.execute(f"UPDATE assets " +
+                         f"SET completion_pd = {self.current_step} " +
+                         f"WHERE asset_id = {asset_id}")
+
+        # Compute and record the total CapEx for the project
+        total_capex = self.compute_total_capex_newbuild(asset_id)
+        self.cur.execute(f"UPDATE assets " +
+                         f"SET total_capex = {total_capex} " +
+                         f"WHERE asset_id = {asset_id}")
+
+        # Compute periodic sinking fund payments
+        unit_type = project_data.loc[0, "unit_type"]
+        unit_life = self.unit_specs.loc[unit_type, "unit_life"]
+        capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], total_capex, unit_life)
+        self.cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} " +
+                         f"WHERE asset_id = {asset_id}")
+
+        # Commit changes to database
+        self.db.commit()
+
+
+    def record_WIP_project_updates(self, project_data, new_rcec, new_rtec, new_anpe):
+        # Update the 'WIP_projects' table with new RCEC/RTEC/ANPE values
+        self.cur.execute("INSERT INTO WIP_projects VALUES " +
+                         f"({project_data.asset_id.values[0]}, " +
+                         f"{project_data.agent_id.values[0]}, " +
+                         f"{self.current_step}, " +
+                         f"{new_rcec}, {new_rtec}, {new_anpe})")
+
+        # Save changes to the database
+        self.db.commit()
 
 
     def compute_total_capex_newbuild(self, asset_id):
@@ -643,7 +663,7 @@ class GridModel(Model):
         """
 
         total_capex = pd.read_sql("SELECT SUM(anpe) FROM WIP_projects WHERE " +
-                                 f"asset_id = {asset_id}", self.db)
+                                 f"asset_id = {asset_id}", self.db).iloc[0, 0]
         return total_capex
 
 
@@ -670,6 +690,10 @@ class GridModel(Model):
         wacc = (agent_params.debt_fraction * agent_params.cost_of_debt
                 + (1 - agent_params.debt_fraction) * agent_params.cost_of_equity)
         cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
+
+        # Convert cap_pmt from a single-entry Series to a scalar
+        cap_pmt = cap_pmt[0]
+
         return cap_pmt
 
 
