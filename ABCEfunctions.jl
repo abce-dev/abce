@@ -639,7 +639,7 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
         # The maximum end of revenue period is capped at the length of the
         #   unit_fs dataframe (as some units with unspecified retirement
         #   periods default to a retirement period of 9999).
-        rev_end = min(lag+1, orig_ret_pd, size(unit_fs)[1])
+        rev_end = min(lag, orig_ret_pd, size(unit_fs)[1])
     end
 
     # Compute final projected revenue series
@@ -676,7 +676,7 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
         # The maximum end of generation period is capped at the length of the
         #   unit_fs dataframe (as some units with unspecified retirement
         #   periods default to a retirement period of 9999).
-        gen_end = min(lag+1, orig_ret_pd, size(unit_fs)[1])
+        gen_end = min(lag, orig_ret_pd, size(unit_fs)[1])
     end
 
     # Distribute generation values time series
@@ -717,7 +717,7 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
         op_ones = ones(unit_op_life)
     elseif mode == "retire"
         pre_zeros = zeros(0)
-        op_ones = ones(min(unit_op_life, size(unit_fs)[1], orig_ret_pd, lag+1))
+        op_ones = ones(min(unit_op_life, size(unit_fs)[1], orig_ret_pd, lag))
     end
     post_zeros = zeros(size(unit_fs)[1] - size(pre_zeros)[1] - size(op_ones)[1])
     unit_fs[!, :FOM_Cost] = vcat(pre_zeros, op_ones, post_zeros)
