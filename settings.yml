@@ -15,7 +15,9 @@ first_agent_id: 201
 first_asset_id: 2001
 
 num_agents: 1
-num_steps: 1
+num_steps: 6
+
+xtr_escalation_enabled: True
 
 use_precomputed_price_curve: True
 enable_subsidy: True
