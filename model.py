@@ -15,6 +15,7 @@
 import os
 import shutil
 import subprocess
+import random
 import yaml
 import numpy as np
 import pandas as pd
@@ -574,24 +575,22 @@ class GridModel(Model):
             # Select this project's most recent data record
             project_data = self.retrieve_project_data(asset_id)
 
-            # TODO: implement stochastic RCEC and RTEC escalation
-            # Currently: no escalation, projects proceed exactly on budget
-            #   and schedule
-            new_rcec, new_rtec = self.escalate_rcec_and_rtec(project_data.loc[0, "unit_type"],
-                                                        project_data.loc[0, "rcec"],
-                                                        project_data.loc[0, "rtec"])
-            new_rcec = max(new_rcec - project_data.loc[0, "anpe"], 0)
-            new_rtec = new_rtec - 1
-            new_anpe = 0   # Reset to 0 to avoid inter-period contamination
+            # Update project_data to reflect cost and schedule escalation
+            #   which occurred during the previous period
+            # TODO: implement stochastic cost and schedule escalation
+            project_data = self.escalate_cost_and_schedule(project_data)
+
+            # Update total capital expenditures to date and current RCEC/RTEC
+            project_data = self.advance_project_to_current_period(project_data)
 
             # If this period's authorized expenditures (ANPE) clear the RCEC,
             #   then the project is complete
-            if new_rcec <= 0:
+            if project_data.loc[0, "rcec"] <= 0:
                 # Record the project's completion period as the current period
                 self.record_completed_xtr_project(project_data)
 
             # Record updates to the WIP project's status
-            self.record_WIP_project_updates(project_data, new_rcec, new_rtec, new_anpe)
+            self.record_WIP_project_updates(project_data)
 
 
     def retrieve_project_data(self, asset_id):
@@ -619,15 +618,14 @@ class GridModel(Model):
                          f"WHERE asset_id = {asset_id}")
 
         # Compute and record the total CapEx for the project
-        total_capex = self.compute_total_capex_newbuild(asset_id)
         self.cur.execute(f"UPDATE assets " +
-                         f"SET total_capex = {total_capex} " +
+                         f"SET total_capex = {project_data.cum_exp.values[0]} " +
                          f"WHERE asset_id = {asset_id}")
 
         # Compute periodic sinking fund payments
         unit_type = project_data.loc[0, "unit_type"]
         unit_life = self.unit_specs.loc[unit_type, "unit_life"]
-        capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], total_capex, unit_life)
+        capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], project_data.loc[0, "cum_exp"], unit_life)
         self.cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} " +
                          f"WHERE asset_id = {asset_id}")
 
@@ -635,13 +633,20 @@ class GridModel(Model):
         self.db.commit()
 
 
-    def record_WIP_project_updates(self, project_data, new_rcec, new_rtec, new_anpe):
+    def record_WIP_project_updates(self, project_data):
+        # Set new_anpe = 0 to avoid inter-period contamination
+        new_anpe = 0
         # Update the 'WIP_projects' table with new RCEC/RTEC/ANPE values
         self.cur.execute("INSERT INTO WIP_projects VALUES " +
                          f"({project_data.asset_id.values[0]}, " +
                          f"{project_data.agent_id.values[0]}, " +
                          f"{self.current_step}, " +
-                         f"{new_rcec}, {new_rtec}, {new_anpe})")
+                         f"{project_data.cum_occ.values[0]}, " +
+                         f"{project_data.rcec.values[0]}, " +
+                         f"{project_data.cum_d_x.values[0]}, " +
+                         f"{project_data.rtec.values[0]}, " +
+                         f"{project_data.cum_exp.values[0]}, " +
+                         f"{new_anpe})")
 
         # Save changes to the database
         self.db.commit()
@@ -697,17 +702,54 @@ class GridModel(Model):
         return cap_pmt
 
 
-    def escalate_rcec_and_rtec(self, unit_type, rcec, rtec):
+    def escalate_cost_and_schedule(self, project_data):
         """
         Generate escalation for a unit's remaining cost expected to completion
         (RCEC) and remaining time expected to completion (RTEC).
         """
         # Retrieve unit type data for easy access
+        unit_type = project_data.loc[0, "unit_type"]
         unit_type_data = self.unit_specs.loc[unit_type, :]
 
         # Compute time delay
+        escalated_rtec = project_data.loc[0, "rtec"]
 
-        # Compute cost delay
+        # Compute cost overrun
+        cost_esc_factor = random.uniform(-1.0, 1.0) * unit_type_data["occ_variance"]
+        new_cum_occ = project_data.loc[0, "cum_occ"] * (1 + cost_esc_factor)
 
-        return rcec, rtec
+        # Compute forced schedule delay due to cost increase beyond maximum
+        #   productive investment rate
+        # Temporary assumption: the max production rate is equivalent to
+        #   building the nominal-cost unit in the nominal expected construction
+        #   time
+        max_invest_rate = unit_type_data["uc_x"] * unit_type_data["capacity"] * self.MW2kW / unit_type_data["d_x"]
+        # RTEC is always an integer, due to discrete simulation time periods
+        forced_rtec = (new_cum_occ - project_data.loc[0, "cum_exp"]) / max_invest_rate
+        # Overall RTEC is the greater of the two generated RTEC values
+        new_rtec = max(escalated_rtec, forced_rtec)
+        project_data.loc[0, "cum_d_x"] += (new_rtec - project_data.loc[0, "rtec"])
+
+        # Compute final new RCEC and cumulative overnight capital cost
+        project_data.loc[0, "rcec"] += (new_cum_occ - project_data.loc[0, "cum_occ"])
+        project_data.loc[0, "cum_occ"] = new_cum_occ
+
+        return project_data
+
+    def advance_project_to_current_period(self, project_data):
+        # Escalated RTEC is reduced by one
+        project_data.loc[0, "rtec"] -= 1
+
+        # Escalated RCEC is reduced by ANPE
+        project_data.loc[0, "rcec"] -= project_data.loc[0, "anpe"]
+
+        # Cumulative capital expenditures are increased by ANPE
+        project_data.loc[0, "cum_exp"] += project_data.loc[0, "anpe"]
+
+        # Project ANPE is reset to 0 after being expended
+        project_data.loc[0, "anpe"] = 0
+
+        return project_data
+
+
 
