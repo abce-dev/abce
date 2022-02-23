@@ -24,8 +24,11 @@ abce_tables = {"WIP_projects":
                  [("asset_id", "integer", "PRIMARY KEY"), # Julia, Python
                   ("agent_id", "integer"),
                   ("period", "real"),
+                  ("cum_occ", "real"),
                   ("rcec", "real"),
+                  ("cum_d_x", "real"),
                   ("rtec", "real"),
+                  ("cum_exp", "real"),
                   ("anpe", "real")
                  ],
 
