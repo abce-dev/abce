@@ -307,14 +307,20 @@ end
 
 
 function authorize_anpe(db, agent_id, current_period, project_list, unit_specs)
-    # Loop through each project and authorize $100 of ANPE by setting the anpe value in WIP_projects
+    # ANPE: Authorized Next-Period Expenditures
+    # Loop through each project and authorize ANPE by setting the anpe value in WIP_projects
     for i = 1:size(project_list[!, :asset_id])[1]
         current_asset = project_list[i, :asset_id]
         asset_type = DBInterface.execute(db, string("SELECT unit_type FROM assets WHERE asset_id = ", current_asset)) |> DataFrame
         unit = filter(row -> row[:unit_type] == asset_type[1, :unit_type], unit_specs)
+        project_data = DBInterface.execute(db, string("SELECT * FROM WIP_projects WHERE asset_id = ", current_asset, " AND period = ", current_period)) |> DataFrame
         # Authorize a uniform expenditure over the life of the project
-        anpe_val = unit[1, :uc_x] * unit[1, :capacity] * 1000 / unit[1, :d_x]
-#        anpe_val = 100000000   # $1B/period
+        # Maximum productive investment rate: the yearly expenditure required
+        #   to complete the project to its nominal cost in the nominal
+        #   construction duration
+        max_invest_rate = unit[1, :uc_x] * unit[1, :capacity] * MW2kW / unit[1, :d_x]
+        anpe_val = min(max_invest_rate, project_data[1, :rcec])
+
         vals = (anpe_val, current_period, current_asset)
         DBInterface.execute(db, "UPDATE WIP_projects SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end
