@@ -247,8 +247,11 @@ for i = 1:size(all_results)[1]
         if result[:lag] == 0 && result[:units_to_execute] != 0
 
             # Retrieve or set values common to all units of this type
-            rcec = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW
-            rtec = unit_type_data[:d_x]
+            cum_occ = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW
+            rcec = cum_occ
+            cum_exp = 0
+            cum_d_x = unit_type_data[:d_x]
+            rtec = cum_d_x
             revealed = "false"
             completion_pd = pd + unit_type_data[:d_x]
             cancellation_pd = 9999
@@ -261,8 +264,8 @@ for i = 1:size(all_results)[1]
             for j = 1:result[:units_to_execute]
                 next_id = get_next_asset_id(db)
                 # Update `WIP_projects` table
-                WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
-                DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)
+                WIP_projects_vals = (next_id, agent_id, pd, cum_occ, rcec, cum_d_x, rtec, cum_exp, rcec / 10)
+                DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", WIP_projects_vals)
 
                 # Update `assets` table
                 assets_vals = (next_id, agent_id, result[:unit_type], revealed, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
