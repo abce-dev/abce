@@ -12,6 +12,7 @@
 # limitations under the License.
 ##########################################################################
 
+import math
 import os
 import shutil
 import subprocess
@@ -575,10 +576,11 @@ class GridModel(Model):
             # Select this project's most recent data record
             project_data = self.retrieve_project_data(asset_id)
 
-            # Update project_data to reflect cost and schedule escalation
+            # If construction cost escalation is enabled in the settings file,
+            #   update project_data to reflect cost and schedule escalation
             #   which occurred during the previous period
-            # TODO: implement stochastic cost and schedule escalation
-            project_data = self.escalate_cost_and_schedule(project_data)
+            if self.settings["xtr_escalation_enabled"]:
+                project_data = self.escalate_cost_and_schedule(project_data)
 
             # Update total capital expenditures to date and current RCEC/RTEC
             project_data = self.advance_project_to_current_period(project_data)
@@ -591,6 +593,10 @@ class GridModel(Model):
 
             # Record updates to the WIP project's status
             self.record_WIP_project_updates(project_data)
+
+            # Record updates to the project's expected completion date in the
+            #   database 'assets' table
+            self.update_expected_completion_period(project_data)
 
 
     def retrieve_project_data(self, asset_id):
@@ -729,6 +735,7 @@ class GridModel(Model):
         # Overall RTEC is the greater of the two generated RTEC values
         new_rtec = max(escalated_rtec, forced_rtec)
         project_data.loc[0, "cum_d_x"] += (new_rtec - project_data.loc[0, "rtec"])
+        project_data.loc[0, "rtec"] = math.ceil(new_rtec)
 
         # Compute final new RCEC and cumulative overnight capital cost
         project_data.loc[0, "rcec"] += (new_cum_occ - project_data.loc[0, "cum_occ"])
@@ -752,4 +759,11 @@ class GridModel(Model):
         return project_data
 
 
+    def update_expected_completion_period(self, project_data):
+        asset_id = project_data.loc[0, "asset_id"]
+        new_completion_pd = project_data.loc[0, "rtec"] + self.current_step
+        
+        self.cur.execute(f"UPDATE assets SET completion_pd = {new_completion_pd} " +
+                         f"WHERE asset_id = {asset_id}")
+        self.db.commit()
 
