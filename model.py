@@ -733,9 +733,13 @@ class GridModel(Model):
         # RTEC is always an integer, due to discrete simulation time periods
         forced_rtec = (new_cum_occ - project_data.loc[0, "cum_exp"]) / max_invest_rate
         # Overall RTEC is the greater of the two generated RTEC values
-        new_rtec = max(escalated_rtec, forced_rtec)
-        project_data.loc[0, "cum_d_x"] += (new_rtec - project_data.loc[0, "rtec"])
-        project_data.loc[0, "rtec"] = math.ceil(new_rtec)
+        schedule_slip = (escalated_rtec - project_data.loc[0, "rtec"]) + max(forced_rtec - project_data.loc[0, "rtec"], 0)
+        project_data.loc[0, "cum_d_x"] += schedule_slip
+        project_data.loc[0, "rtec"] = math.ceil(project_data.loc[0, "cum_d_x"] - (self.current_step - project_data.loc[0, "start_pd"] - 1))
+
+        # Cover as much cost escalation as possible within the period's ANPE
+        #   without exceeding the maximum productive investment rate
+        project_data.loc[0, "anpe"] = min(max_invest_rate, (project_data.loc[0, "anpe"] + (new_cum_occ - project_data.loc[0, "cum_occ"])))
 
         # Compute final new RCEC and cumulative overnight capital cost
         project_data.loc[0, "rcec"] += (new_cum_occ - project_data.loc[0, "cum_occ"])
