@@ -37,7 +37,7 @@ abce_tables = {"WIP_projects":
                   ("agent_id", "integer"),
                   ("unit_type", "text"),
                   ("revealed", "text"),
-                  #("start_pd", "real"),  #TODO: implement start period record
+                  ("start_pd", "real"),
                   ("completion_pd", "real"),
                   ("cancellation_pd", "real"),
                   ("retirement_pd", "real"),

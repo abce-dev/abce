@@ -124,6 +124,7 @@ class GenCo(Agent):
                               "agent_id": self.unique_id,
                               "unit_type": unit_type,
                               "revealed": "true",
+                              "start_pd": -1,
                               "completion_pd": 0,
                               "cancellation_pd": 9999,
                               "retirement_pd": retirement_pd,
