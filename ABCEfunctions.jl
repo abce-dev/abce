@@ -318,8 +318,9 @@ function authorize_anpe(db, agent_id, current_period, project_list, unit_specs)
         # Maximum productive investment rate: the yearly expenditure required
         #   to complete the project to its nominal cost in the nominal
         #   construction duration
+        # Minimum investment: $0 (no negative ANPE values allowed)
         max_invest_rate = unit[1, :uc_x] * unit[1, :capacity] * MW2kW / unit[1, :d_x]
-        anpe_val = min(max_invest_rate, project_data[1, :rcec])
+        anpe_val = min(max_invest_rate, max(project_data[1, :rcec], 0))
 
         vals = (anpe_val, current_period, current_asset)
         DBInterface.execute(db, "UPDATE WIP_projects SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
