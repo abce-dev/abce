@@ -127,8 +127,8 @@ for i = 1:num_types
         # Set up parameters for this alternative
         unit_entry = unit_data[i, :]
         project_type = "new_xtr"
-        original_ret_pd = 9999
-        name = string(unit_entry[:unit_type], "_0_lag-", lag)
+        original_ret_pd = "X"
+        name = string(unit_entry[:unit_type], "_", project_type, "_", original_ret_pd, "_lag-", lag)
         fs = unit_FS_dict[name]
         unit_type_data = filter(row -> row.unit_type == unit_entry[:unit_type], unit_data)
 
@@ -165,7 +165,6 @@ end
 @info "xtr NPV results:"
 @info new_xtr_NPV_df
 
-
 # Create a dataframe to hold NPV results for each retirement alternative
 ret_alt_names, ret_NPV_results = create_NPV_results_df(asset_counts, num_lags; mode="retire")
 ret_NPV_df = DataFrame(unit_type = String[], project_type = String[], retirement_pd = Any[], lag = Any[], NPV = Float64[])
@@ -178,7 +177,7 @@ ret_FS_dict = create_FS_dict(asset_counts, fc_pd, num_lags; mode="retire")
 for i = 1:size(asset_counts)[1]
     for lag = 0:num_lags
         asset_entry = asset_counts[i, :]
-        name = string(asset_entry[:unit_type], "_", asset_entry[:retirement_pd], "_lag-", lag)
+        name = string(asset_entry[:unit_type], "_", "retirement", "_", asset_entry[:retirement_pd], "_lag-", lag)
         fs = ret_FS_dict[name]
         unit_type_data = filter(row -> row.unit_type == asset_entry[:unit_type], unit_data)
 
