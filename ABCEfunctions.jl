@@ -396,13 +396,17 @@ function create_FS_dict(data, fc_pd, num_lags; mode="new_xtr")
     num_alts = size(data)[1]
     for i = 1:num_alts
         for j = 0:num_lags
-            # Create alternative names according to mode
-            if mode == "new_xtr"
-                unit_name = string(data[i, :unit_type], "_0_lag-", j)
-            elseif mode == "retire"
-                unit_name = string(data[i, :unit_type], "_", data[i, :retirement_pd], "_lag-", j)
+            if mode == "retire"
+                ret_pd = data[i, :retirement_pd]
+                project_type = "retirement"
+            elseif mode == "new_xtr"
+                ret_pd = "X"
+                project_type = "new_xtr"
             end
-            # Set up the alternative's FS dataframe
+            unit_name = string(data[i, :unit_type], "_",
+                               project_type, "_",
+                               ret_pd, "_lag-",
+                               j)
             unit_FS = DataFrame(year = 1:fc_pd, xtr_exp = zeros(fc_pd), gen = zeros(fc_pd), remaining_debt_principal = zeros(fc_pd), debt_payment = zeros(fc_pd), interest_payment = zeros(fc_pd), depreciation = zeros(fc_pd))
             fs_dict[unit_name] = unit_FS
         end
@@ -818,7 +822,6 @@ function compute_alternative_NPV(unit_fs, agent_params)
 end
 
 
-
 ### JuMP optimization model initialization
 """
     set_up_model(unit_FS_dict, ret_fs_dict, fc_pd, available_demand, NPV_results, ret_NPV_results)
@@ -858,9 +861,24 @@ function set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new
         end
     end
 
+    # Compute expected marginal generation contribution per alternative type
+    marg_gen = zeros(num_alternatives, num_time_periods)
+    for i = 1:num_alternatives
+        alt_name = string(all_NPV_results[i, :unit_type], "_",
+                          all_NPV_results[i, :project_type], "_",
+                          all_NPV_results[i, :retirement_pd], "_lag-",
+                          all_NPV_results[i, :lag])
+        for j = 1:num_time_periods
+            # Convert total anticipated marginal generation to an effective
+            #   nameplate capacity and save to the appropriate entry in the
+            #   marginal generation array
+            marg_gen[i, j] = all_FS_dict[alt_name][j, :gen] / (hours_per_year * MW2kW)
+        end
+    end
+
     # Restrict total construction to be less than maximum available demand
     for i = 1:num_time_periods
-        @constraint(m, sum(u[j] * all_FS_dict[string(all_NPV_results[j, :unit_type], "_", all_NPV_results[j, :retirement_pd], "_lag-", all_NPV_results[j, :lag])][i, :gen] for j = 1:num_alternatives) / (hours_per_year * MW2kW) <= available_demand[i]*2)
+        @constraint(m, transpose(u) * marg_gen[:, i] <= available_demand[i]*1.5)
     end
 
     for i = 1:num_alternatives
@@ -873,8 +891,24 @@ function set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new
             max_retirement = min(asset_count, settings["max_type_rets_per_pd"])
             @constraint(m, u[i] .<= max_retirement)
         end
-
     end
+
+    # Convenient variable for the number of distinct retirement alternatives
+    k = size(asset_counts)[1]
+    # Shortened name for the number of lag periods to consider
+    #   1 is added, as the user-set value only specifies future periods,
+    #   with the "lag = 0" instance being implied
+    num_lags = settings["num_future_periods_considered"] + 1
+    # Create the matrix to collapse lagged options
+    ret_summation_matrix = zeros(k, k*num_lags)
+    for i = 1:k
+        ret_summation_matrix[i, ((i-1)*num_lags+1):(i*num_lags)] .= 1
+    end
+
+    # Specify constraint: the agent cannot plan to retire more units (during
+    #   all lag periods) than exist of that unit type
+    @constraint(m, ret_summation_matrix * u[size(new_xtr_NPV_df)[1]+1:end, :] .<= asset_counts[!, :count])
+        
 
     # Create the objective function 
     @objective(m, Max, transpose(u) * all_NPV_results[!, :NPV])
