@@ -37,9 +37,10 @@ tax_rate: 0.21
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
 consider_future_projects: True
-num_future_periods_considered: 2    # Number of periods for which to consider future projects
+num_future_periods_considered: 4    # Number of periods for which to consider future projects
 max_type_rets_per_pd: 50
 max_type_newbuilds_per_pd: 100
+large_epsilon: 0.1   # Epsilon value for large numbers (i.e. for determining if RCEC is 0)
 
 
 #### ALEAF SETTINGS

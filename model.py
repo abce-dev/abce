@@ -587,7 +587,7 @@ class GridModel(Model):
 
             # If this period's authorized expenditures (ANPE) clear the RCEC,
             #   then the project is complete
-            if project_data.loc[0, "rcec"] <= 0:
+            if project_data.loc[0, "rcec"] <= self.settings["large_epsilon"]:
                 # Record the project's completion period as the current period
                 self.record_completed_xtr_project(project_data)
 
