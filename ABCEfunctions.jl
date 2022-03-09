@@ -122,6 +122,10 @@ function get_current_assets_list(db, pd, agent_id)
 
     # Count the number of assets by type
     asset_counts = combine(groupby(asset_list, [:unit_type, :retirement_pd]), nrow => :count)
+
+    # Bugfix: ensure all `retirement_pd` values are integers
+    asset_counts[!, :retirement_pd] = convert.(Int64, asset_counts[!, :retirement_pd])
+
     @info asset_counts
 
     return asset_list, asset_counts
