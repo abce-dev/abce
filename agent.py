@@ -78,7 +78,7 @@ class GenCo(Agent):
                         {self.discount_rate}, {self.tax_rate},
                         {self.terminal_growth_rate}, {self.debt_fraction},
                         {self.cost_of_debt}, {self.cost_of_equity},
-                        {self.interest_cap})""")
+                        {self.aggressiveness})""")
 
         # Miscellaneous parameters
         self.MW2kW = 1000   # Convert MW to kW

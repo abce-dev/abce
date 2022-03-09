@@ -5,7 +5,8 @@
   cost_of_debt: 0.03
   cost_of_equity: 0.11
   tax_rate: 0.21
-  interest_cap: 90000000
+  interest_cap: 9000000
+  aggressiveness: 0.1
 202:
   discount_rate: 0.03
   terminal_growth_rate: 0.05
@@ -13,4 +14,5 @@
   cost_of_debt: 0.03
   cost_of_equity: 0.09
   tax_rate: 0.21
-  interest_cap: 90000000
+  interest_cap: 9000000
+  aggressiveness: 0.9
