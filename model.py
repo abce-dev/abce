@@ -87,10 +87,22 @@ class GridModel(Model):
         #   data file
         self.add_unit_specs_to_db()
 
+        # Load the unit-type ownership specification for all agents
+        self.portfolio_specification = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"], self.settings["portfolios_file"]))
+        # Check the portfolio specification to ensure the ownership totals 
+        #   equal the total numbers of available units
+        self.check_portfolio_specification()
+
+        # Load the mandatory unit retirement data
+        ret_data_file = os.path.join(self.settings["ABCE_abs_path"],
+                                     settings["retirement_period_specs_file"])
+        self.ret_data = pd.read_csv(ret_data_file, comment="#")
+
         # Create agents
-        for i in range(self.first_agent_id, self.first_agent_id + self.num_agents):
-            gc = GenCo(i, self, settings, self.args)
+        for agent_id in range(self.first_agent_id, self.first_agent_id + self.num_agents):
+            gc = GenCo(agent_id, self, settings, self.args)
             self.schedule.add(gc)
+            self.initialize_agent_assets(agent_id)
 
         # Determine setting for use of a precomputed price curve
         self.use_precomputed_price_curve = True
@@ -109,8 +121,6 @@ class GridModel(Model):
                                         if_exists = "replace")
 
         # Check ./outputs/ dir and clear out old files
-        # TODO: replace getcwd() with a command-line argument to specify a 
-        #   non-cwd ABCE absolute path
         self.ABCE_output_data_path = os.path.join(settings["ABCE_abs_path"], "outputs", self.ALEAF_scenario_name)
         if not os.path.isdir(self.ABCE_output_data_path):
             # If the desired output directory doesn't already exist, create it
@@ -359,6 +369,176 @@ class GridModel(Model):
         print(self.unit_specs)
 
 
+    def check_portfolio_specification(self):
+        """
+        Ensure that the user-supplied portfolio ownership specification is
+        correctly set up.
+          - Check number of agents versus self.settings["num_agents"]
+          - Ensure that the number of extant units of each type equals the
+            total number of units of that type owned by all agents
+
+        If either of this criteria is not completely satisfied, give the user
+        an error message and end the program.
+        """
+        # Tracker for portfolio state
+        agents_OK = True
+        portfolio_OK = True
+        num_agents_msg = "Number of agents matches."
+        units_owned_msg = "Unit type ownership matches."
+
+        # Read in the A-LEAF total system portfolio
+        book, writer = ALI.prepare_xlsx_data(self.ALEAF_portfolio_ref, self.ALEAF_portfolio_ref)
+        pdf = ALI.organize_ALEAF_portfolio(writer)
+
+        # Check step 1: ensure number of agents matches
+        if self.settings["num_agents"] != self.portfolio_specification["agent_id"].nunique():
+            agents_OK = False
+            num_agents_msg = f"\nNumber of agents specified differs between settings and portfolio specification.\nSettings file num_agents: {self.settings['num_agents']}  |  Portfolio spec num_agents: {self.portfolio_specification['agent_id'].nunique()}."
+
+
+        # Check step 2: ensure total assets owned by agent by type equals
+        #   total assets by type in the system
+        owned_units = self.portfolio_specification.groupby("unit_type")["num_units"].sum()
+        incorrect_units = dict()
+        for unit_type in list(pdf["Unit Type"]):
+            if pdf[pdf["Unit Type"] == unit_type]["EXUNITS"].values[0] != owned_units[unit_type]:
+                portfolio_OK = False
+                incorrect_units[unit_type] = (pdf[pdf["Unit Type"] == unit_type]["EXUNITS"].values[0], owned_units[unit_type])
+
+        # If unit type numbers don't match, construct a helpful error message for the user
+        if not portfolio_OK:
+            msg_list = []
+            for unit_type in incorrect_units.keys():
+                msg = f"{unit_type}:: System Portfolio Total: {incorrect_units[unit_type][0]}  |  Ownership Specification Total: {incorrect_units[unit_type][1]}"
+                msg_list.append(msg)
+            preamble = "\nThe number of units by generator type does not match between the overall system portfolio specification and the individual agents' portfolios:\n"
+            postamble = "\n\nEnsure that the total number of units for each type matches between the system portfolio file and the agent ownership file. \nTerminating..."
+            units_owned_msg = preamble + "\n".join(msg_list) + postamble
+
+        # If something went wrong in the checks, display an error message and quit
+        if not (agents_OK and portfolio_OK):
+            print("\nError: the agent portfolio specification does not match other simulation settings.")
+            if not agents_OK:
+                print(num_agents_msg)
+            if not portfolio_OK:
+                print(units_owned_msg)
+            exit()
+
+
+    def initialize_agent_assets(self, agent_id):
+        # Get the agent-specific portfolio by unit type: filter the manifest
+        #   of agent unit ownership for the current agent's unique ID
+        pdf = self.portfolio_specification[self.portfolio_specification["agent_id"] == agent_id]
+
+        # Set the initial asset ID
+        asset_id = ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"])
+
+        # Set up the master asset dataframe to hold all asset data for saving
+        #   into the database
+        master_asset_df = pd.DataFrame()
+
+        # Assign units to this agent as specified in the portfolio file,
+        #   and record each in the master_asset_df dataframe
+        for unit_type in list(pdf["unit_type"]):
+            # Get the asset id
+
+            # Retrieve the list of retirement period data for this unit type
+            #   and agent, and create the cumulative-sum threshold mapping
+            unit_rets = self.create_unit_type_retirement_df(unit_type, asset_id)
+
+            for j in range(pdf.loc[pdf["unit_type"] == unit_type, "num_units"].values[0]):
+                # Assign the appropriate retirement period
+                retirement_pd = self.assign_retirement_pd(unit_rets, asset_id)
+
+                # Compute unit capex according to the unit type spec
+                unit_capex = self.compute_total_capex_preexisting(unit_type)
+
+                # Default: assume all pre-existing assets have $0 outstanding
+                #   financing balance. To add obligations for capital payments
+                #   on pre-existing assets, uncomment the code lines below
+                # Compute the asset's annual capital payment, if the asset is
+                #   not paid off. The asset's unit_life value is used as the
+                #   repayment term for financing (i.e. useful life = financing
+                #   maturity period).
+                #unit_life = self.unit_specs.loc[unit_type, "unit_life"]
+                #unit_cap_pmt = self.compute_sinking_fund_payment(agent_id, unit_capex, unit_life)
+                cap_pmt = 0
+
+                # Create the dictionary of asset characteristics
+                asset_dict = {"asset_id": asset_id,
+                              "agent_id": agent_id,
+                              "unit_type": unit_type,
+                              "revealed": "true",
+                              "start_pd": -1,
+                              "completion_pd": 0,
+                              "cancellation_pd": 9999,
+                              "retirement_pd": 9999,
+                              "total_capex": unit_capex,
+                              "cap_pmt": cap_pmt}
+                new_asset = pd.DataFrame(asset_dict, index=[0])
+
+                # use the first asset's DataFrame as the template
+                if len(master_asset_df) == 0:
+                    master_asset_df = new_asset
+                else:
+                    master_asset_df = master_asset_df.append(new_asset)
+
+                # Increment the asset id for the next asset
+                asset_id = max(ABCE.get_next_asset_id(self.db, asset_id), max(master_asset_df["asset_id"])+1)
+
+        # Save the dataframe of all assets into the 'assets' DB table
+        master_asset_df.to_sql("assets", self.db, if_exists="append", index=False)
+
+
+    def compute_total_capex_preexisting(self, unit_type):
+        unit_cost_per_kW = self.unit_specs.loc[unit_type, "uc_x"]
+        unit_capacity = self.unit_specs.loc[unit_type, "capacity"]
+
+        total_capex = unit_cost_per_kW * unit_capacity * self.MW2kW
+
+        return total_capex
+
+
+    def create_unit_type_retirement_df(self, unit_type, starting_asset_id):
+        """
+        Create the step-function mapping to determine which units are assigned
+          which mandatory retirement periods.
+        """
+        # Filter the df of retirement period data for the current unit type
+        unit_type_rets = self.ret_data[self.ret_data["unit_type"] == unit_type].copy()
+
+        # Sort from soonest to furthest-away retirement period
+        unit_type_rets = unit_type_rets.sort_values(by="retirement_pd", axis=0, ascending=True, ignore_index=True)
+
+        # Generate the thresholds for each retirement period, starting with
+        #   the next available asset id. These thresholds indicate the END
+        #   (i.e. NON-INCLUSIVE) of each assignment interval. A row with an
+        #   `rp_threshold` of 2005 and a `retirement_pd` of 12 means that any
+        #   assets with IDs strictly less than 2005 will receive a 
+        #   `retirement_pd` of 12 (unless they qualify for a lower threshold
+        #   category).
+        unit_type_rets["rp_threshold"] = np.cumsum(unit_type_rets["num_copies"].to_numpy(), axis=0) + starting_asset_id
+
+        return unit_type_rets
+
+
+    def assign_retirement_pd(self, unit_type_rets, current_asset_id):
+        """Compare the current asset ID against the classification thresholds
+           in unit_type_rets, to determine the asset's mandatory retirement
+           period.
+        """
+        # If no retirement period is specified, set the asset to never retire
+        #    (i.e. retirement period is a Large Number)
+        retirement_pd = 9999
+
+        for i in range(len(unit_type_rets)):
+            if current_asset_id < unit_type_rets.loc[i, "rp_threshold"]:
+                retirement_pd = unit_type_rets.loc[i, "retirement_pd"]
+                break   # Once the correct bin is found, exit the loop
+
+        return retirement_pd
+
+
     def load_demand_data_to_db(self, settings):
         # Load all-period demand data into the database
         demand_data_file = os.path.join(settings["ABCE_abs_path"],
@@ -500,6 +680,7 @@ class GridModel(Model):
             sp = subprocess.check_call([aleaf_cmd], shell=True)
 
         self.save_ALEAF_outputs()
+
 
     def save_ALEAF_outputs(self):
         # Copy all ALEAF output files to the output directory, with
