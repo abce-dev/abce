@@ -1,4 +1,11 @@
-agent_id, unit_type, useful_life, num_copies
-201, Wind, 15, 2
-201, Nuclear, 12, 1
-202, Wind, 10, 1
+agent_id,unit_type,num_units
+201,Wind,300
+201,Solar,25
+201,AdvancedNuclear,17
+201,NGCC,250
+201,NGCT,450
+202,Wind,43
+202,Solar,10
+202,Nuclear,0
+202,NGCC,30
+202,NGCT,58
