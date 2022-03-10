@@ -654,11 +654,8 @@ class GridModel(Model):
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
         # Update the A-LEAF system portfolio based on any new units completed
-        #    this round
-        # If the current period is 0, then do not update the portfolio
-        #    (already done in self.init())
-        if self.current_step != 0:
-            ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_remote, self.ALEAF_portfolio_remote, self.db, self.current_step)
+        #   or units retired this period
+        ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_remote, self.ALEAF_portfolio_remote, self.db, self.current_step)
 
         # Update ALEAF peak demand
         ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,

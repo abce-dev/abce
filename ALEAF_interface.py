@@ -9,16 +9,6 @@ import sqlite3
 import seed_creator as sc
 
 
-def get_new_units(db, current_pd):
-    # Retrieve the unit types of all units completed during the current period
-    new_assets = pd.read_sql_query("SELECT unit_type FROM assets " +
-                                   f"WHERE completion_pd = {current_pd}", db)
-    # Count the number of units of each type using groupby()
-    new_assets["num_units"] = 1
-    new_assets = new_assets.groupby("unit_type").sum()
-    return new_assets
-
-
 def prepare_xlsx_data(ref_data_file, destination_file):
     book = openpyxl.load_workbook(ref_data_file)
     writer = pd.ExcelWriter(destination_file, engine="openpyxl")
@@ -29,12 +19,17 @@ def prepare_xlsx_data(ref_data_file, destination_file):
 
 
 def update_ALEAF_system_portfolio(ALEAF_portfolio_ref, ALEAF_portfolio_remote, db, current_pd):
-    new_assets = get_new_units(db, current_pd)
-    book, writer = prepare_xlsx_data(ALEAF_portfolio_ref, ALEAF_portfolio_remote)
+    # Get the updated list of currently-operating units by unit type
+    unit_type_count = pd.read_sql_query(f"SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= {current_pd} AND retirement_pd > {current_pd} AND cancellation_pd > {current_pd} GROUP BY unit_type", db)
+    unit_type_count = unit_type_count.set_index("unit_type")
 
+    # Retrieve and organize the A-LEAF system portfolio
+    book, writer = prepare_xlsx_data(ALEAF_portfolio_ref, ALEAF_portfolio_remote)
     df = organize_ALEAF_portfolio(writer)
-    for unit_type in list(new_assets.index):
-        df.loc[(df["bus_i"] == 1) & (df["Unit Type"] == unit_type), "EXUNITS"] += new_assets.loc[unit_type, "num_units"]
+
+    # Update unit type numbers
+    for unit_type in list(unit_type_count.index):
+        df.loc[(df["bus_i"] == 1) & (df["Unit Type"] == unit_type), "EXUNITS"] = unit_type_count.loc[unit_type, "COUNT(unit_type)"]
     df.to_excel(writer, sheet_name="gen", header=True, index=False)
     writer.save()
 
