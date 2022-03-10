@@ -832,7 +832,7 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
+function set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
     # Create the model object
     @info "Setting up model..."
     m = Model(GLPK.Optimizer)
@@ -878,7 +878,7 @@ function set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new
 
     # Restrict total construction to be less than maximum available demand
     for i = 1:num_time_periods
-        @constraint(m, transpose(u) * marg_gen[:, i] <= available_demand[i]*1.5)
+        @constraint(m, transpose(u) * marg_gen[:, i] <= available_demand[i]*agent_params[1, "aggressiveness"])
     end
 
     for i = 1:num_alternatives

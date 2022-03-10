@@ -216,7 +216,7 @@ end
 @info "Data initialized."
 
 ###### Set up the model
-m = set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
+m = set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
 
 ###### Solve the model
 @info "Solving optimization problem..."
