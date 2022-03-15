@@ -440,8 +440,6 @@ class GridModel(Model):
         # Assign units to this agent as specified in the portfolio file,
         #   and record each in the master_asset_df dataframe
         for unit_type in list(pdf["unit_type"]):
-            # Get the asset id
-
             # Retrieve the list of retirement period data for this unit type
             #   and agent, and create the cumulative-sum threshold mapping
             unit_rets = self.create_unit_type_retirement_df(unit_type, asset_id)
@@ -472,7 +470,7 @@ class GridModel(Model):
                               "start_pd": -1,
                               "completion_pd": 0,
                               "cancellation_pd": 9999,
-                              "retirement_pd": 9999,
+                              "retirement_pd": retirement_pd,
                               "total_capex": unit_capex,
                               "cap_pmt": cap_pmt}
                 new_asset = pd.DataFrame(asset_dict, index=[0])
