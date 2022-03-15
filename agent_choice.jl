@@ -98,7 +98,7 @@ fc_pd = set_forecast_period(unit_data, num_lags)
 available_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
-available_demand = get_net_demand(db, pd, agent_id, fc_pd, available_demand)
+installed_capacity_forecast, available_demand = get_net_demand(db, pd, agent_id, fc_pd, available_demand)
 @info "Available demand:"
 @info DataFrame(net_demand = available_demand)[1:10, :]
 
@@ -216,7 +216,7 @@ end
 @info "Data initialized."
 
 ###### Set up the model
-m = set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
+m = set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts, unit_data, installed_capacity_forecast)
 
 ###### Solve the model
 @info "Solving optimization problem..."
