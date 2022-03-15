@@ -682,9 +682,11 @@ class GridModel(Model):
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
 
-        # Reveal new information to all market participants
-        projects_to_reveal = self.get_projects_to_reveal()
-        self.reveal_decisions(projects_to_reveal)
+        # Transfer all decisions and updates from the 'asset_updates' and
+        #   'WIP_updates' tables into their respective public-information
+        #   equivalents
+        self.execute_all_status_updates()
+
         if not self.args.quiet:
             print("Table of all assets:")
             print(pd.read_sql("SELECT * FROM assets", self.db))
@@ -765,4 +767,259 @@ class GridModel(Model):
             self.cur.execute(f"UPDATE assets SET revealed = 'true' WHERE " +
                              f"asset_id = '{asset_id}'")
         self.db.commit()
+
+
+    def update_WIP_projects(self):
+        """
+        Update the status and projections-to-completion for all current WIP
+        projects.
+
+        This function iterates over all WIP projects which are currently
+        ongoing (not cancelled or completed).
+          1. A stochastic escalation generator extends the projected cost
+               and/or schedule to completion according to the project type.
+          2. The current ANPE amount is applied to the outstanding RCEC.
+          3. If this is enough to complete the project, the project is marked
+               as completed ('completion_pd' in the 'assets' table is set to
+               the current period).
+          4. The new project status, including updated RCEC and RTEC, is saved
+               to the 'WIP_projects' table.
+        """
+
+        # Get a list of all currently-active construction projects
+        WIP_projects = pd.read_sql("SELECT * FROM assets WHERE " +
+                                   f"completion_pd >= {self.current_step} AND " +
+                                   f"cancellation_pd > {self.current_step}",
+                                   self.db)
+
+        # Update each project one at a time
+        for asset_id in WIP_projects.asset_id:
+            # Select this project's most recent data record
+            project_data = self.retrieve_project_data(asset_id)
+
+            # If construction cost escalation is enabled in the settings file,
+            #   update project_data to reflect cost and schedule escalation
+            #   which occurred during the previous period
+            if self.settings["xtr_escalation_enabled"]:
+                project_data = self.escalate_cost_and_schedule(project_data)
+
+            # Update total capital expenditures to date and current RCEC/RTEC
+            project_data = self.advance_project_to_current_period(project_data)
+
+            # If this period's authorized expenditures (ANPE) clear the RCEC,
+            #   then the project is complete
+            if project_data.loc[0, "rcec"] <= self.settings["large_epsilon"]:
+                # Record the project's completion period as the current period
+                self.record_completed_xtr_project(project_data)
+
+            # Record updates to the WIP project's status
+            self.record_WIP_project_updates(project_data)
+
+            # Record updates to the project's expected completion date in the
+            #   database 'assets' table
+            self.update_expected_completion_period(project_data)
+
+
+    def retrieve_project_data(self, asset_id):
+        project_data = pd.read_sql("SELECT * FROM WIP_projects WHERE " +
+                                   f"asset_id = {asset_id} AND " +
+                                   f"period = {self.current_step - 1}",
+                                   self.db)
+
+        temp_asset_data = pd.read_sql("SELECT * FROM assets WHERE " +
+                                      f"asset_id = {asset_id}", self.db)
+
+        project_data = project_data.merge(temp_asset_data,
+                                          how = "inner",
+                                          on = ["asset_id", "agent_id"])
+
+        return project_data
+
+
+    def record_completed_xtr_project(self, project_data):
+        asset_id = project_data.loc[0, "asset_id"]
+
+        # Record the project's completion period as the current period
+        self.cur.execute(f"UPDATE assets " +
+                         f"SET completion_pd = {self.current_step} " +
+                         f"WHERE asset_id = {asset_id}")
+
+        # Compute and record the total CapEx for the project
+        self.cur.execute(f"UPDATE assets " +
+                         f"SET total_capex = {project_data.cum_exp.values[0]} " +
+                         f"WHERE asset_id = {asset_id}")
+
+        # Compute periodic sinking fund payments
+        unit_type = project_data.loc[0, "unit_type"]
+        unit_life = self.unit_specs.loc[unit_type, "unit_life"]
+        capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], project_data.loc[0, "cum_exp"], unit_life)
+        self.cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} " +
+                         f"WHERE asset_id = {asset_id}")
+
+        # Commit changes to database
+        self.db.commit()
+
+
+    def record_WIP_project_updates(self, project_data):
+        # Set new_anpe = 0 to avoid inter-period contamination
+        new_anpe = 0
+        # Update the 'WIP_projects' table with new RCEC/RTEC/ANPE values
+        self.cur.execute("INSERT INTO WIP_projects VALUES " +
+                         f"({project_data.asset_id.values[0]}, " +
+                         f"{project_data.agent_id.values[0]}, " +
+                         f"{self.current_step}, " +
+                         f"{project_data.cum_occ.values[0]}, " +
+                         f"{project_data.rcec.values[0]}, " +
+                         f"{project_data.cum_d_x.values[0]}, " +
+                         f"{project_data.rtec.values[0]}, " +
+                         f"{project_data.cum_exp.values[0]}, " +
+                         f"{new_anpe})")
+
+        # Save changes to the database
+        self.db.commit()
+
+
+    def compute_total_capex_newbuild(self, asset_id):
+        """
+        For assets which are newly completed during any period except period 0:
+        Retrieve all previously-recorded capital expenditures (via 'anpe', i.e.
+        "Authorized Next-Period Expenditures") for the indicated asset ID from
+        the database, and sum them to return the total capital expenditure (up
+        to the current period).
+
+        Args:
+          asset_id (int): asset for which to compute total capex
+
+        Returns:
+          total_capex (float): total capital expenditures up to the present period
+        """
+
+        total_capex = pd.read_sql("SELECT SUM(anpe) FROM WIP_projects WHERE " +
+                                 f"asset_id = {asset_id}", self.db).iloc[0, 0]
+        return total_capex
+
+
+    def compute_sinking_fund_payment(self, agent_id, total_capex, term):
+        """
+        Compute a constant sinking-fund payment based on a total capital-
+        expenditures amount and the life of the investment, using the specified
+        agent's financial parameters.
+
+        Args:
+          agent_id (int): the unique ID of the owning agent, to retrieve
+            financial data
+          total_capex (float): total capital expenditures on the project
+          term (int or float): term over which to amortize capex
+
+        Returns:
+          cap_pmt (float): equal capital repayments to make over the course
+            of the indicated amortization term
+        """
+
+        agent_params = pd.read_sql("SELECT * FROM agent_params WHERE " +
+                                   f"agent_id = {agent_id}", self.db)        
+
+        wacc = (agent_params.debt_fraction * agent_params.cost_of_debt
+                + (1 - agent_params.debt_fraction) * agent_params.cost_of_equity)
+        cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
+
+        # Convert cap_pmt from a single-entry Series to a scalar
+        cap_pmt = cap_pmt[0]
+
+        return cap_pmt
+
+
+    def escalate_cost_and_schedule(self, project_data):
+        """
+        Generate escalation for a unit's remaining cost expected to completion
+        (RCEC) and remaining time expected to completion (RTEC).
+        """
+        # Retrieve unit type data for easy access
+        unit_type = project_data.loc[0, "unit_type"]
+        unit_type_data = self.unit_specs.loc[unit_type, :]
+
+        # Compute time delay
+        escalated_rtec = project_data.loc[0, "rtec"]
+
+        # Compute cost overrun
+        cost_esc_factor = random.uniform(-1.0, 1.0) * unit_type_data["occ_variance"]
+        new_cum_occ = project_data.loc[0, "cum_occ"] * (1 + cost_esc_factor)
+
+        # Compute forced schedule delay due to cost increase beyond maximum
+        #   productive investment rate
+        # Temporary assumption: the max production rate is equivalent to
+        #   building the nominal-cost unit in the nominal expected construction
+        #   time
+        max_invest_rate = unit_type_data["uc_x"] * unit_type_data["capacity"] * self.MW2kW / unit_type_data["d_x"]
+        # RTEC is always an integer, due to discrete simulation time periods
+        forced_rtec = (new_cum_occ - project_data.loc[0, "cum_exp"]) / max_invest_rate
+        # Overall RTEC is the greater of the two generated RTEC values
+        schedule_slip = (escalated_rtec - project_data.loc[0, "rtec"]) + max(forced_rtec - project_data.loc[0, "rtec"], 0)
+        project_data.loc[0, "cum_d_x"] += schedule_slip
+        project_data.loc[0, "rtec"] = math.ceil(project_data.loc[0, "cum_d_x"] - (self.current_step - project_data.loc[0, "start_pd"] - 1))
+
+        # Cover as much cost escalation as possible within the period's ANPE
+        #   without exceeding the maximum productive investment rate
+        project_data.loc[0, "anpe"] = min(max_invest_rate, (project_data.loc[0, "anpe"] + (new_cum_occ - project_data.loc[0, "cum_occ"])))
+
+        # Compute final new RCEC and cumulative overnight capital cost
+        project_data.loc[0, "rcec"] += (new_cum_occ - project_data.loc[0, "cum_occ"])
+        project_data.loc[0, "cum_occ"] = new_cum_occ
+
+        return project_data
+
+    def advance_project_to_current_period(self, project_data):
+        # Escalated RTEC is reduced by one
+        project_data.loc[0, "rtec"] -= 1
+
+        # Escalated RCEC is reduced by ANPE
+        project_data.loc[0, "rcec"] -= project_data.loc[0, "anpe"]
+
+        # Cumulative capital expenditures are increased by ANPE
+        project_data.loc[0, "cum_exp"] += project_data.loc[0, "anpe"]
+
+        # Project ANPE is reset to 0 after being expended
+        project_data.loc[0, "anpe"] = 0
+
+        return project_data
+
+
+    def update_expected_completion_period(self, project_data):
+        asset_id = project_data.loc[0, "asset_id"]
+        new_completion_pd = project_data.loc[0, "rtec"] + self.current_step
+        
+        self.cur.execute(f"UPDATE assets SET completion_pd = {new_completion_pd} " +
+                         f"WHERE asset_id = {asset_id}")
+        self.db.commit()
+
+
+    def execute_all_status_updates(self):
+        WIP_updates = pd.read_sql_query("SELECT * FROM WIP_updates", self.db)
+        asset_updates = pd.read_sql_query("SELECT * FROM asset_updates", self.db)
+
+        # Record newly-started WIP projects from the agents' decisions
+        for i in range(len(WIP_updates)):
+            project_data = WIP_updates.iloc[[i]].copy().reset_index().drop("index", axis=1)
+            project_data.to_sql("WIP_projects", self.db, if_exists="append", index=False)
+            self.db.commit()
+
+        # Record status updates to existing assets (i.e. retirements)
+        for i in range(len(asset_updates)):
+            new_data = asset_updates.iloc[[i]].copy().reset_index().drop("index", axis=1)
+            orig_data = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {new_data.loc[0, 'asset_id']}", self.db)
+            if len(orig_data) == 0:
+                # The asset does not already exist and an entry must be added
+                new_data.to_sql("assets", self.db, if_exists="append", index=False)
+            else:
+                # Update any columns for which the new_data values do not match
+                #   the orig_data values
+                for header in new_data.columns:
+                    if new_data.loc[0, header] != orig_data.loc[0, header] and header == "retirement_pd":
+                        self.cur.execute(f"UPDATE assets SET {header} = {new_data.loc[0, header]} WHERE asset_id = {new_data.loc[0, 'asset_id']}")
+        self.db.commit()
+
+
+
+
+
 
