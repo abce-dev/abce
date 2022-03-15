@@ -21,7 +21,7 @@ import pandas as pd
 
 # Database Specification:
 abce_tables = {"WIP_projects": 
-                 [("asset_id", "integer", "PRIMARY KEY"), # Julia, Python
+                 [("asset_id", "integer", "PRIMARY KEY"),
                   ("agent_id", "integer"),
                   ("period", "real"),
                   ("cum_occ", "real"),
@@ -37,10 +37,47 @@ abce_tables = {"WIP_projects":
                   ("agent_id", "integer"),
                   ("unit_type", "text"),
                   ("revealed", "text"),
-                  ("start_pd", "real"),
-                  ("completion_pd", "real"),
-                  ("cancellation_pd", "real"),
-                  ("retirement_pd", "real"),
+                  ("start_pd", "integer"),
+                  ("completion_pd", "integer"),
+                  ("cancellation_pd", "integer"),
+                  ("retirement_pd", "integer"),
+                  ("total_capex", "real"),
+                  ("cap_pmt", "real")
+                 ],
+
+               # Table to temporarily hold updates on construction progress
+               #   during decision rounds
+               # Agents append their own updates to this table at the end of
+               #   their decision turn. After all decision turns in each round,
+               #   the Model object executes these updates into the
+               #   'WIP_projects' table, and empties this table.
+               "WIP_updates": 
+                 [("asset_id", "integer", "PRIMARY KEY"),
+                  ("agent_id", "integer"),
+                  ("period", "real"),
+                  ("cum_occ", "real"),
+                  ("rcec", "real"),
+                  ("cum_d_x", "real"),
+                  ("rtec", "real"),
+                  ("cum_exp", "real"),
+                  ("anpe", "real")
+                 ],
+
+               # Table to temporarily hold agent decisions about asset status
+               #   updates (e.g. retirements) during decision rounds
+               # Agents append their own updates to this table at the end of
+               #   their decision turn. After all decision turns in this round,
+               #   the Model object executes these updates into the 'assets'
+               #   table, and empties this table.
+               "asset_updates":
+                 [("asset_id", "integer", "PRIMARY KEY"),
+                  ("agent_id", "integer"),
+                  ("unit_type", "text"),
+                  ("revealed", "text"),
+                  ("start_pd", "integer"),
+                  ("completion_pd", "integer"),
+                  ("cancellation_pd", "integer"),
+                  ("retirement_pd", "integer"),
                   ("total_capex", "real"),
                   ("cap_pmt", "real")
                  ],

@@ -642,9 +642,11 @@ class GridModel(Model):
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
 
-        # Reveal new information to all market participants
-        projects_to_reveal = self.get_projects_to_reveal()
-        self.reveal_decisions(projects_to_reveal)
+        # Transfer all decisions and updates from the 'asset_updates' and
+        #   'WIP_updates' tables into their respective public-information
+        #   equivalents
+        self.execute_all_status_updates()
+
         if not self.args.quiet:
             print("Table of all assets:")
             print(pd.read_sql("SELECT * FROM assets", self.db))
@@ -946,4 +948,35 @@ class GridModel(Model):
         self.cur.execute(f"UPDATE assets SET completion_pd = {new_completion_pd} " +
                          f"WHERE asset_id = {asset_id}")
         self.db.commit()
+
+
+    def execute_all_status_updates(self):
+        WIP_updates = pd.read_sql_query("SELECT * FROM WIP_updates", self.db)
+        asset_updates = pd.read_sql_query("SELECT * FROM asset_updates", self.db)
+
+        # Record newly-started WIP projects from the agents' decisions
+        for i in range(len(WIP_updates)):
+            project_data = WIP_updates.iloc[[i]].copy().reset_index().drop("index", axis=1)
+            project_data.to_sql("WIP_projects", self.db, if_exists="append", index=False)
+            self.db.commit()
+
+        # Record status updates to existing assets (i.e. retirements)
+        for i in range(len(asset_updates)):
+            new_data = asset_updates.iloc[[i]].copy().reset_index().drop("index", axis=1)
+            orig_data = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {new_data.loc[0, 'asset_id']}", self.db)
+            if len(orig_data) == 0:
+                # The asset does not already exist and an entry must be added
+                new_data.to_sql("assets", self.db, if_exists="append", index=False)
+            else:
+                # Update any columns for which the new_data values do not match
+                #   the orig_data values
+                for header in new_data.columns:
+                    if new_data.loc[0, header] != orig_data.loc[0, header] and header == "retirement_pd":
+                        self.cur.execute(f"UPDATE assets SET {header} = {new_data.loc[0, header]} WHERE asset_id = {new_data.loc[0, 'asset_id']}")
+        self.db.commit()
+
+
+
+
+
 
