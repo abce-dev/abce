@@ -162,5 +162,5 @@ for y = 1:size(PD)[1]
     CSV.write(gfile, g_results)
     CSV.write(cfile, c_results)
 
-    @info "Results written to ./gen_results.csv."
+    @info "Results written to $gfile and $cfile."
 end
