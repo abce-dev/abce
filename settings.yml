@@ -14,8 +14,8 @@ output_file: "outputs.xlsx"
 first_agent_id: 201
 first_asset_id: 2001
 
-num_agents: 1
-num_steps: 6
+num_agents: 3
+num_steps: 8
 
 xtr_escalation_enabled: True
 
