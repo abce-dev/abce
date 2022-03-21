@@ -10,19 +10,19 @@ PD = 80000
 repday_ids = [10, 45, 180, 292, 355]
 
 # Load the time-series demand and VRE data into dataframes
-ts_data = CSV.read("./timeseries_load_hourly.csv", DataFrame)
-wind_data = CSV.read("./timeseries_wind_hourly.csv", DataFrame)
-solar_data = CSV.read("./timeseries_pv_hourly.csv", DataFrame)
+ts_data = CSV.read("./inputs/ALEAF_inputs/timeseries_load_hourly.csv", DataFrame)
+wind_data = CSV.read("./inputs/ALEAF_inputs/timeseries_wind_hourly.csv", DataFrame)
+solar_data = CSV.read("./inputs/ALEAF_inputs/timeseries_pv_hourly.csv", DataFrame)
 
 # Load the unit specs data into a dataframe
-unit_specs_data, unit_spec_labels = XLSX.readtable("./ALEAF_Master_LC_GEP.xlsx", "Gen Technology", header=true)
+unit_specs_data, unit_spec_labels = XLSX.readtable("./inputs/ALEAF_inputs/ALEAF_Master_LC_GEP_dispatch.xlsx", "Gen Technology", header=true)
 unit_specs = DataFrame()
 for i in 1:size(unit_spec_labels)[1]
     unit_specs[!, unit_spec_labels[i]] = unit_specs_data[i]
 end
 
 # Set up system portfolio data
-portfolio_data, portfolio_headers = XLSX.readtable("./ALEAF_ERCOT.xlsx", "gen", header=true)
+portfolio_data, portfolio_headers = XLSX.readtable("./inputs/ALEAF_inputs/ALEAF_ERCOT_5units.xlsx", "gen", header=true)
 portfolio = DataFrame()
 # Retrieving from fixed columns because I had problems filtering on
 #   Symbol-type headers.........
@@ -40,6 +40,16 @@ for i = 1:size(portfolio)[1]
     unit_capacity = unit_specs[index, :CAP][1]
     unit_capcred = unit_specs[index, :CAPCRED][1]
     portfolio[i, :total_capacity] = portfolio[i, :num_units] * unit_capacity * unit_capcred
+end
+
+# Add a CF column to unit_specs
+unit_specs[!, :CF] .= 1
+# non-VRE uses CAPCRED as CF
+for i = 1:size(unit_specs)[1]
+    if unit_specs[i, :VRE_Flag] == "FALSE"
+        println("non-VRE")
+        unit_specs[i, :CF] = unit_specs[i, :CAPCRED]
+    end
 end
 
 # Scale the wind and solar data according to the total installed capacities
@@ -92,7 +102,7 @@ end
 # Limit total generation per unit type each hour to the total capacity of all
 #   committed units of this type, with committed units subject to minimum and
 #   maximum power levels
-for i = 1:num_units
+for i = 3:num_units
     for k = 1:num_days
         for j = 1:num_hours
             @constraint(m, g[i, k, j] <= c[i, k, j] .* unit_specs[i, :CAP] .* unit_specs[i, :CF] .* unit_specs[i, :PMAX])
