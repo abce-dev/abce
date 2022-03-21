@@ -15,3 +15,4 @@ precompile.jl
 *RTM*
 outputs/*
 *.toml
+*.so
