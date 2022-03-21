@@ -253,7 +253,6 @@ for i = 1:size(all_results)[1]
             cum_exp = 0
             cum_d_x = unit_type_data[:d_x]
             rtec = cum_d_x
-            revealed = "false"
             start_pd = pd
             completion_pd = pd + unit_type_data[:d_x]
             cancellation_pd = 9999
@@ -270,8 +269,8 @@ for i = 1:size(all_results)[1]
                 DBInterface.execute(db, "INSERT INTO WIP_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", WIP_projects_vals)
 
                 # Update `assets` table
-                assets_vals = (next_id, agent_id, result[:unit_type], revealed, start_pd, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
-                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
+                assets_vals = (next_id, agent_id, result[:unit_type], start_pd, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
+                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
             end
         end
 
@@ -284,8 +283,8 @@ for i = 1:size(all_results)[1]
             # Retire as many existing assets as indicated by u
             for j = 1:result[:units_to_execute]
                 ret = matching_assets[j, :]
-                asset_vals = (ret[:asset_id], ret[:agent_id], ret[:unit_type], ret[:revealed], ret[:start_pd], ret[:completion_pd], ret[:cancellation_pd], pd, ret[:total_capex], ret[:cap_pmt])
-                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", asset_vals)
+                asset_vals = (ret[:asset_id], ret[:agent_id], ret[:unit_type], ret[:start_pd], ret[:completion_pd], ret[:cancellation_pd], pd, ret[:total_capex], ret[:cap_pmt])
+                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", asset_vals)
             end
         end
     end
