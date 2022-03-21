@@ -510,7 +510,6 @@ class GridModel(Model):
                 asset_dict = {"asset_id": asset_id,
                               "agent_id": agent_id,
                               "unit_type": unit_type,
-                              "revealed": "true",
                               "start_pd": -1,
                               "completion_pd": 0,
                               "cancellation_pd": 9999,
@@ -998,10 +997,8 @@ class GridModel(Model):
         asset_updates = pd.read_sql_query("SELECT * FROM asset_updates", self.db)
 
         # Record newly-started WIP projects from the agents' decisions
-        for i in range(len(WIP_updates)):
-            project_data = WIP_updates.iloc[[i]].copy().reset_index().drop("index", axis=1)
-            project_data.to_sql("WIP_projects", self.db, if_exists="append", index=False)
-            self.db.commit()
+        WIP_updates.to_sql("WIP_projects", self.db, if_exists="append", index=False)
+        self.db.commit()
 
         # Record status updates to existing assets (i.e. retirements)
         for i in range(len(asset_updates)):
