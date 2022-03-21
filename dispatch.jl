@@ -8,7 +8,7 @@ using CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, BilevelJuMP
 
 # Peak demand values: number of entries determines number of years considered
 PD = [80000, 81000, 83000]
-repday_ids = [10, 45, 180, 292, 355]
+repday_ids = [10, 90, 180, 292, 355]
 
 # Load the time-series demand and VRE data into dataframes
 ts_data = CSV.read("./inputs/ALEAF_inputs/timeseries_load_hourly.csv", DataFrame)
@@ -84,11 +84,7 @@ for y = 1:size(PD)[1]
     @variable(m, c[1:num_units, 1:num_days, 1:num_hours] >= 0, Int)
 
     # Total generation per hour must be greater than or equal to the demand
-    for k = 1:num_days
-        for j = 1:num_hours
-            @constraint(m, sum(g[i, k, j] for i = 1:num_units) >= load_repdays[j, k])
-        end
-    end
+    @constraint(m, mkt_equil[k=1:num_days, j=1:num_hours], sum(g[i, k, j] for i = 1:num_units) >= load_repdays[j, k])
 
     # Number of committed units per hour must be less than or equal to the total
     #   number of units of that type in the system
