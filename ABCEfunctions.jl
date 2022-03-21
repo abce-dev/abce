@@ -231,7 +231,7 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
     installed_cap_forecast = DataFrame(period = Int64[], derated_capacity = Float64[])
     vals = (pd, pd)
     # Select a list of all current assets, which are not cancelled, retired, or hidden from public view
-    current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ? AND revealed = 'true'", vals) |> DataFrame
+    current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ?", vals) |> DataFrame
     if size(current_assets)[1] == 0
         @warn "There are no currently-active generation assets in the system; unpredictable behavior may occur."
     end
@@ -252,16 +252,19 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
         append!(installed_cap_forecast, df)
     end
     net_demand_forecast = demand_forecast[!, :demand] - installed_cap_forecast[!, :derated_capacity]
-    return net_demand_forecast
+    return installed_cap_forecast, net_demand_forecast
 end
 
 
 function get_next_asset_id(db)
     # Return the next available asset ID (one greater than the current largest ID)
-    SQL_get_ids = SQLite.Stmt(db, string("SELECT asset_id FROM assets"))
-    asset_df = DBInterface.execute(SQL_get_ids) |> DataFrame
-    #asset_df[!, :asset_id] = asset_df[:, :asset_id]
-    next_id = maximum(asset_df[!, :asset_id]) + 1
+    asset_max = DBInterface.execute(db, "SELECT MAX(asset_id) FROM assets") |> DataFrame
+    WIP_max = DBInterface.execute(db, "SELECT MAX(asset_id) FROM WIP_projects") |> DataFrame
+    pending_asset_max = DBInterface.execute(db, "SELECT MAX(asset_id) FROM asset_updates") |> DataFrame
+    pending_WIP_max = DBInterface.execute(db, "SELECT MAX(asset_id) FROM WIP_updates") |> DataFrame
+    results = skipmissing([asset_max[1, 1], WIP_max[1, 1], pending_asset_max[1, 1], pending_WIP_max[1, 1]])
+    next_id = maximum(results) + 1
+
     return next_id    
 end
 
@@ -832,13 +835,16 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
+function set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts, unit_specs, installed_capacity_forecast)
     # Create the model object
     @info "Setting up model..."
     m = Model(GLPK.Optimizer)
 
     # For debugging, enable the following line to increase verbosity
-    #set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+    set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+
+    # Set the MIP optimality gap parameter to improve solve times
+    set_optimizer_attribute(m, "mip_gap", 0.001)
 
     # Concatenate all results into unified data structures
     all_FS_dict = merge(unit_FS_dict, ret_FS_dict)
@@ -855,9 +861,11 @@ function set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, availab
 
     # To prevent unnecessary infeasibility conditions, convert nonpositive
     #   available_demand values to 0
+    nonnegative_available_demand = deepcopy(available_demand)
+    excess_supply = deepcopy(available_demand) * (-1)
     for i = 1:size(available_demand)[1]
-        if available_demand[i] < 0
-            available_demand[i] = 0
+        if nonnegative_available_demand[i] < 0
+            nonnegative_available_demand[i] = 0
         end
     end
 
@@ -876,10 +884,32 @@ function set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, availab
         end
     end
 
-    # Restrict total construction to be less than maximum available demand
-    for i = 1:num_time_periods
-        @constraint(m, transpose(u) * marg_gen[:, i] <= available_demand[i]*agent_params[1, "aggressiveness"])
+    # Restrict total construction to be less than maximum available demand,
+    for i = 4:num_time_periods
+        if excess_supply[i] > 0
+            @constraint(m, transpose(u) * marg_gen[:, i] <= (-1) * excess_supply[i] * agent_params[1, "aggressiveness"] * 0.2)
+#        elseif excess_supply[i] > 0
+#            @constraint(m, transpose(u) * marg_gen[:, i] <= (-1) * excess_supply[i] * 0.33)
+        end
     end
+
+    # Prevent agents from causing foreseeable short-term supply scarcity
+    protected_pd = 3
+    for i = 1:protected_pd
+        if excess_supply[i] < 0
+            @constraint(m, transpose(u) * marg_gen[:, i] >= 0)
+        elseif (excess_supply[i] >= 0) && (excess_supply[i] < installed_capacity_forecast[i, :derated_capacity] * 0.05)
+            @constraint(m, transpose(u) * marg_gen[:, i] >= (-1) * excess_supply[i] * 0.25)
+        elseif excess_supply[i] > installed_capacity_forecast[i, :derated_capacity] * 0.05
+            @constraint(m, transpose(u) * marg_gen[:, i] >= (-1) * excess_supply[i] * 0.4)
+        end
+    end
+
+    # Prevent agents from excessively overbuilding in the long term
+#    long_term_start = 3
+#    for i = long_term_start:num_time_periods
+#        @constraint(m, transpose(u) * marg_gen[:, i] <= installed_capacity_forecast[i, :derated_capacity] * 0.1 - excess_supply[i])
+#    end
 
     for i = 1:num_alternatives
         if all_NPV_results[i, :project_type] == "new_xtr"
