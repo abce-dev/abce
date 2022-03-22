@@ -43,6 +43,8 @@ num_hours = 24
 
 price_results = zeros(size(PD)[1], num_days*num_hours)
 
+all_gc_results = DataFrame(y = Int[], d = Int[], h = Int[], unit_type = String[], gen = Float64[], commit = Int[])
+
 # Iterate over all years
 for y = 1:size(PD)[1]
     @info string("Preparing period ", y)
@@ -143,35 +145,27 @@ for y = 1:size(PD)[1]
     # Optimize
     optimize!(m)
     status = termination_status.(m)
-    @info "Status: ", status
+    @info "Status: $status"
+    if status == MathOptInterface.OPTIMAL
+        @info "Problem solved successfully."
+    else
+        @info "Something may have gone wrong."
+    end
     gen_qty = value.(m[:g])
     c = value.(m[:c])
 
     # Save generation and commitment results
-    all_g_results = Dict()
-    all_c_results = Dict()
-    for k = 1:num_days
-        g_results = DataFrame(gen_qty[:, k, :])
-        c_results = DataFrame(c[:, k, :])
-        insertcols!(g_results, 1, :unit_type => unit_specs[!, :UNIT_TYPE])
-        insertcols!(c_results, 1, :unit_type => unit_specs[!, :UNIT_TYPE])
-        all_g_results[i] = g_results
-        all_c_results[i] = c_results
+    for k = 1:size(repdays_data)[1]
+        for j = 1:num_hours
+            for i = 1:num_units
+                line = (y = y, d = k, h = j,
+                        unit_type = unit_specs[i, :UNIT_TYPE],
+                        gen = gen_qty[i, k, j],
+                        commit = c[i, k, j])
+                push!(all_gc_results, line)
+            end
+        end
     end
-
-    g_results = all_g_results[1]
-    c_results = all_c_results[1]
-    for k = 2:num_days
-        append!(g_results, all_g_results[k])
-        append!(c_results, all_c_results[k])
-    end
-
-    gfile = string("./gen_results", y, ".csv")
-    cfile = string("./com_results", y, ".csv")
-    CSV.write(gfile, g_results)
-    CSV.write(cfile, c_results)
-
-    @info "Results written to $gfile and $cfile."
 
     # Set up a relaxed-integrality version of this model, to allow retrieval
     #   of dual values for the mkt_equil constraint
@@ -199,3 +193,6 @@ end
 
 pfile = "./price_results.csv"
 CSV.write(pfile, DataFrame(price_results))
+
+gcfile = "./gc_results.csv"
+CSV.write(gcfile, all_gc_results)
