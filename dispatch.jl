@@ -7,7 +7,7 @@ using CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, BilevelJuMP
 @info "Initializing data..."
 
 # Peak demand values: number of entries determines number of years considered
-PD = [80000, 81000, 83000]
+PD = [80000]
 
 # Load the time-series demand and VRE data into dataframes
 ts_data = CSV.read("./inputs/ALEAF_inputs/timeseries_load_hourly.csv", DataFrame)
@@ -41,8 +41,8 @@ num_days = size(repdays_data)[1]
 num_hours = 24
 @info "Data initialized."
 
-price_results = zeros(size(PD)[1], num_days*num_hours)
-
+#price_results = zeros(num_days*num_hours, size(PD)[1])
+all_prices = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
 all_gc_results = DataFrame(y = Int[], d = Int[], h = Int[], unit_type = String[], gen = Float64[], commit = Int[])
 
 # Iterate over all years
@@ -146,11 +146,6 @@ for y = 1:size(PD)[1]
     optimize!(m)
     status = termination_status.(m)
     @info "Status: $status"
-    if status == MathOptInterface.OPTIMAL
-        @info "Problem solved successfully."
-    else
-        @info "Something may have gone wrong."
-    end
     gen_qty = value.(m[:g])
     c = value.(m[:c])
 
@@ -185,9 +180,9 @@ for y = 1:size(PD)[1]
             prices[1, num_hours*(k-1) + j] = mkt_px[k, j]
         end
     end
-    price_results[y, :] = (-1) .* prices
-    @info "Market prices saved."
+    price_results[:, y] = (-1) .* prices
 
+    @info "Year $y dispatch run complete."
 end
 
 
@@ -196,3 +191,17 @@ CSV.write(pfile, DataFrame(price_results))
 
 gcfile = "./gc_results.csv"
 CSV.write(gcfile, all_gc_results)
+
+@info "All data saved."
+
+@info "Postprocessing results..."
+g_pivot = select(all_gc_results, Not(:commit))
+g_pivot = unstack(g_pivot, :unit_type, :gen)
+@info first(g_pivot, 10)
+
+c_pivot = select!(all_gc_results, Not(:gen))
+c_pivot = unstack(c_pivot, :unit_type, :commit)
+@info first(c_pivot, 10)
+
+
+
