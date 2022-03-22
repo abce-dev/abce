@@ -229,9 +229,21 @@ for unit_type in unit_specs[!, :UNIT_TYPE]
 end
 g_unpivot = select(g_pivot, fields_to_select)
 
+# Rename unit-specific columns from <type>profit to just <type> for clarity
+for unit_type in unit_specs[!, :UNIT_TYPE]
+    rename!(g_unpivot, Symbol(string(unit_type, "profit")) => Symbol(unit_type))
+end
+
 g_unpivot = stack(g_unpivot, 4:size(g_unpivot)[2])
-g_profitsum = combine(groupby(g_unpivot, [:y, :variable]), :value => sum => :annual_profit)
+
+# Rename new columns from automatic names to more descriptive ones
+rename!(g_unpivot, :variable => :unit_type, :value => :profit)
+
+g_unpivot = innerjoin(g_unpivot, portfolio, on = :unit_type)
+transform!(g_unpivot, [:profit, :num_units] => ((profit, num_units) -> profit ./ num_units) => :ProfitPerUnit)
+
+g_profitsum = combine(groupby(g_unpivot, [:y, :unit_type]), :ProfitPerUnit => sum => :annual_profit)
 
 @info g_profitsum
 
-CSV.write("unit_profit_summaruy.csv", g_profitsum)
+CSV.write("unit_profit_summary.csv", g_profitsum)
