@@ -235,6 +235,7 @@ g_unpivot = stack(g_unpivot, 4:size(g_unpivot)[2])
 # Rename new columns from automatic names to more descriptive ones
 rename!(g_unpivot, :variable => :unit_type, :value => :profit)
 
+# Calculate operating and net profit per unit per unit type
 g_unpivot = innerjoin(g_unpivot, portfolio, on = :unit_type)
 transform!(g_unpivot, [:profit, :num_units] => ((profit, num_units) -> profit ./ num_units) => :ProfitPerUnit)
 
@@ -248,8 +249,14 @@ for i = 1:size(g_profitsum)[1]
     g_profitsum[i, :FOM_per_unit] = unit_spec[1, :FOM] * unit_spec[1, :CAP] * 1000
 end
 
-transform!(g_profitsum, [:annual_profit, :FOM_per_unit] => ((profit, FOM) -> profit - FOM) => :net_profit_per_unit)
+# Re-pivot the final result to show annual net profit per unit for each
+#   unit type and year
+transform!(g_profitsum, [:annual_profit, :FOM_per_unit] =>
+           ((profit, FOM) -> profit - FOM) =>
+           :net_profit_per_unit)
 
-@info g_profitsum
+final_profit_pivot = unstack(select(g_profitsum, Not([:annual_profit, :FOM_per_unit])), :unit_type, :net_profit_per_unit)
 
-CSV.write("unit_profit_summary.csv", g_profitsum)
+CSV.write("unit_profit_summary.csv", final_profit_pivot)
+
+@info "Postprocessed data saved."
