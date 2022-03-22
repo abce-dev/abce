@@ -200,6 +200,7 @@ CSV.write(gcfile, all_gc_results)
 g_pivot = select(all_gc_results, Not(:commit))
 g_pivot = unstack(g_pivot, :unit_type, :gen)
 g_pivot = innerjoin(g_pivot, all_prices, on = [:y, :d, :h])
+g_pivot = innerjoin(g_pivot, select(repdays_data, [:index, :Probability]), on = [:d => :index])
 
 # Pivot commitment data by unit type
 # Output format: y, d, h, Wind, ..., AdvancedNuclear
@@ -210,13 +211,14 @@ c_pivot = unstack(c_pivot, :unit_type, :commit)
 for unit_type in unit_specs[!, :UNIT_TYPE]
     # Retrieve this unit's specs for easy reference
     unit_spec = filter(:UNIT_TYPE => x -> x == unit_type, unit_specs)
-    transform!(g_pivot, [Symbol(unit_type), :price] => ((gen, price) -> gen .* price) => Symbol(string(unit_type, "rev")))
-    transform!(g_pivot, [Symbol(unit_type)] => ((gen) -> gen .* (unit_spec[1, :VOM] + unit_spec[1, :FC] .* unit_spec[1, :HR])) => Symbol(string(unit_type, "opcost")))
+    transform!(g_pivot, [Symbol(unit_type), :Probability] => ((gen, prob) -> gen .* prob .* 365) => Symbol(string(unit_type, "norm")))
+    transform!(g_pivot, [Symbol(string(unit_type, "norm")), :price] => ((gen, price) -> gen .* price) => Symbol(string(unit_type, "rev")))
+    transform!(g_pivot, [Symbol(string(unit_type, "norm"))] => ((gen) -> gen .* (unit_spec[1, :VOM] + unit_spec[1, :FC] .* unit_spec[1, :HR])) => Symbol(string(unit_type, "opcost")))
     transform!(g_pivot, [Symbol(string(unit_type, "rev")), Symbol(string(unit_type, "opcost"))] => ((rev, opcost) -> rev - opcost) => Symbol(string(unit_type, "profit")))
     op_profit = sum(g_pivot[:, Symbol(string(unit_type, "profit"))])
-    @info "$unit_type operating profit: $op_profit"
     net_profit = op_profit - unit_spec[1, :FOM] * unit_spec[1, :CAP] * 1000
-    @info "$unit_type net profit: $net_profit"
-
+    net_profit_perunit = net_profit / filter(:unit_type => x -> x == unit_type, portfolio)[1, :num_units]
+    @info "$unit_type net profit per unit: $net_profit_perunit"
 end
 
+CSV.write("./gen_results.csv", g_pivot)
