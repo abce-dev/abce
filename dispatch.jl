@@ -41,7 +41,6 @@ num_days = size(repdays_data)[1]
 num_hours = 24
 @info "Data initialized."
 
-#price_results = zeros(num_days*num_hours, size(PD)[1])
 all_prices = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
 all_gc_results = DataFrame(y = Int[], d = Int[], h = Int[], unit_type = String[], gen = Float64[], commit = Int[])
 
@@ -177,17 +176,18 @@ for y = 1:size(PD)[1]
     prices = zeros(1, num_hours*num_days)
     for j = 1:num_hours
         for k = 1:num_days
-            prices[1, num_hours*(k-1) + j] = mkt_px[k, j]
+            line = (y = y, d = k, h = j,
+                    price = (-1) * mkt_px[k, j])
+            push!(all_prices, line)
         end
     end
-    price_results[:, y] = (-1) .* prices
 
     @info "Year $y dispatch run complete."
 end
 
 
 pfile = "./price_results.csv"
-CSV.write(pfile, DataFrame(price_results))
+CSV.write(pfile, all_prices)
 
 gcfile = "./gc_results.csv"
 CSV.write(gcfile, all_gc_results)
@@ -195,13 +195,28 @@ CSV.write(gcfile, all_gc_results)
 @info "All data saved."
 
 @info "Postprocessing results..."
+# Pivot generation data by unit type
+# Output format: y, d, h, Wind, Solar, ..., AdvancedNuclear
 g_pivot = select(all_gc_results, Not(:commit))
 g_pivot = unstack(g_pivot, :unit_type, :gen)
-@info first(g_pivot, 10)
+g_pivot = innerjoin(g_pivot, all_prices, on = [:y, :d, :h])
 
+# Pivot commitment data by unit type
+# Output format: y, d, h, Wind, ..., AdvancedNuclear
 c_pivot = select!(all_gc_results, Not(:gen))
 c_pivot = unstack(c_pivot, :unit_type, :commit)
-@info first(c_pivot, 10)
 
+# Add revenue columns to g_pivot
+for unit_type in unit_specs[!, :UNIT_TYPE]
+    # Retrieve this unit's specs for easy reference
+    unit_spec = filter(:UNIT_TYPE => x -> x == unit_type, unit_specs)
+    transform!(g_pivot, [Symbol(unit_type), :price] => ((gen, price) -> gen .* price) => Symbol(string(unit_type, "rev")))
+    transform!(g_pivot, [Symbol(unit_type)] => ((gen) -> gen .* (unit_spec[1, :VOM] + unit_spec[1, :FC] .* unit_spec[1, :HR])) => Symbol(string(unit_type, "opcost")))
+    transform!(g_pivot, [Symbol(string(unit_type, "rev")), Symbol(string(unit_type, "opcost"))] => ((rev, opcost) -> rev - opcost) => Symbol(string(unit_type, "profit")))
+    op_profit = sum(g_pivot[:, Symbol(string(unit_type, "profit"))])
+    @info "$unit_type operating profit: $op_profit"
+    net_profit = op_profit - unit_spec[1, :FOM] * unit_spec[1, :CAP] * 1000
+    @info "$unit_type net profit: $net_profit"
 
+end
 
