@@ -150,9 +150,9 @@ for y = 1:size(PD)[1]
     # Save generation and commitment results
     all_g_results = Dict()
     all_c_results = Dict()
-    for i = 1:num_days
-        g_results = DataFrame(gen_qty[:, i, :])
-        c_results = DataFrame(c[:, i, :])
+    for k = 1:num_days
+        g_results = DataFrame(gen_qty[:, k, :])
+        c_results = DataFrame(c[:, k, :])
         insertcols!(g_results, 1, :unit_type => unit_specs[!, :UNIT_TYPE])
         insertcols!(c_results, 1, :unit_type => unit_specs[!, :UNIT_TYPE])
         all_g_results[i] = g_results
@@ -161,9 +161,9 @@ for y = 1:size(PD)[1]
 
     g_results = all_g_results[1]
     c_results = all_c_results[1]
-    for i = 2:num_days
-        append!(g_results, all_g_results[i])
-        append!(c_results, all_c_results[i])
+    for k = 2:num_days
+        append!(g_results, all_g_results[k])
+        append!(c_results, all_c_results[k])
     end
 
     gfile = string("./gen_results", y, ".csv")
