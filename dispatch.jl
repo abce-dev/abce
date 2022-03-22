@@ -14,6 +14,7 @@ repday_ids = [10, 90, 180, 292, 355]
 ts_data = CSV.read("./inputs/ALEAF_inputs/timeseries_load_hourly.csv", DataFrame)
 wind_data = CSV.read("./inputs/ALEAF_inputs/timeseries_wind_hourly.csv", DataFrame)
 solar_data = CSV.read("./inputs/ALEAF_inputs/timeseries_pv_hourly.csv", DataFrame)
+repdays_data = CSV.read("./inputs/ALEAF_inputs/repDays_16.csv", DataFrame)
 
 # Load the unit specs data into a dataframe
 unit_specs_data, unit_spec_labels = XLSX.readtable("./inputs/ALEAF_inputs/ALEAF_Master_LC_GEP_dispatch.xlsx", "Gen Technology", header=true)
@@ -37,7 +38,7 @@ end
 
 # Set up some convenient parameter names
 num_units = size(unit_specs)[1]
-num_days = size(repday_ids)[1]
+num_days = size(repdays_data)[1]
 num_hours = 24
 @info "Data initialized."
 
@@ -52,7 +53,7 @@ for y = 1:size(PD)[1]
 
     # Set up representative days for load
     load_repdays = DataFrame()
-    for day in repday_ids
+    for day in repdays_data[!, :Day]
         load_repdays[!, Symbol(day)] = ts_data[24*day+1:24*(day+1), :Load]
     end
 
@@ -70,7 +71,7 @@ for y = 1:size(PD)[1]
     # Set up representative days for wind and solar
     wind_repdays = DataFrame()
     solar_repdays = DataFrame()
-    for day in repday_ids
+    for day in repdays_data[!, :Day]
         wind_repdays[!, Symbol(day)] = wind_data[24*day+1:24*(day+1), :Wind]
         solar_repdays[!, Symbol(day)] = solar_data[24*day+1:24*(day+1), :Solar]
     end
