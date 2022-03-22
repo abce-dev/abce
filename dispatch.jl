@@ -215,10 +215,6 @@ for unit_type in unit_specs[!, :UNIT_TYPE]
     transform!(g_pivot, [Symbol(string(unit_type, "norm")), :price] => ((gen, price) -> gen .* price) => Symbol(string(unit_type, "rev")))
     transform!(g_pivot, [Symbol(string(unit_type, "norm"))] => ((gen) -> gen .* (unit_spec[1, :VOM] + unit_spec[1, :FC] .* unit_spec[1, :HR])) => Symbol(string(unit_type, "opcost")))
     transform!(g_pivot, [Symbol(string(unit_type, "rev")), Symbol(string(unit_type, "opcost"))] => ((rev, opcost) -> rev - opcost) => Symbol(string(unit_type, "profit")))
-    op_profit = sum(g_pivot[:, Symbol(string(unit_type, "profit"))])
-    net_profit = op_profit - unit_spec[1, :FOM] * unit_spec[1, :CAP] * 1000
-    net_profit_perunit = net_profit / filter(:unit_type => x -> x == unit_type, portfolio)[1, :num_units]
-    @info "$unit_type net profit per unit: $net_profit_perunit"
 end
 
 # Reorganize g_pivot in order to retrieve a DataFrame of annual profit values
@@ -243,6 +239,16 @@ g_unpivot = innerjoin(g_unpivot, portfolio, on = :unit_type)
 transform!(g_unpivot, [:profit, :num_units] => ((profit, num_units) -> profit ./ num_units) => :ProfitPerUnit)
 
 g_profitsum = combine(groupby(g_unpivot, [:y, :unit_type]), :ProfitPerUnit => sum => :annual_profit)
+g_profitsum[!, :FOM_per_unit] .= 0.0
+
+for i = 1:size(g_profitsum)[1]
+    unit_type = g_profitsum[i, :unit_type]
+    unit_spec = filter(:UNIT_TYPE => x -> x == unit_type, unit_specs)
+    num_curr_units = filter(:unit_type => x -> x == unit_type, portfolio)[1, :num_units]
+    g_profitsum[i, :FOM_per_unit] = unit_spec[1, :FOM] * unit_spec[1, :CAP] * 1000
+end
+
+transform!(g_profitsum, [:annual_profit, :FOM_per_unit] => ((profit, FOM) -> profit - FOM) => :net_profit_per_unit)
 
 @info g_profitsum
 
