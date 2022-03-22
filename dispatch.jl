@@ -7,7 +7,7 @@ using CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, BilevelJuMP
 @info "Initializing data..."
 
 # Peak demand values: number of entries determines number of years considered
-PD = [80000]
+PD = [80000, 81500, 82000, 83000, 85000]
 
 # Load the time-series demand and VRE data into dataframes
 ts_data = CSV.read("./inputs/ALEAF_inputs/timeseries_load_hourly.csv", DataFrame)
@@ -221,4 +221,17 @@ for unit_type in unit_specs[!, :UNIT_TYPE]
     @info "$unit_type net profit per unit: $net_profit_perunit"
 end
 
-CSV.write("./gen_results.csv", g_pivot)
+# Reorganize g_pivot in order to retrieve a DataFrame of annual profit values
+#   by unit type
+fields_to_select = [:y, :d, :h]
+for unit_type in unit_specs[!, :UNIT_TYPE]
+    append!(fields_to_select, [Symbol(string(unit_type, :profit))])
+end
+g_unpivot = select(g_pivot, fields_to_select)
+
+g_unpivot = stack(g_unpivot, 4:size(g_unpivot)[2])
+g_profitsum = combine(groupby(g_unpivot, [:y, :variable]), :value => sum => :annual_profit)
+
+@info g_profitsum
+
+CSV.write("unit_profit_summaruy.csv", g_profitsum)
