@@ -41,6 +41,8 @@ num_days = size(repday_ids)[1]
 num_hours = 24
 @info "Data initialized."
 
+price_results = zeros(size(PD)[1], num_days*num_hours)
+
 # Iterate over all years
 for y = 1:size(PD)[1]
     @info string("Preparing period ", y)
@@ -133,12 +135,19 @@ for y = 1:size(PD)[1]
     @info "Optimization model set up."
     @info string("Solving repday dispatch for year ", y, "...")
 
+    # Create a copy of the model, to use later for the relaxed-integrality
+    #   solution
+    m_copy = copy(m)
+    set_optimizer(m_copy, CPLEX.Optimizer)
+
+    # Optimize
     optimize!(m)
     status = termination_status.(m)
     @info "Status: ", status
     gen_qty = value.(m[:g])
     c = value.(m[:c])
 
+    # Save generation and commitment results
     all_g_results = Dict()
     all_c_results = Dict()
     for i = 1:num_days
@@ -163,4 +172,30 @@ for y = 1:size(PD)[1]
     CSV.write(cfile, c_results)
 
     @info "Results written to $gfile and $cfile."
+
+    # Set up a relaxed-integrality version of this model, to allow retrieval
+    #   of dual values for the mkt_equil constraint
+    @info "Solving relaxed-integrality problem to get shadow prices..."
+    undo = relax_integrality(m_copy)
+
+    optimize!(m_copy)
+    status = termination_status.(m_copy)
+    @info "Status: ", status
+    mkt_px = reshape(shadow_price.(m_copy[:mkt_equil]), (num_days, num_hours))
+
+    # The result of shadow_price comes out weirdly reshaped, so this operation
+    #   orders the data by hour (inner loop) then by day (outer loop)
+    prices = zeros(1, num_hours*num_days)
+    for j = 1:num_hours
+        for k = 1:num_days
+            prices[1, num_hours*(k-1) + j] = mkt_px[k, j]
+        end
+    end
+    price_results[y, :] = (-1) .* prices
+    @info "Market prices saved."
+
 end
+
+
+pfile = "./price_results.csv"
+CSV.write(pfile, DataFrame(price_results))
