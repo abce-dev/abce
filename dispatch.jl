@@ -8,7 +8,6 @@ using CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, BilevelJuMP
 
 # Peak demand values: number of entries determines number of years considered
 PD = [80000, 81000, 83000]
-repday_ids = [10, 90, 180, 292, 355]
 
 # Load the time-series demand and VRE data into dataframes
 ts_data = CSV.read("./inputs/ALEAF_inputs/timeseries_load_hourly.csv", DataFrame)
