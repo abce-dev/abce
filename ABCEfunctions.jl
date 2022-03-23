@@ -971,6 +971,16 @@ function initialize_repdays(settings)
 end
 
 
+function initialize_indices(db, repdays_data)
+    distinct_units = DBInterface.execute(db, "SELECT DISTINCT unit_type FROM unit_specs") |> DataFrame
+    num_units = size(distinct_units)[1]
+    num_days = size(repdays_data[1])[1]
+    num_hours = 24
+
+    return (num_units, num_days, num_hours)
+end
+
+
 function scale_annual_repdays(peak_demand, repdays_data, portfolio)
     # Make copies of repdays data for this year
     year_load_repdays = deepcopy(load_repdays)
@@ -1165,10 +1175,12 @@ function solve_annual_LP_dispatch(m_copy, y, indices, all_price_results)
 end
 
 
-function handle_annual_dispatch(y, year_portfolio, peak_demand, indices, repdays_data)
+function handle_annual_dispatch(y, scenario, indices, repdays_data)
+    # Set up year-specific data by selecting from scenario or calculating
     @info "Setting up data for year $y..."
+    peak_demand = select_year_peak_demand(y, scenario)
+    year_portfolio = select_year_portfolio(y, scenario)
     year_repdays_data = scale_annual_repdays(peak_demand, repdays_data, year_portfolio)
-
     @info "Data set up."
 
     # Solve the MILP and LP dispatch problems for this year
@@ -1181,20 +1193,18 @@ function run_scenario_dispatches(scenario, db)
     repdays_data = initialize_repdays(settings)
 
     # Initialize standard indices
-    distinct_units = DBInterface.execute("SELECT DISTINCT unit_type FROM unit_specs") |> DataFrame
-    num_units = size(distinct_units)[1]
-    num_days = size(repdays_data[1])[1]
-    num_hours = 24
-    indices = (num_units, num_days, num_hours)
+    indices = initialize_indices(db, repdays_data)
 
-    all_prices = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
+    # Initialize results dataframes
     all_gc_results = DataFrame(y = Int[], d = Int[], h = Int[], unit_type = String[], gen = Float64[], commit = Int[])
+    all_prices = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
 
+    # Run dispatch for all years in this scenario
     for y = 1:num_years
-        peak_demand = select_year_peak_demand(y, scenario)
-        year_portfolio = select_year_portfolio(y, scenario)
-        handle_annual_dispatch(y, year_portfolio, peak_demand, indices, repdays_data)
+        handle_annual_dispatch(y, scenario, indices, repdays_data)
     end
+
+    return all_gc_results, all_prices
 
 end
 
