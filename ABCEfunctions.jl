@@ -948,10 +948,280 @@ function set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, availab
 end
 
 
+### DISPATCH FUNCTIONS
+
+function initialize_repdays(settings)
+    # Read in all repdays data
+    repdays_data = CSV.read(settings["repdays_file"], DataFrame)
+    load_ts_data = CSV.read(settings["load_ts_file"], DataFrame)
+    wind_ts_data = CSV.read(settings["wind_ts_file"], DataFrame)
+    solar_ts_data = CSV.read(settings["solar_ts_file"], DataFrame)
+
+    # Set up unscaled representative days
+    load_repdays = DataFrame()
+    wind_repdays = DataFrame()
+    solar_repdays = DataFrame()
+    for day in repdays_data[!, :Day]
+        load_repdays[!, Symbol(day)] = ts_data[24*day+1:24*(day+1), :LoadShape]
+        wind_repdays[!, Symbol(day)] = wind_ts_data[24*day+1:24*(day+1), :WindShape]
+        solar_repdays[!, Symbol(day)] = solar_ts_data[24*day+1:24*(day+1), :SolarShape]
+    end
+
+    return (load_repdays, wind_repdays, solar_repdays)
+end
 
 
+function scale_annual_repdays(peak_demand, repdays_data, portfolio)
+    # Make copies of repdays data for this year
+    year_load_repdays = deepcopy(load_repdays)
+    year_wind_repdays = deepcopy(wind_repdays)
+    year_solar_repdays = deepcopy(solar_repdays)
 
+    # Scale the load data
+    year_load_repdays[!, :Load] = year_load_repdays[!, :LoadShape] .* peak_demand
+
+    # Scale the wind and solar availability data
+    year_wind_repdays[!, :Available_Capacity] .= year_wind_repdays[!, :WindShape] .* filter(:unit_type => x -> x == "Wind", portfolio)[1, Symbol("COUNT(unit_type)")]
+    year_solar_repdays[!, :Available_Capacity] .= year_solar_repdays[!, :SolarShape] .* filter(:unit_type => x -> x == "Solar", portfolio)[1, Symbol("COUNT(unit_type)")]
+
+    return (year_load_repdays, year_wind_repdays, year_solar_repdays)
+
+end
+
+
+function set_up_annual_dispatch_model(indices, repdays_data, portfolio, unit_specs)
+    num_units, num_days, num_hours = indices
+    load_repdays, wind_repdays, solar_repdays = repdays_data
+    # Initialize model
+    m = Model(with_optimizer(CPLEX.Optimizer))
+
+    # g: quantity generated (MWh) for each unit type
+    @variable(m, g[1:num_units, 1:num_days, 1:num_hours] >= 0)
+
+    # c: number of units of each type committed in each hour
+    @variable(m, c[1:num_units, 1:num_days, 1:num_hours] >= 0, Int)
+
+    # Total generation per hour must be greater than or equal to demand
+    @constraint(
+        m,
+        mkt_equil[k=1:num_days, j=1:num_hours],
+        sum(g[i, k, j] for i = 1:num_units) >= load_repdays[j, k]
+    )
+
+    # Number of committed units per hour must be less than or equal to the
+    #   total number of units of that type in the system
+    @constraint(
+        m,
+        commit_balance[i=1:num_types, k=1:num_days, j=1:num_hours],
+        c[i, k, j] <= portfolio[i, :num_units]
+    )
+
+    # Limit total generation per unit type each hour to the total capacity of
+    #   all committed units of this type with committed units subject to 
+    #   minimum and maximum power levels
+    @constraint(
+        m,
+        min_pl[i=3:num_units, k=1:num_days, j=1:num_days],
+        (
+            g[i, k, j]
+                <= c[i, k, j] .* unit_specs[i, :capacity]
+                .* unit_specs[i, :CF] .* unit_specs[i, :PMAX]
+        )
+    )
+
+    @constraint(
+        m,
+        max_pl[i=3:num_units, k=1:num_days, j=1:num_days],
+        (
+            g[i, k, j]
+                <= c[i, k, j] .* unit_specs[i, :capacity]
+                .* unit_specs[i, :CF] .* unit_specs[i, :PMIN]
+        )
+    )
+
+    # Limit solar and wind generation to their actual hourly availability
+    @constraint(
+        m,
+        wind_gen[k=1:num_days, j=1:num_hours],
+        g[1, k, j] <= wind_repdays[j, k]
+    )
+
+    @constraint(
+        m,
+        solar_gen[k=1:num_days, j=1:num_hours],
+        g[2, k, j] <= solar_repdays[j, k]
+    )
+
+    # Ramping constraints
+    @constraint(
+        m,
+        RUL[i=1:num_units, k=1:num_days, j=1:num_hours],
+        (
+            g[i, k, j+1] - g[i, k, j]
+                <= (c[i, k, j+1] .* unit_specs[i, :RUL]
+                .* unit_specs[i, :capacity] .* unit_specs[i, :CF])
+        )
+    )
+
+    @constraint(
+        m,
+        RDL[i=1:num_units, k=1:num_days, j=1:num_hours],
+        (
+            g[i, k, j+1] - g[i, k, j]
+                >= (-1) * c[i, k, j+1] * unit_specs[i, :RDL]
+                * unit_specs[i, :capacity] * unit_specs[i, :CF]
+        )
+    )
+
+    # Set up objective: minimize cost of service
+    @objective(
+        m,
+        Min,
+        (
+            sum(sum(sum(g[i, k, j] for j = 1:num_hours) for k = 1:num_days)
+            .* (unit_specs[i, :VOM] + unit_specs[i, :FC] .* unit_specs[i, :HR])
+            for i = 1:num_units)
+        )
+    )
+
+    return m
+end
+
+
+function solve_annual_dispatch(m, y, indices, all_gc_results, all_price_results)
+    # Unpack indices
+    num_units, num_days, num_hours = indices
+
+    # Make a copy of m in order to solve the LP version later on, to
+    #   get shadow prices
+    m_copy = copy(m)
+    set_optimizer(m_copy, CPLEX.Optimizer)
+
+    @info "Solving MILP problem..."
+    solve_annual_MILP_dispatch(m, y, indices, all_gc_results)
+    @info "Solving LP problem..."
+    solve_annual_LP_dispatch(m_copy, y, indices, all_price_results)
+    @info "Dispatch problems solved; all data saved."
+
+end
+
+function solve_annual_MILP_dispatch(m, y, indices, all_gc_results)
+    # Unpack indices
+    num_units, num_days, num_hours = indices
+
+    # Solve the optimization problem
+    optimize!(m)
+    status = termination_status.(m)
+    @debug "MILP status: $status"
+
+    # Retrieve the generation and commitment time-series
+    gen_qty = value.(m[:g])
+    c = value.(m[:c])
+
+    # Save generation and commitment results
+    for k = 1:num_days
+        for j = 1:num_hours
+            for i = 1:num_units
+                line = (
+                    y = y,
+                    d = k,
+                    h = j,
+                    unit_type = unit_specs[i, :unit_type],
+                    gen = gen_qty[i, k, j],
+                    commit = c[i, k, j]
+                )
+                push!(all_gc_results, line)
+            end
+        end
+    end
+
+end
+
+function solve_annual_LP_dispatch(m_copy, y, indices, all_price_results)
+    # Unpack indices
+    num_units, num_days, num_hours = indices
+
+    # Solve the LP
+    optimize!(m_copy)
+    status = termination_status.(m_copy)
+    @debug "LP status: $status"
+
+    # Retrieve the electricity price data
+    mkt_px = reshape(shadow_price.(m_copy[:mkt_equil]), (num_days, num_hours))
+
+    # Save price results
+    for j = 1:num_hours
+        for k = 1:num_days
+            line = (
+                y = y,
+                d = k,
+                h = j,
+                price = (-1) * mkt_px[k, j]
+            )
+            push!(all_price_data, line)
+        end
+    end
+
+end
+
+
+function handle_annual_dispatch(y, year_portfolio, peak_demand, indices, repdays_data)
+    @info "Setting up data for year $y..."
+    year_repdays_data = scale_annual_repdays(peak_demand, repdays_data, year_portfolio)
+
+    @info "Data set up."
+
+    # Solve the MILP and LP dispatch problems for this year
+    solve_annual_dispatch(m, y, indices, all_gc_results, all_price_results)
+end
+
+
+function run_scenario_dispatches(scenario, db)
+    # Initialize the representative days
+    repdays_data = initialize_repdays(settings)
+
+    # Initialize standard indices
+    distinct_units = DBInterface.execute("SELECT DISTINCT unit_type FROM unit_specs") |> DataFrame
+    num_units = size(distinct_units)[1]
+    num_days = size(repdays_data[1])[1]
+    num_hours = 24
+    indices = (num_units, num_days, num_hours)
+
+    all_prices = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
+    all_gc_results = DataFrame(y = Int[], d = Int[], h = Int[], unit_type = String[], gen = Float64[], commit = Int[])
+
+    for y = 1:num_years
+        peak_demand = select_year_peak_demand(y, scenario)
+        year_portfolio = select_year_portfolio(y, scenario)
+        handle_annual_dispatch(y, year_portfolio, peak_demand, indices, repdays_data)
+    end
+
+end
 
 
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
