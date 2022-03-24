@@ -1188,6 +1188,29 @@ function handle_annual_dispatch(y, scenario, indices, repdays_data)
 end
 
 
+function compute_financial_results(all_gc_results, all_price_results, unit_specs)
+    # Make a copy of all_gc_results for manipulation
+    unit_revcost_data = deepcopy(all_gc_results)
+
+    # Inner join with price data to enable straightforward row-wise functions
+    unit_revcost_data = innerjoin(unit_revcost_data, all_price_results, on = [:y, :d, :h])
+
+    # Retrieve a reduced set of unit specs and inner join onto the financial
+    #   data dataframe
+    reduced_unit_specs = select(unit_specs, [:unit_type, :capacity, :FOM, :VOM, :FC_per_MWh, :CF])
+    unit_revcost_data = innerjoin(unit_revcost_data, reduced_unit_specs, on = :unit_type)
+
+    # Compute revenue
+    transform!(unit_revcost_data, [:gen, :price] => ((gen, price) -> gen .* price) => :revenue)
+
+    # Compute total variable operating cost
+    transform!(unit_revcost_data, [:gen, :VOM, :FC_per_MWh] => ((gen, VOM, FC) -> gen .* (VOM + FC)) => :variable_opcost)
+
+    return unit_revcost_data
+
+end
+
+
 function run_scenario_dispatches(scenario, db)
     # Initialize the representative days
     repdays_data = initialize_repdays(settings)
@@ -1204,34 +1227,13 @@ function run_scenario_dispatches(scenario, db)
         handle_annual_dispatch(y, scenario, indices, repdays_data)
     end
 
-    return all_gc_results, all_prices
+    unit_revcost_data = compute_financial_results(all_gc_results, all_price_results, unit_specs)
+
+    return unit_revcost_data
 
 end
 
 
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
