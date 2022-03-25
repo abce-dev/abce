@@ -100,6 +100,10 @@ abce_tables = {"WIP_projects":
                   ("heat_rate", "real"),       # BTU/Wh
                   ("VOM", "real"),             # $/MWh
                   ("FOM", "real"),             # $/kW-yr
+                  ("PMAX", "real"),            # % of max power level
+                  ("PMIN", "real"),            # % of max power level
+                  ("RUL", "real"),             # % of max PL / hr
+                  ("RDL", "real"),             # % of max PL / hr
                   ("unit_life", "real"),       # years
                   ("CF", "real"),              # frac
                   ("FC_per_MWh", "real"),      # $/MWh
