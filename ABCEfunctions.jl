@@ -918,8 +918,115 @@ function set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new
 end
 
 
+### Postprocessing
+function postprocess_agent_decisions(all_results, unit_data, db, current_pd, agent_id)
+    for i = 1:size(all_results)[1]
+        # Retrieve the individual result row for convenience
+        result = all_results[i, :]
+
+        # Only record decisions which take effect this period
+        if result[:lag] == 0 && result[:units_to_execute] != 0
+            # Record the appropriate action type
+            if result[:project_type] == "new_xtr"
+                record_new_construction_projects(result, unit_data, db, current_pd, agent_id)
+            elseif result[:project_type] == "retirement"
+                record_asset_retirements(result, db, current_pd, agent_id)
+            else
+                @warn "I'm not sure what to do with the following project type:"
+                @warn result
+                @warn "This decision entry will be skipped."
+            end
+        end
+    end
+
+end
 
 
+function record_new_construction_projects(result, unit_data, db, current_pd, agent_id)
+    # Retrieve unit_specs data for this unit type
+    unit_type_specs = filter(:unit_type => x -> x == result[:unit_type], unit_data)
+
+    # Set default initial values
+    cum_occ = unit_type_specs[:uc_x] * unit_type_specs[:capacity] * MW2kW
+    rcec = cum_occ
+    cum_exp = 0
+    cum_d_x = unit_type_data[:d_x]
+    rtec = cum_d_x
+    start_pd = pd
+    completion_pd = pd + unit_type_data[:d_x]
+    cancellation_pd = 9999
+    retirement_pd = pd + unit_type_data[:d_x] + unit_type_data[:unit_life]
+    total_capex = 0
+    cap_pmt = 0
+    anpe = 0
+
+    # Add a number of project instances equal to the 'units_to_execute'
+    #   value from the decision solution
+    for j = 1:result[:units_to_execute]
+        next_id = get_next_asset_id(db)
+
+        # Update the `WIP_updates` table
+        WIP_projects_vals = (
+            next_id,
+            agent_id,
+            pd,
+            cum_occ,
+            rcec,
+            cum_d_x,
+            rtec,
+            cum_exp,
+            anpe
+        )
+        DBInterface.execute(
+            db,
+            "INSERT INTO WIP_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            WIP_projects_vals
+        )
+
+        # Update the `asset_updates` table
+        assets_vals = (
+            next_id,
+            agent_id,
+            result[:unit_type],
+            start_pd,
+            completion_pd,
+            cancellation_pd,
+            retirement_pd,
+            total_capex,
+            cap_pmt
+        )
+        DBInterface.execute(
+            db,
+            "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            assets_vals
+        )
+    end
+
+end
+
+
+function record_asset_retirements(result, db, current_pd, agent_id)
+    # Generate a list of assets which match 'result' on agent owner, 
+    #   unit type, and mandatory retirement date
+    match_vals = (result[:unit_type], result[:retirement_pd], agent_id)
+    ret_candidates = DBInterface.execute(
+        db,
+        "SELECT asset_id FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?",
+        vals
+    ) |> DataFrame
+
+    # Retire as many of these matching assets as is indicated by the agent
+    #   optimization result
+    for j = 1:result[:units_to_execute]
+        asset_to_retire = df[convert(Int64, j), :asset_id]
+        DBInterface.execute(
+            db,
+            "UPDATE assets SET retirement_pd = ? WHERE asset_id = ?",
+            (current_pd, asset_to_retire)
+        )
+    end
+
+end
 
 
 

@@ -237,59 +237,7 @@ all_results = hcat(vcat(new_xtr_NPV_df, ret_NPV_df)[!, [:unit_type, :project_typ
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
-for i = 1:size(all_results)[1]
-    result = all_results[i, :]
-
-    # Add all new construction projects
-    if result[:project_type] == "new_xtr"
-        unit_index = findall(unit_data.unit_type .== result[:unit_type])[1]
-        unit_type_data = unit_data[unit_index, :]
-
-        # Only record projects starting this period
-        if result[:lag] == 0 && result[:units_to_execute] != 0
-
-            # Retrieve or set values common to all units of this type
-            cum_occ = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW
-            rcec = cum_occ
-            cum_exp = 0
-            cum_d_x = unit_type_data[:d_x]
-            rtec = cum_d_x
-            start_pd = pd
-            completion_pd = pd + unit_type_data[:d_x]
-            cancellation_pd = 9999
-            retirement_pd = pd + unit_type_data[:d_x] + unit_type_data[:unit_life]
-            total_capex = 0    # Only updated once project is complete
-            cap_pmt = 0
-
-            # Add a number of project instances equal to the 'units_to_execute'
-            #   value from the solution vector
-            for j = 1:result[:units_to_execute]
-                next_id = get_next_asset_id(db)
-                # Update `WIP_projects` table
-                WIP_projects_vals = (next_id, agent_id, pd, cum_occ, rcec, cum_d_x, rtec, cum_exp, rcec / 10)
-                DBInterface.execute(db, "INSERT INTO WIP_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", WIP_projects_vals)
-
-                # Update `assets` table
-                assets_vals = (next_id, agent_id, result[:unit_type], start_pd, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
-                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
-            end
-        end
-
-    # Record asset retirements slated to occur immediately
-    elseif result[:project_type] == "retirement"
-        # Only enforce retirements in the current period
-        if result[:lag] == 0 && result[:units_to_execute] != 0
-            # Select assets which match on type, agent owner, and mandatory retirement date
-            matching_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?", (result[:unit_type], result[:retirement_pd], agent_id)) |> DataFrame
-            # Retire as many existing assets as indicated by u
-            for j = 1:result[:units_to_execute]
-                ret = matching_assets[j, :]
-                asset_vals = (ret[:asset_id], ret[:agent_id], ret[:unit_type], ret[:start_pd], ret[:completion_pd], ret[:cancellation_pd], pd, ret[:total_capex], ret[:cap_pmt])
-                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", asset_vals)
-            end
-        end
-    end
-end
+postprocess_agent_decisions(all_results, unit_data, db, pd, agent_id)
 
 ##### Authorize ANPE for all current WIP projects
 # Retrieve all WIP projects
