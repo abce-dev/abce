@@ -215,6 +215,37 @@ end
 
 @info "Data initialized."
 
+@info "Running a dispatch scenario."
+struct Scenario
+    id::Int64
+    portfolio::DataFrame
+    PD_series::Vector
+end
+
+# Example PD_series
+PD_series = [75000, 75010, 75100, 75200, 75300, 75400, 75500, 75600, 75700, 75800]
+
+# Set up portfolio for the current year
+portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $pd AND retirement_pd > $pd GROUP BY unit_type") |> DataFrame
+portfolio = rename(portfolio, Symbol("COUNT(unit_type)") => :num_units)
+# Add year column and reorganize to put this column first
+portfolio[!, :y] .= pd
+select!(portfolio, :y, Not([:y]))
+
+scenario_portfolio = deepcopy(portfolio)
+
+# Add copies of the portfolio
+for i = 1:size(PD_series)[1]
+    year_portfolio = deepcopy(portfolio)
+    year_portfolio[:, :y] .= i
+    global scenario_portfolio = vcat(scenario_portfolio, year_portfolio)
+end
+
+scenario1 = Scenario(1, scenario_portfolio, PD_series)
+unit_revcost_data = run_scenario_dispatches(scenario1, db, settings, unit_data)
+
+CSV.write("./unit_revcost_results.csv", unit_revcost_data)
+
 ###### Set up the model
 m = set_up_model(settings, agent_params, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts, unit_data, installed_capacity_forecast)
 
