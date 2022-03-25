@@ -733,41 +733,6 @@ class GridModel(Model):
             shutil.copy2(old_filepath, new_filepath)
 
 
-
-    def get_projects_to_reveal(self):
-        """
-        Set which (if any) unrevealed project construction decisions should
-           be revealed (`revealed = True`).
-        
-        This function is a placeholder, which sets all unrevealed decisions
-           to be revealed at the end of each decision round, after all
-           agents have taken their turns. This behavior may be updated in
-           the future.
-
-        Returns:
-           projects_to_reveal (pd DataFrame): one-column dataframe of ints,
-             listing asset IDs to reveal
-        """
-        projects_to_reveal = pd.read_sql("SELECT asset_id FROM assets WHERE " +
-                                         "revealed = 'false'", self.db)
-        return projects_to_reveal
-
-
-    def reveal_decisions(self, projects_to_reveal):
-        """
-        Set the indicated set of assets to have the `revealed = True` status
-        in the database 'assets' table.
-
-        Args:
-           projects_to_reveal (pd DataFrame): one-column dataframe of ints,
-             listing asset IDs to reveal
-        """
-        for asset_id in projects_to_reveal["asset_id"]:
-            self.cur.execute(f"UPDATE assets SET revealed = 'true' WHERE " +
-                             f"asset_id = '{asset_id}'")
-        self.db.commit()
-
-
     def update_WIP_projects(self):
         """
         Update the status and projections-to-completion for all current WIP
