@@ -10,6 +10,10 @@ gc_params_file: "inputs/gc_params.yml"
 portfolios_file: "inputs/portfolios.csv"
 db_file: "abce_db.db"
 output_file: "outputs.xlsx"
+repdays_file: "./inputs/ALEAF_inputs/repDays_16.csv"
+load_ts_file: "./inputs/ALEAF_inputs/timeseries_load_hourly.csv"
+wind_ts_file: "./inputs/ALEAF_inputs/timeseries_wind_hourly.csv"
+solar_ts_file: "./inputs/ALEAF_inputs/timeseries_pv_hourly.csv"
 
 first_agent_id: 201
 first_asset_id: 2001
