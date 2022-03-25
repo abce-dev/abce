@@ -530,8 +530,8 @@ class GridModel(Model):
 
 
     def compute_total_capex_preexisting(self, unit_type):
-        unit_cost_per_kW = self.unit_specs.loc[unit_type, "uc_x"]
-        unit_capacity = self.unit_specs.loc[unit_type, "capacity"]
+        unit_cost_per_kW = self.unit_specs[self.unit_specs.unit_type == unit_type]["uc_x"]
+        unit_capacity = self.unit_specs[self.unit_specs.unit_type == unit_type]["capacity"]
 
         total_capex = unit_cost_per_kW * unit_capacity * self.MW2kW
 
