@@ -329,6 +329,14 @@ class GridModel(Model):
         unit_specs_ABCE = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"],
                                                    self.settings["unit_specs_abce_supp_file"]))
 
+        # Fossil generators' fuel cost is given in ATB in units of $/MMBTU
+        #   Convert these values to a $/MWh basis for consistency with Nuclear
+        #   data, and for ease of use.
+        types_in_MMBTU = ["NGCC", "NGCT", "Coal"]
+        for i in range(len(unit_specs_data)):
+            if unit_specs_data.loc[i, "unit_type"] in types_in_MMBTU:
+                unit_specs_data.loc[i, "FC_per_MWh"] = unit_specs_data.loc[i, "FC_per_MWh"] * unit_specs_data.loc[i, "heat_rate"]
+
         # Set unit baseline construction duration and life from supplemental data
         for i in range(len(unit_specs_data)):
             unit_type = unit_specs_data.loc[i, "unit_type"]
