@@ -759,13 +759,8 @@ class GridModel(Model):
             # Select this project's most recent data record
             project_data = self.retrieve_project_data(asset_id)
 
-            # If construction cost escalation is enabled in the settings file,
-            #   update project_data to reflect cost and schedule escalation
-            #   which occurred during the previous period
-            if self.settings["xtr_escalation_enabled"]:
-                project_data = self.escalate_cost_and_schedule(project_data)
-
-            # Update total capital expenditures to date and current RCEC/RTEC
+            # Record the effects of authorized construction expenditures, and
+            #   advance the time-remaining estimate by one year
             project_data = self.advance_project_to_current_period(project_data)
 
             # If this period's authorized expenditures (ANPE) clear the RCEC,
@@ -890,45 +885,6 @@ class GridModel(Model):
 
         return cap_pmt
 
-
-    def escalate_cost_and_schedule(self, project_data):
-        """
-        Generate escalation for a unit's remaining cost expected to completion
-        (RCEC) and remaining time expected to completion (RTEC).
-        """
-        # Retrieve unit type data for easy access
-        unit_type = project_data.loc[0, "unit_type"]
-        unit_type_data = self.unit_specs.loc[unit_type, :]
-
-        # Compute time delay
-        escalated_rtec = project_data.loc[0, "rtec"]
-
-        # Compute cost overrun
-        cost_esc_factor = random.uniform(-1.0, 1.0) * unit_type_data["occ_variance"]
-        new_cum_occ = project_data.loc[0, "cum_occ"] * (1 + cost_esc_factor)
-
-        # Compute forced schedule delay due to cost increase beyond maximum
-        #   productive investment rate
-        # Temporary assumption: the max production rate is equivalent to
-        #   building the nominal-cost unit in the nominal expected construction
-        #   time
-        max_invest_rate = unit_type_data["uc_x"] * unit_type_data["capacity"] * self.MW2kW / unit_type_data["d_x"]
-        # RTEC is always an integer, due to discrete simulation time periods
-        forced_rtec = (new_cum_occ - project_data.loc[0, "cum_exp"]) / max_invest_rate
-        # Overall RTEC is the greater of the two generated RTEC values
-        schedule_slip = (escalated_rtec - project_data.loc[0, "rtec"]) + max(forced_rtec - project_data.loc[0, "rtec"], 0)
-        project_data.loc[0, "cum_d_x"] += schedule_slip
-        project_data.loc[0, "rtec"] = math.ceil(project_data.loc[0, "cum_d_x"] - (self.current_step - project_data.loc[0, "start_pd"] - 1))
-
-        # Cover as much cost escalation as possible within the period's ANPE
-        #   without exceeding the maximum productive investment rate
-        project_data.loc[0, "anpe"] = min(max_invest_rate, (project_data.loc[0, "anpe"] + (new_cum_occ - project_data.loc[0, "cum_occ"])))
-
-        # Compute final new RCEC and cumulative overnight capital cost
-        project_data.loc[0, "rcec"] += (new_cum_occ - project_data.loc[0, "cum_occ"])
-        project_data.loc[0, "cum_occ"] = new_cum_occ
-
-        return project_data
 
     def advance_project_to_current_period(self, project_data):
         # Escalated RTEC is reduced by one
