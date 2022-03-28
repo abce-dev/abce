@@ -288,8 +288,8 @@ class GridModel(Model):
             unit_settings = dict(ATB_settings.loc[unit_type, :])
 
             # Fill all necessary columns for this unit type
-            for datum_name in ATB_header_read_converter.keys():
-                if unit_specs_data.loc[unit_type, ATB_header_read_converter[datum_name]] == "ATB":
+            for datum_name, ALEAF_read_col in ATB_header_read_converter.items():
+                if unit_specs_data.loc[unit_type, ALEAF_read_col] == "ATB":
                     # Construct the mask using the ATB search terms map
                     #   defined earlier
                     mask = (ATB_data["core_metric_parameter"] == datum_name)
