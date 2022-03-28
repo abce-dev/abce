@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV, JuMP, GLPK, Logging
 
-export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS
+export load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, create_NPV_results_df, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions
 
 #####
 # Constants
@@ -947,15 +947,15 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
     unit_type_specs = filter(:unit_type => x -> x == result[:unit_type], unit_data)
 
     # Set default initial values
-    cum_occ = unit_type_specs[:uc_x] * unit_type_specs[:capacity] * MW2kW
+    cum_occ = unit_type_specs[1, :uc_x] * unit_type_specs[1, :capacity] * MW2kW
     rcec = cum_occ
     cum_exp = 0
-    cum_d_x = unit_type_data[:d_x]
+    cum_d_x = unit_type_specs[1, :d_x]
     rtec = cum_d_x
-    start_pd = pd
-    completion_pd = pd + unit_type_data[:d_x]
+    start_pd = current_pd
+    completion_pd = current_pd + unit_type_specs[1, :d_x]
     cancellation_pd = 9999
-    retirement_pd = pd + unit_type_data[:d_x] + unit_type_data[:unit_life]
+    retirement_pd = current_pd + unit_type_specs[1, :d_x] + unit_type_specs[1, :unit_life]
     total_capex = 0
     cap_pmt = 0
     anpe = 0
@@ -969,7 +969,7 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
         WIP_projects_vals = (
             next_id,
             agent_id,
-            pd,
+            current_pd,
             cum_occ,
             rcec,
             cum_d_x,
@@ -1012,13 +1012,13 @@ function record_asset_retirements(result, db, current_pd, agent_id)
     ret_candidates = DBInterface.execute(
         db,
         "SELECT asset_id FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?",
-        vals
+        match_vals
     ) |> DataFrame
 
     # Retire as many of these matching assets as is indicated by the agent
     #   optimization result
     for j = 1:result[:units_to_execute]
-        asset_to_retire = df[convert(Int64, j), :asset_id]
+        asset_to_retire = ret_candidates[convert(Int64, j), :asset_id]
         DBInterface.execute(
             db,
             "UPDATE assets SET retirement_pd = ? WHERE asset_id = ?",
