@@ -301,7 +301,7 @@ class GridModel(Model):
                         #   the appropriate value is 0 (e.g. battery VOM cost),
                         #   but warn the user.
                         logging.warn(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
-                        unit_specs_data.loc[unit_type, ATB_header_read_converter[datum_name]] = 0
+                        unit_specs_data.loc[unit_type, ATB_header_write_converter[datum_name]] = 0
                     else:
                         unit_specs_data.loc[unit_type, ATB_header_write_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
                         if datum_name == "Fuel":
