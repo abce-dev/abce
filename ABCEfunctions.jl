@@ -1021,7 +1021,7 @@ function record_asset_retirements(result, db, current_pd, agent_id)
         asset_to_retire = ret_candidates[convert(Int64, j), :asset_id]
         DBInterface.execute(
             db,
-            "UPDATE assets SET retirement_pd = ? WHERE asset_id = ?",
+            "UPDATE asset_updates SET retirement_pd = ? WHERE asset_id = ?",
             (current_pd, asset_to_retire)
         )
     end
