@@ -350,9 +350,13 @@ class GridModel(Model):
                 if not unit_specs_data.loc[i, "is_VRE"]:
                     # If units are VRE, FC units are irrelevant
                     # Otherwise, throw an error
-                    logging.error(f"The unit {unit_specs_data.loc[i, 'unit_type']} has its fuel cost specified in units of {unit_specs_data.loc[i, 'ATB_FC_units']}.")
-                    logging.error("I'm not sure how to convert these units. Double-check your inputs or edit model.py to handle this case.")
-                    exit()
+                    raise ValueError(
+                        f"The unit {unit_specs_data.loc[i, 'unit_type']}
+                        has its fuel cost specified in units of
+                        {unit_specs_data.loc[i, 'ATB_FC_units']}. I'm not sure
+                        how to convert these units. Double-check your inputs or
+                        edit model.py to handle this case."
+                    )
 
         # Set unit baseline construction duration and life from supplemental data
         for i in range(len(unit_specs_data)):
