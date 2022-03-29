@@ -341,14 +341,18 @@ class GridModel(Model):
         # Some generators' (currently NG and Coal) fuel cost is given in the
         #   ATB data in units of $/MMBTU. Convert these values to a $/MWh basis
         #   for consistency.
+        unit_problems = dict()
         unit_specs_data["FC_per_MWh"] = unit_specs_data.apply(
             lambda x:
                 x["ATB_FC"] if x["ATB_FC_units"] == "$/MWh" else
                     (x["ATB_FC"] * x["heat_rate"] if x["ATB_FC_units"] == "$/MMBTU" else
                         (0 if x["is_VRE"] == True else
-                            (exec(f"raise ValueError('Unrecognized fuel cost unit type from ATB: {x['ATB_FC_units']} for unit type {x['unit_type']}.')")))),
+                            (unit_problems.update({x["unit_type"]: x["ATB_FC_units"]})))),
             axis = 1
         )
+
+        if len(unit_problems) != 0:
+            raise ValueError(f"I don't recognize the fuel cost units provided in the following cases: {unit_problems}. Check your inputs, or update model.py to handle these additional cases.")
 
         # Set unit baseline construction duration and life from supplemental data
         for i in range(len(unit_specs_data)):
