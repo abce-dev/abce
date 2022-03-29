@@ -341,22 +341,14 @@ class GridModel(Model):
         # Some generators' (currently NG and Coal) fuel cost is given in the
         #   ATB data in units of $/MMBTU. Convert these values to a $/MWh basis
         #   for consistency.
-        for i in range(len(unit_specs_data)):
-            if unit_specs_data.loc[i, "ATB_FC_units"] == "$/MWh":
-                unit_specs_data.loc[i, "FC_per_MWh"] = unit_specs_data.loc[i, "ATB_FC"]
-            elif unit_specs_data.loc[i, "ATB_FC_units"] == "$/MMBTU":
-                unit_specs_data.loc[i, "FC_per_MWh"] = unit_specs_data.loc[i, "ATB_FC"] * unit_specs_data.loc[i, "heat_rate"]
-            else:
-                if not unit_specs_data.loc[i, "is_VRE"]:
-                    # If units are VRE, FC units are irrelevant
-                    # Otherwise, throw an error
-                    raise ValueError(
-                        f"The unit {unit_specs_data.loc[i, 'unit_type']}
-                        has its fuel cost specified in units of
-                        {unit_specs_data.loc[i, 'ATB_FC_units']}. I'm not sure
-                        how to convert these units. Double-check your inputs or
-                        edit model.py to handle this case."
-                    )
+        unit_specs_data["FC_per_MWh"] = unit_specs_data.apply(
+            lambda x:
+                x["ATB_FC"] if x["ATB_FC_units"] == "$/MWh" else
+                    (x["ATB_FC"] * x["heat_rate"] if x["ATB_FC_units"] == "$/MMBTU" else
+                        (0 if x["is_VRE"] == True else
+                            (exec(f"raise ValueError('Unrecognized fuel cost unit type from ATB: {x['ATB_FC_units']} for unit type {x['unit_type']}.')")))),
+            axis = 1
+        )
 
         # Set unit baseline construction duration and life from supplemental data
         for i in range(len(unit_specs_data)):
