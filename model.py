@@ -250,10 +250,14 @@ class GridModel(Model):
               unit_specs_data (DataFrame): with all "ATB" values filled
         """
         # Set up the header converter from ATBe to ABCE unit_spec format
-        ATB_header_converter = {"CAPEX": "uc_x",
-                                "Variable O&M": "VOM",
-                                "Fixed O&M": "FOM",
-                                "Fuel": "FC_per_MWh"}
+        ATB_header_read_converter = {"CAPEX": "uc_x",
+                                     "Variable O&M": "VOM",
+                                     "Fixed O&M": "FOM",
+                                     "Fuel": "FC_per_MWh"}
+        ATB_header_write_converter = {"CAPEX": "uc_x",
+                                      "Variable O&M": "VOM",
+                                      "Fixed O&M": "FOM",
+                                      "Fuel": "ATB_FC"}
 
         # Set up the converter between A-LEAF input sheet search terms and
         #   ATB column headers
@@ -284,8 +288,8 @@ class GridModel(Model):
             unit_settings = dict(ATB_settings.loc[unit_type, :])
 
             # Fill all necessary columns for this unit type
-            for datum_name in ATB_header_converter.keys():
-                if unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] == "ATB":
+            for datum_name, ALEAF_read_col in ATB_header_read_converter.items():
+                if unit_specs_data.loc[unit_type, ALEAF_read_col] == "ATB":
                     # Construct the mask using the ATB search terms map
                     #   defined earlier
                     mask = (ATB_data["core_metric_parameter"] == datum_name)
@@ -297,14 +301,18 @@ class GridModel(Model):
                         #   the appropriate value is 0 (e.g. battery VOM cost),
                         #   but warn the user.
                         logging.warn(f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
-                        unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = 0
+                        unit_specs_data.loc[unit_type, ATB_header_write_converter[datum_name]] = 0
                     else:
-                        unit_specs_data.loc[unit_type, ATB_header_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
+                        unit_specs_data.loc[unit_type, ATB_header_write_converter[datum_name]] = ATB_data.loc[mask, "value"].values[0]
+                        if datum_name == "Fuel":
+                            # If the current datum is Fuel, also record its
+                            #   associated units
+                            unit_specs_data.loc[unit_type, "ATB_FC_units"] = ATB_data.loc[mask, "units"].values[0]
 
         # Set newly-filled ATB data columns to numeric data types
         #   Columns initialized with "ATB" will be a non-numeric data type,
         #   which causes problems later if not converted.
-        for ATB_key, ABCE_key in ATB_header_converter.items():
+        for ATB_key, ABCE_key in ATB_header_write_converter.items():
             unit_specs_data[ABCE_key] = pd.to_numeric(unit_specs_data[ABCE_key])
 
         return unit_specs_data
@@ -313,7 +321,8 @@ class GridModel(Model):
     def finalize_unit_specs_data(self, unit_specs_data):
         """
         Fill in supplemental unit specification data from
-          ABCE files and finalize the layout of the dataframe.
+          ABCE files, ensure all fuel cost data is in $/MWh,
+          and finalize the layout of the dataframe.
 
         Arguments:
           unit_specs_data (DataFrame)
@@ -328,6 +337,22 @@ class GridModel(Model):
         #   specification file
         unit_specs_ABCE = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"],
                                                    self.settings["unit_specs_abce_supp_file"]))
+
+        # Some generators' (currently NG and Coal) fuel cost is given in the
+        #   ATB data in units of $/MMBTU. Convert these values to a $/MWh basis
+        #   for consistency.
+        unit_problems = dict()
+        unit_specs_data["FC_per_MWh"] = unit_specs_data.apply(
+            lambda x:
+                x["ATB_FC"] if x["ATB_FC_units"] == "$/MWh" else
+                    (x["ATB_FC"] * x["heat_rate"] if x["ATB_FC_units"] == "$/MMBTU" else
+                        (0 if x["is_VRE"] == True else
+                            (unit_problems.update({x["unit_type"]: x["ATB_FC_units"]})))),
+            axis = 1
+        )
+
+        if len(unit_problems) != 0:
+            raise ValueError(f"I don't recognize the fuel cost units provided in the following cases: {unit_problems}. Check your inputs, or update model.py to handle these additional cases.")
 
         # Set unit baseline construction duration and life from supplemental data
         for i in range(len(unit_specs_data)):

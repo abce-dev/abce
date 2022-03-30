@@ -64,6 +64,8 @@ abce_tables = {"WIP_projects":
                   ("FOM", "real"),             # $/kW-yr
                   ("unit_life", "real"),       # years
                   ("CF", "real"),              # frac
+                  ("ATB_FC", "real"),          # $/MWh or $/MMBTU
+                  ("ATB_FC_units", "text"),    # unit for ATB FC
                   ("FC_per_MWh", "real"),      # $/MWh
                   ("is_VRE", "text")           # boolean
                  ],
