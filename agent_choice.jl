@@ -223,8 +223,8 @@ m = set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_
 @info "Solving optimization problem..."
 optimize!(m)
 status = termination_status.(m)
-# A MILP should always return integral solutions; convert the float values
-#   to integers
+# This MILP should always return integral solutions; convert the float values
+#   to integers to avoid some future TypeErrors
 unit_qty = Int.(value.(m[:u]))
 
 
