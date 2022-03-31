@@ -253,11 +253,22 @@ end
 
 
 function get_next_asset_id(db)
+    tables_to_check = ["assets", "WIP_projects", "asset_updates", "WIP_updates"]
+
+    id_vals = Vector{Any}()
+
+    for table in tables_to_check
+        id_val = DBInterface.execute(db, "SELECT MAX(asset_id) FROM $table") |> DataFrame
+        id_val = id_val[1, Symbol("MAX(asset_id)")]
+        push!(id_vals, id_val)
+    end
+
+    # Convert id_vals into a skipmissing object
+    id_vals = skipmissing(id_vals)
+
     # Return the next available asset ID (one greater than the current largest ID)
-    SQL_get_ids = SQLite.Stmt(db, string("SELECT asset_id FROM assets"))
-    asset_df = DBInterface.execute(SQL_get_ids) |> DataFrame
-    #asset_df[!, :asset_id] = asset_df[:, :asset_id]
-    next_id = maximum(asset_df[!, :asset_id]) + 1
+    next_id = maximum(id_vals) + 1
+
     return next_id    
 end
 

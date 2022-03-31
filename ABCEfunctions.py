@@ -21,12 +21,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import glob
 
-def get_next_asset_id(db, first_asset_id):
-    max_id = pd.read_sql("SELECT MAX(asset_id) FROM assets", db).iloc[0, 0]
-    if max_id == None:
-        next_id = first_asset_id
-    else:
-        next_id = max_id + 1
+def get_next_asset_id(db, suggested_next_id):
+    # Start a list of possible next ids
+    next_id_candidates = [suggested_next_id]
+
+    # Check all possible locations for max asset ids
+    tables_to_check = ["assets", "WIP_projects", "asset_updates", "WIP_updates"]
+
+    for table in tables_to_check:
+        id_val = pd.read_sql(f"SELECT MAX(asset_id) FROM {table}", db).iloc[0, 0]
+        next_id_candidates.append(id_val)
+
+    # The largest of all non-None elements becomes the next asset id
+    next_id = max([item for item in next_id_candidates if item is not None]) + 1
 
     return next_id
 
