@@ -471,6 +471,10 @@ class GridModel(Model):
         # Get the agent-specific portfolio by unit type: filter the manifest
         #   of agent unit ownership for the current agent's unique ID
         pdf = self.portfolio_specification[self.portfolio_specification["agent_id"] == agent_id]
+        # Ensure that all units of a given type are collated into a single
+        #   dataframe row
+        pdf = pdf.drop("agent_id", axis=1)
+        pdf = pdf.groupby(by=["unit_type"]).sum().reset_index()
 
         # Set the initial asset ID
         asset_id = ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"])
