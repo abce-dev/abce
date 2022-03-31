@@ -479,20 +479,34 @@ class GridModel(Model):
         # Set the initial asset ID
         asset_id = ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"])
 
-        # Set up the master asset dataframe to hold all asset data for saving
-        #   into the database
-        master_asset_df = pd.DataFrame()
+        # Retrieve the column-header schema for the 'assets' table
+        self.cur.execute("SELECT * FROM assets")
+        assets_col_names = [element[0] for element in self.cur.description]
+
+        # Create a master dataframe to hold all asset records for this
+        #   agent-unit type combination (to reduce the frequency of saving
+        #   to the database)
+        master_assets_df = pd.DataFrame(columns = assets_col_names)
 
         # Assign units to this agent as specified in the portfolio file,
         #   and record each in the master_asset_df dataframe
-        for unit_type in list(pdf["unit_type"]):
+        for unit_record in pdf.itertuples():
+            unit_type = unit_record.unit_type
+            num_units = unit_record.num_units
+
             # Retrieve the list of retirement period data for this unit type
-            #   and agent, and create the cumulative-sum threshold mapping
+            #   and agent
             unit_rets = self.create_unit_type_retirement_df(unit_type, asset_id)
 
-            for j in range(pdf.loc[pdf["unit_type"] == unit_type, "num_units"].values[0]):
-                # Assign the appropriate retirement period
-                retirement_pd = self.assign_retirement_pd(unit_rets, asset_id)
+            # Out of the total number of assets of this type belonging to this
+            #   agent, track how many have yet to be created
+            assets_remaining = num_units
+
+            # Create assets in blocks, according to the number of units per
+            #   retirement period
+            for rets_row in unit_rets.itertuples():
+                retirement_pd = rets_row.retirement_pd
+                num_copies = rets_row.num_copies
 
                 # Compute unit capex according to the unit type spec
                 unit_capex = self.compute_total_capex_preexisting(unit_type)
@@ -508,9 +522,9 @@ class GridModel(Model):
                 #unit_cap_pmt = self.compute_sinking_fund_payment(agent_id, unit_capex, unit_life)
                 cap_pmt = 0
 
-                # Create the dictionary of asset characteristics
-                asset_dict = {"asset_id": asset_id,
-                              "agent_id": agent_id,
+                # Save all values which don't change for each asset in this
+                #   block, i.e. everything but the asset_id
+                asset_dict = {"agent_id": agent_id,
                               "unit_type": unit_type,
                               "start_pd": -1,
                               "completion_pd": 0,
@@ -518,19 +532,44 @@ class GridModel(Model):
                               "retirement_pd": retirement_pd,
                               "total_capex": unit_capex,
                               "cap_pmt": cap_pmt}
-                new_asset = pd.DataFrame(asset_dict, index=[0])
 
-                # use the first asset's DataFrame as the template
-                if len(master_asset_df) == 0:
-                    master_asset_df = new_asset
-                else:
-                    master_asset_df = master_asset_df.append(new_asset)
+                # For each asset in this block, create a dataframe record and
+                #   store it to the master_assets_df
+                for i in range(num_copies):
+                    # Find the largest extant asset id, and set the current 
+                    #   asset id 1 higher
+                    asset_dict["asset_id"] = max(
+                        ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"]),
+                        max(master_assets_df["asset_id"], default=self.settings["first_asset_id"]) + 1
+                    )
 
-                # Increment the asset id for the next asset
-                asset_id = max(ABCE.get_next_asset_id(self.db, asset_id), max(master_asset_df["asset_id"])+1)
+                    # Convert the dictionary to a dataframe format and save
+                    new_record = pd.DataFrame(asset_dict, index=[0])
+                    master_assets_df = master_assets_df.append(new_record)
 
-        # Save the dataframe of all assets into the 'assets' DB table
-        master_asset_df.to_sql("assets", self.db, if_exists="append", index=False)
+                # Having saved these entries to the master record dataframe,
+                #   subtract the number of newly-created assets from the total
+                assets_remaining -= num_copies
+
+            # For any leftover units in assets_remaining with no specified
+            #   retirement date, initialize them with the default retirement date
+            #   of 9999
+            asset_dict["retirement_pd"] = 9999
+
+            for i in range(assets_remaining):
+                asset_dict["asset_id"] = max(
+                    ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"]),
+                    max(master_assets_df["asset_id"], default=self.settings["first_asset_id"]) + 1
+                )
+
+                # Convert the dictionary to a dataframe format and save
+                new_record = pd.DataFrame(asset_dict, index=[0])
+                master_assets_df = master_assets_df.append(new_record)
+
+        # Once all assets from all unit types for this agent have had records
+        #   initialized, save the dataframe of all assets into the 'assets'
+        #   DB table
+        master_assets_df.to_sql("assets", self.db, if_exists="append", index=False)
 
 
     def compute_total_capex_preexisting(self, unit_type):
@@ -560,7 +599,7 @@ class GridModel(Model):
         #   assets with IDs strictly less than 2005 will receive a 
         #   `retirement_pd` of 12 (unless they qualify for a lower threshold
         #   category).
-        unit_type_rets["rp_threshold"] = np.cumsum(unit_type_rets["num_copies"].to_numpy(), axis=0) + starting_asset_id
+        #unit_type_rets["rp_threshold"] = np.cumsum(unit_type_rets["num_copies"].to_numpy(), axis=0) + starting_asset_id
 
         return unit_type_rets
 
