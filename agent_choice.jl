@@ -69,10 +69,8 @@ MMBTU2BTU = 1000   # Converts MMBTU to BTU
 
 # Load the inputs
 db = load_db(db_file)
-#pd = get_current_period()
 pd = CLI_args["current_pd"]
 agent_id = CLI_args["agent_id"]
-#agent_id = get_agent_id()
 
 # Set up agent-specific data
 # Get a list of all ongoing construction projects for the current agent
