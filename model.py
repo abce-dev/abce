@@ -419,7 +419,7 @@ class GridModel(Model):
     def check_num_agents(self):
         """
         Ensure that all sources of agent data include the same number of
-          agents. If not, raise an error.
+          agents. If not, raise a ValueError.
         """
         # Ensure number of agents matches between the two current data sources:
         #   - gc_params.yml => self.gc_params
@@ -433,6 +433,7 @@ class GridModel(Model):
         """
         Ensure that the total of all assets by type owned by the agents
           matches the master total in the A-LEAF system portfolio file.
+          If not, raise a ValueError.
         """
         # Temporarily read in the starting A-LEAF total system portfolio from
         #   the database
@@ -441,22 +442,25 @@ class GridModel(Model):
                            self.ALEAF_portfolio_ref
                        )
         full_pdf = ALI.organize_ALEAF_portfolio(writer)
-        pdf = (full_pdf[["Unit Type", "EXUNITS"]]
-               .rename(columns={"Unit Type": "unit_type"})
-               .set_index("unit_type"))
+        system_portfolio = (full_pdf[["Unit Type", "EXUNITS"]]
+                            .rename(columns={"Unit Type": "unit_type"})
+                            .set_index("unit_type"))
 
         agent_owned_units = (self.portfolio_specification
                              .groupby("unit_type")["num_units"].sum())
         # Inner join the agent ownership data into the system portfolio data
-        pdf = (pdf.join(agent_owned_units, on="unit_type", how="inner")
-               .reset_index())
+        system_portfolio = (system_portfolio.join(
+                                agent_owned_units,
+                                on="unit_type",
+                                how="inner")
+                            .reset_index())
 
         # Set up a dictionary to log unit number mismatches
         incorrect_units = dict()
         # For any unit_types where the num_units (from agent ownership) do not
         #   match the EXUNITS (from system portfolio), save that type's info to
         #   the incorrect_units dict
-        pdf = pdf.apply(
+        system_portfolio = system_portfolio.apply(
             lambda x:
                 incorrect_units.update(
                     {x["unit_type"]: (x["EXUNITS"], x["num_units"])}
