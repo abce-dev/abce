@@ -1019,10 +1019,23 @@ function record_asset_retirements(result, db, current_pd, agent_id)
     #   optimization result
     for j = 1:result[:units_to_execute]
         asset_to_retire = ret_candidates[convert(Int64, j), :asset_id]
+        asset_data = DBInterface.execute(
+            db,
+            "SELECT * FROM assets WHERE asset_id = $asset_to_retire"
+        ) |> DataFrame
+
+        # Overwrite the original record's retirement period with the current
+        #   period
+        asset_data[1, :retirement_pd] = current_pd
+        @info asset_data
+        replacement_data = [item for item in asset_data[1, :]]
+        @info replacement_data
+
+        # Save this new record to the asset_updates table
         DBInterface.execute(
             db,
-            "UPDATE asset_updates SET retirement_pd = ? WHERE asset_id = ?",
-            (current_pd, asset_to_retire)
+            "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            replacement_data
         )
     end
 
