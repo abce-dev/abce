@@ -85,11 +85,18 @@ class GridModel(Model):
         #   data file
         self.add_unit_specs_to_db()
 
+        # Read in the GenCo parameters data from file
+        gc_params_file_name = os.path.join(self.settings["ABCE_abs_path"],
+                                           self.settings["gc_params_file"])
+        self.gc_params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
+
         # Load the unit-type ownership specification for all agents
         self.portfolio_specification = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"], self.settings["portfolios_file"]))
+
         # Check the portfolio specification to ensure the ownership totals 
         #   equal the total numbers of available units
-        self.check_portfolio_specification()
+        self.check_num_agents()
+        self.check_total_assets()
 
         # Load the mandatory unit retirement data
         ret_data_file = os.path.join(self.settings["ABCE_abs_path"],
@@ -375,8 +382,6 @@ class GridModel(Model):
         return unit_specs_data
 
 
-
-
     def add_unit_specs_to_db(self):
         """
         This function loads all unit specification data and saves it to the
@@ -411,44 +416,56 @@ class GridModel(Model):
         self.unit_specs = unit_specs_data
 
 
-    def check_portfolio_specification(self):
+    def check_num_agents(self):
         """
-        Ensure that the user-supplied portfolio ownership specification is
-        correctly set up.
-          - Check number of agents versus self.settings["num_agents"]
-          - Ensure that the number of extant units of each type equals the
-            total number of units of that type owned by all agents
-
-        If either of this criteria is not completely satisfied, give the user
-        an error message and end the program.
+        Ensure that all sources of agent data include the same number of
+          agents. If not, raise an error.
         """
-        # Tracker for portfolio state
-        agents_OK = True
-        portfolio_OK = True
-        num_agents_msg = "Number of agents matches."
-        units_owned_msg = "Unit type ownership matches."
-
-        # Read in the A-LEAF total system portfolio
-        book, writer = ALI.prepare_xlsx_data(self.ALEAF_portfolio_ref, self.ALEAF_portfolio_ref)
-        pdf = ALI.organize_ALEAF_portfolio(writer)
-
-        # Check step 1: ensure number of agents matches
-        if self.settings["num_agents"] != self.portfolio_specification["agent_id"].nunique():
-            agents_OK = False
+        # Ensure number of agents matches between the two current data sources:
+        #   - gc_params.yml => self.gc_params
+        #   - portfolios.csv => self.portfolio_specification
+        if len(self.gc_params.keys()) != self.portfolio_specification["agent_id"].nunique():
             num_agents_msg = f"\nNumber of agents specified differs between settings and portfolio specification.\nSettings file num_agents: {self.settings['num_agents']}  |  Portfolio spec num_agents: {self.portfolio_specification['agent_id'].nunique()}."
+            raise ValueError(num_agents_msg)
 
 
-        # Check step 2: ensure total assets owned by agent by type equals
-        #   total assets by type in the system
-        owned_units = self.portfolio_specification.groupby("unit_type")["num_units"].sum()
+    def check_total_assets(self):
+        """
+        Ensure that the total of all assets by type owned by the agents
+          matches the master total in the A-LEAF system portfolio file.
+        """
+        # Temporarily read in the starting A-LEAF total system portfolio from
+        #   the database
+        book, writer = ALI.prepare_xlsx_data(
+                           self.ALEAF_portfolio_ref,
+                           self.ALEAF_portfolio_ref
+                       )
+        full_pdf = ALI.organize_ALEAF_portfolio(writer)
+        pdf = (full_pdf[["Unit Type", "EXUNITS"]]
+               .rename(columns={"Unit Type": "unit_type"})
+               .set_index("unit_type"))
+
+        agent_owned_units = (self.portfolio_specification
+                             .groupby("unit_type")["num_units"].sum())
+        # Inner join the agent ownership data into the system portfolio data
+        pdf = (pdf.join(agent_owned_units, on="unit_type", how="inner")
+               .reset_index())
+
+        # Set up a dictionary to log unit number mismatches
         incorrect_units = dict()
-        for unit_type in list(pdf["Unit Type"]):
-            if pdf[pdf["Unit Type"] == unit_type]["EXUNITS"].values[0] != owned_units[unit_type]:
-                portfolio_OK = False
-                incorrect_units[unit_type] = (pdf[pdf["Unit Type"] == unit_type]["EXUNITS"].values[0], owned_units[unit_type])
+        # For any unit_types where the num_units (from agent ownership) do not
+        #   match the EXUNITS (from system portfolio), save that type's info to
+        #   the incorrect_units dict
+        pdf = pdf.apply(
+            lambda x:
+                incorrect_units.update(
+                    {x["unit_type"]: (x["EXUNITS"], x["num_units"])}
+                ) if x["num_units"] != x["EXUNITS"] else None,
+            axis = 1
+        )
 
         # If unit type numbers don't match, construct a helpful error message for the user
-        if not portfolio_OK:
+        if len(incorrect_units) != 0:
             msg_list = []
             for unit_type in incorrect_units.keys():
                 msg = f"{unit_type}:: System Portfolio Total: {incorrect_units[unit_type][0]}  |  Ownership Specification Total: {incorrect_units[unit_type][1]}"
@@ -456,15 +473,7 @@ class GridModel(Model):
             preamble = "\nThe number of units by generator type does not match between the overall system portfolio specification and the individual agents' portfolios:\n"
             postamble = "\n\nEnsure that the total number of units for each type matches between the system portfolio file and the agent ownership file. \nTerminating..."
             units_owned_msg = preamble + "\n".join(msg_list) + postamble
-
-        # If something went wrong in the checks, display an error message and quit
-        if not (agents_OK and portfolio_OK):
-            print("\nError: the agent portfolio specification does not match other simulation settings.")
-            if not agents_OK:
-                print(num_agents_msg)
-            if not portfolio_OK:
-                print(units_owned_msg)
-            exit()
+            raise ValueError(units_owned_msg)
 
 
     def initialize_agent_assets(self, agent_id):
