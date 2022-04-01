@@ -976,18 +976,38 @@ class GridModel(Model):
         self.db.commit()
 
         # Record status updates to existing assets (i.e. retirements)
-        for i in range(len(asset_updates)):
-            new_data = asset_updates.iloc[[i]].copy().reset_index().drop("index", axis=1)
-            orig_data = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {new_data.loc[0, 'asset_id']}", self.db)
-            if len(orig_data) == 0:
+        # Convert asset_updates to a dict of dicts for convenience
+        asset_updates = asset_updates.to_dict(orient='index')
+        for key in asset_updates.keys():
+            new_record = asset_updates[key]
+            orig_record = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {new_record['asset_id']}", self.db)
+            if len(orig_record) == 0:
                 # The asset does not already exist and an entry must be added
-                new_data.to_sql("assets", self.db, if_exists="append", index=False)
+                new_record.to_sql("assets", self.db, if_exists="append", index=False)
             else:
-                # Update any columns for which the new_data values do not match
-                #   the orig_data values
-                for header in new_data.columns:
-                    if new_data.loc[0, header] != orig_data.loc[0, header] and header == "retirement_pd":
-                        self.cur.execute(f"UPDATE assets SET {header} = {new_data.loc[0, header]} WHERE asset_id = {new_data.loc[0, 'asset_id']}")
+                # The prior record must be overwritten
+                # Set up the ordered tuple corresponding to the SQL query below
+                vals = (new_record["unit_type"],
+                        new_record["start_pd"],
+                        new_record["completion_pd"],
+                        new_record["cancellation_pd"],
+                        new_record["retirement_pd"],
+                        new_record["total_capex"],
+                        new_record["cap_pmt"],
+                        new_record["agent_id"],
+                        new_record["asset_id"])
+
+                # Update the asset's record in the 'assets' table
+                self.cur.execute("UPDATE assets SET " +
+                    f"unit_type = ?, " +
+                    f"start_pd = ?, " +
+                    f"completion_pd = ?, " +
+                    f"cancellation_pd = ?, " +
+                    f"retirement_pd = ?, " +
+                    f"total_capex = ?, " +
+                    f"cap_pmt = ? " +
+                    f"WHERE agent_id = ? AND " +
+                    f"asset_id = ?", vals)
         self.db.commit()
 
 
