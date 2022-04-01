@@ -35,7 +35,6 @@ class GridModel(Model):
         self.settings_file_name = settings_file_name
         self.settings = settings
         # Get agent parameters from the settings dictionary
-        self.num_agents = settings["num_agents"]
         self.first_agent_id = settings["first_agent_id"]
         self.first_asset_id = settings["first_asset_id"]
         self.total_forecast_horizon = settings["total_forecast_horizon"]
@@ -104,7 +103,8 @@ class GridModel(Model):
         self.ret_data = pd.read_csv(ret_data_file, comment="#")
 
         # Create agents
-        for agent_id in range(self.first_agent_id, self.first_agent_id + self.num_agents):
+        num_agents = len(self.gc_params.keys())
+        for agent_id in range(self.first_agent_id, self.first_agent_id + num_agents):
             gc = GenCo(agent_id, self, settings, self.args)
             self.schedule.add(gc)
             self.initialize_agent_assets(agent_id)
