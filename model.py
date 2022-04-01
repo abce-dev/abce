@@ -105,7 +105,7 @@ class GridModel(Model):
         # Create agents
         num_agents = len(self.gc_params.keys())
         for agent_id in range(self.first_agent_id, self.first_agent_id + num_agents):
-            gc = GenCo(agent_id, self, settings, self.args)
+            gc = GenCo(agent_id, self, settings, self.gc_params[agent_id], self.args)
             self.schedule.add(gc)
             self.initialize_agent_assets(agent_id)
 

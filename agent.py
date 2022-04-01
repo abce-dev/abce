@@ -31,7 +31,7 @@ class GenCo(Agent):
     A utility company with a certain number of generation assets.
     """
 
-    def __init__(self, genco_id, model, settings, cli_args):
+    def __init__(self, genco_id, model, settings, gc_params, cli_args):
         """
         Initialize a GenCo class object.
 
@@ -57,18 +57,12 @@ class GenCo(Agent):
         self.model = model
         self.quiet = cli_args.quiet
         self.settings = settings
-        self.assign_parameters(settings)
+        self.assign_parameters(gc_params)
 
 
-    def assign_parameters(self, settings):
-        # Retrieve parameters from file
-        gc_params_file_name = os.path.join(settings["ABCE_abs_path"],
-                                           settings["gc_params_file"])
-        all_params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
-        # Choose the parameter set relevant to the current agent
-        agent_params = all_params[self.unique_id]
+    def assign_parameters(self, gc_params):
         # Assign all parameters from agent_params as member data
-        for key, val in agent_params.items():
+        for key, val in gc_params.items():
             setattr(self, key, val)
 
         # Save parameters to DB table `agent_params`
