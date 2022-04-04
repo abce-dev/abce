@@ -975,15 +975,14 @@ class GridModel(Model):
 
 
     def execute_all_status_updates(self):
-        WIP_updates = pd.read_sql_query("SELECT * FROM WIP_updates", self.db)
-        asset_updates = pd.read_sql_query("SELECT * FROM asset_updates", self.db)
-
         # Record newly-started WIP projects from the agents' decisions
+        WIP_updates = pd.read_sql_query("SELECT * FROM WIP_updates", self.db)
         WIP_updates.to_sql("WIP_projects", self.db, if_exists="append", index=False)
         self.db.commit()
 
         # Record status updates to existing assets (i.e. retirements)
         # Convert asset_updates to a dict of dicts for convenience
+        asset_updates = pd.read_sql_query("SELECT * FROM asset_updates", self.db)
         for row_num in asset_updates.index:
             new_record = asset_updates.loc[[row_num]].copy().reset_index(drop=True)
 
