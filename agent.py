@@ -90,11 +90,6 @@ class GenCo(Agent):
         self.all_assets = self.get_current_asset_list()
         self.op_assets = self.get_operating_asset_list()
 
-        # Update the status of each current WIP project
-        if self.current_step > 0:
-            self.WIP_projects = self.get_WIP_project_list()
-            self.update_WIP_projects()
-
         # Run the agent behavior choice algorithm
         agent_choice_path = os.path.join(self.settings["ABCE_abs_path"],
                                          "agent_choice.jl")
