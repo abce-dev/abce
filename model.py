@@ -35,7 +35,6 @@ class GridModel(Model):
         self.settings_file_name = settings_file_name
         self.settings = settings
         # Get agent parameters from the settings dictionary
-        self.first_agent_id = settings["first_agent_id"]
         self.first_asset_id = settings["first_asset_id"]
         self.total_forecast_horizon = settings["total_forecast_horizon"]
         # Get ALEAF parameters from the settings dictionary
@@ -510,7 +509,7 @@ class GridModel(Model):
 
             # Retrieve the list of retirement period data for this unit type
             #   and agent
-            unit_rets = self.create_unit_type_retirement_df(unit_type, asset_id)
+            unit_rets = self.create_unit_type_retirement_df(unit_type, agent_id, asset_id)
 
             # Out of the total number of assets of this type belonging to this
             #   agent, track how many have yet to be created
@@ -595,13 +594,13 @@ class GridModel(Model):
         return total_capex
 
 
-    def create_unit_type_retirement_df(self, unit_type, starting_asset_id):
+    def create_unit_type_retirement_df(self, unit_type, agent_id, starting_asset_id):
         """
         Create the step-function mapping to determine which units are assigned
           which mandatory retirement periods.
         """
         # Filter the df of retirement period data for the current unit type
-        unit_type_rets = self.ret_data[self.ret_data["unit_type"] == unit_type].copy()
+        unit_type_rets = self.ret_data[(self.ret_data["unit_type"] == unit_type) & (self.ret_data["agent_id"] == agent_id)].copy()
 
         # Sort from soonest to furthest-away retirement period
         unit_type_rets = unit_type_rets.sort_values(by="retirement_pd", axis=0, ascending=True, ignore_index=True)
