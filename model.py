@@ -421,11 +421,12 @@ class GridModel(Model):
         Ensure that all sources of agent data include the same number of
           agents. If not, raise a ValueError.
         """
-        # Ensure number of agents matches between the two current data sources:
+        # Ensure that any agents specified in the portfolio spec file have
+        #   corresponding parameters entries in the gc_params file:
         #   - gc_params.yml => self.gc_params
         #   - portfolios.csv => self.portfolio_specification
-        if len(self.gc_params.keys()) != self.portfolio_specification["agent_id"].nunique():
-            num_agents_msg = f"\nNumber of agents specified differs between settings and portfolio specification.\nSettings file num_agents: {self.settings['num_agents']}  |  Portfolio spec num_agents: {self.portfolio_specification['agent_id'].nunique()}."
+        if not all(agent_id in self.gc_params.keys() for agent_id in self.portfolio_specification.agent_id.unique()):
+            num_agents_msg = f"Agents specified in the portfolio specification file {self.settings['portfolios_file']} do not all have corresponding entries in the gc_params file {self.settings['gc_params_file']}. Check your inputs and try again."
             raise ValueError(num_agents_msg)
 
 
