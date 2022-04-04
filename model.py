@@ -961,6 +961,7 @@ class GridModel(Model):
             new_record = asset_updates.loc[[row_num]].copy().reset_index(drop=True)
 
             orig_record = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {new_record.loc[0, 'asset_id']}", self.db)
+
             if len(orig_record) == 0:
                 # The asset does not already exist and an entry must be added
                 pd.DataFrame(new_record).to_sql("assets", self.db, if_exists="append", index=False)
