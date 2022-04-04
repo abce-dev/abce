@@ -617,23 +617,6 @@ class GridModel(Model):
         return unit_type_rets
 
 
-    def assign_retirement_pd(self, unit_type_rets, current_asset_id):
-        """Compare the current asset ID against the classification thresholds
-           in unit_type_rets, to determine the asset's mandatory retirement
-           period.
-        """
-        # If no retirement period is specified, set the asset to never retire
-        #    (i.e. retirement period is a Large Number)
-        retirement_pd = 9999
-
-        for i in range(len(unit_type_rets)):
-            if current_asset_id < unit_type_rets.loc[i, "rp_threshold"]:
-                retirement_pd = unit_type_rets.loc[i, "retirement_pd"]
-                break   # Once the correct bin is found, exit the loop
-
-        return retirement_pd
-
-
     def load_demand_data_to_db(self, settings):
         # Load all-period demand data into the database
         demand_data_file = os.path.join(settings["ABCE_abs_path"],
