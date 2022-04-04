@@ -545,6 +545,7 @@ class GridModel(Model):
                               "retirement_pd": retirement_pd,
                               "total_capex": unit_capex,
                               "cap_pmt": cap_pmt}
+                print(asset_dict)
 
                 # For each asset in this block, create a dataframe record and
                 #   store it to the master_assets_df
@@ -586,8 +587,8 @@ class GridModel(Model):
 
 
     def compute_total_capex_preexisting(self, unit_type):
-        unit_cost_per_kW = self.unit_specs[self.unit_specs.unit_type == unit_type]["uc_x"]
-        unit_capacity = self.unit_specs[self.unit_specs.unit_type == unit_type]["capacity"]
+        unit_cost_per_kW = self.unit_specs[self.unit_specs.unit_type == unit_type]["uc_x"].values[0]
+        unit_capacity = self.unit_specs[self.unit_specs.unit_type == unit_type]["capacity"].values[0]
 
         total_capex = unit_cost_per_kW * unit_capacity * self.MW2kW
 
@@ -970,6 +971,7 @@ class GridModel(Model):
     def execute_all_status_updates(self):
         WIP_updates = pd.read_sql_query("SELECT * FROM WIP_updates", self.db)
         asset_updates = pd.read_sql_query("SELECT * FROM asset_updates", self.db)
+        print(asset_updates)
 
         # Record newly-started WIP projects from the agents' decisions
         WIP_updates.to_sql("WIP_projects", self.db, if_exists="append", index=False)
@@ -978,36 +980,30 @@ class GridModel(Model):
         # Record status updates to existing assets (i.e. retirements)
         # Convert asset_updates to a dict of dicts for convenience
         asset_updates = asset_updates.to_dict(orient='index')
-        for key in asset_updates.keys():
-            new_record = asset_updates[key]
+        for key, new_record in asset_updates.items():
+            print(new_record)
             orig_record = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {new_record['asset_id']}", self.db)
             if len(orig_record) == 0:
                 # The asset does not already exist and an entry must be added
                 new_record.to_sql("assets", self.db, if_exists="append", index=False)
             else:
                 # The prior record must be overwritten
-                # Set up the ordered tuple corresponding to the SQL query below
-                vals = (new_record["unit_type"],
-                        new_record["start_pd"],
-                        new_record["completion_pd"],
-                        new_record["cancellation_pd"],
-                        new_record["retirement_pd"],
-                        new_record["total_capex"],
-                        new_record["cap_pmt"],
-                        new_record["agent_id"],
-                        new_record["asset_id"])
+                # Move the filtering data (asset and agent ids) into a separate
+                #   dictionary
+                filters = {}
+                col_filters = ["asset_id", "agent_id"]
+                for col in col_filters:
+                    filters[col] = new_record.pop(col)
 
-                # Update the asset's record in the 'assets' table
-                self.cur.execute("UPDATE assets SET " +
-                    f"unit_type = ?, " +
-                    f"start_pd = ?, " +
-                    f"completion_pd = ?, " +
-                    f"cancellation_pd = ?, " +
-                    f"retirement_pd = ?, " +
-                    f"total_capex = ?, " +
-                    f"cap_pmt = ? " +
-                    f"WHERE agent_id = ? AND " +
-                    f"asset_id = ?", vals)
+                # Update the record in the DB table
+                ABCE.update_DB_table_inplace(
+                    self.db,
+                    self.cur,
+                    "assets",
+                    new_record,
+                    filters
+                )
+
         self.db.commit()
 
 

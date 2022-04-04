@@ -38,6 +38,51 @@ def get_next_asset_id(db, suggested_next_id):
     return next_id
 
 
+def update_DB_table_inplace(db, cur, table, new_data, where):
+    """
+    A centralized function to update data in any DB table. The final form of
+    the command constructed will be:
+        UPDATE table SET key1 = new_data[key1], key2 = new_data[key2], ..., 
+            keyn = new_data[keyn] WHERE col1 = where[1] AND col2 = where[2]
+            AND ... AND colk = where[k]
+
+    Arguments:
+      - db (sqlite3 database connection)
+      - cur (sqlite3 cursor object for db)
+      - table (string): name of table in db to update
+      - new_data (dict): column headers and new values to set for each
+      - where (dict): search/match criteria to determine which rows are updated
+    """
+
+    # Initialize the command
+    update_cmd = f"UPDATE {table} SET "
+
+    # Add the list of data to update
+    val_list = []
+    for column, value in new_data.items():
+        if type(value) == str:
+            val_list.append(f"{column} = '{value}'")
+        else:
+            val_list.append(f"{column} = {value}")
+    update_cmd += ", ".join(val_list)
+
+    # Add the list of matching/filtering conditions
+    update_cmd += f" WHERE "
+    val_list = []
+    for column, value in where.items():
+        # Protect strings with single quotes
+        if type(value) == str:
+            val_list.append(f"{column} = '{value}'")
+        else:
+            val_list.append(f"{column} = {value}")
+    update_cmd += " AND ".join(val_list)
+    print(update_cmd)
+
+    # Execute the constructed command
+    cur.execute(update_cmd)
+
+
+
 def process_outputs(settings, output_dir):
     """
     A handler function for postprocessing A-LEAF results stored from the
