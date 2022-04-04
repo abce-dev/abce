@@ -76,7 +76,6 @@ def update_DB_table_inplace(db, cur, table, new_data, where):
         else:
             val_list.append(f"{column} = {value}")
     update_cmd += " AND ".join(val_list)
-    print(update_cmd)
 
     # Execute the constructed command
     cur.execute(update_cmd)
