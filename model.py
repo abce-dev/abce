@@ -545,7 +545,6 @@ class GridModel(Model):
                               "retirement_pd": retirement_pd,
                               "total_capex": unit_capex,
                               "cap_pmt": cap_pmt}
-                print(asset_dict)
 
                 # For each asset in this block, create a dataframe record and
                 #   store it to the master_assets_df
@@ -853,22 +852,23 @@ class GridModel(Model):
     def record_completed_xtr_project(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
 
-        # Record the project's completion period as the current period
-        self.cur.execute(f"UPDATE assets " +
-                         f"SET completion_pd = {self.current_step} " +
-                         f"WHERE asset_id = {asset_id}")
-
-        # Compute and record the total CapEx for the project
-        self.cur.execute(f"UPDATE assets " +
-                         f"SET total_capex = {project_data.cum_exp.values[0]} " +
-                         f"WHERE asset_id = {asset_id}")
-
-        # Compute periodic sinking fund payments
+       # Compute periodic sinking fund payments
         unit_type = project_data.loc[0, "unit_type"]
         unit_life = self.unit_specs.loc[unit_type, "unit_life"]
         capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], project_data.loc[0, "cum_exp"], unit_life)
-        self.cur.execute(f"UPDATE assets SET cap_pmt = {capex_payment} " +
-                         f"WHERE asset_id = {asset_id}")
+
+        to_update = {"completion_pd": current_step,
+                     "total_capex": project_data.cum_exp.values[0],
+                     "cap_pmt": capex_payment}
+        filters = {"asset_id": asset_id}
+
+        ABCE.update_DB_table_inplace(
+            self.db,
+            self.cur,
+            "assets",
+            to_update,
+            filters
+        )
 
         # Commit changes to database
         self.db.commit()
@@ -962,16 +962,21 @@ class GridModel(Model):
     def update_expected_completion_period(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
         new_completion_pd = project_data.loc[0, "rtec"] + self.current_step
-        
-        self.cur.execute(f"UPDATE assets SET completion_pd = {new_completion_pd} " +
-                         f"WHERE asset_id = {asset_id}")
+
+        ABCE.update_DB_table_inplace(
+            self.db,
+            self.cur,
+            "assets",
+            {"completion_pd": new_completion_pd},
+            {"asset_id": asset_id}
+        )
+ 
         self.db.commit()
 
 
     def execute_all_status_updates(self):
         WIP_updates = pd.read_sql_query("SELECT * FROM WIP_updates", self.db)
         asset_updates = pd.read_sql_query("SELECT * FROM asset_updates", self.db)
-        print(asset_updates)
 
         # Record newly-started WIP projects from the agents' decisions
         WIP_updates.to_sql("WIP_projects", self.db, if_exists="append", index=False)
@@ -979,17 +984,18 @@ class GridModel(Model):
 
         # Record status updates to existing assets (i.e. retirements)
         # Convert asset_updates to a dict of dicts for convenience
-        asset_updates = asset_updates.to_dict(orient='index')
-        for key, new_record in asset_updates.items():
-            print(new_record)
-            orig_record = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {new_record['asset_id']}", self.db)
+        for row_num in asset_updates.index:
+            new_record = asset_updates.loc[[row_num]].copy().reset_index(drop=True)
+
+            orig_record = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {new_record.loc[0, 'asset_id']}", self.db)
             if len(orig_record) == 0:
                 # The asset does not already exist and an entry must be added
-                new_record.to_sql("assets", self.db, if_exists="append", index=False)
+                pd.DataFrame(new_record).to_sql("assets", self.db, if_exists="append", index=False)
             else:
                 # The prior record must be overwritten
                 # Move the filtering data (asset and agent ids) into a separate
                 #   dictionary
+                new_record = new_record.to_dict(orient="records")[0]
                 filters = {}
                 col_filters = ["asset_id", "agent_id"]
                 for col in col_filters:
