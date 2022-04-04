@@ -86,14 +86,14 @@ class GridModel(Model):
         # Read in the GenCo parameters data from file
         gc_params_file_name = os.path.join(self.settings["ABCE_abs_path"],
                                            self.settings["gc_params_file"])
-        self.gc_params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
+        gc_params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
 
         # Load the unit-type ownership specification for all agents
         self.portfolio_specification = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"], self.settings["portfolios_file"]))
 
         # Check the portfolio specification to ensure the ownership totals 
         #   equal the total numbers of available units
-        self.check_num_agents()
+        self.check_num_agents(gc_params)
         self.check_total_assets()
 
         # Load the mandatory unit retirement data
@@ -102,9 +102,9 @@ class GridModel(Model):
         self.ret_data = pd.read_csv(ret_data_file, comment="#")
 
         # Create agents
-        num_agents = len(self.gc_params.keys())
-        for agent_id in list(self.gc_params.keys()):
-            gc = GenCo(agent_id, self, settings, self.gc_params[agent_id], self.args)
+        num_agents = len(gc_params.keys())
+        for agent_id in list(gc_params.keys()):
+            gc = GenCo(agent_id, self, settings, gc_params[agent_id], self.args)
             self.schedule.add(gc)
             self.initialize_agent_assets(agent_id)
 
@@ -415,16 +415,16 @@ class GridModel(Model):
         self.unit_specs = unit_specs_data
 
 
-    def check_num_agents(self):
+    def check_num_agents(self, gc_params):
         """
         Ensure that all sources of agent data include the same number of
           agents. If not, raise a ValueError.
         """
         # Ensure that any agents specified in the portfolio spec file have
         #   corresponding parameters entries in the gc_params file:
-        #   - gc_params.yml => self.gc_params
+        #   - gc_params.yml => gc_params
         #   - portfolios.csv => self.portfolio_specification
-        if not all(agent_id in self.gc_params.keys() for agent_id in self.portfolio_specification.agent_id.unique()):
+        if not all(agent_id in gc_params.keys() for agent_id in self.portfolio_specification.agent_id.unique()):
             num_agents_msg = f"Agents specified in the portfolio specification file {self.settings['portfolios_file']} do not all have corresponding entries in the gc_params file {self.settings['gc_params_file']}. Check your inputs and try again."
             raise ValueError(num_agents_msg)
 
