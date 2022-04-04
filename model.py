@@ -516,7 +516,6 @@ class GridModel(Model):
             #   should all retire at period 9999
             assets_remaining = num_units
             num_not_specified = num_units - sum(unit_rets["num_copies"])
-            print(unit_rets)
             unit_rets = unit_rets.append({
                 "agent_id": agent_id,
                 "unit_type": unit_type,
@@ -569,24 +568,10 @@ class GridModel(Model):
                     new_record = pd.DataFrame(asset_dict, index=[0])
                     master_assets_df = master_assets_df.append(new_record)
 
-                # Having saved these entries to the master record dataframe,
-                #   subtract the number of newly-created assets from the total
-                #assets_remaining -= num_copies
-
             # For any leftover units in assets_remaining with no specified
             #   retirement date, initialize them with the default retirement date
             #   of 9999
             asset_dict["retirement_pd"] = 9999
-
-            #for i in range(assets_remaining):
-            #    asset_dict["asset_id"] = max(
-            #        ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"]),
-            #        max(master_assets_df["asset_id"], default=self.settings["first_asset_id"]) + 1
-            #    )
-
-                # Convert the dictionary to a dataframe format and save
-            #    new_record = pd.DataFrame(asset_dict, index=[0])
-            #    master_assets_df = master_assets_df.append(new_record)
 
         # Once all assets from all unit types for this agent have had records
         #   initialized, save the dataframe of all assets into the 'assets'
