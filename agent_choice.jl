@@ -223,7 +223,7 @@ optimize!(m)
 status = termination_status.(m)
 # This MILP should always return integral solutions; convert the float values
 #   to integers to avoid some future TypeErrors
-unit_qty = Int.(value.(m[:u]))
+unit_qty = Int.(round.(value.(m[:u])))
 
 
 ###### Display the results
