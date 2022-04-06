@@ -108,7 +108,6 @@ unit_data[!, :FCF_NPV] = zeros(Float64, num_types)
 
 # NPV is the only decision criterion, so create a dataframe to hold the results
 #    for each alternative
-alternative_names, NPV_results = create_NPV_results_df(unit_data, num_lags)
 new_xtr_NPV_df = DataFrame(unit_type = String[], project_type = String[], retirement_pd = Any[], lag = Any[], NPV = Float64[])
 
 # Create per-unit financial statement tables
@@ -165,7 +164,6 @@ end
 
 
 # Create a dataframe to hold NPV results for each retirement alternative
-ret_alt_names, ret_NPV_results = create_NPV_results_df(asset_counts, num_lags; mode="retire")
 ret_NPV_df = DataFrame(unit_type = String[], project_type = String[], retirement_pd = Any[], lag = Any[], NPV = Float64[])
 
 # Create a dataframe to store results for retirement NPV calculations
@@ -227,7 +225,6 @@ unit_qty = Int.(round.(value.(m[:u])))
 
 
 ###### Display the results
-all_alternatives = vcat(NPV_results, ret_NPV_results)[!, :name]
 all_results = hcat(vcat(new_xtr_NPV_df, ret_NPV_df)[!, [:unit_type, :project_type, :retirement_pd, :lag]], DataFrame(units_to_execute = unit_qty))
 @info status
 @info "Units to build:"
