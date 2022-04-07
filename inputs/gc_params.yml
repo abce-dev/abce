@@ -1,7 +1,8 @@
-discount_rate: 0.05
-terminal_growth_rate: 0.03
-debt_fraction: 0.5
-cost_of_debt: 0.03
-cost_of_equity: 0.11
-tax_rate: 0.21
-interest_cap: 90000000
+201:
+    discount_rate: 0.05
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.03
+    cost_of_equity: 0.11
+    tax_rate: 0.21
+    interest_cap: 90000000

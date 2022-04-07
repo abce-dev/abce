@@ -227,7 +227,7 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
     installed_cap_forecast = DataFrame(period = Int64[], derated_capacity = Float64[])
     vals = (pd, pd)
     # Select a list of all current assets, which are not cancelled, retired, or hidden from public view
-    current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ? AND revealed = 'true'", vals) |> DataFrame
+    current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ?", vals) |> DataFrame
     if size(current_assets)[1] == 0
         @warn "There are no currently-active generation assets in the system; unpredictable behavior may occur."
     end
@@ -253,11 +253,22 @@ end
 
 
 function get_next_asset_id(db)
+    tables_to_check = ["assets", "WIP_projects", "asset_updates", "WIP_updates"]
+
+    id_vals = Vector{Any}()
+
+    for table in tables_to_check
+        id_val = DBInterface.execute(db, "SELECT MAX(asset_id) FROM $table") |> DataFrame
+        id_val = id_val[1, Symbol("MAX(asset_id)")]
+        push!(id_vals, id_val)
+    end
+
+    # Convert id_vals into a skipmissing object
+    id_vals = skipmissing(id_vals)
+
     # Return the next available asset ID (one greater than the current largest ID)
-    SQL_get_ids = SQLite.Stmt(db, string("SELECT asset_id FROM assets"))
-    asset_df = DBInterface.execute(SQL_get_ids) |> DataFrame
-    #asset_df[!, :asset_id] = asset_df[:, :asset_id]
-    next_id = maximum(asset_df[!, :asset_id]) + 1
+    next_id = maximum(id_vals) + 1
+
     return next_id    
 end
 

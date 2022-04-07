@@ -11,11 +11,9 @@ portfolios_file: "inputs/portfolios.csv"
 db_file: "abce_db.db"
 output_file: "outputs.xlsx"
 
-first_agent_id: 201
 first_asset_id: 2001
 
-num_agents: 1
-num_steps: 1
+num_steps: 5
 
 use_precomputed_price_curve: True
 enable_subsidy: True

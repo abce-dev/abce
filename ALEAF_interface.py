@@ -42,7 +42,9 @@ def update_ALEAF_system_portfolio(ALEAF_portfolio_ref, ALEAF_portfolio_remote, d
 def organize_ALEAF_portfolio(writer):
     df = pd.DataFrame(writer.sheets["gen"].values)
     df.columns = df.iloc[0]
-    df = df.drop(df.index[0])
+    df = df.drop(df.index[0]).reset_index(drop=True)
+    df["EXUNITS"] = df["EXUNITS"].astype("int64")
+    df["Unit Type"] = df["Unit Type"].astype("string")
 
     return df
 

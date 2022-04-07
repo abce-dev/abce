@@ -21,14 +21,65 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import glob
 
-def get_next_asset_id(db, first_asset_id):
-    max_id = pd.read_sql("SELECT MAX(asset_id) FROM assets", db).iloc[0, 0]
-    if max_id == None:
-        next_id = first_asset_id
-    else:
-        next_id = max_id + 1
+def get_next_asset_id(db, suggested_next_id):
+    # Start a list of possible next ids
+    next_id_candidates = [suggested_next_id]
+
+    # Check all possible locations for max asset ids
+    tables_to_check = ["assets", "WIP_projects", "asset_updates", "WIP_updates"]
+
+    for table in tables_to_check:
+        id_val = pd.read_sql(f"SELECT MAX(asset_id) FROM {table}", db).iloc[0, 0]
+        next_id_candidates.append(id_val)
+
+    # The largest of all non-None elements becomes the next asset id
+    next_id = max([item for item in next_id_candidates if item is not None]) + 1
 
     return next_id
+
+
+def update_DB_table_inplace(db, cur, table, new_data, where):
+    """
+    A centralized function to update data in any DB table. The final form of
+    the command constructed will be:
+        UPDATE table SET key1 = new_data[key1], key2 = new_data[key2], ..., 
+            keyn = new_data[keyn] WHERE col1 = where[1] AND col2 = where[2]
+            AND ... AND colk = where[k]
+
+    Arguments:
+      - db (sqlite3 database connection)
+      - cur (sqlite3 cursor object for db)
+      - table (string): name of table in db to update
+      - new_data (dict): column headers and new values to set for each
+      - where (dict): search/match criteria to determine which rows are updated
+    """
+
+    # Initialize the command
+    update_cmd = f"UPDATE {table} SET "
+
+    # Add the list of data to update
+    val_list = []
+    for column, value in new_data.items():
+        if type(value) == str:
+            val_list.append(f"{column} = '{value}'")
+        else:
+            val_list.append(f"{column} = {value}")
+    update_cmd += ", ".join(val_list)
+
+    # Add the list of matching/filtering conditions
+    update_cmd += f" WHERE "
+    val_list = []
+    for column, value in where.items():
+        # Protect strings with single quotes
+        if type(value) == str:
+            val_list.append(f"{column} = '{value}'")
+        else:
+            val_list.append(f"{column} = {value}")
+    update_cmd += " AND ".join(val_list)
+
+    # Execute the constructed command
+    cur.execute(update_cmd)
+
 
 
 def process_outputs(settings, output_dir):

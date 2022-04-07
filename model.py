@@ -35,8 +35,6 @@ class GridModel(Model):
         self.settings_file_name = settings_file_name
         self.settings = settings
         # Get agent parameters from the settings dictionary
-        self.num_agents = settings["num_agents"]
-        self.first_agent_id = settings["first_agent_id"]
         self.first_asset_id = settings["first_asset_id"]
         self.total_forecast_horizon = settings["total_forecast_horizon"]
         # Get ALEAF parameters from the settings dictionary
@@ -85,10 +83,30 @@ class GridModel(Model):
         #   data file
         self.add_unit_specs_to_db()
 
+        # Read in the GenCo parameters data from file
+        gc_params_file_name = os.path.join(self.settings["ABCE_abs_path"],
+                                           self.settings["gc_params_file"])
+        gc_params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
+
+        # Load the unit-type ownership specification for all agents
+        self.portfolio_specification = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"], self.settings["portfolios_file"]))
+
+        # Check the portfolio specification to ensure the ownership totals 
+        #   equal the total numbers of available units
+        self.check_num_agents(gc_params)
+        self.check_total_assets()
+
+        # Load the mandatory unit retirement data
+        ret_data_file = os.path.join(self.settings["ABCE_abs_path"],
+                                     settings["retirement_period_specs_file"])
+        self.ret_data = pd.read_csv(ret_data_file, comment="#")
+
         # Create agents
-        for i in range(self.first_agent_id, self.first_agent_id + self.num_agents):
-            gc = GenCo(i, self, settings, self.args)
+        num_agents = len(gc_params.keys())
+        for agent_id in list(gc_params.keys()):
+            gc = GenCo(agent_id, self, settings, gc_params[agent_id], self.args)
             self.schedule.add(gc)
+            self.initialize_agent_assets(agent_id)
 
         # Determine setting for use of a precomputed price curve
         self.use_precomputed_price_curve = True
@@ -107,8 +125,6 @@ class GridModel(Model):
                                         if_exists = "replace")
 
         # Check ./outputs/ dir and clear out old files
-        # TODO: replace getcwd() with a command-line argument to specify a 
-        #   non-cwd ABCE absolute path
         self.ABCE_output_data_path = os.path.join(settings["ABCE_abs_path"], "outputs", self.ALEAF_scenario_name)
         if not os.path.isdir(self.ABCE_output_data_path):
             # If the desired output directory doesn't already exist, create it
@@ -365,8 +381,6 @@ class GridModel(Model):
         return unit_specs_data
 
 
-
-
     def add_unit_specs_to_db(self):
         """
         This function loads all unit specification data and saves it to the
@@ -399,6 +413,202 @@ class GridModel(Model):
         # Save the finalized unit specs data to the DB, and set the member data
         unit_specs_data.to_sql("unit_specs", self.db, if_exists = "replace", index = False)
         self.unit_specs = unit_specs_data
+
+
+    def check_num_agents(self, gc_params):
+        """
+        Ensure that all sources of agent data include the same number of
+          agents. If not, raise a ValueError.
+        """
+        # Ensure that any agents specified in the portfolio spec file have
+        #   corresponding parameters entries in the gc_params file:
+        #   - gc_params.yml => gc_params
+        #   - portfolios.csv => self.portfolio_specification
+        if not all(agent_id in gc_params.keys() for agent_id in self.portfolio_specification.agent_id.unique()):
+            num_agents_msg = f"Agents specified in the portfolio specification file {self.settings['portfolios_file']} do not all have corresponding entries in the gc_params file {self.settings['gc_params_file']}. Check your inputs and try again."
+            raise ValueError(num_agents_msg)
+
+
+    def check_total_assets(self):
+        """
+        Ensure that the total of all assets by type owned by the agents
+          matches the master total in the A-LEAF system portfolio file.
+          If not, raise a ValueError.
+        """
+        # Temporarily read in the starting A-LEAF total system portfolio from
+        #   the database
+        book, writer = ALI.prepare_xlsx_data(
+                           self.ALEAF_portfolio_ref,
+                           self.ALEAF_portfolio_ref
+                       )
+        full_pdf = ALI.organize_ALEAF_portfolio(writer)
+        system_portfolio = (full_pdf[["Unit Type", "EXUNITS"]]
+                            .rename(columns={"Unit Type": "unit_type"})
+                            .set_index("unit_type"))
+
+        agent_owned_units = (self.portfolio_specification
+                             .groupby("unit_type")["num_units"].sum())
+        # Inner join the agent ownership data into the system portfolio data
+        system_portfolio = (system_portfolio.join(
+                                agent_owned_units,
+                                on="unit_type",
+                                how="inner")
+                            .reset_index())
+
+        # Set up a dictionary to log unit number mismatches
+        incorrect_units = dict()
+        # For any unit_types where the num_units (from agent ownership) do not
+        #   match the EXUNITS (from system portfolio), save that type's info to
+        #   the incorrect_units dict
+        system_portfolio = system_portfolio.apply(
+            lambda x:
+                incorrect_units.update(
+                    {x["unit_type"]: (x["EXUNITS"], x["num_units"])}
+                ) if x["num_units"] != x["EXUNITS"] else None,
+            axis = 1
+        )
+
+        # If unit type numbers don't match, construct a helpful error message for the user
+        if len(incorrect_units) != 0:
+            msg_list = []
+            for unit_type in incorrect_units.keys():
+                msg = f"{unit_type}:: System Portfolio Total: {incorrect_units[unit_type][0]}  |  Ownership Specification Total: {incorrect_units[unit_type][1]}"
+                msg_list.append(msg)
+            preamble = "\nThe number of units by generator type does not match between the overall system portfolio specification and the individual agents' portfolios:\n"
+            postamble = "\n\nEnsure that the total number of units for each type matches between the system portfolio file and the agent ownership file. \nTerminating..."
+            units_owned_msg = preamble + "\n".join(msg_list) + postamble
+            raise ValueError(units_owned_msg)
+
+
+    def initialize_agent_assets(self, agent_id):
+        # Get the agent-specific portfolio by unit type: filter the manifest
+        #   of agent unit ownership for the current agent's unique ID
+        pdf = self.portfolio_specification[self.portfolio_specification["agent_id"] == agent_id]
+        # Ensure that all units of a given type are collated into a single
+        #   dataframe row
+        pdf = pdf.drop("agent_id", axis=1)
+        pdf = pdf.groupby(by=["unit_type"]).sum().reset_index()
+
+        # Set the initial asset ID
+        asset_id = ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"])
+
+        # Retrieve the column-header schema for the 'assets' table
+        self.cur.execute("SELECT * FROM assets")
+        assets_col_names = [element[0] for element in self.cur.description]
+
+        # Create a master dataframe to hold all asset records for this
+        #   agent-unit type combination (to reduce the frequency of saving
+        #   to the database)
+        master_assets_df = pd.DataFrame(columns = assets_col_names)
+
+        # Assign units to this agent as specified in the portfolio file,
+        #   and record each in the master_asset_df dataframe
+        for unit_record in pdf.itertuples():
+            unit_type = unit_record.unit_type
+            num_units = unit_record.num_units
+
+            # Retrieve the list of retirement period data for this unit type
+            #   and agent
+            unit_rets = self.create_unit_type_retirement_df(unit_type, agent_id, asset_id)
+
+            # Out of the total number of assets of this type belonging to this
+            #   agent, any "left over" units with no specified retirement date
+            #   should all retire at period 9999
+            assets_remaining = num_units
+            num_not_specified = num_units - sum(unit_rets["num_copies"])
+            unit_rets = unit_rets.append({
+                "agent_id": agent_id,
+                "unit_type": unit_type,
+                "retirement_pd": 9999,
+                "num_copies": num_not_specified
+            }, ignore_index=True)
+
+            # Create assets in blocks, according to the number of units per
+            #   retirement period
+            for rets_row in unit_rets.itertuples():
+                retirement_pd = rets_row.retirement_pd
+                num_copies = rets_row.num_copies
+
+                # Compute unit capex according to the unit type spec
+                unit_capex = self.compute_total_capex_preexisting(unit_type)
+
+                # Default: assume all pre-existing assets have $0 outstanding
+                #   financing balance. To add obligations for capital payments
+                #   on pre-existing assets, uncomment the code lines below
+                # Compute the asset's annual capital payment, if the asset is
+                #   not paid off. The asset's unit_life value is used as the
+                #   repayment term for financing (i.e. useful life = financing
+                #   maturity period).
+                #unit_life = self.unit_specs.loc[unit_type, "unit_life"]
+                #unit_cap_pmt = self.compute_sinking_fund_payment(agent_id, unit_capex, unit_life)
+                cap_pmt = 0
+
+                # Save all values which don't change for each asset in this
+                #   block, i.e. everything but the asset_id
+                asset_dict = {"agent_id": agent_id,
+                              "unit_type": unit_type,
+                              "start_pd": -1,
+                              "completion_pd": 0,
+                              "cancellation_pd": 9999,
+                              "retirement_pd": retirement_pd,
+                              "total_capex": unit_capex,
+                              "cap_pmt": cap_pmt}
+
+                # For each asset in this block, create a dataframe record and
+                #   store it to the master_assets_df
+                for i in range(num_copies):
+                    # Find the largest extant asset id, and set the current 
+                    #   asset id 1 higher
+                    asset_dict["asset_id"] = max(
+                        ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"]),
+                        max(master_assets_df["asset_id"], default=self.settings["first_asset_id"]) + 1
+                    )
+
+                    # Convert the dictionary to a dataframe format and save
+                    new_record = pd.DataFrame(asset_dict, index=[0])
+                    master_assets_df = master_assets_df.append(new_record)
+
+            # For any leftover units in assets_remaining with no specified
+            #   retirement date, initialize them with the default retirement date
+            #   of 9999
+            asset_dict["retirement_pd"] = 9999
+
+        # Once all assets from all unit types for this agent have had records
+        #   initialized, save the dataframe of all assets into the 'assets'
+        #   DB table
+        master_assets_df.to_sql("assets", self.db, if_exists="append", index=False)
+
+
+    def compute_total_capex_preexisting(self, unit_type):
+        unit_cost_per_kW = self.unit_specs[self.unit_specs.unit_type == unit_type]["uc_x"].values[0]
+        unit_capacity = self.unit_specs[self.unit_specs.unit_type == unit_type]["capacity"].values[0]
+
+        total_capex = unit_cost_per_kW * unit_capacity * self.MW2kW
+
+        return total_capex
+
+
+    def create_unit_type_retirement_df(self, unit_type, agent_id, starting_asset_id):
+        """
+        Create the step-function mapping to determine which units are assigned
+          which mandatory retirement periods.
+        """
+        # Filter the df of retirement period data for the current unit type
+        unit_type_rets = self.ret_data[(self.ret_data["unit_type"] == unit_type) & (self.ret_data["agent_id"] == agent_id)].copy()
+
+        # Sort from soonest to furthest-away retirement period
+        unit_type_rets = unit_type_rets.sort_values(by="retirement_pd", axis=0, ascending=True, ignore_index=True)
+
+        # Generate the thresholds for each retirement period, starting with
+        #   the next available asset id. These thresholds indicate the END
+        #   (i.e. NON-INCLUSIVE) of each assignment interval. A row with an
+        #   `rp_threshold` of 2005 and a `retirement_pd` of 12 means that any
+        #   assets with IDs strictly less than 2005 will receive a 
+        #   `retirement_pd` of 12 (unless they qualify for a lower threshold
+        #   category).
+        #unit_type_rets["rp_threshold"] = np.cumsum(unit_type_rets["num_copies"].to_numpy(), axis=0) + starting_asset_id
+
+        return unit_type_rets
 
 
     def load_demand_data_to_db(self, settings):
@@ -502,9 +712,11 @@ class GridModel(Model):
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
 
-        # Reveal new information to all market participants
-        projects_to_reveal = self.get_projects_to_reveal()
-        self.reveal_decisions(projects_to_reveal)
+        # Transfer all decisions and updates from the 'asset_updates' and
+        #   'WIP_updates' tables into their respective public-information
+        #   equivalents
+        self.execute_all_status_updates()
+
         if not self.args.quiet:
             print("Table of all assets:")
             print(pd.read_sql("SELECT * FROM assets", self.db))
@@ -539,6 +751,7 @@ class GridModel(Model):
 
         self.save_ALEAF_outputs()
 
+
     def save_ALEAF_outputs(self):
         # Copy all ALEAF output files to the output directory, with
         #   scenario and step-specific names
@@ -551,37 +764,232 @@ class GridModel(Model):
             shutil.copy2(old_filepath, new_filepath)
 
 
-
-    def get_projects_to_reveal(self):
+    def update_WIP_projects(self):
         """
-        Set which (if any) unrevealed project construction decisions should
-           be revealed (`revealed = True`).
-        
-        This function is a placeholder, which sets all unrevealed decisions
-           to be revealed at the end of each decision round, after all
-           agents have taken their turns. This behavior may be updated in
-           the future.
+        Update the status and projections-to-completion for all current WIP
+        projects.
 
-        Returns:
-           projects_to_reveal (pd DataFrame): one-column dataframe of ints,
-             listing asset IDs to reveal
+        This function iterates over all WIP projects which are currently
+        ongoing (not cancelled or completed).
+          1. A stochastic escalation generator extends the projected cost
+               and/or schedule to completion according to the project type.
+          2. The current ANPE amount is applied to the outstanding RCEC.
+          3. If this is enough to complete the project, the project is marked
+               as completed ('completion_pd' in the 'assets' table is set to
+               the current period).
+          4. The new project status, including updated RCEC and RTEC, is saved
+               to the 'WIP_projects' table.
         """
-        projects_to_reveal = pd.read_sql("SELECT asset_id FROM assets WHERE " +
-                                         "revealed = 'false'", self.db)
-        return projects_to_reveal
+
+        # Get a list of all currently-active construction projects
+        WIP_projects = pd.read_sql("SELECT * FROM assets WHERE " +
+                                   f"completion_pd >= {self.current_step} AND " +
+                                   f"cancellation_pd > {self.current_step}",
+                                   self.db)
+
+        # Update each project one at a time
+        for asset_id in WIP_projects.asset_id:
+            # Select this project's most recent data record
+            project_data = self.retrieve_project_data(asset_id)
+
+            # Record the effects of authorized construction expenditures, and
+            #   advance the time-remaining estimate by one year
+            project_data = self.advance_project_to_current_period(project_data)
+
+            # If this period's authorized expenditures (ANPE) clear the RCEC,
+            #   then the project is complete
+            if project_data.loc[0, "rcec"] <= self.settings["large_epsilon"]:
+                # Record the project's completion period as the current period
+                self.record_completed_xtr_project(project_data)
+
+            # Record updates to the WIP project's status
+            self.record_WIP_project_updates(project_data)
+
+            # Record updates to the project's expected completion date in the
+            #   database 'assets' table
+            self.update_expected_completion_period(project_data)
 
 
-    def reveal_decisions(self, projects_to_reveal):
+    def retrieve_project_data(self, asset_id):
+        project_data = pd.read_sql("SELECT * FROM WIP_projects WHERE " +
+                                   f"asset_id = {asset_id} AND " +
+                                   f"period = {self.current_step - 1}",
+                                   self.db)
+
+        temp_asset_data = pd.read_sql("SELECT * FROM assets WHERE " +
+                                      f"asset_id = {asset_id}", self.db)
+
+        project_data = project_data.merge(temp_asset_data,
+                                          how = "inner",
+                                          on = ["asset_id", "agent_id"])
+
+        return project_data
+
+
+    def record_completed_xtr_project(self, project_data):
+        asset_id = project_data.loc[0, "asset_id"]
+
+       # Compute periodic sinking fund payments
+        unit_type = project_data.loc[0, "unit_type"]
+        unit_life = self.unit_specs.loc[unit_type, "unit_life"]
+        capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], project_data.loc[0, "cum_exp"], unit_life)
+
+        to_update = {"completion_pd": current_step,
+                     "total_capex": project_data.cum_exp.values[0],
+                     "cap_pmt": capex_payment}
+        filters = {"asset_id": asset_id}
+
+        ABCE.update_DB_table_inplace(
+            self.db,
+            self.cur,
+            "assets",
+            to_update,
+            filters
+        )
+
+        # Commit changes to database
+        self.db.commit()
+
+
+    def record_WIP_project_updates(self, project_data):
+        # Set new_anpe = 0 to avoid inter-period contamination
+        new_anpe = 0
+        # Update the 'WIP_projects' table with new RCEC/RTEC/ANPE values
+        self.cur.execute("INSERT INTO WIP_projects VALUES " +
+                         f"({project_data.asset_id.values[0]}, " +
+                         f"{project_data.agent_id.values[0]}, " +
+                         f"{self.current_step}, " +
+                         f"{project_data.cum_occ.values[0]}, " +
+                         f"{project_data.rcec.values[0]}, " +
+                         f"{project_data.cum_d_x.values[0]}, " +
+                         f"{project_data.rtec.values[0]}, " +
+                         f"{project_data.cum_exp.values[0]}, " +
+                         f"{new_anpe})")
+
+        # Save changes to the database
+        self.db.commit()
+
+
+    def compute_total_capex_newbuild(self, asset_id):
         """
-        Set the indicated set of assets to have the `revealed = True` status
-        in the database 'assets' table.
+        For assets which are newly completed during any period except period 0:
+        Retrieve all previously-recorded capital expenditures (via 'anpe', i.e.
+        "Authorized Next-Period Expenditures") for the indicated asset ID from
+        the database, and sum them to return the total capital expenditure (up
+        to the current period).
 
         Args:
-           projects_to_reveal (pd DataFrame): one-column dataframe of ints,
-             listing asset IDs to reveal
+          asset_id (int): asset for which to compute total capex
+
+        Returns:
+          total_capex (float): total capital expenditures up to the present period
         """
-        for asset_id in projects_to_reveal["asset_id"]:
-            self.cur.execute(f"UPDATE assets SET revealed = 'true' WHERE " +
-                             f"asset_id = '{asset_id}'")
+
+        total_capex = pd.read_sql("SELECT SUM(anpe) FROM WIP_projects WHERE " +
+                                 f"asset_id = {asset_id}", self.db).iloc[0, 0]
+        return total_capex
+
+
+    def compute_sinking_fund_payment(self, agent_id, total_capex, term):
+        """
+        Compute a constant sinking-fund payment based on a total capital-
+        expenditures amount and the life of the investment, using the specified
+        agent's financial parameters.
+
+        Args:
+          agent_id (int): the unique ID of the owning agent, to retrieve
+            financial data
+          total_capex (float): total capital expenditures on the project
+          term (int or float): term over which to amortize capex
+
+        Returns:
+          cap_pmt (float): equal capital repayments to make over the course
+            of the indicated amortization term
+        """
+
+        agent_params = pd.read_sql("SELECT * FROM agent_params WHERE " +
+                                   f"agent_id = {agent_id}", self.db)        
+
+        wacc = (agent_params.debt_fraction * agent_params.cost_of_debt
+                + (1 - agent_params.debt_fraction) * agent_params.cost_of_equity)
+        cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
+
+        # Convert cap_pmt from a single-entry Series to a scalar
+        cap_pmt = cap_pmt[0]
+
+        return cap_pmt
+
+
+    def advance_project_to_current_period(self, project_data):
+        # Escalated RTEC is reduced by one
+        project_data.loc[0, "rtec"] -= 1
+
+        # Escalated RCEC is reduced by ANPE
+        project_data.loc[0, "rcec"] -= project_data.loc[0, "anpe"]
+
+        # Cumulative capital expenditures are increased by ANPE
+        project_data.loc[0, "cum_exp"] += project_data.loc[0, "anpe"]
+
+        # Project ANPE is reset to 0 after being expended
+        project_data.loc[0, "anpe"] = 0
+
+        return project_data
+
+
+    def update_expected_completion_period(self, project_data):
+        asset_id = project_data.loc[0, "asset_id"]
+        new_completion_pd = project_data.loc[0, "rtec"] + self.current_step
+
+        ABCE.update_DB_table_inplace(
+            self.db,
+            self.cur,
+            "assets",
+            {"completion_pd": new_completion_pd},
+            {"asset_id": asset_id}
+        )
+ 
         self.db.commit()
+
+
+    def execute_all_status_updates(self):
+        # Record newly-started WIP projects from the agents' decisions
+        WIP_updates = pd.read_sql_query("SELECT * FROM WIP_updates", self.db)
+        WIP_updates.to_sql("WIP_projects", self.db, if_exists="append", index=False)
+        self.db.commit()
+
+        # Record status updates to existing assets (i.e. retirements)
+        # Convert asset_updates to a dict of dicts for convenience
+        asset_updates = pd.read_sql_query("SELECT * FROM asset_updates", self.db)
+        for row_num in asset_updates.index:
+            new_record = asset_updates.loc[[row_num]].copy().reset_index(drop=True)
+
+            orig_record = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {new_record.loc[0, 'asset_id']}", self.db)
+            if len(orig_record) == 0:
+                # The asset does not already exist and an entry must be added
+                pd.DataFrame(new_record).to_sql("assets", self.db, if_exists="append", index=False)
+            else:
+                # The prior record must be overwritten
+                # Move the filtering data (asset and agent ids) into a separate
+                #   dictionary
+                new_record = new_record.to_dict(orient="records")[0]
+                filters = {}
+                col_filters = ["asset_id", "agent_id"]
+                for col in col_filters:
+                    filters[col] = new_record.pop(col)
+
+                # Update the record in the DB table
+                ABCE.update_DB_table_inplace(
+                    self.db,
+                    self.cur,
+                    "assets",
+                    new_record,
+                    filters
+                )
+
+        self.db.commit()
+
+
+
+
+
 

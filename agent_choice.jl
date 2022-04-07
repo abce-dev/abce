@@ -223,7 +223,9 @@ m = set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_
 @info "Solving optimization problem..."
 optimize!(m)
 status = termination_status.(m)
-unit_qty = value.(m[:u])
+# This MILP should always return integral solutions; convert the float values
+#   to integers to avoid some future TypeErrors
+unit_qty = Int.(value.(m[:u]))
 
 
 ###### Display the results
@@ -247,9 +249,12 @@ for i = 1:size(all_results)[1]
         if result[:lag] == 0 && result[:units_to_execute] != 0
 
             # Retrieve or set values common to all units of this type
-            rcec = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW
-            rtec = unit_type_data[:d_x]
-            revealed = "false"
+            cum_occ = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW
+            rcec = cum_occ
+            cum_exp = 0
+            cum_d_x = unit_type_data[:d_x]
+            rtec = cum_d_x
+            start_pd = pd
             completion_pd = pd + unit_type_data[:d_x]
             cancellation_pd = 9999
             retirement_pd = pd + unit_type_data[:d_x] + unit_type_data[:unit_life]
@@ -261,12 +266,12 @@ for i = 1:size(all_results)[1]
             for j = 1:result[:units_to_execute]
                 next_id = get_next_asset_id(db)
                 # Update `WIP_projects` table
-                WIP_projects_vals = (next_id, agent_id, pd, rcec, rtec, rcec / 10)
-                DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", WIP_projects_vals)
+                WIP_projects_vals = (next_id, agent_id, pd, cum_occ, rcec, cum_d_x, rtec, cum_exp, rcec / 10)
+                DBInterface.execute(db, "INSERT INTO WIP_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", WIP_projects_vals)
 
                 # Update `assets` table
-                assets_vals = (next_id, agent_id, result[:unit_type], revealed, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
-                DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
+                assets_vals = (next_id, agent_id, result[:unit_type], start_pd, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
+                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
             end
         end
 
@@ -275,11 +280,12 @@ for i = 1:size(all_results)[1]
         # Only enforce retirements in the current period
         if result[:lag] == 0 && result[:units_to_execute] != 0
             # Select assets which match on type, agent owner, and mandatory retirement date
-            df = DBInterface.execute(db, "SELECT asset_id FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?", (result[:unit_type], result[:retirement_pd], agent_id)) |> DataFrame
+            matching_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?", (result[:unit_type], result[:retirement_pd], agent_id)) |> DataFrame
             # Retire as many existing assets as indicated by u
             for j = 1:result[:units_to_execute]
-                asset_to_retire = df[convert(Int64, j), :asset_id]
-                DBInterface.execute(db, "UPDATE assets SET retirement_pd = ? WHERE asset_id = ?", (pd, asset_to_retire))
+                ret = matching_assets[j, :]
+                asset_vals = (ret[:asset_id], ret[:agent_id], ret[:unit_type], ret[:start_pd], ret[:completion_pd], ret[:cancellation_pd], pd, ret[:total_capex], ret[:cap_pmt])
+                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", asset_vals)
             end
         end
     end
