@@ -16,7 +16,7 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV, JuMP, GLPK, Logging
 
-export ProjectAlternative, load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions
+export ProjectAlternative, load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_xtr_exp_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives
 
 #####
 # Constants
@@ -335,6 +335,46 @@ end
 #####
 # NPV functions
 #####
+
+
+function set_up_project_alternatives(unit_specs, asset_counts, num_lags)
+    PA_uids = DataFrame(
+                   unit_type = String[],
+                   project_type = String[],
+                   lag = Int64[],
+                   ret_pd = Union{Int64, Nothing}[],
+                   uid = Int64[]
+               )
+
+    # First project ID is 1
+    uid = 1
+
+    # Set up new unique IDs for project alternatives
+    # New construction
+    project_type = "new_xtr"
+    for unit_type in unit_specs[!, :unit_type]
+        for lag = 0:num_lags
+            push!(PA_uids, [unit_type project_type lag nothing uid])
+            uid += 1
+        end
+    end
+
+    # Retirement
+    project_type = "retirement"
+    for unit_type in asset_counts[!, :unit_type]
+        for ret_pd in filter(:unit_type => x -> x == unit_type, asset_counts)[!, :retirement_pd]
+            for lag = 1:num_lags
+                push!(PA_uids, [unit_type project_type lag ret_pd uid])
+                uid += 1
+            end
+        end
+    end
+
+    println(PA_uids)
+    return PA_uids
+
+end
+
 
 function check_valid_vector_mode(mode)
     if !(mode in ["new_xtr", "retire"])

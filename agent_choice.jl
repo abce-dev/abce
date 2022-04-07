@@ -106,6 +106,8 @@ price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
 # Add empty column for project NPVs in unit_data
 unit_data[!, :FCF_NPV] = zeros(Float64, num_types)
 
+PA_uids = set_up_project_alternatives(unit_data, asset_counts, num_lags)
+
 # NPV is the only decision criterion, so create a dataframe to hold the results
 #    for each alternative
 new_xtr_NPV_df = DataFrame(unit_type = String[], project_type = String[], retirement_pd = Any[], lag = Any[], NPV = Float64[])
