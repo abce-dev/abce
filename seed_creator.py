@@ -105,7 +105,9 @@ abce_tables = {"WIP_projects":
                   ("ATB_FC", "real"),          # $/MWh or $/MMBTU
                   ("ATB_FC_units", "text"),    # unit for ATB FC
                   ("FC_per_MWh", "real"),      # $/MWh
-                  ("is_VRE", "text")           # boolean
+                  ("is_VRE", "text"),          # boolean
+                  ("emissions_rate", "real"),  # tCO2 / MWh
+                  ("policy_adj_per_MWh", "real") # net $/MWh subsidy or penalty due to carbon tax, PTC, etc.
                  ],
 
 
