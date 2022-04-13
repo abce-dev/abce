@@ -620,12 +620,12 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db,
         orig_ret_pd = size(unit_fs)[1]
     end
 
+    # Compute the unit's total generation for each period, in kWh
+    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag; mode=mode, orig_ret_pd=orig_ret_pd)
+
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
     compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag; mode=mode, orig_ret_pd=orig_ret_pd)
-
-    # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag; mode=mode, orig_ret_pd=orig_ret_pd)
 
 end
 
@@ -650,8 +650,9 @@ function compute_submarginal_hours_revenue(unit_type_data, price_curve)
     # Compute total number of submarginal hours
     num_submarg_hours = size(submarginal_hours)[1] * convert_to_hours
 
-    # Calculate total revenue from submarginal hours
-    submarginal_hours_revenue = sum(submarginal_hours[!, :lamda] * unit_type_data[:capacity]) * convert_to_hours
+    # Calculate total revenue from submarginal hours, adjusting for net penalty
+    #   or subsidy due to the effect of policies
+    submarginal_hours_revenue = sum((submarginal_hours[!, :lamda] .+ unit_type_data[:policy_adj_per_MWh]) * unit_type_data[:capacity]) * convert_to_hours
 
     return num_submarg_hours, submarginal_hours_revenue
 end
@@ -689,7 +690,7 @@ function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
     if size(marginal_hours)[1] == 0
         marginal_hours_revenue = 0
     else
-        marginal_hours_revenue = sum(marginal_hours[!, :lamda]) * unit_type_data[:capacity] / system_type_capacity * convert_to_hours
+        marginal_hours_revenue = sum((marginal_hours[!, :lamda]) .+ unit_type_data[:policy_adj_per_MWh]) * unit_type_data[:capacity] / system_type_capacity * convert_to_hours
     end
 
     return num_marg_hours, marginal_hours_revenue
