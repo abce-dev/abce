@@ -47,6 +47,7 @@ class GridModel(Model):
         self.ALEAF_scenario_name = settings["ALEAF_scenario_name"]
         # Get model/system parameters from the settings dictionary
         self.planning_reserve_margin = settings["planning_reserve_margin"]
+        self.policies = settings["policies"]
         # Unit conversions
         self.MW2kW = 1000          # Converts MW to kW
         self.MMBTU2BTU = 1000000   # Converts MMBTU to BTU
@@ -217,7 +218,8 @@ class GridModel(Model):
                                   "HR": "heat_rate",
                                   "FC": "FC_per_MWh",
                                   "CAPCRED": "CF",
-                                  "VRE_Flag": "is_VRE"}
+                                  "VRE_Flag": "is_VRE",
+                                  "EMSFAC": "emissions_rate"}
 
         # Load the unit specs sheet from the settings file
         us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
@@ -242,6 +244,10 @@ class GridModel(Model):
         for column in columns_to_select:
             if column not in us_df.columns:
                 us_df[column] = 0
+
+        # The original EMSFAC column from A-LEAF is in strange units (100*tCO2/MWh);
+        #   convert to tCO2/MWh
+        us_df["emissions_rate"] = us_df["emissions_rate"] / 100
 
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
@@ -334,6 +340,37 @@ class GridModel(Model):
         return unit_specs_data
 
 
+    def set_up_policies(self, unit_specs_data):
+        """
+        Allocate any policy impacts (carbon tax or PTC) to the various unit types
+        """
+        valid_CTAX_names = ["CTAX", "ctax", "carbon_tax", "carbontax"]
+        valid_PTC_names = ["PTC", "ptc", "production_tax_credit", "productiontaxcredit"]
+
+        if self.policies is not None:
+            for key, val in self.policies.items():
+                if val["enabled"] == True:
+                    if key in valid_CTAX_names:
+                        unit_specs_data["policy_adj_per_MWh"] = unit_specs_data.apply(
+                            lambda x:
+                                x["policy_adj_per_MWh"] + x["emissions_rate"] * val["qty"],
+                            axis = 1
+                        )
+                    elif key in valid_PTC_names:
+                        unit_specs_data["policy_adj_per_MWh"] = unit_specs_data.apply(
+                            lambda x:
+                                x["policy_adj_per_MWh"] + val["qty"],
+                            axis = 1
+                        )
+                    else:
+                        err_msg = f"Sorry: the system policy {key} is not implemented, or might be misspelled."
+                        raise ValueError(err_msg)
+        print(unit_specs_data)
+
+
+        return unit_specs_data
+
+
     def finalize_unit_specs_data(self, unit_specs_data):
         """
         Fill in supplemental unit specification data from
@@ -405,6 +442,8 @@ class GridModel(Model):
         # Match any data values initialized as "ATB" to appropriate entries in
         #   the ATB data sheet, and overwrite them.
         unit_specs_data = self.fill_unit_data_from_ATB(unit_specs_data)
+
+        unit_specs_data = self.set_up_policies(unit_specs_data)
 
         # Finalize the unit_specs_data dataframe, including ABCE supplemental
         #   data and layout change
