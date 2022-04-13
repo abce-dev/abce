@@ -343,7 +343,15 @@ class GridModel(Model):
     def set_up_policies(self, unit_specs_data):
         """
         Allocate any policy impacts (carbon tax or PTC) to the various unit types
+
+        Sign convention:
+          POSITIVE values: subsidy
+          NEGATIVE values: penalty
+        The value stored in unit_specs_data[unit_type, "policy_adj_per_MWh"]
+          is later added to the MARKET price (NOT the unit's bid price)
         """
+        unit_specs_data = unit_specs_data.reset_index()
+
         valid_CTAX_names = ["CTAX", "ctax", "carbon_tax", "carbontax"]
         valid_PTC_names = ["PTC", "ptc", "production_tax_credit", "productiontaxcredit"]
 
@@ -353,19 +361,22 @@ class GridModel(Model):
                     if key in valid_CTAX_names:
                         unit_specs_data["policy_adj_per_MWh"] = unit_specs_data.apply(
                             lambda x:
-                                x["policy_adj_per_MWh"] + x["emissions_rate"] * val["qty"],
+                                x["policy_adj_per_MWh"] - x["emissions_rate"] * val["qty"],
                             axis = 1
                         )
                     elif key in valid_PTC_names:
                         unit_specs_data["policy_adj_per_MWh"] = unit_specs_data.apply(
                             lambda x:
-                                x["policy_adj_per_MWh"] + val["qty"],
+                                x["policy_adj_per_MWh"] + val["qty"] if x["unit_type"] in val["eligible"] else
+                                    x["policy_adj_per_MWh"],
                             axis = 1
                         )
                     else:
                         err_msg = f"Sorry: the system policy {key} is not implemented, or might be misspelled."
                         raise ValueError(err_msg)
         print(unit_specs_data)
+
+        unit_specs_data = unit_specs_data.set_index("unit_type")
 
 
         return unit_specs_data
