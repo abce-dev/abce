@@ -13,12 +13,23 @@ output_file: "outputs.xlsx"
 
 first_asset_id: 2001
 
-num_steps: 5
+num_steps: 2
 
 use_precomputed_price_curve: True
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
+policies:
+  CTAX:
+    enabled: True
+    qty: 50   # $/t CO2
+  PTC:
+    enabled: False
+    eligible:
+      - AdvancedNuclear
+      - Wind
+      - Solar
+    qty: 20   # $/MWh
 
 peak_demand: 74545  # MWh, to scale load duration data
 demand_visibility_horizon: 5
