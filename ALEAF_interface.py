@@ -45,7 +45,7 @@ def organize_ALEAF_portfolio(writer):
 
 
 def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_remote, db, settings, period=0):
-    # Read in ALEAF settings from ALEAF_Master_LC_GEP.xlsx-style file
+    # Read in ALEAF simulation settings from ALEAF_Master_LC_GEP.xlsx-style file
     book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
     sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
     sim_config.columns = sim_config.iloc[0]
@@ -59,6 +59,7 @@ def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_r
         # Update ALEAF scenario name
         sim_config.loc[0, "Scenario"] = settings["ALEAF_scenario_name"]
 
+
     # Update periodic data
     # Update peak demand (PD, MW)
     sim_config.loc[sim_config["Scenario"] == settings["ALEAF_scenario_name"], "PD"] = demand.iloc[0, 0]
@@ -66,4 +67,34 @@ def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_r
     # Write the updated sheet to file
     sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
     writer.save()
+
+
+def update_ALEAF_policy_settings(ALEAF_model_settings_ref, ALEAF_model_settings_remote, policies_dict, unit_specs):
+    valid_CTAX_names = ["CTAX", "ctax", "carbon_tax", "carbontax"]
+    valid_PTC_names = ["PTC", "ptc", "production_tax_credit", "productiontaxcredit"]
+
+    # Read in ALEAF simulation settings from ALEAF_Master_LC_GEP.xlsx-style file
+    book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
+    sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
+    sim_config.columns = sim_config.iloc[0]
+    sim_config = sim_config.drop(sim_config.index[0]).reset_index().drop("index", axis=1)
+
+    # Zero out all policy columns
+    policy_cols = ["CTAX", "RPS", "PTC_W", "PTC_S", "ITC_S", "ITC_W", "CAPPMT"]
+    for col in policy_cols:
+        sim_config[col] = 0
+    for key, val in policies_dict.items():
+        if (key in valid_CTAX_names) and (val["enabled"]):
+            sim_config["CTAX"] = val["qty"]
+        elif (key in valid_PTC_names) and (val["enabled"]):
+            sim_config["PTC_W"] = val["qty"]
+            sim_config["PTC_S"] = val["qty"]
+
+    print(sim_config)
+
+    # Write the updated sheet to file
+    sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
+    writer.save()
+
+
 

@@ -84,6 +84,9 @@ class GridModel(Model):
         #   data file
         self.add_unit_specs_to_db()
 
+        # Initialize the correct policy adjustments by unit type
+        ALI.update_ALEAF_policy_settings(self.ALEAF_model_settings_remote, self.ALEAF_model_settings_remote, self.settings["policies"], self.unit_specs)
+
         # Read in the GenCo parameters data from file
         gc_params_file_name = os.path.join(self.settings["ABCE_abs_path"],
                                            self.settings["gc_params_file"])
