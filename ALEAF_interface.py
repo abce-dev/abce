@@ -72,6 +72,11 @@ def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_r
 def update_ALEAF_policy_settings(ALEAF_model_settings_ref, ALEAF_model_settings_remote, policies_dict, unit_specs):
     valid_CTAX_names = ["CTAX", "ctax", "carbon_tax", "carbontax"]
     valid_PTC_names = ["PTC", "ptc", "production_tax_credit", "productiontaxcredit"]
+    valid_wind_names = ["Wind", "wind"]
+    valid_solar_names = ["Solar", "PV", "Solar PV", "solar", "pv", "solar pv", "Solar_PV", "solar_pv"]
+    valid_nuclear_names = ["Nuclear", "nuclear", "AdvancedNuclear", "advancednuclear", "Advanced_Nuclear", "advanced_nuclear"]
+
+    policy_cols = ["CTAX", "RPS", "PTC_W", "PTC_S", "ITC_S", "ITC_W", "CAPPMT"]
 
     # Read in ALEAF simulation settings from ALEAF_Master_LC_GEP.xlsx-style file
     book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
@@ -80,15 +85,19 @@ def update_ALEAF_policy_settings(ALEAF_model_settings_ref, ALEAF_model_settings_
     sim_config = sim_config.drop(sim_config.index[0]).reset_index().drop("index", axis=1)
 
     # Zero out all policy columns
-    policy_cols = ["CTAX", "RPS", "PTC_W", "PTC_S", "ITC_S", "ITC_W", "CAPPMT"]
     for col in policy_cols:
         sim_config[col] = 0
     for key, val in policies_dict.items():
         if (key in valid_CTAX_names) and (val["enabled"]):
             sim_config["CTAX"] = val["qty"]
         elif (key in valid_PTC_names) and (val["enabled"]):
-            sim_config["PTC_W"] = val["qty"]
-            sim_config["PTC_S"] = val["qty"]
+            for unit_type in val["eligible"]:
+                if unit_type in valid_wind_names:
+                    sim_config["PTC_W"] = val["qty"]
+                elif unit_type in valid_solar_names:
+                    sim_config["PTC_S"] = val["qty"]
+                elif unit_type in valid_nuclear_names:
+                    sim_config["PTC_Nuc"] = val["qty"]
 
     print(sim_config)
 
