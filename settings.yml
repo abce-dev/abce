@@ -22,7 +22,7 @@ price_cap: 9001
 policies:
   CTAX:
     enabled: True
-    qty: 50   # $/t CO2
+    qty: 30   # $/t CO2
   PTC:
     enabled: False
     eligible:
