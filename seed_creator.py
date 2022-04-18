@@ -123,7 +123,46 @@ abce_tables = {"WIP_projects":
                "model_params":
                  [("parameter", "text"),
                   ("value", "real")
+                 ],
+
+               "WIP_C2N":
+                 [("asset_id", "integer"),
+                   ("C2N_type", "text"),
+                   ("pd", "integer"),
+                   ("license_issued", "boolean"),
+                   ("cpp_dnd_cost_rem", "real"),
+                   ("cpp_dnd_time_rem", "real"),
+                   ("cpp_nrc_cost_rem", "real"),
+                   ("cpp_nrc_time_rem", "real"),
+                   ("npp_ns_xtr_cost_rem", "real"),
+                   ("npp_ns_xtr_time_rem", "real"),
+                   ("npp_safety_xtr_cost_rem", "real"),
+                   ("npp_safety_xtr_time_rem", "real"),
+                   ("npp_comm_cost_rem", "real"),
+                   ("npp_comm_time_rem", "real"),
+                   ("total_cost_rem", "real"),
+                   ("total_time_rem", "real")
+                 ],
+
+               "WIP_C2N_updates":
+                 [("asset_id", "integer"),
+                   ("C2N_type", "text"),
+                   ("pd", "integer"),
+                   ("license_issued", "boolean"),
+                   ("cpp_dnd_cost_rem", "real"),
+                   ("cpp_dnd_time_rem", "real"),
+                   ("cpp_nrc_cost_rem", "real"),
+                   ("cpp_nrc_time_rem", "real"),
+                   ("npp_ns_xtr_cost_rem", "real"),
+                   ("npp_ns_xtr_time_rem", "real"),
+                   ("npp_safety_xtr_cost_rem", "real"),
+                   ("npp_safety_xtr_time_rem", "real"),
+                   ("npp_comm_cost_rem", "real"),
+                   ("npp_comm_time_rem", "real"),
+                   ("total_cost_rem", "real"),
+                   ("total_time_rem", "real")
                  ]
+
               }
 
 
