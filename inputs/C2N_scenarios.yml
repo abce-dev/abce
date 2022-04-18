@@ -1,0 +1,55 @@
+greenfield:
+  cpp_dnd:
+    cost: 2
+    time: 0.5
+  npp_ns_xtr:
+    cost: 10
+    time: 1
+  cpp_nrc:
+    cost: 0
+    time: 0
+  npp_safety_xtr:
+    cost: 40
+    time: 4
+
+C2N_elec_only:
+  cpp_dnd:
+    cost: 2
+    time: 0.5
+  npp_ns_xtr:
+    cost: 10
+    time: 1
+  cpp_nrc:
+    cost: 3
+    time: 0.75
+  npp_safety_xtr:
+    cost: 35
+    time: 4
+
+C2N_steam_with_TES:
+  cpp_dnd:
+    cost: 5
+    time: 1
+  npp_ns_xtr:
+    cost: 5
+    time: 0.5
+  cpp_nrc:
+    cost: 5
+    time: 1.5
+  npp_safety_xtr:
+    cost: 30
+    time: 3
+
+C2N_steam_without_TES:
+  cpp_dnd:
+    cost: 10
+    time: 2
+  npp_ns_xtr:
+    cost: 5
+    time: 0.5
+  cpp_nrc:
+    cost: 15
+    time: 3
+  npp_safety_xtr:
+    cost: 25
+    time: 2.5
