@@ -152,7 +152,7 @@ class GridModel(Model):
         self.ALEAF_model_settings_ref = os.path.join(ALEAF_inputs_path,
                                                      f"ALEAF_Master_{self.ALEAF_model_type}_original.xlsx")
         self.ALEAF_portfolio_ref = os.path.join(ALEAF_inputs_path, 
-                                                self.settings["port_file_1a"])
+                                                self.settings["ALEAF_portfolio_file"])
 
         # Set the paths to where settings are stored in the ALEAF directory
         ALEAF_settings_path = os.path.join(self.ALEAF_abs_path, "setting")
