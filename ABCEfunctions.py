@@ -107,7 +107,7 @@ def process_outputs(settings, output_dir):
         file_lists[ftype] = glob.glob(os.path.join(output_dir, f"*{ftype}*"))
 
     # Postprocess the expansion results
-    expansion_results, expansion_results_mw = process_expansion_results(file_lists["expansion_result"], output_dir, ALEAF_scenario_name)
+    expansion_results = process_expansion_results(file_lists["expansion_result"], output_dir, ALEAF_scenario_name)
 
     # Postprocess the system-level results
     system_summary_results = process_system_summary(file_lists["system_summary_OP"], output_dir, ALEAF_scenario_name)
@@ -121,7 +121,7 @@ def process_outputs(settings, output_dir):
     # Write results to xlsx
     writer = pd.ExcelWriter("abce_ppx_outputs.xlsx")
     expansion_results.to_excel(writer, sheet_name="exp_results", index=False)
-    expansion_results_mw.to_excel(writer, sheet_name="exp_results_mw", index=False)
+    #expansion_results_mw.to_excel(writer, sheet_name="exp_results_mw", index=False)
     system_summary_results.to_excel(writer, sheet_name="sys_summary_results", index=False)
     system_tech_results["gen"].to_excel(writer, sheet_name="tech_generation", index=False)
     system_tech_results["rr"].to_excel(writer, sheet_name="tech_reg", index=False)
@@ -160,17 +160,17 @@ def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name):
 
     # Delete unneeded columns and give unit id more helpful names
     exp_df = exp_df.drop(["u_new_i", "u_ret_i"], axis=1)
-    unit_types = ["Wind", "Solar", "NGCC", "NGCT", "Advanced Nuclear"]
+    unit_types = ["Wind", "Solar", "Coal", "NGCC", "NGCT", "Advanced Nuclear"]
     exp_df["unit_id"] = unit_types
     exp_df = exp_df.rename(columns={"unit_id": "unit_type"})
 
     # Create separate dataframe in MW instead of # of units
-    caps = [100, 100, 200, 50, 300]
-    exp_df_mw = exp_df.copy()
-    exp_df_mw = exp_df_mw.mul(caps, axis=0)
-    exp_df_mw["unit_type"] = unit_types
+    #caps = [100, 100, 200, 50, 300]
+    #exp_df_mw = exp_df.copy()
+    #exp_df_mw = exp_df_mw.mul(caps, axis=0)
+    #exp_df_mw["unit_type"] = unit_types
  
-    return exp_df, exp_df_mw
+    return exp_df
 
 
 def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
@@ -237,7 +237,7 @@ def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name):
 
         # Clean up unit type representation
         df = df.rename(columns={"UnitGroup": "unit_type"})
-        unit_types = ["Wind", "Solar", "NGCC", "NGCT", "Advanced Nuclear"]
+        unit_types = ["Wind", "Solar", "Coal", "NGCC", "NGCT", "Advanced Nuclear"]
         df["unit_type"] = unit_types
 
         # If this is step 0, use the file to set up DataFrames for all tracked
