@@ -148,9 +148,9 @@ class GridModel(Model):
         # Set file paths of local reference copies of ALEAF input data
         ALEAF_inputs_path = os.path.join(settings["ABCE_abs_path"], "inputs/ALEAF_inputs")
         self.ALEAF_master_settings_ref = os.path.join(ALEAF_inputs_path,
-                                                      "ALEAF_Master_original.xlsx")
+                                                      settings["ALEAF_master_settings_file"])
         self.ALEAF_model_settings_ref = os.path.join(ALEAF_inputs_path,
-                                                     f"ALEAF_Master_{self.ALEAF_model_type}_original.xlsx")
+                                                     settings["ALEAF_model_settings_file"])
         self.ALEAF_portfolio_ref = os.path.join(ALEAF_inputs_path, 
                                                 self.settings["ALEAF_portfolio_file"])
 
@@ -226,6 +226,7 @@ class GridModel(Model):
 
         # Load the unit specs sheet from the settings file
         us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
+        print(us_df)
 
         # Rename columns from the A-LEAF standard to ABCE standard, and make
         #   "unit_type" the row index
