@@ -685,7 +685,11 @@ function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
     convert_to_hours = hours_per_year / size(price_curve)[1]
 
     # Compute effective number of marginal hours
-    num_marg_hours = size(marginal_hours)[1] * unit_type_data[:capacity] / system_type_capacity * convert_to_hours
+    if system_type_capacity == 0
+        num_marg_hours = 0
+    else
+        num_marg_hours = size(marginal_hours)[1] * unit_type_data[:capacity] / system_type_capacity * convert_to_hours
+    end
 
     if size(marginal_hours)[1] == 0
         marginal_hours_revenue = 0
@@ -934,7 +938,6 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-#function set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
 function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts)
     # Create the model object
     @info "Setting up model..."
@@ -975,6 +978,12 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     # Restrict total construction to be less than maximum available demand
     for i = 1:num_time_periods
         @constraint(m, transpose(u) * marg_gen[:, i] <= available_demand[i]*1.5)
+    end
+
+    # Prevent the agent from intentionally causing foreseeable energy shortages
+    #   but allow a small amount of net negative capacity change
+    for i = 1:num_time_periods
+        @constraint(m, transpose(u) * marg_gen[:, i] >= 0)
     end
 
     for i = 1:num_alternatives
