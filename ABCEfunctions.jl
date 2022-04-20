@@ -981,7 +981,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
-    #   but allow a small amount of net negative capacity change
     for i = 1:num_time_periods
         @constraint(m, transpose(u) * marg_gen[:, i] >= 0)
     end
