@@ -952,8 +952,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     # For debugging, enable the following line to increase verbosity
     #set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
 
-    # Concatenate all results into unified data structures
-
     # Parameter names
     num_alternatives = size(PA_uids)[1]
     num_time_periods = size(PA_fs_dict[PA_uids[1, :uid]])[1]
@@ -964,9 +962,10 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
 
     # To prevent unnecessary infeasibility conditions, convert nonpositive
     #   available_demand values to 0
-    for i = 1:size(available_demand)[1]
-        if available_demand[i] < 0
-            available_demand[i] = 0
+    unserved_demand = deepcopy(available_demand)
+    for i = 1:size(unserved_demand)[1]
+        if unserved_demand[i] < 0
+            unserved_demand[i] = 0
         end
     end
 
@@ -981,17 +980,17 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
         end
     end
 
-    # Restrict total construction to be less than maximum available demand
+    # Fallback upper bound:
+    # Restrict total change in generation per period to be less than maximum
+    #   available demand, multiplied by some scaling factor
     for i = 1:num_time_periods
-        @constraint(m, transpose(u) * marg_gen[:, i] <= available_demand[i]*1.5)
+        @constraint(m, transpose(u) * marg_gen[:, i] <= unserved_demand[i]*1.5)
     end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
-    for i = 1:num_time_periods
-        @constraint(m, transpose(u) * marg_gen[:, i] >= 0)
+    for i = 1:10
+        @constraint(m, transpose(u) * marg_gen[:, i] + available_demand[i] >= 0)
     end
-
-    println(agent_params)
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1001,17 +1000,18 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     for i = 1:size(PA_uids)[1]
         for j = 1:num_time_periods
             # Retrieve the marginal value of interest
-            marg_debt[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :remaining_debt_principal]
-            marg_int[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :interest_payment]
-            marg_div[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :remaining_debt_principal] * agent_params[1, :cost_of_equity]
-            marg_FCF[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :FCF]
+            # Scale to units of $B
+            marg_debt[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :remaining_debt_principal] / 1e9
+            marg_int[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :interest_payment] / 1e9
+            marg_div[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :remaining_debt_principal] * agent_params[1, :cost_of_equity] / 1e9
+            marg_FCF[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :FCF] / 1e9
         end
     end
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
-    for i = 1:num_time_periods
-        @constraint(m, agent_params[1, :starting_fcf] + (1 - 4.2) * (transpose(u) * marg_int[:, i]) >= 0)
-        @constraint(m, agent_params[1, :starting_fcf] / 0.2 - (transpose(u) * marg_debt[:, i]) >= 0)
+    for i = 1:10
+        @constraint(m, agent_params[1, :starting_fcf] / 1e9 + (1 - 4.2) * (transpose(u) * marg_int[:, i]) >= 0)
+        @constraint(m, agent_params[1, :starting_fcf] / (0.2 * 1e9) - (transpose(u) * marg_debt[:, i]) >= 0)
 #        @constraint(m, agent_params[1, :starting_fcf] + (transpose(u) * (marg_FCF[:, i] - marg_div[:, i] - 0.15 * marg_debt[:, i])) >= 0)
     end
 
@@ -1067,7 +1067,7 @@ function postprocess_agent_decisions(all_results, unit_data, db, current_pd, age
         result = all_results[i, :]
 
         # Only record decisions which take effect this period
-        if result[:lag] == 0 && result[:units_to_execute] != 0
+        if (result[:lag] == 0) && (result[:units_to_execute] != 0)
             # Record the appropriate action type
             if result[:project_type] == "new_xtr"
                 record_new_construction_projects(result, unit_data, db, current_pd, agent_id)
