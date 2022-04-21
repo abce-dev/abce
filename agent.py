@@ -72,7 +72,8 @@ class GenCo(Agent):
                         {self.discount_rate}, {self.tax_rate},
                         {self.terminal_growth_rate}, {self.debt_fraction},
                         {self.cost_of_debt}, {self.cost_of_equity},
-                        {self.interest_cap})""")
+                        {self.starting_fcf})""")
+        self.model.db.commit()
 
         # Miscellaneous parameters
         self.MW2kW = 1000   # Convert MW to kW
@@ -85,10 +86,6 @@ class GenCo(Agent):
         # Set the current model step
         self.current_step = self.model.current_step
         print(f"Agent #{self.unique_id} is taking its turn...")
-
-        # Get lists of all assets, all WIP projects, and all operating assets
-        self.all_assets = self.get_current_asset_list()
-        self.op_assets = self.get_operating_asset_list()
 
         # Run the agent behavior choice algorithm
         agent_choice_path = os.path.join(self.settings["ABCE_abs_path"],
@@ -126,6 +123,7 @@ class GenCo(Agent):
                                      f"AND retirement_pd > {self.current_step}",
                                       self.model.db)
         all_asset_list = list(all_asset_list["asset_id"])
+        self.model.db.commit()
         return all_asset_list
 
 
@@ -141,13 +139,13 @@ class GenCo(Agent):
              above criteria
         """
 
-        cur = self.model.db.cursor()
         WIP_project_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
                                        f"agent_id = {self.unique_id} AND " +
                                        f"completion_pd >= {self.current_step} " +
                                        f"AND cancellation_pd > {self.current_step}",
                                        self.model.db)
         WIP_project_list = list(WIP_project_list["asset_id"])
+        self.model.db.commit()
         return WIP_project_list
 
 
@@ -163,7 +161,6 @@ class GenCo(Agent):
            op_asset_list (list of ints): all asset IDs meeting the above criteria
         """
 
-        cur = self.model.db.cursor()
         op_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
                                     f"agent_id = {self.unique_id} AND " +
                                     f"completion_pd <= {self.current_step} " +
