@@ -119,7 +119,7 @@ end
 @info "Data initialized."
 
 ###### Set up the model
-m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts)
+m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params)
 
 ###### Solve the model
 @info "Solving optimization problem..."

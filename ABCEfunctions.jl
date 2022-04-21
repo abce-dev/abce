@@ -457,6 +457,12 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
 
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
 
+        # save a representative example of each unit type to file (new_xtr only)
+        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag]) == 0
+            ctype = current_PA[:unit_type]
+            CSV.write("./$ctype.fs.csv", PA_fs_dict[uid])
+        end
+
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
 
@@ -938,7 +944,7 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts)
+function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params)
     # Create the model object
     @info "Setting up model..."
     m = Model(GLPK.Optimizer)
@@ -983,6 +989,30 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     # Prevent the agent from intentionally causing foreseeable energy shortages
     for i = 1:num_time_periods
         @constraint(m, transpose(u) * marg_gen[:, i] >= 0)
+    end
+
+    println(agent_params)
+
+    # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
+    marg_debt = zeros(num_alternatives, num_time_periods)
+    marg_int = zeros(num_alternatives, num_time_periods)
+    marg_div = zeros(num_alternatives, num_time_periods)
+    marg_FCF = zeros(num_alternatives, num_time_periods)
+    for i = 1:size(PA_uids)[1]
+        for j = 1:num_time_periods
+            # Retrieve the marginal value of interest
+            marg_debt[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :remaining_debt_principal]
+            marg_int[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :interest_payment]
+            marg_div[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :remaining_debt_principal] * agent_params[1, :cost_of_equity]
+            marg_FCF[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :FCF]
+        end
+    end
+
+    # Prevent the agent from reducing its credit metrics below Moody's Baa
+    for i = 1:num_time_periods
+        @constraint(m, agent_params[1, :starting_fcf] + (1 - 4.2) * (transpose(u) * marg_int[:, i]) >= 0)
+        @constraint(m, agent_params[1, :starting_fcf] / 0.2 - (transpose(u) * marg_debt[:, i]) >= 0)
+#        @constraint(m, agent_params[1, :starting_fcf] + (transpose(u) * (marg_FCF[:, i] - marg_div[:, i] - 0.15 * marg_debt[:, i])) >= 0)
     end
 
     for i = 1:num_alternatives
