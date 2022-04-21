@@ -18,6 +18,7 @@ import subprocess
 import yaml
 import numpy as np
 import pandas as pd
+import sqlite3
 import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
@@ -126,7 +127,10 @@ class GridModel(Model):
         # Save price duration data to the database
         self.price_duration_data.to_sql("price_curve",
                                         con = self.db,
-                                        if_exists = "replace")
+                                        index = False,
+                                        if_exists = "append")
+
+        self.db.commit()
 
         # Check ./outputs/ dir and clear out old files
         self.ABCE_output_data_path = os.path.join(settings["ABCE_abs_path"], "outputs", self.ALEAF_scenario_name)
@@ -242,6 +246,7 @@ class GridModel(Model):
         columns_to_select = [item[0] for item in self.cur.description]
         # "unit_type" is not needed as it is the index
         columns_to_select.remove("unit_type")
+        self.db.commit()
 
         # Some columns are not pulled from the A-LEAF input data, and will
         #   be computed or added later on. Initialize these columns as zeroes.
@@ -549,6 +554,7 @@ class GridModel(Model):
         # Retrieve the column-header schema for the 'assets' table
         self.cur.execute("SELECT * FROM assets")
         assets_col_names = [element[0] for element in self.cur.description]
+        self.db.commit()
 
         # Create a master dataframe to hold all asset records for this
         #   agent-unit type combination (to reduce the frequency of saving
@@ -632,6 +638,8 @@ class GridModel(Model):
         #   DB table
         master_assets_df.to_sql("assets", self.db, if_exists="append", index=False)
 
+        self.db.commit()
+
 
     def compute_total_capex_preexisting(self, unit_type):
         unit_cost_per_kW = self.unit_specs[self.unit_specs.unit_type == unit_type]["uc_x"].values[0]
@@ -675,6 +683,7 @@ class GridModel(Model):
         demand_df = demand_df.reindex(new_index, method="ffill")
         # Save data to DB
         demand_df.to_sql("demand", self.db, if_exists="replace", index_label="period")
+        self.db.commit()
 
 
     def load_model_parameters_to_db(self, settings):
@@ -684,6 +693,7 @@ class GridModel(Model):
 
         tax_rate = settings["tax_rate"]
         self.cur.execute(f"INSERT INTO model_params VALUES ('tax_rate', {tax_rate})")
+        self.db.commit()
 
 
     def set_market_subsidy(self, settings):
@@ -759,12 +769,20 @@ class GridModel(Model):
             # Save price duration data to the database
             self.price_duration_data.to_sql("price_curve",
                                             con = self.db,
+                                            index = False,
                                             if_exists = "replace")
+            self.db.commit()
+
+        self.db.commit()
+        self.db.close()
 
         # Iterate through all agent turns
         self.schedule.step()
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
+
+        self.db = sqlite3.connect(os.path.join(self.settings["ABCE_abs_path"], self.settings["db_file"]))
+        self.cur = self.db.cursor()
 
         # Transfer all decisions and updates from the 'asset_updates' and
         #   'WIP_updates' tables into their respective public-information
