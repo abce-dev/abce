@@ -26,13 +26,12 @@ def update_ALEAF_system_portfolio(ALEAF_portfolio_ref, ALEAF_portfolio_remote, d
     # Get the updated list of currently-operating units by unit type
     unit_type_count = pd.read_sql_query(f"SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= {current_pd} AND retirement_pd > {current_pd} AND cancellation_pd > {current_pd} GROUP BY unit_type", db)
     unit_type_count = unit_type_count.set_index("unit_type")
-    print(unit_type_count)
+
+    db.commit()
 
     # Retrieve and organize the A-LEAF system portfolio
     book, writer = prepare_xlsx_data(ALEAF_portfolio_ref, ALEAF_portfolio_remote)
     df = organize_ALEAF_portfolio(writer)
-
-    print(df.iloc[:, 1:12])
 
     # Update unit type numbers
     for unit_type in all_unit_types:
@@ -41,8 +40,6 @@ def update_ALEAF_system_portfolio(ALEAF_portfolio_ref, ALEAF_portfolio_remote, d
         else:
             new_count = 0
         df.loc[(df["bus_i"] == 1) & (df["Unit Type"] == unit_type), "EXUNITS"] = new_count
-
-    print(df.iloc[:, 1:12])
 
     df.to_excel(writer, sheet_name="gen", header=True, index=False)
     writer.save()
