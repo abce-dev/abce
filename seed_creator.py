@@ -88,7 +88,7 @@ abce_tables = {"WIP_projects":
                   ("debt_fraction", "real"),
                   ("cost_of_debt", "real"),
                   ("cost_of_equity", "real"),
-                  ("interest_cap", "real")
+                  ("starting_fcf", "real")
                  ],
 
                "unit_specs":
@@ -197,7 +197,7 @@ def clear_db_file(abce_db, force):
 
 def create_db_file(abce_db):
     print(f"Creating a new database file at {abce_db}.")
-    db = sqlite3.connect(abce_db)
+    db = sqlite3.connect(abce_db, timeout=10)
     cur = db.cursor()
     return db, cur
 
