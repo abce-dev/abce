@@ -944,7 +944,7 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params)
+function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs)
     # Create the model object
     @info "Setting up model..."
     m = Model(GLPK.Optimizer)
@@ -969,27 +969,41 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
         end
     end
 
-    # Compute expected marginal generation contribution per alternative type
+    # Compute expected marginal generation and effective nameplate capacity
+    #   contribution per alternative type
     marg_gen = zeros(num_alternatives, num_time_periods)
+    marg_eff_cap = zeros(num_alternatives, num_time_periods)
     for i = 1:size(PA_uids)[1]
         for j = 1:num_time_periods
+            marg_gen[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :gen] / MW2kW    # in kWh
             # Convert total anticipated marginal generation to an effective
             #   nameplate capacity and save to the appropriate entry in the
             #   marginal generation array
-            marg_gen[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :gen] / (hours_per_year * MW2kW)
+            unit_type_data = filter(:unit_type => x -> x == PA_uids[i, :unit_type], unit_specs)
+            if PA_uids[i, :project_type] == "new_xtr"
+                if j > PA_uids[i, :lag] + unit_type_data[1, :d_x]
+                    marg_eff_cap[i, j] = unit_type_data[1, :capacity] * unit_type_data[1, :CF]
+                end
+            elseif PA_uids[i, :project_type] == "retirement"
+                if j > PA_uids[i, :lag]
+                    marg_eff_cap[i, j] = (-1) * unit_type_data[1, :capacity] * unit_type_data[1, :CF]
+                end
+            end
         end
     end
+
+    CSV.write("marg_eff_cap.csv", DataFrame(marg_eff_cap, :auto))
 
     # Fallback upper bound:
     # Restrict total change in generation per period to be less than maximum
     #   available demand, multiplied by some scaling factor
     for i = 1:num_time_periods
-        @constraint(m, transpose(u) * marg_gen[:, i] <= unserved_demand[i]*1.5)
+        @constraint(m, transpose(u) * marg_eff_cap[:, i] <= unserved_demand[i]*1.5)
     end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     for i = 1:10
-        @constraint(m, transpose(u) * marg_gen[:, i] + available_demand[i] >= 0)
+        @constraint(m, transpose(u) * marg_eff_cap[:, i] >= 0)
     end
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
