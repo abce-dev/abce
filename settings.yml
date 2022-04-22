@@ -12,7 +12,7 @@ output_file: "outputs.xlsx"
 
 first_asset_id: 2001
 
-num_steps: 1
+num_steps: 8
 
 use_precomputed_price_curve: True
 enable_subsidy: True
@@ -20,7 +20,7 @@ subsidy_amount: 40    # $/MWh
 price_cap: 9001
 policies:
   CTAX:
-    enabled: True
+    enabled: False
     qty: 30   # $/t CO2
   PTC:
     enabled: False
@@ -28,7 +28,7 @@ policies:
       - AdvancedNuclear
       - Wind
       - Solar
-    qty: 20   # $/MWh
+    qty: 10   # $/MWh
 
 peak_demand: 28967  # MWh, to scale load duration data
 demand_visibility_horizon: 5
@@ -39,12 +39,13 @@ terminal_demand_growth_rate: 0.01  # Exponential growth rate of demand
 planning_reserve_margin: 0.1375
 peak_initial_reserves: 4000    # MW, peak reserves demand (added to PD by agent_choice.jl)
 tax_rate: 0.21
+large_epsilon: 1.0    # Value for determining non-zero-ness of large values
 
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
 consider_future_projects: True
-num_future_periods_considered: 2    # Number of periods for which to consider future projects
-max_type_rets_per_pd: 50
+num_future_periods_considered: 4    # Number of periods for which to consider future projects
+max_type_rets_per_pd: 1000
 max_type_newbuilds_per_pd: 100
 
 
