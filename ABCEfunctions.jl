@@ -16,6 +16,9 @@ module ABCEfunctions
 
 using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables
 
+include("./dispatch.jl")
+using .Dispatch
+
 export ProjectAlternative, load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_capex_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives
 
 #####
@@ -896,7 +899,6 @@ function compute_FS_delta_value(unit_fs, lag, db)
 
     # Re-propagate the accounting logic for the early-retirement sheet
     propagate_accounting_line_items(early_ret_fs, db)
-    CSV.write("early_ret_fs.csv", early_ret_fs)
 
     # Create a final dataframe for the delta between these two world-states
     final_fs = deepcopy(unit_fs)
@@ -934,6 +936,31 @@ function compute_alternative_NPV(unit_fs, agent_params)
 end
 
 
+function set_baseline_future_years(db, agent_id)
+    all_unit_manifest = DBInterface.execute(db, "SELECT *, COUNT(asset_id) FROM assets GROUP BY unit_type, completion_pd, retirement_pd")
+    owned_unit_manifest = filter(:agent_id => x -> x == agent_id, all_unit_manifest)
+
+    num_forecast_years = 10
+
+    all_extant_units = Dict()
+    owned_extant_units = Dict()
+
+    for i = 1:num_forecast_years
+        # Determine the total number of extant units by type during this year
+        aeudf = groupby(filter([:completion_pd, :retirement_pd] => (c, r) -> (c <= i) && (r > i), unit_manifest), :unit_type)
+        all_extant_units[i] = combine(aeudf, Symbol("COUNT(asset_id)") => sum)
+
+        # Determine the number of owned extant (operational) units by type during this year
+        oeudf = groupby(filter([:completion_pd, :retirement_pd] => (c, r) -> (c <= i) && (r > i), unit_manifest), :unit_type)
+        owned_extant_units[i] = combine(oeudf, Symbol("COUNT(asset_id)") => sum)
+    end
+
+    
+
+
+end
+
+
 ### JuMP optimization model initialization
 """
     set_up_model(unit_FS_dict, ret_fs_dict, fc_pd, available_demand, NPV_results, ret_NPV_results)
@@ -944,7 +971,7 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs)
+function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, current_pd)
     # Create the model object
     @info "Setting up model..."
     m = Model(GLPK.Optimizer)
@@ -992,18 +1019,22 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
         end
     end
 
-    CSV.write("marg_eff_cap.csv", DataFrame(marg_eff_cap, :auto))
-
     # Fallback upper bound:
     # Restrict total change in generation per period to be less than maximum
     #   available demand, multiplied by some scaling factor
     for i = 1:num_time_periods
-        @constraint(m, transpose(u) * marg_eff_cap[:, i] <= unserved_demand[i]*1.5)
+        @constraint(m, transpose(u) * marg_eff_cap[:, i] <= unserved_demand[i]*1.1)
     end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
-    for i = 1:10
-        @constraint(m, transpose(u) * marg_eff_cap[:, i] >= 0)
+    if current_pd < 3
+        for i = 1:2
+            @constraint(m, transpose(u) * marg_eff_cap[:, i] >= 0)
+        end
+    else
+        for i = 1:10
+            @constraint(m, transpose(u) * marg_eff_cap[:, i] - available_demand[i] >= 0)
+        end
     end
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
@@ -1023,10 +1054,11 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     end
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
+    #   rating thresholds (from the Unregulated Power Companies ratings grid)
     for i = 1:10
         @constraint(m, agent_params[1, :starting_fcf] / 1e9 + (1 - 4.2) * (transpose(u) * marg_int[:, i]) >= 0)
         @constraint(m, agent_params[1, :starting_fcf] / (0.2 * 1e9) - (transpose(u) * marg_debt[:, i]) >= 0)
-#        @constraint(m, agent_params[1, :starting_fcf] + (transpose(u) * (marg_FCF[:, i] - marg_div[:, i] - 0.15 * marg_debt[:, i])) >= 0)
+        @constraint(m, agent_params[1, :starting_fcf] + (transpose(u) * (marg_FCF[:, i] - marg_div[:, i] - 0.15 * marg_debt[:, i])) >= 0)
     end
 
     for i = 1:num_alternatives
