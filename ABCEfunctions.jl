@@ -461,10 +461,10 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
 
         # save a representative example of each unit type to file (new_xtr only)
-        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag]) == 0
-            ctype = current_PA[:unit_type]
-            CSV.write("./$ctype.fs.csv", PA_fs_dict[uid])
-        end
+        #if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag]) == 0
+            #ctype = current_PA[:unit_type]
+            #CSV.write("./$ctype.fs.csv", PA_fs_dict[uid])
+        #end
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
