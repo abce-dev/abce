@@ -12,7 +12,7 @@ output_file: "outputs.xlsx"
 
 first_asset_id: 2001
 
-num_steps: 8
+num_steps: 5
 
 use_precomputed_price_curve: True
 enable_subsidy: True
@@ -30,7 +30,8 @@ policies:
       - Solar
     qty: 10   # $/MWh
 
-peak_demand: 28967  # MWh, to scale load duration data
+#peak_demand: 28967  # MWh, to scale load duration data
+peak_demand: 26000
 demand_visibility_horizon: 5
 demand_projection_mode: exp_termrate     # flat, exp_fitted, or exp_termrate
 demand_projection_window: 10 # Total number of periods used to project demand
