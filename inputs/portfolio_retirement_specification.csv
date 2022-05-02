@@ -12,8 +12,6 @@
 #      which will have their retirement period set to the given value
 
 agent_id,unit_type,retirement_pd,num_copies
-201,Wind,4,5
-201,Solar,3,20
 201,AdvancedNuclear,15,1
-201,NGCC,5,20
-201,NGCT,12,25
+201,NGCC,9,1
+201,NGCT,12,3
