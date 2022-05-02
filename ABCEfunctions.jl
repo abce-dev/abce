@@ -1058,7 +1058,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     for i = 1:10
         @constraint(m, agent_params[1, :starting_fcf] / 1e9 + (1 - 4.2) * (transpose(u) * marg_int[:, i]) >= 0)
         @constraint(m, agent_params[1, :starting_fcf] / (0.2 * 1e9) - (transpose(u) * marg_debt[:, i]) >= 0)
-        @constraint(m, agent_params[1, :starting_fcf] + (transpose(u) * (marg_FCF[:, i] - marg_div[:, i] - 0.15 * marg_debt[:, i])) >= 0)
+        @constraint(m, agent_params[1, :starting_fcf] + sum((transpose(u) .* (marg_FCF[:, i] - marg_div[:, i] - 0.15 .* marg_debt[:, i]))) >= 0)
     end
 
     for i = 1:num_alternatives
