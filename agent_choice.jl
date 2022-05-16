@@ -107,18 +107,7 @@ price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
 # Add empty column for project NPVs in unit_specs
 unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
 
-PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd)
-
-@info "Project alternatives:"
-@info PA_uids
-
-if pd == 0
-    @info "Unit data loaded:"
-    @info unit_specs
-end
-
 @info "Data initialized."
-
 
 # Set up portfolio projections
 @info "Setting up dispatch portfolios..."
@@ -178,7 +167,13 @@ all_gc_results, all_prices = Dispatch.propagate_all_results(fc_pd, all_gc_result
 Dispatch.save_raw_results(all_prices, all_gc_results)
 
 @info "Postprocessing dispatch simulation..."
-final_profit_pivot, all_gc_results, all_prices = Dispatch.postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs)
+final_profit_pivot, all_gc_results, all_prices = Dispatch.postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd)
+
+@info "Setting up project alternatives..."
+PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, final_profit_pivot, all_gc_results)
+
+@info "Project alternatives:"
+@info PA_uids
 
 
 ###### Set up the model
