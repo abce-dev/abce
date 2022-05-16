@@ -1112,19 +1112,23 @@ function postprocess_agent_decisions(all_results, unit_data, db, current_pd, age
         # Retrieve the individual result row for convenience
         result = all_results[i, :]
 
-        # Only record decisions which take effect this period
-        if (result[:lag] == 0) && (result[:units_to_execute] != 0)
-            # Record the appropriate action type
-            if result[:project_type] == "new_xtr"
+        if result[:project_type] == "new_xtr"
+        # New construction decisions are binding for this period only
+            if (result[:lag] == 0) && (result[:units_to_execute] != 0)
                 record_new_construction_projects(result, unit_data, db, current_pd, agent_id)
-            elseif result[:project_type] == "retirement"
-                record_asset_retirements(result, db, current_pd, agent_id)
-            else
-                @warn "I'm not sure what to do with the following project type:"
-                @warn result
-                @warn "This decision entry will be skipped."
             end
+        elseif result[:project_type] == "retirement"
+        # Retirements are recorded as binding, whether the retirement date is
+        #   this period or in the future
+            if result[:units_to_execute] != 0
+                record_asset_retirements(result, db, current_pd, agent_id)
+            end
+        else
+            @warn "I'm not sure what to do with the following project type:"
+            @warn result
+            @warn "This decision entry will be skipped."
         end
+
     end
 
 end
