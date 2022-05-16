@@ -153,15 +153,29 @@ ts_data = Dispatch.load_ts_data(
 # Set up dataframes to record all results
 all_prices, all_gc_results = Dispatch.set_up_results_dfs()
 
-for y = 0:num_years
+run_next_year = true
+y = 0
+while (run_next_year) && (y < num_years)
     @info "Start of year $y dispatch simulation..."
     # Retrieve the current year's expected portfolio
     year_portfolio = system_portfolios[y]
 
     # Set up and run the dispatch simulation for this year
-    Dispatch.run_annual_dispatch(y, year_portfolio, total_demand[y+1, :demand], ts_data, unit_specs, all_gc_results, all_prices)
+    global run_next_year = Dispatch.run_annual_dispatch(y, year_portfolio, total_demand[y+1, :demand], ts_data, unit_specs, all_gc_results, all_prices)
     @info "Year $y dispatch complete."
+    println(run_next_year)
+
+    # Manually increment the year counter
+    global y = y + 1
 end
+
+if size(all_gc_results)[1] == 0
+    throw(ErrorException("No dispatch simulations were able to be run. Re-check your inputs."))
+end
+
+# Propagate the results dataframes out to the end of the projection horizon
+# Assume no change after the last modeled year
+all_gc_results, all_prices = Dispatch.propagate_all_results(settings["dispatch_horizon"], all_gc_results, all_prices)
 
 Dispatch.save_raw_results(all_prices, all_gc_results)
 

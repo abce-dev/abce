@@ -193,12 +193,16 @@ function solve_model(model; model_type="integral")
     if model_type == "integral"
         # Optimize!
         optimize!(model)
-        status = termination_status.(model)
+        status = string(termination_status.(model))
         @info "$model_type model status: $status"
-        gen_qty = value.(model[:g])
-        c = value.(model[:c])
+        gen_qty = nothing
+        c = nothing
+        if status == "OPTIMAL"
+            gen_qty = value.(model[:g])
+            c = value.(model[:c])
+        end
 
-        returns = model, gen_qty, c
+        returns = model, status, gen_qty, c
 
     elseif model_type == "relaxed_integrality"
         optimize!(model)
@@ -251,6 +255,34 @@ function reshape_shadow_price(model, ts_data, y, num_hours, num_days, all_prices
 end
 
 
+function propagate_all_results(end_year, all_gc_results, all_prices)
+    final_dispatched_year = maximum(all_gc_results[!, :y])
+
+    final_year_gc = filter(:y => x -> x == final_dispatched_year, all_gc_results)
+    final_year_prices = filter(:y => x -> x == final_dispatched_year, all_prices)
+
+    for y = final_dispatched_year+1:end_year
+        # Copy the final_year_gc results forward, updating the year
+        next_year_gc = deepcopy(final_year_gc)
+        next_year_gc[!, :y] .= y
+        # Push row-by-row (avoids Julia's strict for-loop scoping)
+        for i = 1:size(next_year_gc)[1]
+            push!(all_gc_results, next_year_gc[i, :])
+        end
+
+        # Copy the final_year_prices results forward, updating the year
+        next_year_prices = deepcopy(final_year_prices)
+        next_year_gc[!, :y] .= y
+        for i = 1:size(next_year_prices)[1]
+            push!(all_prices, next_year_prices[i, :])
+        end
+    end
+
+    return all_gc_results, all_prices
+
+end
+
+
 function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices)
     # Constants
     num_hours = 24
@@ -280,29 +312,39 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     set_optimizer(m_copy, CPLEX.Optimizer)
 
     # Solve the integral optimization problem
-    m, gen_qty, c = solve_model(m, model_type = "integral")
+    m, status, gen_qty, c = solve_model(m, model_type = "integral")
 
-    # Save the generation and commitment results from the integral problem
-    all_gc_results = save_gc_results(ts_data, num_hours, size(year_portfolio)[1], y, gen_qty, c, all_gc_results, portfolio_specs)
+    if status == "OPTIMAL"
+        # Save the generation and commitment results from the integral problem
+        all_gc_results = save_gc_results(ts_data, num_hours, size(year_portfolio)[1], y, gen_qty, c, all_gc_results, portfolio_specs)
 
-    # Set up a relaxed-integrality version of this model, to allow retrieval
-    #   of dual values for the mkt_equil constraint
-    @info "Solving relaxed-integrality problem to get shadow prices..."
-    undo = relax_integrality(m_copy)
+        # Set up a relaxed-integrality version of this model, to allow retrieval
+        #   of dual values for the mkt_equil constraint
+        @info "Solving relaxed-integrality problem to get shadow prices..."
+        undo = relax_integrality(m_copy)
 
-    # Solve the relaxed-integrality model to compute the shadow prices
-    m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
-    all_prices = reshape_shadow_price(
-                     m_copy,
-                     ts_data,
-                     y,
-                     num_hours,
-                     size(ts_data[:repdays_data])[1],
-                     all_prices
-                 )
+        # Solve the relaxed-integrality model to compute the shadow prices
+        m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
+        all_prices = reshape_shadow_price(
+                         m_copy,
+                         ts_data,
+                         y,
+                         num_hours,
+                         size(ts_data[:repdays_data])[1],
+                         all_prices
+                     )
 
-    @info "Year $y dispatch run complete."
+        @info "Year $y dispatch run complete."
+        run_next_year = true
 
+    else
+        # Dispatcher is unable to solve the current year: assume agents have
+        #   had a chance to address conditions in this year yet
+        # Break the loop
+        run_next_year = false
+    end
+
+    return run_next_year
 
 end
 
