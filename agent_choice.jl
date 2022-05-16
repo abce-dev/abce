@@ -123,9 +123,8 @@ end
 
 # Set up portfolio projections
 @info "Setting up dispatch portfolios..."
-num_years = 10
 system_portfolios = Dict()
-for y = 0:num_years
+for y = 0:settings["num_dispatch_years"]
     # Retrieve a list of all units expected to be operational during this year,
     #   grouped by unit type
     year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
@@ -140,7 +139,7 @@ end
 @info "Dispatch portfolios set up."
 
 # Run dispatch for each forecast year
-@info "Running the dispatch simulation for $num_years years..."
+@info string("Running the dispatch simulation for ", settings["num_dispatch_years"], " years...")
 num_repdays = 20
 ts_data = Dispatch.load_ts_data(
               joinpath(settings["ABCE_abs_path"],
@@ -155,7 +154,7 @@ all_prices, all_gc_results = Dispatch.set_up_results_dfs()
 
 run_next_year = true
 y = 0
-while (run_next_year) && (y < num_years)
+while (run_next_year) && (y < settings["num_dispatch_years"])
     @info "Start of year $y dispatch simulation..."
     # Retrieve the current year's expected portfolio
     year_portfolio = system_portfolios[y]
@@ -175,7 +174,7 @@ end
 
 # Propagate the results dataframes out to the end of the projection horizon
 # Assume no change after the last modeled year
-all_gc_results, all_prices = Dispatch.propagate_all_results(settings["dispatch_horizon"], all_gc_results, all_prices)
+all_gc_results, all_prices = Dispatch.propagate_all_results(fc_pd, all_gc_results, all_prices)
 
 Dispatch.save_raw_results(all_prices, all_gc_results)
 

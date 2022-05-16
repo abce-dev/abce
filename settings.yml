@@ -40,7 +40,7 @@ planning_reserve_margin: 0.1375
 peak_initial_reserves: 4000    # MW, peak reserves demand (added to PD by agent_choice.jl)
 tax_rate: 0.21
 large_epsilon: 1.0    # Value for determining non-zero-ness of large values
-dispatch_horizon: 40  # 
+num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
 
 hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
