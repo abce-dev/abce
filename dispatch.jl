@@ -384,9 +384,9 @@ function set_up_ppx_revenue(g_pivot, ts_data, unit_specs)
     for unit_type in unit_specs[!, :unit_type]
         # Retrieve this unit's specs for easy reference
         unit_spec = filter(:unit_type => x -> x == unit_type, unit_specs)
-        transform!(g_pivot, [Symbol(unit_type), :Probability] => ((gen, prob) -> gen .* prob .* 365) => Symbol(string(unit_type, "norm")))
-        transform!(g_pivot, [Symbol(string(unit_type, "norm")), :price] => ((gen, price) -> gen .* price) => Symbol(string(unit_type, "rev")))
-        transform!(g_pivot, [Symbol(string(unit_type, "norm"))] => ((gen) -> gen .* (unit_spec[1, :VOM] + unit_spec[1, :FC_per_MWh] .* unit_spec[1, :heat_rate])) => Symbol(string(unit_type, "opcost")))
+        transform!(g_pivot, [Symbol(unit_type), :Probability] => ((gen, prob) -> gen .* prob .* 365) => Symbol(string(unit_type, "total_gen")))
+        transform!(g_pivot, [Symbol(string(unit_type, "total_gen")), :price] => ((gen, price) -> gen .* price) => Symbol(string(unit_type, "rev")))
+        transform!(g_pivot, [Symbol(string(unit_type, "total_gen"))] => ((gen) -> gen .* (unit_spec[1, :VOM] + unit_spec[1, :FC_per_MWh] .* unit_spec[1, :heat_rate])) => Symbol(string(unit_type, "opcost")))
         transform!(g_pivot, [Symbol(string(unit_type, "rev")), Symbol(string(unit_type, "opcost"))] => ((rev, opcost) -> rev - opcost) => Symbol(string(unit_type, "profit")))
     end
 
@@ -414,7 +414,28 @@ function reorganize_g_pivot(g_pivot, unit_specs)
     # Rename new columns from automatic names to more descriptive ones
     rename!(g_unpivot, :variable => :unit_type, :value => :profit)
 
-    return g_unpivot, g_pivot
+    # Pivot g_pivot so that generation results from each year (by unit type) are grouped together
+    fields_to_select = [:y, :d, :h]
+    for unit_type in unit_specs[!, :unit_type]
+        append!(fields_to_select, [Symbol(string(unit_type, "total_gen"))])
+    end
+    g_gen = select(g_pivot, fields_to_select)
+
+    # Rename unit-specific columns from <type>total_gen to just <type>
+    for unit_type in unit_specs[!, :unit_type]
+        rename!(g_gen, Symbol(string(unit_type, "total_gen")) => Symbol(unit_type))
+    end
+
+    g_gen = stack(g_gen, Not([:y, :d, :h]))
+
+
+    rename!(g_gen, :variable => :unit_type, :value => :ydh_gen)
+
+    g_gen = combine(groupby(g_gen, [:y, :unit_type]), :ydh_gen => sum => :total_gen)
+
+    CSV.write("./final_gen_pivot.csv", g_gen)
+
+    return g_unpivot, g_gen
 
 end
 
@@ -473,14 +494,15 @@ function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_d
     g_pivot = set_up_ppx_revenue(g_pivot, ts_data, unit_specs)
 
     # Reorganize the g_pivot dataframe
-    g_unpivot, g_pivot = reorganize_g_pivot(g_pivot, unit_specs)
+    g_unpivot, g_gen = reorganize_g_pivot(g_pivot, unit_specs)
 
     # Compute operating and net profit, including by unit type
     final_profit_pivot = compute_final_profit(g_unpivot, system_portfolios, unit_specs)
+    final_gen_pivot = g_gen
 
     CSV.write("unit_profit_summary.csv", final_profit_pivot)
 
-    return final_profit_pivot, all_gc_results, all_prices
+    return final_profit_pivot, final_gen_pivot, all_gc_results, all_prices
 end
 
 end
