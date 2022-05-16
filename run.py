@@ -63,16 +63,6 @@ def cli_args():
     return args
 
 
-def wait_for_user(is_demo):
-    """
-    If the user specifies the --demo or -d command-line flag, then pause and
-      prompt the user to hit 'enter' after every time-step of the simulation.
-    """
-    if is_demo:
-        print("\n")
-        user_response = input("Press Enter to continue: ")
-
-
 def check_julia_environment(ABCE_abs_path):
     """
     Check whether Manifest.toml and Project.toml files exist (necessary for
@@ -107,8 +97,7 @@ def run_model():
 
     abce_model = GridModel(args.settings_file, settings, args)
     for i in range(settings["num_steps"]):
-        abce_model.step()
-        wait_for_user(args.demo)
+        abce_model.step(demo=args.demo)
 
     db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE " +
                                   "type='table';", abce_model.db)

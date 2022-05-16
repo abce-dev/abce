@@ -748,7 +748,7 @@ class GridModel(Model):
             pc.plot_curve(self.price_duration_data, plot_name="price_duration.png")
 
 
-    def step(self):
+    def step(self, demo=False):
         """
         Advance the model by one step.
         """
@@ -780,6 +780,10 @@ class GridModel(Model):
         self.schedule.step()
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
+
+        if demo:
+            print("\n")
+            user_response = input("Press Enter to continue: ")
 
         self.db = sqlite3.connect(os.path.join(self.settings["ABCE_abs_path"], self.settings["db_file"]))
         self.cur = self.db.cursor()
