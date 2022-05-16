@@ -440,7 +440,7 @@ function reorganize_g_pivot(g_pivot, unit_specs)
 end
 
 
-function compute_final_profit(g_unpivot, system_portfolios, unit_specs)
+function compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd)
     # Combine the system portfolios into a single dataframe with indicator
     #   column :y
     all_year_portfolios = DataFrame()
@@ -450,7 +450,11 @@ function compute_final_profit(g_unpivot, system_portfolios, unit_specs)
         append!(all_year_portfolios, df)
     end
 
-    @info all_year_portfolios
+    for i = length(keys(system_portfolios)):fc_pd
+        df = system_portfolios[length(keys(system_portfolios))-1]
+        df[!, :y] .= i
+        append!(all_year_portfolios, df)
+    end
 
     # Calculate operating and net profit per unit per unit type
     g_unpivot = innerjoin(g_unpivot, all_year_portfolios, on = [:unit_type, :y])
@@ -486,7 +490,7 @@ function compute_final_profit(g_unpivot, system_portfolios, unit_specs)
 end
 
 
-function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs)
+function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd)
     # Pivot the generation and commitment results
     g_pivot, c_pivot = pivot_gc_results(all_gc_results, all_prices, ts_data[:repdays_data])
 
@@ -497,7 +501,7 @@ function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_d
     g_unpivot, g_gen = reorganize_g_pivot(g_pivot, unit_specs)
 
     # Compute operating and net profit, including by unit type
-    final_profit_pivot = compute_final_profit(g_unpivot, system_portfolios, unit_specs)
+    final_profit_pivot = compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd)
     final_gen_pivot = g_gen
 
     CSV.write("unit_profit_summary.csv", final_profit_pivot)
