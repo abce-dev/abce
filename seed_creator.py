@@ -82,7 +82,6 @@ abce_tables = {"WIP_projects":
 
                "agent_params":
                  [("agent_id", "text", "PRIMARY KEY"),
-                  ("discount_rate", "real"),
                   ("tax_rate", "real"),
                   ("term_growth_rate", "real"),
                   ("debt_fraction", "real"),

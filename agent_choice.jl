@@ -82,7 +82,6 @@ agent_assets, asset_counts = get_current_assets_list(db, pd, agent_id)
 
 # Get agent financial parameters
 agent_params = get_agent_params(db, agent_id)
-d = agent_params[1, :discount_rate]
 
 # System parameters
 # Read unit operational data (unit_specs) and number of unit types (num_types)
