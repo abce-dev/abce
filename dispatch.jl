@@ -124,6 +124,9 @@ function set_up_model(ts_data, year_portfolio, unit_specs, y)
     # Initialize JuMP model
     m = Model(with_optimizer(CPLEX.Optimizer))
 
+    # Set verbosity to lowest setting
+    #set_optimizer_attribute(m, "CPXPARAM_ScreenOutput", 0)
+
     # g: quantity generated (in MWh) for each unit type
     @variable(m, g[1:num_units, 1:num_days, 1:num_hours] >= 0)
 
@@ -272,7 +275,7 @@ function propagate_all_results(end_year, all_gc_results, all_prices)
 
         # Copy the final_year_prices results forward, updating the year
         next_year_prices = deepcopy(final_year_prices)
-        next_year_gc[!, :y] .= y
+        next_year_prices[!, :y] .= y
         for i = 1:size(next_year_prices)[1]
             push!(all_prices, next_year_prices[i, :])
         end
@@ -360,7 +363,6 @@ end
 
 function pivot_gc_results(all_gc_results, all_prices, repdays_data)
     @info "Postprocessing results..."
-    CSV.write("hhh.csv", all_gc_results)
     # Pivot generation data by unit type
     # Output format: y, d, h, Wind, Solar, ..., AdvancedNuclear
     g_pivot = select(all_gc_results, Not(:commit))
