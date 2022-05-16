@@ -986,7 +986,8 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     m = Model(GLPK.Optimizer)
 
     # For debugging, enable the following line to increase verbosity
-    #set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+    set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+    set_optimizer_attribute(m, "mip_gap", 0.005)
 
     # Parameter names
     num_alternatives = size(PA_uids)[1]
