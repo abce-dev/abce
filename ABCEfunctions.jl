@@ -340,12 +340,12 @@ end
 #####
 
 
-function set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd)
+function set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd, final_profit_pivot, final_gen_pivot)
     PA_uids = create_PA_unique_ids(unit_specs, asset_counts, num_lags)
 
     PA_fs_dict = create_PA_pro_formas(PA_uids, fc_pd)
 
-    PA_uids, PA_fs_dict = populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd)
+    PA_uids, PA_fs_dict = populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, final_profit_pivot, final_gen_pivot)
 
     return PA_uids, PA_fs_dict
 
@@ -412,7 +412,7 @@ function create_PA_pro_formas(PA_uids, fc_pd)
 end
 
 
-function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd)
+function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, final_profit_pivot, final_gen_pivot)
     for uid in PA_uids[!, :uid]
         # Retrieve current project alternative definition for convenience
         current_PA = filter(:uid => x -> x == uid, PA_uids)[1, :]
@@ -442,6 +442,8 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
             db,
             current_pd,
             current_PA[:lag],
+            final_profit_pivot,
+            final_gen_pivot,
             mode = current_PA[:project_type],
             orig_ret_pd = current_PA[:ret_pd])
 
@@ -611,7 +613,7 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag; mode="new_xtr", orig_ret_pd)
+function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag, final_profit_pivot, final_gen_pivot; mode="new_xtr", orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Compute estimated revenue from submarginal hours
@@ -630,11 +632,11 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db,
     end
 
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, final_gen_pivot; mode=mode, orig_ret_pd=orig_ret_pd)
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, final_profit_pivot; mode=mode, orig_ret_pd=orig_ret_pd)
 
 end
 
@@ -735,7 +737,7 @@ end
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag; mode, orig_ret_pd=9999)
+function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, final_profit_pivot; mode, orig_ret_pd=9999)
     check_valid_vector_mode(mode)
 
     # Helpful short variables
@@ -762,7 +764,10 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
     end
 
     # Compute final projected revenue series
-    unit_fs[rev_start:rev_end, :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+#    unit_fs[rev_start:rev_end, :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+    for y = rev_start:rev_end
+        unit_fs[y, :Revenue] = filter(:y => x -> x == y, final_profit_pivot)[1, Symbol(unit_type_data[:unit_type])]
+    end
 
 end
 
@@ -773,7 +778,7 @@ end
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag; mode, orig_ret_pd)
+function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, final_gen_results; mode, orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
@@ -799,7 +804,11 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
     end
 
     # Distribute generation values time series
-    unit_fs[gen_start:gen_end, :gen] .= gen
+#    unit_fs[gen_start:gen_end, :gen] .= gen
+    for y = gen_start:gen_end
+        unit_fs[y, :gen] = filter([:unit_type, :y] => (unit_type, df_y) -> (unit_type == unit_type_data[:unit_type]) && (df_y == y), final_gen_results)[1, :total_gen]
+    end
+
 end
 
 
