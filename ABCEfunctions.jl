@@ -65,9 +65,9 @@ function load_unit_type_data(unit_data_file)
 end
 
 
-function set_forecast_period(df, num_lags)
-    transform!(df, [:d_x, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
-    max_horizon = maximum(df[!, :full_life]) + num_lags
+function set_forecast_period(unit_specs, num_lags)
+    transform!(unit_specs, [:d_x, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
+    max_horizon = maximum(unit_specs[!, :full_life]) + num_lags
     return max_horizon
 end
 
