@@ -46,7 +46,7 @@ hours_per_year: 8760
 total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
 consider_future_projects: True
 num_future_periods_considered: 4    # Number of periods for which to consider future projects
-max_type_rets_per_pd: 1000
+max_type_rets_per_pd: 50
 max_type_newbuilds_per_pd: 100
 
 
