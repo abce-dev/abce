@@ -1028,7 +1028,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     if current_pd < 3
-        for i = 1:3
+        for i = 1:(4-current_pd)
             @constraint(m, transpose(u) * marg_eff_cap[:, i] >= 0)
         end
     else
@@ -1121,7 +1121,7 @@ function postprocess_agent_decisions(all_results, unit_data, db, current_pd, age
         # Retirements are recorded as binding, whether the retirement date is
         #   this period or in the future
             if result[:units_to_execute] != 0
-                record_asset_retirements(result, db, current_pd, agent_id)
+                record_asset_retirements(result, db, agent_id)
             end
         else
             @warn "I'm not sure what to do with the following project type:"
@@ -1197,7 +1197,7 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
 end
 
 
-function record_asset_retirements(result, db, current_pd, agent_id)
+function record_asset_retirements(result, db, agent_id)
     # Generate a list of assets which match 'result' on agent owner, 
     #   unit type, and mandatory retirement date
     match_vals = (result[:unit_type], result[:ret_pd], agent_id)
@@ -1218,7 +1218,7 @@ function record_asset_retirements(result, db, current_pd, agent_id)
 
         # Overwrite the original record's retirement period with the current
         #   period
-        asset_data[1, :retirement_pd] = current_pd
+        asset_data[1, :retirement_pd] = result[:lag]
         replacement_data = [item for item in asset_data[1, :]]
 
         # Save this new record to the asset_updates table
