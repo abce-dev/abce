@@ -1028,7 +1028,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     if current_pd < 3
-        for i = 1:2
+        for i = 1:3
             @constraint(m, transpose(u) * marg_eff_cap[:, i] >= 0)
         end
     else
