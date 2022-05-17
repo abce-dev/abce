@@ -330,7 +330,7 @@ function authorize_anpe(db, agent_id, current_period, project_list, unit_specs)
         anpe_val = unit[1, :uc_x] * unit[1, :capacity] * 1000 / unit[1, :d_x]
 #        anpe_val = 100000000   # $1B/period
         vals = (anpe_val, current_period, current_asset)
-        DBInterface.execute(db, "UPDATE WIP_projects SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
+        DBInterface.execute(db, "UPDATE WIP_updates SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end
 end
 
@@ -1053,15 +1053,8 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
 
     # Prevent excessive overbuild in the medium term
     for i = 5:10
-        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= current_peak_demand * 1.25)   # settings["planning_reserve_margin"]
+        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= current_peak_demand * 1.1)   # settings["planning_reserve_margin"]
     end
-
-    # Fallback upper bound:
-    # Restrict total change in generation per period to be less than maximum
-    #   available demand, multiplied by some scaling factor
-    #for i = 1:num_time_periods
-    #    @constraint(m, transpose(u) * marg_eff_cap[:, i] <= unserved_demand[i]*1.1)
-    #end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     if current_pd < 4
@@ -1069,9 +1062,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
             @constraint(m, transpose(u) * marg_eff_cap[:, i] >= -0.5 * excess_capacity[i])
         end
     end
-    #for i = 1:10
-    #    @constraint(m, transpose(u) * marg_eff_cap[:, i] - available_demand[i] >= 0)
-    #end
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1118,10 +1108,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
         #@constraint(m, agent_params[1, :starting_fcf] / 1e9 + (1 - 4.2) * (transpose(u) * marg_int[:, i]) >= 0)
         #@constraint(m, agent_params[1, :starting_fcf] / (0.2 * 1e9) - (transpose(u) * marg_debt[:, i]) >= 0)
         #@constraint(m, agent_params[1, :starting_fcf] / 1e9 + sum((transpose(u) .* (marg_FCF[:, i] - marg_div[:, i] - 0.15 .* marg_debt[:, i]))) >= 0)
-
-        println(agent_NI)
-        println(agent_principal)
-        println(agent_params)
 
         @constraint(m, (agent_NI / 1e9 + sum(u .* marg_FCF[:, i])) + (1 - 4.2) * (agent_principal / 1e9 * agent_params[1, "cost_of_debt"] + sum(u .* marg_int[:, i])) >= 0)
 
@@ -1218,7 +1204,7 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
     retirement_pd = current_pd + unit_type_specs[1, :d_x] + unit_type_specs[1, :unit_life]
     total_capex = 0
     cap_pmt = 0
-    anpe = 0
+    anpe = unit_type_specs[1, :uc_x] * unit_type_specs[1, :capacity] * 1000 / unit_type_specs[1, :d_x]
 
     # Add a number of project instances equal to the 'units_to_execute'
     #   value from the decision solution
