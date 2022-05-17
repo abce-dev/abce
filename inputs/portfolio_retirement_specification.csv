@@ -15,3 +15,8 @@ agent_id,unit_type,retirement_pd,num_copies
 201,AdvancedNuclear,15,1
 201,NGCC,9,1
 201,NGCT,12,3
+201,Coal,5,1
+201,Coal,6,1
+201,Coal,10,1
+202,Coal,5,1
+202,Coal,15,6
