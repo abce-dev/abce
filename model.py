@@ -797,10 +797,6 @@ class GridModel(Model):
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
 
-        if demo:
-            print("\n")
-            user_response = input("Press Enter to continue: ")
-
         self.db = sqlite3.connect(os.path.join(self.settings["ABCE_abs_path"], self.settings["db_file"]))
         self.cur = self.db.cursor()
 
@@ -808,6 +804,10 @@ class GridModel(Model):
         #   'WIP_updates' tables into their respective public-information
         #   equivalents
         self.execute_all_status_updates()
+
+        if demo:
+            print("\n")
+            user_response = input("Press Enter to continue: ")
 
         if not self.args.quiet:
             print("Table of all assets:")
@@ -837,6 +837,7 @@ class GridModel(Model):
                                        stdout=open(os.devnull, "wb"))
         else:
             sp = subprocess.check_call([aleaf_cmd], shell=True)
+
 
         self.save_ALEAF_outputs()
 
@@ -871,16 +872,21 @@ class GridModel(Model):
         """
 
         # Get a list of all currently-active construction projects
-        WIP_projects = pd.read_sql("SELECT * FROM assets WHERE " +
+        if self.current_step == 0:
+            WIP_projects = pd.read_sql("SELECT asset_id FROM assets WHERE " +
+                                   f"completion_pd > {self.current_step} AND " +
+                                   f"cancellation_pd > {self.current_step}",
+                                   self.db)
+        else:
+             WIP_projects = pd.read_sql("SELECT asset_id FROM assets WHERE " +
                                    f"completion_pd >= {self.current_step} AND " +
                                    f"cancellation_pd > {self.current_step}",
                                    self.db)
 
         # Update each project one at a time
-        total_new_debt = {201: 0.0, 202: 0.0}
         for asset_id in WIP_projects.asset_id:
             # Select this project's most recent data record
-            project_data = self.retrieve_project_data(asset_id)
+            project_data = pd.read_sql_query(f"SELECT * FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_step}", self.db)
 
             # Record the effects of authorized construction expenditures, and
             #   advance the time-remaining estimate by one year
@@ -899,13 +905,29 @@ class GridModel(Model):
             #   database 'assets' table
             self.update_expected_completion_period(project_data)
 
-            total_new_debt[project_data.loc[0, "agent_id"].values[0]] += project_data.loc[0, "anpe"].values[0]
 
-        # Update all agents' total debt
-        for agent_id, new_principal in total_new_debt.items():
-            existing_principal = self.cur.execute(f"SELECT outstanding_principal FROM agent_debt WHERE period = {self.current_step}")
-            existing_principal = existing_principal.loc[0, "outstanding_principal"].values[0]
-            total_current_principal = existing_principal + new_principal
+    def update_agent_debt(self):
+        total_new_debt = {201: 0.0, 202: 0.0}
+
+        for agent_id, new_debt in total_new_debt.items():
+            if self.current_step == 0:
+                agent_WIP_projects = pd.read_sql_query(f"SELECT asset_id FROM assets WHERE agent_id = {agent_id} AND completion_pd > {self.current_step} AND retirement_pd > {self.current_step} AND cancellation_pd > {self.current_step}", self.db)
+            else:
+                agent_WIP_projects = pd.read_sql_query(f"SELECT asset_id FROM assets WHERE agent_id = {agent_id} AND completion_pd >= {self.current_step} AND retirement_pd > {self.current_step} AND cancellation_pd > {self.current_step}", self.db)
+
+            for asset_id in agent_WIP_projects.asset_id:
+                new_anpe = pd.read_sql_query(f"SELECT anpe FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_step}", self.db)
+                total_new_debt[agent_id] += new_anpe.iloc[0, 0]
+
+            # Update each agent's total debt
+            existing_principal = pd.read_sql_query(f"SELECT outstanding_principal FROM agent_debt WHERE agent_id = {agent_id} AND period = {self.current_step-1}", self.db)
+            starting_debt = self.gc_params[agent_id]["starting_debt"]
+            if self.current_step < 20:
+                paid_down = starting_debt * (20. - self.current_step) / 20.
+            else:
+                paid_down = starting_debt
+            existing_principal = existing_principal.iloc[0, 0]
+            total_current_principal = existing_principal - paid_down + total_new_debt[agent_id] * self.gc_params[agent_id]["debt_fraction"]
             debt_row = (agent_id, self.current_step, total_current_principal)
             self.cur.execute("INSERT INTO agent_debt VALUES (?, ?, ?)", debt_row)
             self.db.commit()
@@ -914,15 +936,24 @@ class GridModel(Model):
     def retrieve_project_data(self, asset_id):
         project_data = pd.read_sql("SELECT * FROM WIP_projects WHERE " +
                                    f"asset_id = {asset_id} AND " +
-                                   f"period = {self.current_step - 1}",
+                                   f"period = {self.current_step}",
                                    self.db)
+
 
         temp_asset_data = pd.read_sql("SELECT * FROM assets WHERE " +
                                       f"asset_id = {asset_id}", self.db)
+        temp_asset_data = temp_asset_data.drop(["agent_id", "asset_id"], axis=1)
 
-        project_data = project_data.merge(temp_asset_data,
-                                          how = "inner",
-                                          on = ["asset_id", "agent_id"])
+
+        #asset_cols = list(temp_asset_data)
+        #asset_cols.remove("asset_id")
+        #asset_cols.remove("agent_id")
+
+        #for col in asset_cols:
+        #    project_data[col] = temp_asset_data.loc[0, col]
+
+        project_data = pd.concat([project_data, temp_asset_data], axis=1)
+
 
         return project_data
 
@@ -930,13 +961,16 @@ class GridModel(Model):
     def record_completed_xtr_project(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
 
+        # Get asset record from assets
+        asset_data = pd.read_sql_query(f"SELECT * FROM assets WHERE asset_id = {asset_id}", self.db)
+
        # Compute periodic sinking fund payments
-        unit_type = project_data.loc[0, "unit_type"]
+        unit_type = asset_data.loc[0, "unit_type"]
         unit_life = self.unit_specs.loc[unit_type, "unit_life"]
-        capex_payment = self.compute_sinking_fund_payment(project_data.loc[0, "agent_id"], project_data.loc[0, "cum_exp"], unit_life)
+        capex_payment = self.compute_sinking_fund_payment(asset_data.loc[0, "agent_id"], asset_data.loc[0, "cum_exp"], unit_life)
 
         to_update = {"completion_pd": current_step,
-                     "total_capex": project_data.cum_exp.values[0],
+                     "total_capex": asset_data.cum_exp.values[0],
                      "cap_pmt": capex_payment}
         filters = {"asset_id": asset_id}
 
@@ -954,18 +988,18 @@ class GridModel(Model):
 
     def record_WIP_project_updates(self, project_data):
         # Set new_anpe = 0 to avoid inter-period contamination
-        new_anpe = 0
+        #new_anpe = 0
         # Update the 'WIP_projects' table with new RCEC/RTEC/ANPE values
         self.cur.execute("INSERT INTO WIP_projects VALUES " +
                          f"({project_data.asset_id.values[0]}, " +
                          f"{project_data.agent_id.values[0]}, " +
-                         f"{self.current_step}, " +
+                         f"{self.current_step+1}, " +
                          f"{project_data.cum_occ.values[0]}, " +
                          f"{project_data.rcec.values[0]}, " +
                          f"{project_data.cum_d_x.values[0]}, " +
                          f"{project_data.rtec.values[0]}, " +
                          f"{project_data.cum_exp.values[0]}, " +
-                         f"{new_anpe})")
+                         f"{project_data.anpe.values[0]})")
 
         # Save changes to the database
         self.db.commit()
@@ -1032,7 +1066,7 @@ class GridModel(Model):
         project_data.loc[0, "cum_exp"] += project_data.loc[0, "anpe"]
 
         # Project ANPE is reset to 0 after being expended
-        project_data.loc[0, "anpe"] = 0
+        #project_data.loc[0, "anpe"] = 0
 
         return project_data
 
@@ -1087,8 +1121,13 @@ class GridModel(Model):
                     new_record,
                     filters
                 )
+        self.db.commit()
+
+        self.update_WIP_projects()
 
         self.db.commit()
+
+        self.update_agent_debt()
 
 
 
