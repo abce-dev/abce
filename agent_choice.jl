@@ -219,9 +219,9 @@ postprocess_agent_decisions(all_results, unit_specs, db, pd, agent_id)
 
 ##### Authorize ANPE for all current WIP projects
 # Retrieve all WIP projects
-WIP_projects = get_WIP_projects_list(db, pd, agent_id)
+#WIP_projects = get_WIP_projects_list(db, pd, agent_id)
 # Authorize ANPE for the upcoming period (default: $1B/year)
-authorize_anpe(db, agent_id, pd, WIP_projects, unit_specs)
+#authorize_anpe(db, agent_id, pd, WIP_projects, unit_specs)
 
 # End
 @info "Julia: finishing"
