@@ -175,9 +175,28 @@ PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_
 @info "Project alternatives:"
 @info PA_uids
 
-
 ###### Set up the model
-m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd)
+system_portfolios = Dict()
+for y = 0:fc_pd
+    # Retrieve a list of all units expected to be operational during this year,
+    #   grouped by unit type
+    year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
+
+    # Rename the COUNT(unit_type) column to num_units
+    rename!(year_portfolio, Symbol("COUNT(unit_type)") => :num_units)
+
+    year_portfolio = innerjoin(unit_specs, year_portfolio, on = :unit_type)
+
+    year_portfolio = select(year_portfolio, [:unit_type, :num_units, :CF, :capacity])
+
+    transform!(year_portfolio, [:num_units, :CF, :capacity] => ((num_units, CF, cap) -> num_units .* CF .* cap) => :effective_capacity)
+
+    # Add the year-i portfolio to the dictionary
+    system_portfolios[y] = year_portfolio
+
+end
+
+m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], system_portfolios, db, agent_id, final_profit_pivot)
 
 ###### Solve the model
 @info "Solving optimization problem..."
