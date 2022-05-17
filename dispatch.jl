@@ -254,6 +254,8 @@ function reshape_shadow_price(model, ts_data, y, num_hours, num_days, all_prices
         end
     end
 
+    CSV.write("price_test.csv", all_prices)
+
     return all_prices
 end
 
@@ -289,6 +291,8 @@ end
 function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices)
     # Constants
     num_hours = 24
+
+    println(year_portfolio)
 
     # Scale the load data to the PD value for this year
     ts_data = scale_load(ts_data, peak_demand)
@@ -428,12 +432,9 @@ function reorganize_g_pivot(g_pivot, unit_specs)
 
     g_gen = stack(g_gen, Not([:y, :d, :h]))
 
-
     rename!(g_gen, :variable => :unit_type, :value => :ydh_gen)
 
     g_gen = combine(groupby(g_gen, [:y, :unit_type]), :ydh_gen => sum => :total_gen)
-
-    CSV.write("./final_gen_pivot.csv", g_gen)
 
     return g_unpivot, g_gen
 
@@ -490,6 +491,34 @@ function compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd)
 end
 
 
+function compute_final_gen(g_gen, system_portfolios, fc_pd)
+    # Combine the system portfolios into a single dataframe with indicator
+    #   column :y
+    all_year_portfolios = DataFrame()
+    for i = 0:length(keys(system_portfolios))-1
+        df = system_portfolios[i]
+        df[!, :y] .= i
+        append!(all_year_portfolios, df)
+    end
+
+    for i = length(keys(system_portfolios)):fc_pd
+        df = system_portfolios[length(keys(system_portfolios))-1]
+        df[!, :y] .= i
+        append!(all_year_portfolios, df)
+    end
+
+    # Calculate operating and net profit per unit per unit type
+    g_gen = innerjoin(g_gen, all_year_portfolios, on = [:unit_type, :y])
+    transform!(g_gen, [:total_gen, :num_units] => ((total_gen, num_units) -> total_gen ./ num_units) => :GenPerUnit)
+
+    final_gen_pivot = g_gen
+
+    return final_gen_pivot
+
+end
+
+
+
 function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd)
     # Pivot the generation and commitment results
     g_pivot, c_pivot = pivot_gc_results(all_gc_results, all_prices, ts_data[:repdays_data])
@@ -502,9 +531,10 @@ function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_d
 
     # Compute operating and net profit, including by unit type
     final_profit_pivot = compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd)
-    final_gen_pivot = g_gen
+    final_gen_pivot = compute_final_gen(g_gen, system_portfolios, fc_pd)
 
     CSV.write("unit_profit_summary.csv", final_profit_pivot)
+    CSV.write("unit_generation_summary.csv", final_gen_pivot)
 
     return final_profit_pivot, final_gen_pivot, all_gc_results, all_prices
 end
