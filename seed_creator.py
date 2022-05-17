@@ -90,6 +90,22 @@ abce_tables = {"WIP_projects":
                   ("starting_fcf", "real")
                  ],
 
+               "financing_schedule":
+                 [("agent_id", "text", "PRIMARY KEY"),
+                  ("period", "integer"),
+                  ("type", "text"),
+                  ("asset", "integer"),
+                  ("original_principal", "real"),
+                  ("term", "integer"),
+                  ("outstanding_principal", "real")
+                 ],
+
+               "agent_debt":
+                 [("agent_id", "text", "PRIMARY KEY"),
+                  ("period", "integer"),
+                  ("outstanding_principal", "real")
+                 ],
+
                "unit_specs":
                  [("unit_type", "text", "PRIMARY KEY"),
                   ("fuel_type", "text"),
