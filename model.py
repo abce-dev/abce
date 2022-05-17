@@ -91,14 +91,14 @@ class GridModel(Model):
         # Read in the GenCo parameters data from file
         gc_params_file_name = os.path.join(self.settings["ABCE_abs_path"],
                                            self.settings["gc_params_file"])
-        gc_params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
+        self.gc_params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
 
         # Load the unit-type ownership specification for all agents
         self.portfolio_specification = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"], self.settings["portfolios_file"]))
 
         # Check the portfolio specification to ensure the ownership totals 
         #   equal the total numbers of available units
-        self.check_num_agents(gc_params)
+        self.check_num_agents()
         self.check_total_assets()
 
         # Load the mandatory unit retirement data
@@ -107,9 +107,9 @@ class GridModel(Model):
         self.ret_data = pd.read_csv(ret_data_file, comment="#")
 
         # Create agents
-        num_agents = len(gc_params.keys())
-        for agent_id in list(gc_params.keys()):
-            gc = GenCo(agent_id, self, settings, gc_params[agent_id], self.args)
+        num_agents = len(self.gc_params.keys())
+        for agent_id in list(self.gc_params.keys()):
+            gc = GenCo(agent_id, self, settings, self.gc_params[agent_id], self.args)
             self.schedule.add(gc)
             self.initialize_agent_assets(agent_id)
 
@@ -474,7 +474,7 @@ class GridModel(Model):
         self.unit_specs = unit_specs_data
 
 
-    def check_num_agents(self, gc_params):
+    def check_num_agents(self):
         """
         Ensure that all sources of agent data include the same number of
           agents. If not, raise a ValueError.
@@ -483,7 +483,7 @@ class GridModel(Model):
         #   corresponding parameters entries in the gc_params file:
         #   - gc_params.yml => gc_params
         #   - portfolios.csv => self.portfolio_specification
-        if not all(agent_id in gc_params.keys() for agent_id in self.portfolio_specification.agent_id.unique()):
+        if not all(agent_id in self.gc_params.keys() for agent_id in self.portfolio_specification.agent_id.unique()):
             num_agents_msg = f"Agents specified in the portfolio specification file {self.settings['portfolios_file']} do not all have corresponding entries in the gc_params file {self.settings['gc_params_file']}. Check your inputs and try again."
             raise ValueError(num_agents_msg)
 
@@ -639,6 +639,22 @@ class GridModel(Model):
         master_assets_df.to_sql("assets", self.db, if_exists="append", index=False)
 
         self.db.commit()
+
+        financing_row = (agent_id,
+                         -1,
+                         "debt",
+                         0,
+                         self.gc_params[agent_id]["starting_debt"],
+                         20,
+                         self.gc_params[agent_id]["starting_debt"])
+        self.cur.execute("INSERT INTO financing_schedule VALUES (?, ?, ?, ?, ?, ?, ?)", financing_row)
+
+        debt_row = (agent_id, -1, self.gc_params[agent_id]["starting_debt"])
+        self.cur.execute("INSERT INTO agent_debt VALUES (?, ?, ?)", debt_row)
+        self.db.commit()
+
+        vals = pd.read_sql_query("SELECT * FROM agent_debt", self.db)
+        print(vals)
 
 
     def compute_total_capex_preexisting(self, unit_type):
@@ -861,6 +877,7 @@ class GridModel(Model):
                                    self.db)
 
         # Update each project one at a time
+        total_new_debt = {201: 0.0, 202: 0.0}
         for asset_id in WIP_projects.asset_id:
             # Select this project's most recent data record
             project_data = self.retrieve_project_data(asset_id)
@@ -881,6 +898,17 @@ class GridModel(Model):
             # Record updates to the project's expected completion date in the
             #   database 'assets' table
             self.update_expected_completion_period(project_data)
+
+            total_new_debt[project_data.loc[0, "agent_id"].values[0]] += project_data.loc[0, "anpe"].values[0]
+
+        # Update all agents' total debt
+        for agent_id, new_principal in total_new_debt.items():
+            existing_principal = self.cur.execute(f"SELECT outstanding_principal FROM agent_debt WHERE period = {self.current_step}")
+            existing_principal = existing_principal.loc[0, "outstanding_principal"].values[0]
+            total_current_principal = existing_principal + new_principal
+            debt_row = (agent_id, self.current_step, total_current_principal)
+            self.cur.execute("INSERT INTO agent_debt VALUES (?, ?, ?)", debt_row)
+            self.db.commit()
 
 
     def retrieve_project_data(self, asset_id):
