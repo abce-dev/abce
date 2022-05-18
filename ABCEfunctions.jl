@@ -463,10 +463,10 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
 
         # save a representative example of each unit type to file (new_xtr only)
-        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag]) == 0
-            ctype = current_PA[:unit_type]
-            CSV.write("./$ctype.fs.csv", PA_fs_dict[uid])
-        end
+        #if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag]) == 0
+        #    ctype = current_PA[:unit_type]
+        #    CSV.write("./$ctype.fs.csv", PA_fs_dict[uid])
+        #end
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
@@ -783,8 +783,6 @@ Calculate the unit's total generation for the period, in kWh.
 """
 function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, final_gen_results; mode, orig_ret_pd)
     check_valid_vector_mode(mode)
-
-    CSV.write("final_gen_results.csv", final_gen_results)
 
     # Helpful short variable names
     unit_d_x = unit_type_data[:d_x]

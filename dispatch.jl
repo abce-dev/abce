@@ -254,8 +254,6 @@ function reshape_shadow_price(model, ts_data, y, num_hours, num_days, all_prices
         end
     end
 
-    CSV.write("price_test.csv", all_prices)
-
     return all_prices
 end
 
