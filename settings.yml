@@ -29,6 +29,7 @@ policies:
       - Wind
       - Solar
     qty: 10   # $/MWh
+num_repdays: 16
 
 #peak_demand: 28967  # MWh, to scale load duration data
 peak_demand: 28000

@@ -785,7 +785,7 @@ class GridModel(Model):
             self.db.commit()
 
         # Compute the scenario reduction results for this year
-        ABCE.execute_scenario_reduction(self.db, self.current_step, self.settings, self.unit_specs)
+        ABCE.execute_scenario_reduction(self.db, self.current_step, self.settings, self.unit_specs, self.settings["num_repdays"])
 
         self.db.commit()
         self.db.close()

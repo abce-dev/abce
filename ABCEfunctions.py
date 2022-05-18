@@ -39,7 +39,7 @@ def get_next_asset_id(db, suggested_next_id):
     return next_id
 
 
-def execute_scenario_reduction(db, current_pd, settings, unit_specs):
+def execute_scenario_reduction(db, current_pd, settings, unit_specs, num_repdays):
     # Get the number of wind and solar units to allow computation of net
     #   demand
     current_portfolio = pd.read_sql_query(f"SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= {current_pd} AND retirement_pd > {current_pd} GROUP BY unit_type", db)
@@ -80,6 +80,7 @@ def execute_scenario_reduction(db, current_pd, settings, unit_specs):
 
     sr.run_scenario_reduction(
         time_resolution="hourly",
+        num_scenarios_list=[num_repdays],
         generate_input_data_flag=True,
         data_location_timeseries=init_data_dir,
         data_input_path=temp_data_dir,

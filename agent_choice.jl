@@ -130,7 +130,7 @@ end
 
 # Run dispatch for each forecast year
 @info string("Running the dispatch simulation for ", settings["num_dispatch_years"], " years...")
-num_repdays = 20
+num_repdays = settings["num_repdays"]
 ts_data = Dispatch.load_ts_data(
               joinpath(settings["ABCE_abs_path"],
                        "inputs",
