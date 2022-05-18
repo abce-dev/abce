@@ -70,7 +70,7 @@ def execute_scenario_reduction(db, current_pd, settings, unit_specs):
     output_dir = os.path.join(
                      settings["ABCE_abs_path"],
                      "inputs",
-                     "scenario_reduction_data"
+                     "ALEAF_inputs"
                  )
 
     plot_output_dir = os.path.join(
