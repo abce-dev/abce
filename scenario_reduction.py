@@ -101,7 +101,7 @@ def run_scenario_reduction(**kwargs):
             flag_net_load_MWh = True
 
 
-    print("Total number of cases to run: %d" % (len(setting["num_scenarios_list"])))
+    print(f"Total number of cases to run: {len(setting['num_scenarios_list'])}")
     idx = 1
 
     for list in setting["num_scenarios_list"]:
@@ -320,20 +320,6 @@ def read_input_data(data_input_path, mode):
     return load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh
 
 
-def read_input_data_Hourly(data_input_path):
-    load_shape = pd.read_csv(data_input_path + "/" + "Input_Raw_Scenarios_60min_load_Shape.csv")
-    wind_shape = pd.read_csv(data_input_path + "/" + "Input_Raw_Scenarios_60min_wind_Shape.csv")
-    solar_shape = pd.read_csv(data_input_path + "/" + "Input_Raw_Scenarios_60min_solar_Shape.csv")
-
-    load_MWh = pd.read_csv(data_input_path + "/" + "Input_Raw_Scenarios_60min_load_MWh.csv")
-    wind_MWh = pd.read_csv(data_input_path + "/" + "Input_Raw_Scenarios_60min_wind_MWh.csv")
-    solar_MWh = pd.read_csv(data_input_path + "/" + "Input_Raw_Scenarios_60min_solar_MWh.csv")
-
-    net_load_MWh = pd.read_csv(data_input_path + "/" + "Input_Raw_Scenarios_60min_netload.csv")
-
-    return load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh
-
-
 def generate_input_data(mode, data_input_path, data_location_timeseries, windCapacity, solarCapacity, peakDemand):
 
     timeSeriesParams_load = pd.read_csv(os.path.join(
@@ -447,103 +433,6 @@ def generate_input_data(mode, data_input_path, data_location_timeseries, windCap
                             data_input_path,
                             f"Input_Raw_Scenarios_{mode}_solar_Shape.csv"
                        ), index=False)
-
-
-def generate_input_data_hourly(data_input_path, data_location_timeseries, windCapacity, solarCapacity, peakDemand):
-
-    timeSeriesParams_load = pd.read_csv(
-        data_location_timeseries +  "timeseries_data_files/Load/timeseries_load_hourly.csv")
-    timeSeriesParams_wind = pd.read_csv(
-        data_location_timeseries +  "timeseries_data_files/WIND/timeseries_wind_hourly.csv")
-    timeSeriesParams_solar = pd.read_csv(
-        data_location_timeseries +  "timeseries_data_files/PV/timeseries_pv_hourly.csv")
-
-    # timeSeriesParams_load = pd.read_csv(
-    #     data_location_timeseries + "/" + "timeseries_data_files/Load/timeseries_load_hourly_scenario_reduction.csv")
-    # timeSeriesParams_wind = pd.read_csv(
-    #     data_location_timeseries + "/" + "timeseries_data_files/WIND/timeseries_wind_hourly_scenario_reduction.csv")
-    # timeSeriesParams_solar = pd.read_csv(
-    #     data_location_timeseries + "/" + "timeseries_data_files/PV/timeseries_pv_hourly_scenario_reduction.csv")
-
-    nrows = 24 + 1
-    ncols = 365
-    columnNames = ["Time"]
-    for i in range(1, ncols + 1):
-        columnNames.append("Scenario" + str(i))
-    rawScenarios = pd.DataFrame(index=range(nrows), columns=columnNames)
-    rawScenarios["Time"] = np.append(np.arange(1, len(rawScenarios)), "Prob")
-
-    # Netload
-    j = 0
-    k = 0
-    for i in range(1, ncols + 1):
-        k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_load.iloc[j:k, 1].values * peakDemand \
-                                            - timeSeriesParams_wind.iloc[j:k, 1].values * windCapacity \
-                                            - timeSeriesParams_solar.iloc[j:k, 1].values * solarCapacity
-        j = k
-
-    rawScenarios.to_csv(data_input_path + "/" + r'Input_Raw_Scenarios_60min_netload.csv', index=False)
-
-    # Load (MWh)
-    j = 0
-    k = 0
-    for i in range(1, ncols + 1):
-        k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_load.iloc[j:k, 1].values * peakDemand
-        j = k
-
-    rawScenarios.to_csv(data_input_path + "/" + r'Input_Raw_Scenarios_60min_load_MWh.csv', index=False)
-
-    # Wind (MWh)
-    j = 0
-    k = 0
-    for i in range(1, ncols + 1):
-        k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_wind.iloc[j:k, 1].values * windCapacity
-        j = k
-
-    rawScenarios.to_csv(data_input_path + "/" + r'Input_Raw_Scenarios_60min_wind_MWh.csv', index=False)
-
-    # Solar (MWh)
-    j = 0
-    k = 0
-    for i in range(1, ncols + 1):
-        k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_solar.iloc[j:k, 1].values * solarCapacity
-        j = k
-
-    rawScenarios.to_csv(data_input_path + "/" + r'Input_Raw_Scenarios_60min_solar_MWh.csv', index=False)
-
-    # Load shape
-    j = 0
-    k = 0
-    for i in range(1, ncols + 1):
-        k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_load.iloc[j:k, 1].values
-        j = k
-
-    rawScenarios.to_csv(data_input_path + "/" + r'Input_Raw_Scenarios_60min_load_Shape.csv', index=False)
-
-    # Wind shape
-    j = 0
-    k = 0
-    for i in range(1, ncols + 1):
-        k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_wind.iloc[j:k, 1].values
-        j = k
-
-    rawScenarios.to_csv(data_input_path + "/" + r'Input_Raw_Scenarios_60min_wind_Shape.csv', index=False)
-
-    # Solar shape
-    j = 0
-    k = 0
-    for i in range(1, ncols + 1):
-        k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_solar.iloc[j:k, 1].values
-        j = k
-
-    rawScenarios.to_csv(data_input_path + "/" + r'Input_Raw_Scenarios_60min_solar_Shape.csv', index=False)
 
 
 def identify_extreme_points(load, wind, solar, load_MWh, wind_MWh, solar_MWh, net_load_MWh, **kwargs):
