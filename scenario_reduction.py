@@ -349,10 +349,10 @@ def generate_input_data(mode, data_input_path, data_location_timeseries, windCap
         f"timeseries_pv_{mode}.csv"
     ))
 
+    # Default: hourly mode
+    nrows = 24 + 1
     if mode == "5min":
         nrows = 24*12 + 1
-    elif mode == "Hourly":
-        nrows = 24 + 1
 
     ncols = 365
 
