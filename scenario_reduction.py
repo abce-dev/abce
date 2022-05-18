@@ -49,14 +49,20 @@ def run_scenario_reduction(**kwargs):
     print ("=============================================")
 
     # Check input output folders
-    if not os.path.exists(setting["data_input_path"]): os.makedirs(setting["data_input_path"])
-    if not os.path.exists(setting["data_output_path"]): os.makedirs(setting["data_output_path"])
-    if not os.path.exists(setting["plot_output_path"]): os.makedirs(setting["plot_output_path"])
+    for sc_dir in [setting["data_input_path"], setting["data_output_path"], setting["plot_output_path"]]:
+        if not os.path.exists(sc_dir): os.makedirs(sc_dir)
 
     # Generate input data for the scenario reduction algorithm
     if setting["generate_input_data_flag"] == True:
         print ("Processing input data files")
-        generate_input_data(setting["time_resolution"], setting["data_input_path"], setting["data_location_timeseries"], setting["windCapacity"], setting["solarCapacity"], setting["peakDemand"])
+        generate_input_data(
+            setting["time_resolution"],
+            setting["data_input_path"],
+            setting["data_location_timeseries"],
+            setting["windCapacity"],
+            setting["solarCapacity"],
+            setting["peakDemand"]
+        )
 
     # Read input data for the scenario reduction algorithm
     load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh = read_input_data(setting["data_input_path"], setting["time_resolution"])
