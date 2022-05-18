@@ -16,3 +16,4 @@ precompile.jl
 outputs/*
 *.toml
 copies/
+inputs/deprecated
