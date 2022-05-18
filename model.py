@@ -784,6 +784,9 @@ class GridModel(Model):
                                             if_exists = "replace")
             self.db.commit()
 
+        # Compute the scenario reduction results for this year
+        ABCE.execute_scenario_reduction(self.db, self.current_step, self.settings, self.unit_specs)
+
         self.db.commit()
         self.db.close()
 
