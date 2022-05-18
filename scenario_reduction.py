@@ -56,16 +56,10 @@ def run_scenario_reduction(**kwargs):
     # Generate input data for the scenario reduction algorithm
     if setting["generate_input_data_flag"] == True:
         print ("Processing input data files")
-        if setting["time_resolution"] == "Hourly":
-            generate_input_data_hourly(setting["data_input_path"], setting["data_location_timeseries"], setting["windCapacity"], setting["solarCapacity"], setting["peakDemand"])
-        elif setting["time_resolution"] == "Five-min":
-            generate_input_data_5min(setting["data_input_path"], setting["data_location_timeseries"], setting["windCapacity"], setting["solarCapacity"], setting["peakDemand"])
+        generate_input_data(setting["time_resolution"], setting["data_input_path"], setting["data_location_timeseries"], setting["windCapacity"], setting["solarCapacity"], setting["peakDemand"])
 
     # Read input data for the scenario reduction algorithm
-    if setting["time_resolution"] == "Hourly":
-        load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh = read_input_data_Hourly(setting["data_input_path"])
-    elif setting["time_resolution"] == "Five-min":
-        load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh = read_input_data_5min(setting["data_input_path"])
+    load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh = read_input_data(setting["data_input_path"], setting["time_resolution"])
 
     # Identify extreme points
     extreme_scenarios, extreme_datapoint = identify_extreme_points(load_shape, wind_shape, solar_shape, load_MWh,
@@ -287,34 +281,34 @@ def scenario_reduction_core(fixing_extreme_days, extreme_set, samples, **kwargs)
     return S, P, J
 
 
-def read_input_data_5min(data_input_path):
+def read_input_data(data_input_path, mode):
     load_shape = pd.read_csv(os.path.join(
                                  data_input_path,
-                                 "Input_Raw_Scenarios_5min_load_Shape.csv"
+                                 f"Input_Raw_Scenarios_{mode}_load_Shape.csv"
                             ))
     wind_shape = pd.read_csv(os.path.join(
                                  data_input_path,
-                                 "Input_Raw_Scenarios_5min_wind_Shape.csv"
+                                 f"Input_Raw_Scenarios_{mode}_wind_Shape.csv"
                             ))
     solar_shape = pd.read_csv(os.path.join(
                                   data_input_path,
-                                  "Input_Raw_Scenarios_5min_solar_Shape.csv"
+                                  f"Input_Raw_Scenarios_{mode}_solar_Shape.csv"
                              ))
     load_MWh = pd.read_csv(os.path.join(
                                data_input_path,
-                               "Input_Raw_Scenarios_5min_load_MWh.csv"
+                               f"Input_Raw_Scenarios_{mode}_load_MWh.csv"
                           ))
     wind_MWh = pd.read_csv(os.path.join(
                                data_input_path,
-                               "Input_Raw_Scenarios_5min_wind_MWh.csv"
+                               f"Input_Raw_Scenarios_{mode}_wind_MWh.csv"
                           ))
     solar_MWh = pd.read_csv(os.path.join(
                                 data_input_path,
-                                "Input_Raw_Scenarios_5min_solar_MWh.csv"
+                                f"Input_Raw_Scenarios_{mode}_solar_MWh.csv"
                            ))
     net_load_MWh = pd.read_csv(os.path.join(
                                    data_input_path,
-                                   "Input_Raw_Scenarios_5min_netload.csv"
+                                   f"Input_Raw_Scenarios_{mode}_netload.csv"
                               ))
 
     return load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh
@@ -334,23 +328,28 @@ def read_input_data_Hourly(data_input_path):
     return load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh
 
 
-def generate_input_data_5min(data_input_path, data_location_timeseries, windCapacity, solarCapacity, peakDemand):
+def generate_input_data(mode, data_input_path, data_location_timeseries, windCapacity, solarCapacity, peakDemand):
 
     timeSeriesParams_load = pd.read_csv(os.path.join(
         data_location_timeseries,
-        "timeseries_load_5mins.csv"
-    )
+        f"timeseries_load_{mode}.csv"
+    ))
     timeSeriesParams_wind = pd.read_csv(os.path.join(
         data_location_timeseries,
-        "timeseries_wind_5mins.csv"
-    )
+        f"timeseries_wind_{mode}.csv"
+    ))
     timeSeriesParams_solar = pd.read_csv(os.path.join(
         data_location_timeseries,
-        "timeseries_pv_5mins.csv"
-    )
+        f"timeseries_pv_{mode}.csv"
+    ))
 
-    nrows = 24 * 12 + 1
+    if mode == "5min":
+        nrows = 24*12 + 1
+    elif mode == "Hourly":
+        nrows = 24 + 1
+
     ncols = 365
+
     columnNames = ["Time"]
     for i in range(1, ncols + 1):
         columnNames.append("Scenario" + str(i))
@@ -368,7 +367,7 @@ def generate_input_data_5min(data_input_path, data_location_timeseries, windCapa
 
     rawScenarios.to_csv(os.path.join(
                             data_input_path,
-                            'Input_Raw_Scenarios_5min_netload.csv'
+                            f"Input_Raw_Scenarios_{mode}_netload.csv"
                        ), index=False)
 
     j = 0
@@ -380,7 +379,7 @@ def generate_input_data_5min(data_input_path, data_location_timeseries, windCapa
 
     rawScenarios.to_csv(os.path.join(
                             data_input_path,
-                            'Input_Raw_Scenarios_5min_load_MWh.csv'
+                            f"Input_Raw_Scenarios_{mode}_load_MWh.csv"
                        ), index=False)
 
     j = 0
@@ -392,7 +391,7 @@ def generate_input_data_5min(data_input_path, data_location_timeseries, windCapa
 
     rawScenarios.to_csv(os.path.join(
                             data_input_path,
-                            'Input_Raw_Scenarios_5min_wind_MWh.csv'
+                            f"Input_Raw_Scenarios_{mode}_wind_MWh.csv"
                        ), index=False)
 
     j = 0
@@ -404,7 +403,7 @@ def generate_input_data_5min(data_input_path, data_location_timeseries, windCapa
 
     rawScenarios.to_csv(os.path.join(
                             data_input_path,
-                            'Input_Raw_Scenarios_5min_solar_MWh.csv'
+                            f"Input_Raw_Scenarios_{mode}_solar_MWh.csv"
                        ), index=False)
 
     j = 0
@@ -416,7 +415,7 @@ def generate_input_data_5min(data_input_path, data_location_timeseries, windCapa
 
     rawScenarios.to_csv(os.path.join(
                             data_input_path,
-                            'Input_Raw_Scenarios_5min_load_Shape.csv'
+                            f"Input_Raw_Scenarios_{mode}_load_Shape.csv"
                        ), index=False)
 
     j = 0
@@ -428,7 +427,7 @@ def generate_input_data_5min(data_input_path, data_location_timeseries, windCapa
 
     rawScenarios.to_csv(os.path.join(
                             data_input_path,
-                            'Input_Raw_Scenarios_5min_wind_Shape.csv'
+                            f"Input_Raw_Scenarios_{mode}_wind_Shape.csv"
                        ), index=False)
 
     j = 0
@@ -440,7 +439,7 @@ def generate_input_data_5min(data_input_path, data_location_timeseries, windCapa
 
     rawScenarios.to_csv(os.path.join(
                             data_input_path,
-                            'Input_Raw_Scenarios_5min_solar_Shape.csv'
+                            f"Input_Raw_Scenarios_{mode}_solar_Shape.csv"
                        ), index=False)
 
 
