@@ -151,13 +151,10 @@ def run_scenario_reduction(**kwargs):
 
         rep_day_input_df = pd.DataFrame(rep_day_input_data, columns=['index', 'Day', 'Probability'])
 
-        # pd.DataFrame(all_sce_prob).T.to_csv('Data_Outputs' + '/output_scenarios_prob_' + str(num_scenarios) + '.csv', index=False)
-        # pd.DataFrame(selected_sce_prob).T.to_csv(
-        #     setting["data_output_path"] + "/" + 'output_selected_scenarios_prob_' + str(num_scenarios) + '.csv',
-        #     index=False)
-        # pd.DataFrame(selected_sce).T.to_csv(
-        #     setting["data_output_path"] + "/" +"output_selected_scenarios_" + str(num_scenarios) + '.csv', index=False)
-        rep_day_input_df.to_csv(setting["data_output_path"] + "/" + "repDays_" + str(num_scenarios) + '.csv', index=False)
+        rep_day_input_df.to_csv(os.path.join(
+                                    setting["data_output_path"],
+                                    f"repDays_{str(num_scenarios)}.csv"
+                               ), index=False)
 
         # Plot duration curves
         if setting["generate_duration_curve_flag"] == True:
