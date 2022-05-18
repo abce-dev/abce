@@ -86,7 +86,9 @@ agent_params = get_agent_params(db, agent_id)
 # System parameters
 # Read unit operational data (unit_specs) and number of unit types (num_types)
 unit_specs, num_types = get_unit_specs(db)
-@info unit_specs
+if pd == 0
+    @info unit_specs
+end
 num_alternatives = num_types * (num_lags + 1)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
@@ -98,8 +100,8 @@ total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 available_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand)
-@info "Available demand:"
-@info DataFrame(net_demand = available_demand)[1:10, :]
+#@info "Available demand:"
+#@info DataFrame(net_demand = available_demand)[1:10, :]
 
 # Load the price data
 price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
