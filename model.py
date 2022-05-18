@@ -230,7 +230,6 @@ class GridModel(Model):
 
         # Load the unit specs sheet from the settings file
         us_df = pd.read_excel(self.ALEAF_model_settings_ref, engine="openpyxl", sheet_name="Gen Technology")
-        print(us_df)
 
         # Rename columns from the A-LEAF standard to ABCE standard, and make
         #   "unit_type" the row index
@@ -383,7 +382,6 @@ class GridModel(Model):
                     else:
                         err_msg = f"Sorry: the system policy {key} is not implemented, or might be misspelled."
                         raise ValueError(err_msg)
-        print(unit_specs_data)
 
         unit_specs_data = unit_specs_data.set_index("unit_type")
 
@@ -653,9 +651,6 @@ class GridModel(Model):
         self.cur.execute("INSERT INTO agent_debt VALUES (?, ?, ?)", debt_row)
         self.db.commit()
 
-        vals = pd.read_sql_query("SELECT * FROM agent_debt", self.db)
-        print(vals)
-
 
     def compute_total_capex_preexisting(self, unit_type):
         unit_cost_per_kW = self.unit_specs[self.unit_specs.unit_type == unit_type]["uc_x"].values[0]
@@ -810,8 +805,8 @@ class GridModel(Model):
             user_response = input("Press Enter to continue: ")
 
         if not self.args.quiet:
-            print("Table of all assets:")
-            print(pd.read_sql("SELECT * FROM assets", self.db))
+            #print("Table of all assets:")
+            #print(pd.read_sql("SELECT * FROM assets", self.db))
             print("Table of construction project updates:")
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
@@ -837,7 +832,6 @@ class GridModel(Model):
                                        stdout=open(os.devnull, "wb"))
         else:
             sp = subprocess.check_call([aleaf_cmd], shell=True)
-
 
         self.save_ALEAF_outputs()
 
@@ -933,31 +927,6 @@ class GridModel(Model):
             self.db.commit()
 
 
-    def retrieve_project_data(self, asset_id):
-        project_data = pd.read_sql("SELECT * FROM WIP_projects WHERE " +
-                                   f"asset_id = {asset_id} AND " +
-                                   f"period = {self.current_step}",
-                                   self.db)
-
-
-        temp_asset_data = pd.read_sql("SELECT * FROM assets WHERE " +
-                                      f"asset_id = {asset_id}", self.db)
-        temp_asset_data = temp_asset_data.drop(["agent_id", "asset_id"], axis=1)
-
-
-        #asset_cols = list(temp_asset_data)
-        #asset_cols.remove("asset_id")
-        #asset_cols.remove("agent_id")
-
-        #for col in asset_cols:
-        #    project_data[col] = temp_asset_data.loc[0, col]
-
-        project_data = pd.concat([project_data, temp_asset_data], axis=1)
-
-
-        return project_data
-
-
     def record_completed_xtr_project(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
 
@@ -966,7 +935,7 @@ class GridModel(Model):
 
        # Compute periodic sinking fund payments
         unit_type = asset_data.loc[0, "unit_type"]
-        unit_life = self.unit_specs.loc[unit_type, "unit_life"]
+        unit_life = self.unit_specs.loc[self.unit_specs.unit_type == unit_type, "unit_life"].values[0]
         capex_payment = self.compute_sinking_fund_payment(asset_data.loc[0, "agent_id"], asset_data.loc[0, "cum_exp"], unit_life)
 
         to_update = {"completion_pd": current_step,
