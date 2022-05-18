@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import glob
+import scenario_reduction as sr
 
 def get_next_asset_id(db, suggested_next_id):
     # Start a list of possible next ids
@@ -36,6 +37,58 @@ def get_next_asset_id(db, suggested_next_id):
     next_id = max([item for item in next_id_candidates if item is not None]) + 1
 
     return next_id
+
+
+def execute_scenario_reduction(db, current_pd, settings, unit_specs):
+    # Get the number of wind and solar units to allow computation of net
+    #   demand
+    current_portfolio = pd.read_sql_query(f"SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= {current_pd} AND retirement_pd > {current_pd} GROUP BY unit_type", db)
+    num_wind = current_portfolio.loc[current_portfolio.unit_type == "Wind", "COUNT(unit_type)"].values[0]
+    num_solar = current_portfolio.loc[current_portfolio.unit_type == "Solar", "COUNT(unit_type)"].values[0]
+
+    # Get the capacity of wind and solar units
+    wind_cap = unit_specs.loc[unit_specs.unit_type == "Wind", "capacity"].values[0]
+    solar_cap = unit_specs.loc[unit_specs.unit_type == "Solar", "capacity"].values[0]
+
+    # Get peak demand for this period
+    peak_demand = pd.read_sql_query(f"SELECT demand FROM demand WHERE period = {current_pd}", db).iloc[0, 0]
+
+    # Set up directory locations
+    init_data_dir = os.path.join(
+                        settings["ABCE_abs_path"],
+                        "inputs",
+                        "ALEAF_inputs"
+                    )
+
+    temp_data_dir = os.path.join(
+                        settings["ABCE_abs_path"],
+                        "inputs",
+                        "ALEAF_inputs",
+                        "scenario_reduction_tmp"
+                            )
+
+    output_dir = os.path.join(
+                     settings["ABCE_abs_path"],
+                     "inputs",
+                     "scenario_reduction_data"
+                 )
+
+    plot_output_dir = os.path.join(
+                          output_dir,
+                          "sr_plots"
+                      )
+
+    sr.run_scenario_reduction(
+        time_resolution="hourly",
+        generate_input_data_flag=True,
+        data_location_timeseries=init_data_dir,
+        data_input_path=temp_data_dir,
+        data_output_path=output_dir,
+        plot_output_path=plot_output_dir,
+        windCapacity=num_wind*wind_cap,
+        solarCapacity=num_solar*solar_cap,
+        peakDemand=peak_demand
+    )
 
 
 def update_DB_table_inplace(db, cur, table, new_data, where):
