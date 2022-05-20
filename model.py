@@ -12,6 +12,7 @@
 # limitations under the License.
 ##########################################################################
 
+import math
 import os
 import shutil
 import subprocess
@@ -57,7 +58,7 @@ class GridModel(Model):
         self.args = args
 
         # Initialize the model one time step before the true start date
-        self.current_step = -1
+        self.current_pd = -1
 
         # Initialize database for managing asset and WIP construction project data
         self.db_file = os.path.join(settings["ABCE_abs_path"],
@@ -203,7 +204,7 @@ class GridModel(Model):
         ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_ref,
                                           self.ALEAF_portfolio_remote,
                                           self.db,
-                                          self.current_step)
+                                          self.current_pd)
 
 
     def initialize_unit_specs_df(self):
@@ -727,7 +728,7 @@ class GridModel(Model):
     def create_price_duration_curve(self, settings, dispatch_data=None):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
-            if self.current_step <= 0:
+            if self.current_pd <= 0:
                 price_curve_data_file = os.path.join(settings["ABCE_abs_path"],
                                                      settings["seed_dispatch_data_file"])
             else:
@@ -739,7 +740,7 @@ class GridModel(Model):
                                              output_type = "dataframe")
         else:
             # Create the systemwide merit order curve
-            self.merit_curve = pc.create_merit_curve(self.db, self.current_step)
+            self.merit_curve = pc.create_merit_curve(self.db, self.current_pd)
             pc.plot_curve(self.merit_curve, plot_name="merit_curve.png")
             # Load demand data from file
             time_series_data_file = os.path.join(settings["ABCE_abs_path"],
@@ -763,16 +764,16 @@ class GridModel(Model):
         """
         Advance the model by one step.
         """
-        self.current_step += 1
+        self.current_pd += 1
         if not self.args.quiet:
             print("\n\n\n")
         print("\n=========================================================================")
-        print(f"Model step: {self.current_step}")
+        print(f"Model step: {self.current_pd}")
         print("==========================================================================")
 
         # Update price data from ALEAF
-        if self.current_step != 0:
-            new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_step - 1}.csv"
+        if self.current_pd != 0:
+            new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_pd - 1}.csv"
             new_dispatch_data = os.path.join(self.ABCE_output_data_path, new_dispatch_data_filename)
             print(f"Creating price duration curve using file {new_dispatch_data}")
             self.create_price_duration_curve(self.settings, new_dispatch_data)
@@ -791,7 +792,7 @@ class GridModel(Model):
         self.update_agent_financials()
 
         # Compute the scenario reduction results for this year
-        ABCE.execute_scenario_reduction(self.db, self.current_step, self.settings, self.unit_specs, self.settings["num_repdays"])
+        ABCE.execute_scenario_reduction(self.db, self.current_pd, self.settings, self.unit_specs, self.settings["num_repdays"])
 
         self.db.commit()
         self.db.close()
@@ -821,14 +822,14 @@ class GridModel(Model):
 
         # Update the A-LEAF system portfolio based on any new units completed
         #   or units retired this period
-        ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_remote, self.ALEAF_portfolio_remote, self.db, self.current_step)
+        ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_remote, self.ALEAF_portfolio_remote, self.db, self.current_pd)
 
         # Update ALEAF peak demand
         ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,
                                         self.ALEAF_model_settings_remote,
                                         self.db,
                                         self.settings,
-                                        self.current_step)
+                                        self.current_pd)
 
         # Run A-LEAF
         print("Running A-LEAF...")
@@ -870,9 +871,9 @@ class GridModel(Model):
                             "INNER JOIN assets " +
                                 "ON WIP_projects.asset_id = assets.asset_id " +
                             "WHERE " +
-                                f"assets.completion_pd > {self.current_step} " +
-                                f"AND assets.retirement_pd > {self.current_step} " +
-                                f"AND assets.cancellation_pd > {self.current_step}",
+                                f"assets.completion_pd > {self.current_pd} " +
+                                f"AND assets.retirement_pd > {self.current_pd} " +
+                                f"AND assets.cancellation_pd > {self.current_pd}",
                        self.db)
         print(WIP_projects)
 
@@ -900,7 +901,7 @@ class GridModel(Model):
                            self.current_pd,
                            self.current_pd + i,
                            projected_capex[i]]
-                capex_updates.loc[len(capex_cols.index)] = new_row
+                capex_updates.loc[len(capex_updates.index)] = new_row
 
         # Write the entire capex_cols dataframe to the capex_projections
         #   DB table
@@ -915,7 +916,7 @@ class GridModel(Model):
         # TODO: update with more specific methods for different project types
         # For now, assume the project proceeds linearly
         projected_capex = []
-        for i in range(rtec):
+        for i in range(math.ceil(round(rtec, 3))):
             projected_capex.append(rcec / rtec)
 
         return projected_capex
@@ -930,7 +931,7 @@ class GridModel(Model):
         for outfile in files_to_save:
             old_filename = f"{self.ALEAF_scenario_name}__{outfile}.csv"
             old_filepath = os.path.join(self.ALEAF_output_data_path, old_filename)
-            new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_step}.csv"
+            new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_pd}.csv"
             new_filepath = os.path.join(self.ABCE_output_data_path, new_filename)
             shutil.copy2(old_filepath, new_filepath)
 
@@ -953,21 +954,21 @@ class GridModel(Model):
         """
 
         # Get a list of all currently-active construction projects
-        if self.current_step == 0:
+        if self.current_pd == 0:
             WIP_projects = pd.read_sql("SELECT asset_id FROM assets WHERE " +
-                                   f"completion_pd > {self.current_step} AND " +
-                                   f"cancellation_pd > {self.current_step}",
+                                   f"completion_pd > {self.current_pd} AND " +
+                                   f"cancellation_pd >= {self.current_pd}",
                                    self.db)
         else:
              WIP_projects = pd.read_sql("SELECT asset_id FROM assets WHERE " +
-                                   f"completion_pd >= {self.current_step} AND " +
-                                   f"cancellation_pd > {self.current_step}",
+                                   f"completion_pd >= {self.current_pd} AND " +
+                                   f"cancellation_pd > {self.current_pd}",
                                    self.db)
 
         # Update each project one at a time
         for asset_id in WIP_projects.asset_id:
             # Select this project's most recent data record
-            project_data = pd.read_sql_query(f"SELECT * FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_step}", self.db)
+            project_data = pd.read_sql_query(f"SELECT * FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_pd-1}", self.db)
 
             # Record the effects of authorized construction expenditures, and
             #   advance the time-remaining estimate by one year
@@ -991,25 +992,25 @@ class GridModel(Model):
         total_new_debt = {201: 0.0, 202: 0.0}
 
         for agent_id, new_debt in total_new_debt.items():
-            if self.current_step == 0:
-                agent_WIP_projects = pd.read_sql_query(f"SELECT asset_id FROM assets WHERE agent_id = {agent_id} AND completion_pd > {self.current_step} AND retirement_pd > {self.current_step} AND cancellation_pd > {self.current_step}", self.db)
+            if self.current_pd == 0:
+                agent_WIP_projects = pd.read_sql_query(f"SELECT asset_id FROM assets WHERE agent_id = {agent_id} AND completion_pd > {self.current_pd} AND retirement_pd > {self.current_pd} AND cancellation_pd > {self.current_pd}", self.db)
             else:
-                agent_WIP_projects = pd.read_sql_query(f"SELECT asset_id FROM assets WHERE agent_id = {agent_id} AND completion_pd >= {self.current_step} AND retirement_pd > {self.current_step} AND cancellation_pd > {self.current_step}", self.db)
+                agent_WIP_projects = pd.read_sql_query(f"SELECT asset_id FROM assets WHERE agent_id = {agent_id} AND completion_pd >= {self.current_pd} AND retirement_pd > {self.current_pd} AND cancellation_pd > {self.current_pd}", self.db)
 
             for asset_id in agent_WIP_projects.asset_id:
-                new_anpe = pd.read_sql_query(f"SELECT anpe FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_step}", self.db)
+                new_anpe = pd.read_sql_query(f"SELECT anpe FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_pd}", self.db)
                 total_new_debt[agent_id] += new_anpe.iloc[0, 0]
 
             # Update each agent's total debt
-            existing_principal = pd.read_sql_query(f"SELECT outstanding_principal FROM agent_debt WHERE agent_id = {agent_id} AND period = {self.current_step-1}", self.db)
+            existing_principal = pd.read_sql_query(f"SELECT outstanding_principal FROM agent_debt WHERE agent_id = {agent_id} AND period = {self.current_pd-1}", self.db)
             starting_debt = self.gc_params[agent_id]["starting_debt"]
-            if self.current_step < 20:
-                paid_down = starting_debt * (20. - self.current_step) / 20.
+            if self.current_pd < 20:
+                paid_down = starting_debt * (20. - self.current_pd) / 20.
             else:
                 paid_down = starting_debt
             existing_principal = existing_principal.iloc[0, 0]
             total_current_principal = existing_principal - paid_down + total_new_debt[agent_id] * self.gc_params[agent_id]["debt_fraction"]
-            debt_row = (agent_id, self.current_step, total_current_principal)
+            debt_row = (agent_id, self.current_pd, total_current_principal)
             self.cur.execute("INSERT INTO agent_debt VALUES (?, ?, ?)", debt_row)
             self.db.commit()
 
@@ -1025,7 +1026,7 @@ class GridModel(Model):
         unit_life = self.unit_specs.loc[self.unit_specs.unit_type == unit_type, "unit_life"].values[0]
         capex_payment = self.compute_sinking_fund_payment(asset_data.loc[0, "agent_id"], asset_data.loc[0, "cum_exp"], unit_life)
 
-        to_update = {"completion_pd": current_step,
+        to_update = {"completion_pd": current_pd,
                      "total_capex": asset_data.cum_exp.values[0],
                      "cap_pmt": capex_payment}
         filters = {"asset_id": asset_id}
@@ -1049,7 +1050,7 @@ class GridModel(Model):
         self.cur.execute("INSERT INTO WIP_projects VALUES " +
                          f"({project_data.asset_id.values[0]}, " +
                          f"{project_data.agent_id.values[0]}, " +
-                         f"{self.current_step+1}, " +
+                         f"{self.current_pd}, " +
                          f"{project_data.cum_occ.values[0]}, " +
                          f"{project_data.rcec.values[0]}, " +
                          f"{project_data.cum_d_x.values[0]}, " +
@@ -1129,7 +1130,7 @@ class GridModel(Model):
 
     def update_expected_completion_period(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
-        new_completion_pd = project_data.loc[0, "rtec"] + self.current_step
+        new_completion_pd = project_data.loc[0, "rtec"] + self.current_pd
 
         ABCE.update_DB_table_inplace(
             self.db,
