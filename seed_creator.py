@@ -213,7 +213,8 @@ abce_tables = {"WIP_projects":
                "depreciation_projections":
                  [("agent_id", "integer", "PRIMARY KEY"),
                   ("asset_id", "integer"),
-                  ("pd", "integer"),
+                  ("base_pd", "integer"),
+                  ("projected_pd", "integer"),
                   ("depreciation", "real")
                  ],
 
