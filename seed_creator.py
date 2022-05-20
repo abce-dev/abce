@@ -180,6 +180,60 @@ abce_tables = {"WIP_projects":
                    ("npp_comm_time_rem", "real"),
                    ("total_cost_rem", "real"),
                    ("total_time_rem", "real")
+                 ],
+
+
+               "financing_instrument_manifest":
+                 [("agent_id", "integer", "PRIMARY_KEY"),
+                  ("instrument_id", "integer"),
+                  ("instrument_type", "text"),
+                  ("pd_issued", "integer"),
+                  ("initial_principal", "real"),
+                  ("maturity_pd", "integer"),
+                  ("rate", "real")
+                 ],
+
+               "agent_financing_schedule":
+                 [("instrument_id", "integer", "PRIMARY KEY"),
+                  ("agent_id", "integer"),
+                  ("pd", "integer"),
+                  ("total_payment", "real"),
+                  ("interest_payment", "real"),
+                  ("principal_payment", "real")
+                 ],
+
+               "capex_projections":
+                 [("agent_id", "integer", "PRIMARY KEY"),
+                  ("asset_id", "integer"),
+                  ("base_pd", "integer"),
+                  ("projected_pd", "integer"),
+                  ("capex", "real")
+                 ],
+
+               "depreciation_projections":
+                 [("agent_id", "integer", "PRIMARY KEY"),
+                  ("asset_id", "integer"),
+                  ("pd", "integer"),
+                  ("depreciation", "real")
+                 ],
+
+               "agent_financial_statements":
+                 [("agent_id", "integer", "PRIMARY KEY"),
+                  ("base_pd", "integer"),
+                  ("proj_pd", "integer"),
+                  ("revenue", "real"),
+                  ("VOM", "real"),
+                  ("FOM", "real"),
+                  ("fuel_costs", "real"),
+                  ("EBITDA", "real"),
+                  ("depreciation", "real"),
+                  ("EBIT", "real"),
+                  ("interest_payments", "real"),
+                  ("EBT", "real"),
+                  ("tax", "real"),
+                  ("Net_Income", "real"),
+                  ("capex", "real"),
+                  ("FCF", "real")
                  ]
 
               }
