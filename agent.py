@@ -83,7 +83,7 @@ class GenCo(Agent):
         Controller function to activate all agent behaviors at each time step.
         """
         # Set the current model step
-        self.current_step = self.model.current_step
+        self.current_pd = self.model.current_pd
         print(f"Agent #{self.unique_id} is taking its turn...")
 
         # Run the agent behavior choice algorithm
@@ -93,7 +93,7 @@ class GenCo(Agent):
                                      "abceSysimage.so")
         julia_cmd = (f"julia -J{sysimage_path} {agent_choice_path} " +
                      f"--settings_file={self.model.settings_file_name.name} " +
-                     f"--current_pd={self.current_step} " +
+                     f"--current_pd={self.current_pd} " +
                      f"--agent_id={self.unique_id}")
         if self.quiet:
             sp = subprocess.check_call([julia_cmd],
@@ -118,8 +118,8 @@ class GenCo(Agent):
 
         all_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
                                      f"agent_id = {self.unique_id} AND " +
-                                     f"cancellation_pd > {self.current_step} " +
-                                     f"AND retirement_pd > {self.current_step}",
+                                     f"cancellation_pd > {self.current_pd} " +
+                                     f"AND retirement_pd > {self.current_pd}",
                                       self.model.db)
         all_asset_list = list(all_asset_list["asset_id"])
         self.model.db.commit()
@@ -140,8 +140,8 @@ class GenCo(Agent):
 
         WIP_project_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
                                        f"agent_id = {self.unique_id} AND " +
-                                       f"completion_pd >= {self.current_step} " +
-                                       f"AND cancellation_pd > {self.current_step}",
+                                       f"completion_pd >= {self.current_pd} " +
+                                       f"AND cancellation_pd > {self.current_pd}",
                                        self.model.db)
         WIP_project_list = list(WIP_project_list["asset_id"])
         self.model.db.commit()
@@ -162,9 +162,9 @@ class GenCo(Agent):
 
         op_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
                                     f"agent_id = {self.unique_id} AND " +
-                                    f"completion_pd <= {self.current_step} " +
-                                    f"AND cancellation_pd > {self.current_step} "
-                                    f"AND retirement_pd > {self.current_step}",
+                                    f"completion_pd <= {self.current_pd} " +
+                                    f"AND cancellation_pd > {self.current_pd} "
+                                    f"AND retirement_pd > {self.current_pd}",
                                     self.model.db)
         op_asset_list = list(op_asset_list["asset_id"])
         return op_asset_list
