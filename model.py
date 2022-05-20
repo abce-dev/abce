@@ -784,6 +784,12 @@ class GridModel(Model):
                                             if_exists = "replace")
             self.db.commit()
 
+        # Advance the status of all WIP projects to the current period
+        self.update_WIP_projects()
+
+        # Update financial statements and financial projections for all agents
+        self.update_agent_financials()
+
         # Compute the scenario reduction results for this year
         ABCE.execute_scenario_reduction(self.db, self.current_step, self.settings, self.unit_specs, self.settings["num_repdays"])
 
@@ -837,6 +843,84 @@ class GridModel(Model):
             sp = subprocess.check_call([aleaf_cmd], shell=True)
 
         self.save_ALEAF_outputs()
+
+
+    def update_agent_financials(self):
+        # Update the following database tables for all agents:
+        #   - capex projections
+        #   - financing instrument manifest
+        #   - financing schedule
+        #   - depreciation projections
+        #   - agent financial statements
+        self.update_capex_projections()
+        self.update_financing_instrument_manifest()
+        self.update_financing_schedule()
+        self.update_depreciation_projections()
+        self.update_agent_financial_statements()
+
+
+    def update_capex_projections(self):
+        # Based on the current status of any WIP projects, update projections
+        #   of capital expenditures for upcoming periods
+
+        # Retrieve a list of all ongoing WIP projects
+        WIP_projects = pd.read_sql_query(
+                           f"SELECT WIP_projects.*, assets.* " +
+                            "FROM WIP_projects " +
+                            "INNER JOIN assets " +
+                                "ON WIP_projects.asset_id = assets.asset_id " +
+                            "WHERE " +
+                                f"assets.completion_pd > {self.current_step} " +
+                                f"AND assets.retirement_pd > {self.current_step} " +
+                                f"AND assets.cancellation_pd > {self.current_step}",
+                       self.db)
+        print(WIP_projects)
+
+        # Create dataframe to hold all new capex_projections entries
+        capex_cols = ["agent_id", "asset_id", "base_pd", "projected_pd", "capex"]
+        capex_updates = DataFrame(columns=capex_cols)
+
+        # Iterate through all WIP projects and project capex through the
+        #   project's end
+        for row in WIP_projects.itertuples():
+            asset_id = getattr(row, "asset_id")
+            agent_id = getattr(row, "agent_id")
+
+            projected_capex = self.project_capex(
+                                  getattr(row, "unit_type"),
+                                  getattr(row, "cum_occ"),
+                                  getattr(row, "cum_d_x"),
+                                  getattr(row, "rcec"),
+                                  getattr(row, "rtec")
+                              )
+
+            for i in range(len(projected_capex)):
+                new_row = [agent_id,
+                           asset_id,
+                           self.current_pd,
+                           self.current_pd + i,
+                           projected_capex[i]]
+                capex_cols.loc[len(capex_cols.index)] = new_row
+
+        # Write the entire capex_cols dataframe to the capex_projections
+        #   DB table
+        capex_cols.to_sql(capex_projections, self.db, if_exists="append", index=False)
+
+        self.db.commit()
+
+
+    def project_capex(self, unit_type, cum_occ, cum_d_x, rcec, rtec):
+        # For a given WIP project, project the sequence of annual capital
+        #   expenditures until the project's expected completion
+        # TODO: update with more specific methods for different project types
+        # For now, assume the project proceeds linearly
+        projected_capex = []
+        for i in range(rtec):
+            projected_capex.append(rcec / rtec)
+
+        return projected_capex
+
+
 
 
     def save_ALEAF_outputs(self):
@@ -1095,9 +1179,9 @@ class GridModel(Model):
                 )
         self.db.commit()
 
-        self.update_WIP_projects()
+#        self.update_WIP_projects()
 
-        self.db.commit()
+#        self.db.commit()
 
         self.update_agent_debt()
 
