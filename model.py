@@ -853,10 +853,10 @@ class GridModel(Model):
         #   - depreciation projections
         #   - agent financial statements
         self.update_capex_projections()
-        self.update_financing_instrument_manifest()
-        self.update_financing_schedule()
-        self.update_depreciation_projections()
-        self.update_agent_financial_statements()
+        #self.update_financing_instrument_manifest()
+        #self.update_financing_schedule()
+        #self.update_depreciation_projections()
+        #self.update_agent_financial_statements()
 
 
     def update_capex_projections(self):
@@ -878,7 +878,7 @@ class GridModel(Model):
 
         # Create dataframe to hold all new capex_projections entries
         capex_cols = ["agent_id", "asset_id", "base_pd", "projected_pd", "capex"]
-        capex_updates = DataFrame(columns=capex_cols)
+        capex_updates = pd.DataFrame(columns=capex_cols)
 
         # Iterate through all WIP projects and project capex through the
         #   project's end
@@ -900,11 +900,11 @@ class GridModel(Model):
                            self.current_pd,
                            self.current_pd + i,
                            projected_capex[i]]
-                capex_cols.loc[len(capex_cols.index)] = new_row
+                capex_updates.loc[len(capex_cols.index)] = new_row
 
         # Write the entire capex_cols dataframe to the capex_projections
         #   DB table
-        capex_cols.to_sql(capex_projections, self.db, if_exists="append", index=False)
+        capex_updates.to_sql("capex_projections", self.db, if_exists="append", index=False)
 
         self.db.commit()
 
