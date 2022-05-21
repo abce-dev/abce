@@ -856,7 +856,8 @@ class GridModel(Model):
         self.update_capex_projections()
         #self.update_financing_instrument_manifest()
         #self.update_financing_schedule()
-        #self.update_depreciation_projections()
+        #self.update_PPE_projections()
+        self.update_depreciation_projections()
         #self.update_agent_financial_statements()
 
 
@@ -923,6 +924,56 @@ class GridModel(Model):
         return projected_capex
 
 
+    #def update_PPE_projections(self):
+
+
+
+    def update_depreciation_projections(self):
+        # Currently uses straight-line depreciation only
+        # Future: allow user selection of SLD or DDBD
+        if self.current_pd == 0:
+            # Add depreciation schedule for initial PPE for each agent
+            dep_cols = ["agent_id", "asset_id", "completion_pd", "base_pd", "projected_pd", "depreciation", "beginning_book_value"]
+            dep_projections = pd.DataFrame(columns=dep_cols)
+            for agent_id, agent_params in self.gc_params.keys():
+                init_PPE = agent_params["starting_PPE"]
+                dep_horiz = 30
+                pd_dep = init_PPE / dep_horiz
+                for i in range(dep_horiz):
+                    book_value = init_PPE * (dep_horiz - i) / dep_horiz
+                    new_row = [agent_id, 1, 0, self.current_pd, i, pd_dep, beginning_book_value]
+                    dep_cols.loc[len(dep_cols.index)] = new_row
+        else:
+            # Start by copying forward all entries related to previously-
+            #   completed assets (i.e. where total capex is not in question,
+            #   so depreciation values are fixed)
+            # From last period, copy forward all entries where:
+            #   - the asset was complete as of last period at the latest
+            #   - the projected period is this period or later
+            # Then simply change all `base_pd` values to the current period
+            dep_projections = pd.read_sql_query(f"SELECT * FROM depreciation_projections WHERE base_pd = {self.current_pd-1} AND completion_pd < {self.current_pd} AND projected_pd >= {self.current_pd}", self.db)
+            dep_projections["base_pd"] = self.current_pd
+
+            # Then, recompute expected depreciation schedules for all relevant
+            #   WIP projects, including:
+            #   - WIPs which finished last period
+            #   - WIPs which are ongoing
+            #   - new WIPs since last period
+            WIP_projects = pd.read_sql_query(f"SELECT * FROM WIP_projects WHERE period = {self.current_step-1}", self.db)
+
+            for row in WIP_projects.itertuples():
+                asset_id = getattr(row, "asset_id")
+                agent_id = getattr(row, "agent_id")
+                starting_pd = getattr(row, "period") + int(round(getattr(row, "rtec"), 3))
+                asset_PPE = getattr(row, "cum_exp") + getattr(row, "rcec")
+                dep_horiz = 20
+                pd_dep = asset_PPE / dep_horiz
+                for i in range(dep_horiz):
+                    book_value = asset_ppe * (dep_horiz - i) / dep_horiz
+                    new_row = [agent_id, asset_id, starting_pd, , starting_pd + 1, pd_dep, book_value]
+                    dep_projections.loc[len(dep_projections.index)] = new_row                    
+
+            dep_projections.to_sql("depreciation_projections", self.db, if_exists="append", index=False)
 
 
     def save_ALEAF_outputs(self):
@@ -1025,9 +1076,10 @@ class GridModel(Model):
        # Compute periodic sinking fund payments
         unit_type = asset_data.loc[0, "unit_type"]
         unit_life = self.unit_specs.loc[self.unit_specs.unit_type == unit_type, "unit_life"].values[0]
-        capex_payment = self.compute_sinking_fund_payment(asset_data.loc[0, "agent_id"], asset_data.loc[0, "cum_exp"], unit_life)
+        #capex_payment = self.compute_sinking_fund_payment(asset_data.loc[0, "agent_id"], asset_data.loc[0, "cum_exp"], unit_life)
+        capex_payment = 0  # to be replaced by capex and financial instrument tracking
 
-        to_update = {"completion_pd": current_pd,
+        to_update = {"completion_pd": self.current_pd,
                      "total_capex": asset_data.cum_exp.values[0],
                      "cap_pmt": capex_payment}
         filters = {"asset_id": asset_id}
