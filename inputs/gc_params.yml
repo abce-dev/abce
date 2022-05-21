@@ -6,6 +6,8 @@
     tax_rate: 0.21
     starting_fcf: 3647000000
     starting_debt: 20300000000
+    starting_PPE: 10150000000
+
 202:
     terminal_growth_rate: 0.03
     debt_fraction: 0.5
@@ -14,3 +16,5 @@
     tax_rate: 0.21
     starting_fcf: 551000000
     starting_debt: 2400000000
+    starting_PPE: 1200000000
+
