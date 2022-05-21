@@ -935,14 +935,14 @@ class GridModel(Model):
             # Add depreciation schedule for initial PPE for each agent
             dep_cols = ["agent_id", "asset_id", "completion_pd", "base_pd", "projected_pd", "depreciation", "beginning_book_value"]
             dep_projections = pd.DataFrame(columns=dep_cols)
-            for agent_id, agent_params in self.gc_params.keys():
+            for agent_id, agent_params in self.gc_params.items():
                 init_PPE = agent_params["starting_PPE"]
                 dep_horiz = 30
                 pd_dep = init_PPE / dep_horiz
                 for i in range(dep_horiz):
-                    book_value = init_PPE * (dep_horiz - i) / dep_horiz
+                    beginning_book_value = init_PPE * (dep_horiz - i) / dep_horiz
                     new_row = [agent_id, 1, 0, self.current_pd, i, pd_dep, beginning_book_value]
-                    dep_cols.loc[len(dep_cols.index)] = new_row
+                    dep_projections.loc[len(dep_projections.index)] = new_row
         else:
             # Start by copying forward all entries related to previously-
             #   completed assets (i.e. where total capex is not in question,
@@ -970,7 +970,7 @@ class GridModel(Model):
                 pd_dep = asset_PPE / dep_horiz
                 for i in range(dep_horiz):
                     book_value = asset_ppe * (dep_horiz - i) / dep_horiz
-                    new_row = [agent_id, asset_id, starting_pd, , starting_pd + 1, pd_dep, book_value]
+                    new_row = [agent_id, asset_id, starting_pd, starting_pd + i, pd_dep, book_value]
                     dep_projections.loc[len(dep_projections.index)] = new_row                    
 
             dep_projections.to_sql("depreciation_projections", self.db, if_exists="append", index=False)
@@ -1080,7 +1080,7 @@ class GridModel(Model):
         capex_payment = 0  # to be replaced by capex and financial instrument tracking
 
         to_update = {"completion_pd": self.current_pd,
-                     "total_capex": asset_data.cum_exp.values[0],
+                     "total_capex": project_data.loc[0, "cum_exp"],
                      "cap_pmt": capex_payment}
         filters = {"asset_id": asset_id}
 
