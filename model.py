@@ -873,9 +873,10 @@ class GridModel(Model):
                             "WHERE " +
                                 f"assets.completion_pd > {self.current_pd} " +
                                 f"AND assets.retirement_pd > {self.current_pd} " +
-                                f"AND assets.cancellation_pd > {self.current_pd}",
+                                f"AND assets.cancellation_pd > {self.current_pd} "+
+                                f"AND WIP_projects.period = {self.current_pd}",
                        self.db)
-        print(WIP_projects)
+        print(WIP_projects.iloc[:, 1:9])
 
         # Create dataframe to hold all new capex_projections entries
         capex_cols = ["agent_id", "asset_id", "base_pd", "projected_pd", "capex"]
@@ -889,7 +890,7 @@ class GridModel(Model):
 
             projected_capex = self.project_capex(
                                   getattr(row, "unit_type"),
-                                  getattr(row, "cum_occ"),
+                                  getattr(row, "cum_exp"),
                                   getattr(row, "cum_d_x"),
                                   getattr(row, "rcec"),
                                   getattr(row, "rtec")
@@ -910,7 +911,7 @@ class GridModel(Model):
         self.db.commit()
 
 
-    def project_capex(self, unit_type, cum_occ, cum_d_x, rcec, rtec):
+    def project_capex(self, unit_type, cum_exp, cum_d_x, rcec, rtec):
         # For a given WIP project, project the sequence of annual capital
         #   expenditures until the project's expected completion
         # TODO: update with more specific methods for different project types
@@ -1180,9 +1181,10 @@ class GridModel(Model):
                 )
         self.db.commit()
 
-#        self.update_WIP_projects()
-
-#        self.db.commit()
+        # Delete all contents of the WIP_updates and asset_updates tables
+        self.db.cursor().execute("DELETE FROM WIP_updates")
+        self.db.cursor().execute("DELETE FROM asset_updates")
+        self.db.commit()
 
         self.update_agent_debt()
 
