@@ -31,15 +31,36 @@
 # limitations under the License.
 ##########################################################################
 
-using PackageCompiler, Pkg
+using PackageCompiler, Pkg, ArgParse
+
+# Set up command-line parser
+s = ArgParseSettings()
+@add_arg_table s begin
+    "--mode"
+        help = "ABCE or dispatch"
+        required = true
+end
+
+# Retrieved parsed arguments from command line
+CLI_args = parse_args(s)
+mode = CLI_args["mode"]
 
 # Load all default Julia packages into the current environment
 Pkg.activate
 
-# Run the current version of unit_choice.jl, outputting function-compilation
-#   records to `./precompile.jl`
-run(`julia --trace-compile=precompile.jl agent_choice.jl --settings_file=./settings.yml --current_pd=1 --agent_id=201`)
+if mode == "ABCE"
+    # Run the current version of unit_choice.jl, outputting function-compilation
+    #   records to `./precompile.jl`
+    run(`julia --trace-compile=precompile.jl agent_choice.jl --settings_file=./settings.yml --current_pd=1 --agent_id=201`)
 
-# Create `abceSysimage.so` using the specified packages and the newly
-#   generated `precompile.jl` file.
-create_sysimage([:CPLEX, :CSV, :DataFrames, :GLPK, :JuMP, :SQLite, :XLSX, :YAML]; sysimage_path="abceSysimage.so", precompile_statements_file="./precompile.jl")
+    # Create `abceSysimage.so` using the specified packages and the newly
+    #   generated `precompile.jl` file.
+    create_sysimage([:CPLEX, :CSV, :DataFrames, :GLPK, :JuMP, :SQLite, :XLSX, :YAML]; sysimage_path="abceSysimage.so", precompile_statements_file="./precompile.jl")
+elseif mode == "dispatch"
+    println("Sorry, dispatch mode isn't actually available yet.")
+else
+    println("Invalid argument $mode: please use either 'ABCE' or 'dispatch'.")
+    exit()
+end
+
+
