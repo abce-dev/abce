@@ -90,9 +90,9 @@ class GenCo(Agent):
         agent_choice_path = os.path.join(self.settings["ABCE_abs_path"],
                                          "agent_choice.jl")
         sysimage_cmd = ""
-        if self.model.has_sysimage:
+        if self.model.has_ABCE_sysimage:
             sysimage_path = os.path.join(self.settings["ABCE_abs_path"],
-                                         self.settings["sysimage_file"])
+                                         self.settings["ABCE_sysimage_file"])
             sysimage_cmd = f"-J{sysimage_path}"
         julia_cmd = (f"julia {sysimage_cmd} {agent_choice_path} " +
                      f"--settings_file={self.model.settings_file_name.name} " +
