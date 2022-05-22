@@ -765,6 +765,10 @@ class GridModel(Model):
         Advance the model by one step.
         """
         self.current_pd += 1
+
+        if self.current_pd == 0:
+            self.has_sysimage = self.check_for_sysimage_file()
+
         if not self.args.quiet:
             print("\n\n\n")
         print("\n=========================================================================")
@@ -844,6 +848,27 @@ class GridModel(Model):
             sp = subprocess.check_call([aleaf_cmd], shell=True)
 
         self.save_ALEAF_outputs()
+
+
+    def check_for_sysimage_file(self):
+        sysimage_path = os.path.join(
+            self.settings["ABCE_abs_path"],
+            self.settings["sysimage_file"]
+        )
+
+        has_sysimage = True
+
+        if not os.path.exists(sysimage_path):
+            msg = (f"No sysimage file found at {sysimage_path}. " +
+                    "Execution will proceed, but Julia may run extremely slowly. " +
+                    "If you already have a sysimage file, please move it to " +
+                    "the filename {sysimage_path}. If you do not have a " +
+                    "sysimage file, please run make_sysimage.jl in this " +
+                    "directory.")
+            logging.warn(msg)
+            has_sysimage = False
+
+        return has_sysimage
 
 
     def update_agent_financials(self):
@@ -938,10 +963,11 @@ class GridModel(Model):
             for agent_id, agent_params in self.gc_params.items():
                 init_PPE = agent_params["starting_PPE"]
                 dep_horiz = 30
+                summary_asset_id = ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"])
                 pd_dep = init_PPE / dep_horiz
                 for i in range(dep_horiz):
                     beginning_book_value = init_PPE * (dep_horiz - i) / dep_horiz
-                    new_row = [agent_id, 1, 0, self.current_pd, i, pd_dep, beginning_book_value]
+                    new_row = [agent_id, summary_asset_id, 0, self.current_pd, i, pd_dep, beginning_book_value]
                     dep_projections.loc[len(dep_projections.index)] = new_row
         else:
             # Start by copying forward all entries related to previously-
@@ -956,10 +982,10 @@ class GridModel(Model):
 
             # Then, recompute expected depreciation schedules for all relevant
             #   WIP projects, including:
-            #   - WIPs which finished last period
             #   - WIPs which are ongoing
             #   - new WIPs since last period
-            WIP_projects = pd.read_sql_query(f"SELECT * FROM WIP_projects WHERE period = {self.current_pd-1}", self.db)
+            # WIPs completed last period are NOT included in this section
+            WIP_projects = pd.read_sql_query(f"SELECT * FROM WIP_projects WHERE period = {self.current_pd-1} AND rtec > 0", self.db)
 
             for row in WIP_projects.itertuples():
                 asset_id = getattr(row, "asset_id")
@@ -973,7 +999,7 @@ class GridModel(Model):
                     new_row = [agent_id, asset_id, starting_pd, self.current_pd, starting_pd + i, pd_dep, book_value]
                     dep_projections.loc[len(dep_projections.index)] = new_row                    
 
-            dep_projections.to_sql("depreciation_projections", self.db, if_exists="append", index=False)
+        dep_projections.to_sql("depreciation_projections", self.db, if_exists="append", index=False)
 
 
     def save_ALEAF_outputs(self):
