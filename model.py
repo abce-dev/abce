@@ -767,7 +767,7 @@ class GridModel(Model):
         self.current_pd += 1
 
         if self.current_pd == 0:
-            self.has_sysimage = self.check_for_sysimage_file()
+            self.has_ABCE_sysimage, self.has_dispatch_sysimage = self.check_for_sysimage_files()
 
         if not self.args.quiet:
             print("\n\n\n")
@@ -850,25 +850,41 @@ class GridModel(Model):
         self.save_ALEAF_outputs()
 
 
-    def check_for_sysimage_file(self):
-        sysimage_path = os.path.join(
+    def check_for_sysimage_files(self):
+        ABCE_sysimage_path = os.path.join(
             self.settings["ABCE_abs_path"],
-            self.settings["sysimage_file"]
+            self.settings["ABCE_sysimage_file"]
         )
 
-        has_sysimage = True
+        dispatch_sysimage_path = os.path.join(
+            self.settings["ABCE_abs_path"],
+            self.settings["dispatch_sysimage_file"]
+        )
 
-        if not os.path.exists(sysimage_path):
-            msg = (f"No sysimage file found at {sysimage_path}. " +
+        has_ABCE_sysimage = True
+        has_dispatch_sysimage = True
+
+        if not os.path.exists(ABCE_sysimage_path):
+            msg = (f"No sysimage file found at {ABCE_sysimage_path}. " +
                     "Execution will proceed, but Julia may run extremely slowly. " +
                     "If you already have a sysimage file, please move it to " +
                     "the filename {sysimage_path}. If you do not have a " +
-                    "sysimage file, please run make_sysimage.jl in this " +
+                    "sysimage file, please run 'julia make_sysimage.jl --mode=abce' in this " +
                     "directory.")
             logging.warn(msg)
-            has_sysimage = False
+            has_ABCE_sysimage = False
 
-        return has_sysimage
+        if not os.path.exists(dispatch_sysimage_path):
+            msg = (f"No sysimage file found at {dispatch_sysimage_path}. " +
+                    "Execution will proceed, but the dispatch sub-module may run extremely slowly. " +
+                    "If you already have a dispatch sysimage file, please move it to " +
+                    "the filename {dispatch_sysimage_path}. If you do not have a " +
+                    "dispatch sysimage file, please run 'julia make_sysimage.jl --mode=dispatch' in this " +
+                    "directory.")
+            logging.warn(msg)
+            has_dispatch_sysimage = False
+
+        return has_ABCE_sysimage, has_dispatch_sysimage
 
 
     def update_agent_financials(self):
@@ -961,9 +977,9 @@ class GridModel(Model):
             dep_cols = ["agent_id", "asset_id", "completion_pd", "base_pd", "projected_pd", "depreciation", "beginning_book_value"]
             dep_projections = pd.DataFrame(columns=dep_cols)
             for agent_id, agent_params in self.gc_params.items():
+                summary_asset_id = agent_id
                 init_PPE = agent_params["starting_PPE"]
                 dep_horiz = 30
-                summary_asset_id = ABCE.get_next_asset_id(self.db, self.settings["first_asset_id"])
                 pd_dep = init_PPE / dep_horiz
                 for i in range(dep_horiz):
                     beginning_book_value = init_PPE * (dep_horiz - i) / dep_horiz
