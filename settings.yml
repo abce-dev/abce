@@ -8,11 +8,12 @@ time_series_data_file: "inputs/timeseriesParams.xlsx"
 gc_params_file: "inputs/gc_params.yml"
 portfolios_file: "inputs/IL_portfolios.csv"
 db_file: "abce_db.db"
+sysimage_file: "abceSysimage.so"
 output_file: "outputs.xlsx"
 
 first_asset_id: 2001
 
-num_steps: 6
+num_steps: 1
 
 use_precomputed_price_curve: True
 enable_subsidy: True

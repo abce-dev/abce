@@ -89,9 +89,12 @@ class GenCo(Agent):
         # Run the agent behavior choice algorithm
         agent_choice_path = os.path.join(self.settings["ABCE_abs_path"],
                                          "agent_choice.jl")
-        sysimage_path = os.path.join(self.settings["ABCE_abs_path"],
-                                     "abceSysimage.so")
-        julia_cmd = (f"julia -J{sysimage_path} {agent_choice_path} " +
+        sysimage_cmd = ""
+        if self.model.has_sysimage:
+            sysimage_path = os.path.join(self.settings["ABCE_abs_path"],
+                                         self.settings["sysimage_file"])
+            sysimage_cmd = f"-J{sysimage_path}"
+        julia_cmd = (f"julia {sysimage_cmd} {agent_choice_path} " +
                      f"--settings_file={self.model.settings_file_name.name} " +
                      f"--current_pd={self.current_pd} " +
                      f"--agent_id={self.unique_id}")
