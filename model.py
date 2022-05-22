@@ -959,18 +959,18 @@ class GridModel(Model):
             #   - WIPs which finished last period
             #   - WIPs which are ongoing
             #   - new WIPs since last period
-            WIP_projects = pd.read_sql_query(f"SELECT * FROM WIP_projects WHERE period = {self.current_step-1}", self.db)
+            WIP_projects = pd.read_sql_query(f"SELECT * FROM WIP_projects WHERE period = {self.current_pd-1}", self.db)
 
             for row in WIP_projects.itertuples():
                 asset_id = getattr(row, "asset_id")
                 agent_id = getattr(row, "agent_id")
-                starting_pd = getattr(row, "period") + int(round(getattr(row, "rtec"), 3))
+                starting_pd = getattr(row, "period") + math.ceil(round(getattr(row, "rtec"), 3))
                 asset_PPE = getattr(row, "cum_exp") + getattr(row, "rcec")
                 dep_horiz = 20
                 pd_dep = asset_PPE / dep_horiz
                 for i in range(dep_horiz):
-                    book_value = asset_ppe * (dep_horiz - i) / dep_horiz
-                    new_row = [agent_id, asset_id, starting_pd, starting_pd + i, pd_dep, book_value]
+                    book_value = asset_PPE * (dep_horiz - i) / dep_horiz
+                    new_row = [agent_id, asset_id, starting_pd, self.current_pd, starting_pd + i, pd_dep, book_value]
                     dep_projections.loc[len(dep_projections.index)] = new_row                    
 
             dep_projections.to_sql("depreciation_projections", self.db, if_exists="append", index=False)
