@@ -27,7 +27,7 @@ def get_next_asset_id(db, suggested_next_id):
     next_id_candidates = [suggested_next_id]
 
     # Check all possible locations for max asset ids
-    tables_to_check = ["assets", "WIP_projects", "asset_updates", "WIP_updates"]
+    tables_to_check = ["assets", "WIP_projects", "asset_updates", "WIP_updates", "depreciation_projections"]
 
     for table in tables_to_check:
         id_val = pd.read_sql(f"SELECT MAX(asset_id) FROM {table}", db).iloc[0, 0]
