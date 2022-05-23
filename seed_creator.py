@@ -189,6 +189,7 @@ abce_tables = {"WIP_projects":
                  [("agent_id", "integer", "PRIMARY_KEY"),
                   ("instrument_id", "integer"),
                   ("instrument_type", "text"),
+                  ("asset_id", "integer"),
                   ("pd_issued", "integer"),
                   ("initial_principal", "real"),
                   ("maturity_pd", "integer"),
