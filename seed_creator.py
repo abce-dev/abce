@@ -199,7 +199,8 @@ abce_tables = {"WIP_projects":
                "agent_financing_schedule":
                  [("instrument_id", "integer", "PRIMARY KEY"),
                   ("agent_id", "integer"),
-                  ("pd", "integer"),
+                  ("base_pd", "integer"),
+                  ("projected_pd", "integer"),
                   ("total_payment", "real"),
                   ("interest_payment", "real"),
                   ("principal_payment", "real")
