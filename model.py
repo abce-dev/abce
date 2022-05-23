@@ -896,7 +896,7 @@ class GridModel(Model):
         #   - agent financial statements
         self.update_capex_projections()
         self.update_financial_instrument_manifest()
-        #self.update_financing_schedule()
+        self.update_financing_schedule()
         #self.update_PPE_projections()
         self.update_depreciation_projections()
         #self.update_agent_financial_statements()
@@ -1047,6 +1047,45 @@ class GridModel(Model):
         # Overwrite the financial_instrument_manifest table with the new data
         fin_insts_updates.to_sql("financial_instrument_manifest", self.db, if_exists="replace", index=False)
         self.db.commit()
+
+
+    def update_financing_schedule(self):
+        # Retrieve the current list of all forecasted financial instruments
+        #   which are not past their maturity date
+        all_fin_insts = pd.read_sql_query(f"SELECT * FROM financial_instrument_manifest WHERE maturity_pd > {self.current_pd}", self.db)
+
+        fin_sched_cols = ["instrument_id", "agent_id", "base_pd", "projected_pd", "total_payment", "interest_payment", "principal_payment"]
+        fin_sched_updates = pd.DataFrame(columns=fin_sched_cols)
+
+        for i in range(len(all_fin_insts.index)):
+            inst_id = all_fin_insts.loc[i, "instrument_id"]
+            agent_id = all_fin_insts.loc[i, "agent_id"]
+            pd_issued = all_fin_insts.loc[i, "pd_issued"]
+            initial_principal = all_fin_insts.loc[i, "initial_principal"]
+            rate = all_fin_insts.loc[i, "rate"]
+            maturity_pd = all_fin_insts.loc[i, "maturity_pd"]
+            total_payment = rate * initial_principal / (1 - (1 + rate) ** (-1 * (maturity_pd - pd_issued)))
+            remaining_principal = initial_principal
+            for projected_pd in range(pd_issued, maturity_pd):
+                interest_payment = rate * remaining_principal
+                principal_payment = total_payment - interest_payment
+
+                if projected_pd >= self.current_pd:
+                    # Organize data and add to fin_sched_updates
+                    new_row = [inst_id,
+                               agent_id,
+                               self.current_pd,
+                               projected_pd,
+                               total_payment,
+                               interest_payment,
+                               principal_payment
+                              ]
+                    fin_sched_updates.loc[len(fin_sched_updates.index)] = new_row
+
+                # Update the amount of remaining principal
+                remaining_principal = remaining_principal - principal_payment
+
+        fin_sched_updates.to_sql("agent_financing_schedule", self.db, if_exists="append", index=False)
 
 
     def update_depreciation_projections(self):
