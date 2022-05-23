@@ -87,7 +87,9 @@ abce_tables = {"WIP_projects":
                   ("debt_fraction", "real"),
                   ("cost_of_debt", "real"),
                   ("cost_of_equity", "real"),
-                  ("starting_fcf", "real")
+                  ("starting_fcf", "real"),
+                  ("starting_debt", "real"),
+                  ("starting_PPE", "real")
                  ],
 
                "financing_schedule":
@@ -183,7 +185,7 @@ abce_tables = {"WIP_projects":
                  ],
 
 
-               "financing_instrument_manifest":
+               "financial_instrument_manifest":
                  [("agent_id", "integer", "PRIMARY_KEY"),
                   ("instrument_id", "integer"),
                   ("instrument_type", "text"),
