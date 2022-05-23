@@ -895,7 +895,7 @@ class GridModel(Model):
         #   - depreciation projections
         #   - agent financial statements
         self.update_capex_projections()
-        #self.update_financing_instrument_manifest()
+        self.update_financial_instrument_manifest()
         #self.update_financing_schedule()
         #self.update_PPE_projections()
         self.update_depreciation_projections()
@@ -918,7 +918,6 @@ class GridModel(Model):
                                 f"AND assets.cancellation_pd > {self.current_pd} "+
                                 f"AND WIP_projects.period = {self.current_pd}",
                        self.db)
-        print(WIP_projects.iloc[:, 1:9])
 
         # Create dataframe to hold all new capex_projections entries
         capex_cols = ["agent_id", "asset_id", "base_pd", "projected_pd", "capex"]
@@ -965,8 +964,84 @@ class GridModel(Model):
         return projected_capex
 
 
-    #def update_PPE_projections(self):
+    def update_financial_instrument_manifest(self):
+        # Based on projected capital expenditures, project the total set of
+        #   active financial instruments which will exist at any point in the
+        #   future
+        # Assumptions:
+        #   - the agent tries to maintain a fixed debt/equity ratio by 
+        #       amortizing all instruments with a sinking fund at their cost
+        #   - the "maturity" life of all instruments is 30 years
 
+        # Pull out all financial instruments which already exist (as of
+        #   last period). All other entries will be overwritten
+        fin_insts_updates = pd.read_sql_query(f"SELECT * FROM financial_instrument_manifest WHERE pd_issued < {self.current_pd - 1}", self.db)
+
+        # On the first period, add instruments representing preexisting
+        #   debt and equity for the agents
+        if self.current_pd < 1:
+            inst_id = 1000
+            for agent_id, agent_params in self.gc_params.items():
+                starting_debt = agent_params["starting_debt"]
+                debt_frac = agent_params["debt_fraction"]
+                starting_equity = agent_params["starting_debt"] / debt_frac * (1 - debt_frac)
+                agent_debt_cost = agent_params["cost_of_debt"]
+                agent_equity_cost = agent_params["cost_of_equity"]
+                debt_row = [agent_id,           # agent_id
+                            inst_id,            # instrument_id
+                            "debt",             # instrument_type
+                            -1,                 # pd_issued
+                            starting_debt,      # initial_principal
+                            30,                 # maturity_pd
+                            agent_debt_cost     # rate
+                           ]
+                equity_row = [agent_id,
+                              inst_id + 1,
+                              "equity",
+                              -1,
+                              starting_equity,
+                              30,
+                              agent_equity_cost
+                             ]
+                fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
+                fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
+
+                inst_id += 2
+
+        # Get a list of all capex projections
+        new_capex_instances = pd.read_sql_query(f"SELECT * FROM capex_projections WHERE base_pd >= {self.current_pd-1} AND projected_pd >= {self.current_pd-1}", self.db)
+        inst_id = max(fin_insts_updates["instrument_id"]) + 1
+        for i in range(len(new_capex_instances.index)):
+            agent_id = new_capex_instances.loc[i, "agent_id"]
+            total_qty = new_capex_instances.loc[i, "capex"]
+            pd_issued = new_capex_instances.loc[i, "projected_pd"]
+            agent_debt_frac = self.gc_params[agent_id]["debt_fraction"]
+            agent_debt_cost = self.gc_params[agent_id]["cost_of_debt"]
+            agent_equity_cost = self.gc_params[agent_id]["cost_of_equity"]
+            amort_pd = 30
+            debt_row = [agent_id,                         # agent_id
+                        inst_id,                          # instrument_id
+                        "debt",                           # instrument_type
+                        pd_issued,                        # pd_issued
+                        total_qty * agent_debt_frac,      # initial_principal
+                        pd_issued + amort_pd,             # maturity_pd
+                        agent_debt_cost                   # rate
+                       ]
+            equity_row = [agent_id,
+                          inst_id + 1,
+                          "equity",
+                          pd_issued,
+                          total_qty * (1 - agent_debt_frac),
+                          pd_issued + amort_pd,
+                          agent_equity_cost
+                         ]
+            fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
+            fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
+            inst_id = max(fin_insts_updates["instrument_id"]) + 1
+
+        # Overwrite the financial_instrument_manifest table with the new data
+        fin_insts_updates.to_sql("financial_instrument_manifest", self.db, if_exists="replace", index=False)
+        self.db.commit()
 
 
     def update_depreciation_projections(self):
@@ -1016,6 +1091,7 @@ class GridModel(Model):
                     dep_projections.loc[len(dep_projections.index)] = new_row                    
 
         dep_projections.to_sql("depreciation_projections", self.db, if_exists="append", index=False)
+        self.db.commit()
 
 
     def save_ALEAF_outputs(self):
