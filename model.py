@@ -941,7 +941,7 @@ class GridModel(Model):
                 new_row = [agent_id,
                            asset_id,
                            self.current_pd,
-                           self.current_pd + i,
+                           self.current_pd + i - 1,
                            projected_capex[i]]
                 capex_updates.loc[len(capex_updates.index)] = new_row
 
@@ -958,7 +958,7 @@ class GridModel(Model):
         # TODO: update with more specific methods for different project types
         # For now, assume the project proceeds linearly
         projected_capex = []
-        for i in range(math.ceil(round(rtec, 3))):
+        for i in range(math.ceil(round(rtec+1, 3))):
             projected_capex.append(rcec / rtec)
 
         return projected_capex
@@ -982,14 +982,15 @@ class GridModel(Model):
         if self.current_pd < 1:
             inst_id = 1000
             for agent_id, agent_params in self.gc_params.items():
-                starting_debt = agent_params["starting_debt"]
+                starting_debt = float(agent_params["starting_debt"])
                 debt_frac = agent_params["debt_fraction"]
-                starting_equity = agent_params["starting_debt"] / debt_frac * (1 - debt_frac)
+                starting_equity = float(agent_params["starting_debt"]) / debt_frac * (1 - debt_frac)
                 agent_debt_cost = agent_params["cost_of_debt"]
                 agent_equity_cost = agent_params["cost_of_equity"]
                 debt_row = [agent_id,           # agent_id
                             inst_id,            # instrument_id
                             "debt",             # instrument_type
+                            agent_id,           # asset_id (agent_id for starting instruments)
                             -1,                 # pd_issued
                             starting_debt,      # initial_principal
                             30,                 # maturity_pd
@@ -998,6 +999,7 @@ class GridModel(Model):
                 equity_row = [agent_id,
                               inst_id + 1,
                               "equity",
+                              agent_id,
                               -1,
                               starting_equity,
                               30,
@@ -1009,11 +1011,12 @@ class GridModel(Model):
                 inst_id += 2
 
         # Get a list of all capex projections
-        new_capex_instances = pd.read_sql_query(f"SELECT * FROM capex_projections WHERE base_pd >= {self.current_pd-1} AND projected_pd >= {self.current_pd-1}", self.db)
+        new_capex_instances = pd.read_sql_query(f"SELECT * FROM capex_projections WHERE base_pd >= {self.current_pd} AND projected_pd >= {self.current_pd-1}", self.db)
         inst_id = max(fin_insts_updates["instrument_id"]) + 1
         for i in range(len(new_capex_instances.index)):
             agent_id = new_capex_instances.loc[i, "agent_id"]
-            total_qty = new_capex_instances.loc[i, "capex"]
+            asset_id = new_capex_instances.loc[i, "asset_id"]
+            total_qty = float(new_capex_instances.loc[i, "capex"])
             pd_issued = new_capex_instances.loc[i, "projected_pd"]
             agent_debt_frac = self.gc_params[agent_id]["debt_fraction"]
             agent_debt_cost = self.gc_params[agent_id]["cost_of_debt"]
@@ -1022,6 +1025,7 @@ class GridModel(Model):
             debt_row = [agent_id,                         # agent_id
                         inst_id,                          # instrument_id
                         "debt",                           # instrument_type
+                        asset_id,                         # asset_id
                         pd_issued,                        # pd_issued
                         total_qty * agent_debt_frac,      # initial_principal
                         pd_issued + amort_pd,             # maturity_pd
@@ -1030,6 +1034,7 @@ class GridModel(Model):
             equity_row = [agent_id,
                           inst_id + 1,
                           "equity",
+                          asset_id,
                           pd_issued,
                           total_qty * (1 - agent_debt_frac),
                           pd_issued + amort_pd,
