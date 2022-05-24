@@ -206,7 +206,7 @@ agent_all_year_portfolios = Dispatch.create_all_year_portfolios(agent_system_por
 
 agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, agent_all_year_portfolios)
 
-m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], system_portfolios, db, agent_id, final_profit_pivot)
+m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], system_portfolios, db, agent_id, final_profit_pivot, agent_fs)
 
 ###### Solve the model
 @info "Solving optimization problem..."
