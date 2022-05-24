@@ -19,7 +19,7 @@ using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables
 include("./dispatch.jl")
 using .Dispatch
 
-export ProjectAlternative, load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_capex_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives
+export ProjectAlternative, load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_capex_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives, update_agent_financial_statement
 
 #####
 # Constants
@@ -1280,6 +1280,93 @@ function record_asset_retirements(result, db, agent_id)
             replacement_data
         )
     end
+
+end
+
+
+function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios)
+    # Retrieve horizontally-abbreviated dataframes
+    short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_perunit, :annualized_VOM_perunit, :annualized_FC_perunit])
+    short_unit_specs = select(unit_specs, [:unit_type, :FOM])
+
+    # Inner join the year's portfolio with financial pivot
+    fin_results = innerjoin(short_econ_results, all_year_portfolios, on = [:y, :unit_type])
+
+    # Fill in total revenue
+    transform!(fin_results, [:annualized_rev_perunit, :num_units] => ((rev, num_units) -> rev .* num_units) => :total_rev)
+
+    # Fill in total VOM
+    transform!(fin_results, [:annualized_VOM_perunit, :num_units] => ((VOM, num_units) -> VOM .* num_units) => :total_VOM)
+
+    # Fill in total fuel costs
+    transform!(fin_results, [:annualized_FC_perunit, :num_units] => ((FC, num_units) -> FC .* num_units) => :total_FC)
+
+    # Create the annualized results dataframe so far
+    results_pivot = combine(groupby(fin_results, :y), [:total_rev, :total_VOM, :total_FC] .=> sum; renamecols=false)
+
+    fs = DataFrame(
+             base_pd = ones(Int64, fc_pd+1) .* current_pd,
+             projected_pd = current_pd:fc_pd,
+             revenue = results_pivot[!, :total_rev],
+             VOM = results_pivot[!, :total_VOM],
+             fuel_costs = results_pivot[!, :total_FC]
+         )
+
+    # Fill in total FOM
+    # Inner join the FOM table with the agent portfolios
+    FOM_df = innerjoin(all_year_portfolios, short_unit_specs, on = :unit_type)
+    transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* 1000) => :total_FOM)
+    FOM_df = select(combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols=false), [:y, :total_FOM])
+    rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
+
+    fs = innerjoin(fs, FOM_df, on = :projected_pd)
+
+    # Fill in total depreciation
+    total_pd_depreciation = DBInterface.execute(db, "SELECT projected_pd, SUM(depreciation) FROM depreciation_projections WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd") |> DataFrame
+
+    # Fill in total interest payments
+    total_pd_interest = DBInterface.execute(db, "SELECT projected_pd, SUM(interest_payment) FROM agent_financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd") |> DataFrame
+
+    # Fill in total capex
+    total_pd_capex = DBInterface.execute(db, "SELECT projected_pd, SUM(capex) FROM capex_projections WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd") |> DataFrame
+
+    # Join the scheduled columns to the financial statement, correct column
+    #    names, and replace missing values with zeroes
+    fs = leftjoin(fs, total_pd_depreciation, on = :projected_pd)
+    fs = leftjoin(fs, total_pd_interest, on = :projected_pd)
+    fs = leftjoin(fs, total_pd_capex, on = :projected_pd)
+    rename!(fs, Symbol("SUM(depreciation)") => :depreciation, Symbol("SUM(interest_payment)") => :interest_payment, Symbol("SUM(capex)") => :capex)
+    fs[!, :depreciation] = coalesce.(fs[!, :depreciation], 0)
+    fs[!, :interest_payment] = coalesce.(fs[!, :interest_payment], 0)
+    fs[!, :capex] = coalesce.(fs[!, :capex], 0)
+
+
+    ### Computed FS quantities
+    # EBITDA
+    transform!(fs, [:revenue, :VOM, :FOM, :fuel_costs] => ((rev, VOM, FOM, FC) -> (rev - VOM - FOM - FC)) => :EBITDA)
+
+    # EBIT
+    transform!(fs, [:EBITDA, :depreciation] => ((EBITDA, dep) -> (EBITDA - dep)) => :EBIT)
+
+    # EBT
+    transform!(fs, [:EBIT, :interest_payment] => ((EBIT, interest) -> EBIT - interest) => :EBT)
+
+    # Tax owed
+    tax_rate = 0.21
+    transform!(fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_owed)
+
+    # Net Income
+    transform!(fs, [:EBT, :tax_owed] => ((EBT, tax) -> (EBT - tax)) => :Net_Income)
+
+    # Free Cash Flow
+    transform!(fs, [:Net_Income, :depreciation, :capex] => ((NI, dep, capex) -> NI + dep - capex) => :FCF)
+
+    # Save the dataframe to the database
+
+    println(fs)
+
+    return fs
+
 
 end
 
