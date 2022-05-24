@@ -1353,10 +1353,10 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
 
     # Tax owed
     tax_rate = 0.21
-    transform!(fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_owed)
+    transform!(fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_paid)
 
     # Net Income
-    transform!(fs, [:EBT, :tax_owed] => ((EBT, tax) -> (EBT - tax)) => :Net_Income)
+    transform!(fs, [:EBT, :tax_paid] => ((EBT, tax) -> (EBT - tax)) => :Net_Income)
 
     # Free Cash Flow
     transform!(fs, [:Net_Income, :depreciation, :capex] => ((NI, dep, capex) -> NI + dep - capex) => :FCF)

@@ -235,9 +235,9 @@ abce_tables = {"WIP_projects":
                   ("EBITDA", "real"),
                   ("depreciation", "real"),
                   ("EBIT", "real"),
-                  ("interest_payments", "real"),
+                  ("interest_payment", "real"),
                   ("EBT", "real"),
-                  ("tax", "real"),
+                  ("tax_paid", "real"),
                   ("Net_Income", "real"),
                   ("capex", "real"),
                   ("FCF", "real")
