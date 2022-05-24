@@ -489,9 +489,11 @@ function compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd)
 end
 
 
-function compute_final_gen(g_gen, system_portfolios, fc_pd)
+function create_all_year_portfolios(system_portfolios, fc_pd)
     # Combine the system portfolios into a single dataframe with indicator
     #   column :y
+
+    # Explicit dispatch results
     all_year_portfolios = DataFrame()
     for i = 0:length(keys(system_portfolios))-1
         df = system_portfolios[i]
@@ -499,11 +501,20 @@ function compute_final_gen(g_gen, system_portfolios, fc_pd)
         append!(all_year_portfolios, df)
     end
 
+    # Extend dispatch results by assuming no change after last dispatch year
     for i = length(keys(system_portfolios)):fc_pd
         df = system_portfolios[length(keys(system_portfolios))-1]
         df[!, :y] .= i
         append!(all_year_portfolios, df)
     end
+
+    return all_year_portfolios
+
+end
+
+
+function compute_final_gen(g_gen, system_portfolios, fc_pd)
+    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd)
 
     # Calculate operating and net profit per unit per unit type
     g_gen = innerjoin(g_gen, all_year_portfolios, on = [:unit_type, :y])
@@ -516,12 +527,41 @@ function compute_final_gen(g_gen, system_portfolios, fc_pd)
 end
 
 
+function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd)
+    # Organize data
+    long_rev_results = deepcopy(g_pivot)
+    long_rev_results = stack(long_rev_results, 4:9)
+    rename!(long_rev_results, :variable => :unit_type, :value => :gen)
+    short_unit_specs = select(unit_specs, [:unit_type, :capacity, :VOM, :FC_per_MWh])
+    long_rev_results = innerjoin(long_rev_results, short_unit_specs, on = :unit_type)
+
+    # Get a single long dataframe with unit numbers by type for each year
+    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd)
+
+    # Append unit number data to long_rev_results
+    long_rev_results = innerjoin(long_rev_results, all_year_portfolios, on = [:y, :unit_type])
+
+    # Calculate revenues
+    transform!(long_rev_results, [:gen, :price, :Probability, :num_units] => ((gen, price, prob, num_units) -> gen .* price .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
+
+    # Calculate VOM
+    transform!(long_rev_results, [:gen, :VOM, :Probability, :num_units] => ((gen, VOM, prob, num_units) -> gen .* VOM .* prob .* 365 ./ num_units) => :annualized_VOM_perunit)
+
+    # Calculate fuel cost
+    transform!(long_rev_results, [:gen, :FC_per_MWh, :Probability, :num_units] => ((gen, fc, prob, num_units) -> gen .* fc .* prob .* 365 ./ num_units) => :annualized_FC_perunit)
+
+    return long_rev_results
+
+end 
+
 
 function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd)
     # Pivot the generation and commitment results
     g_pivot, c_pivot = pivot_gc_results(all_gc_results, all_prices, ts_data[:repdays_data])
 
-    # Set up revenue columns in g_pivot
+    long_econ_results = postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd)
+
+   # Set up revenue columns in g_pivot
     g_pivot = set_up_ppx_revenue(g_pivot, ts_data, unit_specs)
 
     # Reorganize the g_pivot dataframe
@@ -534,7 +574,7 @@ function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_d
     CSV.write("unit_profit_summary.csv", final_profit_pivot)
     CSV.write("unit_generation_summary.csv", final_gen_pivot)
 
-    return final_profit_pivot, final_gen_pivot, all_gc_results, all_prices
+    return long_econ_results, final_profit_pivot, final_gen_pivot, all_gc_results, all_prices
 end
 
 end
