@@ -169,7 +169,7 @@ all_gc_results, all_prices = Dispatch.propagate_all_results(fc_pd, all_gc_result
 Dispatch.save_raw_results(all_prices, all_gc_results)
 
 @info "Postprocessing dispatch simulation..."
-final_profit_pivot, all_gc_results, all_prices = Dispatch.postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd)
+long_econ_results, final_profit_pivot, final_gen_pivot, all_gc_results, all_prices = Dispatch.postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd)
 
 @info "Setting up project alternatives..."
 PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, final_profit_pivot, all_gc_results)
@@ -179,13 +179,16 @@ PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_
 
 ###### Set up the model
 system_portfolios = Dict()
+agent_system_portfolios = Dict()
 for y = 0:fc_pd
     # Retrieve a list of all units expected to be operational during this year,
     #   grouped by unit type
     year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
+    agent_year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
 
     # Rename the COUNT(unit_type) column to num_units
     rename!(year_portfolio, Symbol("COUNT(unit_type)") => :num_units)
+    rename!(agent_year_portfolio, Symbol("COUNT(unit_type)") => :num_units)
 
     year_portfolio = innerjoin(unit_specs, year_portfolio, on = :unit_type)
 
@@ -195,8 +198,13 @@ for y = 0:fc_pd
 
     # Add the year-i portfolio to the dictionary
     system_portfolios[y] = year_portfolio
+    agent_system_portfolios[y] = agent_year_portfolio
 
 end
+
+agent_all_year_portfolios = Dispatch.create_all_year_portfolios(agent_system_portfolios, fc_pd)
+
+agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, agent_all_year_portfolios)
 
 m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], system_portfolios, db, agent_id, final_profit_pivot)
 
