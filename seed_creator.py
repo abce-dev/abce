@@ -227,7 +227,7 @@ abce_tables = {"WIP_projects":
                "agent_financial_statements":
                  [("agent_id", "integer", "PRIMARY KEY"),
                   ("base_pd", "integer"),
-                  ("proj_pd", "integer"),
+                  ("projected_pd", "integer"),
                   ("revenue", "real"),
                   ("VOM", "real"),
                   ("FOM", "real"),
