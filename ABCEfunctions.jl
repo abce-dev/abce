@@ -1056,15 +1056,15 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     end
 
     # Prevent excessive overbuild in the medium term
-    for i = 3:10
-        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= current_peak_demand * 1.1)   # settings["planning_reserve_margin"]
-    end
+#    for i = 3:10
+#        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= current_peak_demand * 1.1)   # settings["planning_reserve_margin"]
+#    end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     #   near the beginning of the simulation
     if current_pd < 4
         for i = 1:(4-current_pd)
-            @constraint(m, transpose(u) * marg_eff_cap[:, i] >= -0.5 * excess_capacity[i])
+            @constraint(m, transpose(u) * marg_eff_cap[:, i] >= -0.2 * excess_capacity[i])
         end
     end
 
@@ -1144,29 +1144,16 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
         discount_factors[i] = (1+wacc)^(-(i-1))
     end
 
-    delta_eff_cap = transpose(u) * marg_eff_cap
-    baseline_eff_cap = [sum(system_portfolios[year][!, :effective_capacity]) for year in keys(system_portfolios)]
-    penalty_rate = 1.0  # 1% increase in capacity reduces revenue by 1%
-
     # Create the objective function 
-#    @NLobjective(m, Max, sum((transpose(discount_factors) * agent_fs[!, :FCF] + sum(u .* PA_uids[!, :NPV])) .* (ones(size(agent_fs)[1]) .- penalty_rate .* (transpose(sum(u .* marg_eff_cap)) ./ baseline_eff_cap))))
-#    @objective(m, Max, sum((discount_factors[i] * agent_fs[i, :FCF] + sum(u[j] * PA_fs_dict[j][i, :FCF] for j in 1:size(u)[1])) * (1 - penalty_rate * (sum(u[k] * marg_eff_cap[k, i] for k in 1:size(u)[1]) / baseline_eff_cap[i])) for i in 1:size(agent_fs)[1]-1))
-#    @objective(m, Max, sum((discount_factors[i] * agent_fs[i, :FCF] + sum(u sum(u[j] * PA_fs_dict[j][i, :FCF] for j in 1:size(u)[1])) * (1 - penalty_rate * (sum(u[k] * marg_eff_cap[k, i] for k in 1:size(u)[1]) / baseline_eff_cap[i])) for i in 1:size(agent_fs)[1]-1))
-
-    @info size(u)
-    @info size(PA_uids)
-    @info size(marg_eff_cap)
-    @info size(baseline_eff_cap)
-    @info size(agent_fs)
-    println(size([key for key in keys(system_portfolios)]))
-    @info size(system_portfolios[1])
 
     lamda_1 = 1.0 / 1e9
-    lamda_2 = 1.0
+    lamda_2 = 3.0
 
     #@objective(m, Max, transpose(u) * PA_uids[!, :NPV] - sum((transpose(transpose(u) * marg_eff_cap) ./ baseline_eff_cap[1:fc_pd]) .* (agent_fs[1:fc_pd, :FCF] ./ 1e9)))
-    #@objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (1 - 4.2) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])))) 
-    @objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * sum((agent_fs[!, :FCF] / 1e9 + transpose(transpose(u) * marg_FCF) + (1 - 4.2) * (agent_fs[!, :interest_payment] / 1e9 + transpose(transpose(u) * marg_int)))))
+    #@objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (1 - 4.2) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i]))))
+    lim = 6
+ 
+    @objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * sum((agent_fs[1:lim, :FCF] / 1e9 + transpose(transpose(u) * marg_FCF[:, 1:lim]) + (1 - 4.2) * (agent_fs[1:lim, :interest_payment] / 1e9 + transpose(transpose(u) * marg_int[:, 1:lim])))))
    
 
     @info "Optimization model set up."
@@ -1306,14 +1293,11 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_perunit, :annualized_VOM_perunit, :annualized_FC_perunit])
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])
 
-    println(first(short_econ_results))
-    println(last(short_econ_results))
-
-    println(first(all_year_portfolios))
-    println(last(all_year_portfolios))
-
     # Inner join the year's portfolio with financial pivot
     fin_results = innerjoin(short_econ_results, all_year_portfolios, on = [:y, :unit_type])
+
+    CSV.write("./all_year_portfolios.csv", all_year_portfolios)
+    CSV.write("./fin_results.csv", fin_results)
 
     # Fill in total revenue
     transform!(fin_results, [:annualized_rev_perunit, :num_units] => ((rev, num_units) -> rev .* num_units) => :total_rev)
@@ -1335,8 +1319,7 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
              fuel_costs = results_pivot[!, :total_FC]
          )
 
-    println(first(fs))
-    println(last(fs))
+    CSV.write("./agent_fs_half_$agent_id.$current_pd.csv", fs)
 
     # Fill in total FOM
     # Inner join the FOM table with the agent portfolios
@@ -1344,13 +1327,9 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* 1000) => :total_FOM)
     FOM_df = select(combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols=false), [:y, :total_FOM])
     rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
-    transform!(FOM_df, [:projected_pd] => ((y) -> y .- 1 .+ current_pd) => :projected_pd)
-    println(first(FOM_df))
-    println(last(FOM_df))
 
+    transform!(FOM_df, [:projected_pd] => ((y) -> y .- 1 .+ current_pd) => :projected_pd)
     fs = innerjoin(fs, FOM_df, on = :projected_pd)
-    println(first(fs))
-    println(last(fs))
 
     # Fill in total depreciation
     total_pd_depreciation = DBInterface.execute(db, "SELECT projected_pd, SUM(depreciation) FROM depreciation_projections WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd") |> DataFrame
