@@ -407,8 +407,6 @@ function create_PA_pro_formas(PA_uids, fc_pd)
                           )
     end
 
-    @info size(PA_fs_dict[1])
-
     return PA_fs_dict
 
 end
@@ -997,14 +995,8 @@ Returns:
 function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, current_pd, current_peak_demand, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     @info "Setting up model..."
-    #m = Model(GLPK.Optimizer)
     m = Model(CPLEX.Optimizer)
     #set_optimizer_attribute(m, "CPXPARAM_OptimalityTarget", 3)
-
-    # For debugging, enable the following line to increase verbosity
-    #set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
-    #set_optimizer_attribute(m, "tm_lim", 60000)
-    #set_optimizer_attribute(m, "mip_gap", 0.005)
 
     # Parameter names
     num_alternatives = size(PA_uids)[1]
@@ -1138,19 +1130,10 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
         @constraint(m, sum(ret_summation_matrix[i, :] .* u) <= asset_counts[i, :count])
     end
 
-    discount_factors = ones(size(agent_fs)[1])
-    wacc = agent_params[1, :cost_of_debt] * agent_params[1, :debt_fraction] + agent_params[1, :cost_of_equity] * (1 - agent_params[1, :debt_fraction])
-    for i = 1:size(agent_fs)[1]
-        discount_factors[i] = (1+wacc)^(-(i-1))
-    end
-
     # Create the objective function 
 
     lamda_1 = 1.0 / 1e9
     lamda_2 = 3.0
-
-    #@objective(m, Max, transpose(u) * PA_uids[!, :NPV] - sum((transpose(transpose(u) * marg_eff_cap) ./ baseline_eff_cap[1:fc_pd]) .* (agent_fs[1:fc_pd, :FCF] ./ 1e9)))
-    #@objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (1 - 4.2) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i]))))
     lim = 6
     int_bound = 5.0
  
@@ -1328,9 +1311,6 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* 1000) => :total_FOM)
     FOM_df = select(combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols=false), [:y, :total_FOM])
     rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
-
-    println(minimum(FOM_df[!, :projected_pd]))
-    println(maximum(FOM_df[!, :projected_pd]))
 
     #transform!(FOM_df, [:projected_pd] => ((y) -> y .- 1 .+ current_pd) => :projected_pd)
     fs = innerjoin(fs, FOM_df, on = :projected_pd)
