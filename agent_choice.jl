@@ -228,7 +228,7 @@ end
 ###### Display the results
 all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
 @info status
-@info "Units to build:"
+@info "Alternatives to execute:"
 @info all_results
 
 
