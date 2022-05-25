@@ -1152,8 +1152,9 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     #@objective(m, Max, transpose(u) * PA_uids[!, :NPV] - sum((transpose(transpose(u) * marg_eff_cap) ./ baseline_eff_cap[1:fc_pd]) .* (agent_fs[1:fc_pd, :FCF] ./ 1e9)))
     #@objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (1 - 4.2) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i]))))
     lim = 6
+    int_bound = 5.0
  
-    @objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * sum((agent_fs[1:lim, :FCF] / 1e9 + transpose(transpose(u) * marg_FCF[:, 1:lim]) + (1 - 4.2) * (agent_fs[1:lim, :interest_payment] / 1e9 + transpose(transpose(u) * marg_int[:, 1:lim])))))
+    @objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * sum((agent_fs[1:lim, :FCF] / 1e9 + transpose(transpose(u) * marg_FCF[:, 1:lim]) + (1 - int_bound) * (agent_fs[1:lim, :interest_payment] / 1e9 + transpose(transpose(u) * marg_int[:, 1:lim])))))
    
 
     @info "Optimization model set up."
