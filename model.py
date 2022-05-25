@@ -838,8 +838,9 @@ class GridModel(Model):
         # Run A-LEAF
         print("Running A-LEAF...")
         run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
+        ALEAF_env_path = os.path.join(self.ALEAF_abs_path, ".")
         ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
-        aleaf_cmd = f"julia -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
+        aleaf_cmd = f"julia --project={ALEAF_env_path} -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
         if self.args.quiet:
             sp = subprocess.check_call([aleaf_cmd],
                                        shell=True,
