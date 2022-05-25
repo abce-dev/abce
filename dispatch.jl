@@ -258,13 +258,13 @@ function reshape_shadow_price(model, ts_data, y, num_hours, num_days, all_prices
 end
 
 
-function propagate_all_results(end_year, all_gc_results, all_prices)
+function propagate_all_results(end_year, all_gc_results, all_prices, current_pd)
     final_dispatched_year = maximum(all_gc_results[!, :y])
 
     final_year_gc = filter(:y => x -> x == final_dispatched_year, all_gc_results)
     final_year_prices = filter(:y => x -> x == final_dispatched_year, all_prices)
 
-    for y = final_dispatched_year+1:end_year
+    for y = final_dispatched_year+1:current_pd+end_year
         # Copy the final_year_gc results forward, updating the year
         next_year_gc = deepcopy(final_year_gc)
         next_year_gc[!, :y] .= y
@@ -437,10 +437,10 @@ function reorganize_g_pivot(g_pivot, unit_specs)
 end
 
 
-function compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd)
+function compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd, current_pd)
     # Combine the system portfolios into a single dataframe with indicator
     #   column :y
-    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd)
+    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
 
     # Calculate operating and net profit per unit per unit type
     g_unpivot = innerjoin(g_unpivot, all_year_portfolios, on = [:unit_type, :y])
@@ -476,20 +476,21 @@ function compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd)
 end
 
 
-function create_all_year_portfolios(system_portfolios, fc_pd)
+function create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
     # Combine the system portfolios into a single dataframe with indicator
     #   column :y
 
     # Explicit dispatch results
     all_year_portfolios = DataFrame()
-    for i = 1:length(keys(system_portfolios))
-        df = system_portfolios[i]
-        df[!, :y] .= i
+    for key in keys(system_portfolios)
+        df = system_portfolios[key]
+        df[!, :y] .= key
         append!(all_year_portfolios, df)
     end
 
     # Extend dispatch results by assuming no change after last dispatch year
-    for i = length(keys(system_portfolios))+1:fc_pd
+    last_dispatch_year = maximum([key for key in keys(system_portfolios)])
+    for i = last_dispatch_year+1:current_pd+fc_pd
         df = system_portfolios[length(keys(system_portfolios))-1]
         df[!, :y] .= i
         append!(all_year_portfolios, df)
@@ -500,8 +501,8 @@ function create_all_year_portfolios(system_portfolios, fc_pd)
 end
 
 
-function compute_final_gen(g_gen, system_portfolios, fc_pd)
-    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd)
+function compute_final_gen(g_gen, system_portfolios, fc_pd, current_pd)
+    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
 
     # Calculate operating and net profit per unit per unit type
     g_gen = innerjoin(g_gen, all_year_portfolios, on = [:unit_type, :y])
@@ -514,7 +515,7 @@ function compute_final_gen(g_gen, system_portfolios, fc_pd)
 end
 
 
-function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd)
+function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
     # Organize data
     long_rev_results = deepcopy(g_pivot)
     long_rev_results = stack(long_rev_results, 4:9)
@@ -523,7 +524,7 @@ function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd)
     long_rev_results = innerjoin(long_rev_results, short_unit_specs, on = :unit_type)
 
     # Get a single long dataframe with unit numbers by type for each year
-    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd)
+    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
 
     # Append unit number data to long_rev_results
     long_rev_results = innerjoin(long_rev_results, all_year_portfolios, on = [:y, :unit_type])
@@ -542,11 +543,11 @@ function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd)
 end 
 
 
-function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd)
+function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
     # Pivot the generation and commitment results
     g_pivot, c_pivot = pivot_gc_results(all_gc_results, all_prices, ts_data[:repdays_data])
 
-    long_econ_results = postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd)
+    long_econ_results = postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
 
    # Set up revenue columns in g_pivot
     g_pivot = set_up_ppx_revenue(g_pivot, ts_data, unit_specs)
@@ -555,8 +556,8 @@ function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_d
     g_unpivot, g_gen = reorganize_g_pivot(g_pivot, unit_specs)
 
     # Compute operating and net profit, including by unit type
-    final_profit_pivot = compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd)
-    final_gen_pivot = compute_final_gen(g_gen, system_portfolios, fc_pd)
+    final_profit_pivot = compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd, current_pd)
+    final_gen_pivot = compute_final_gen(g_gen, system_portfolios, fc_pd, current_pd)
 
     CSV.write("unit_profit_summary.csv", final_profit_pivot)
     CSV.write("unit_generation_summary.csv", final_gen_pivot)

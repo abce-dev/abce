@@ -1328,7 +1328,10 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     FOM_df = select(combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols=false), [:y, :total_FOM])
     rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
 
-    transform!(FOM_df, [:projected_pd] => ((y) -> y .- 1 .+ current_pd) => :projected_pd)
+    println(minimum(FOM_df[!, :projected_pd]))
+    println(maximum(FOM_df[!, :projected_pd]))
+
+    #transform!(FOM_df, [:projected_pd] => ((y) -> y .- 1 .+ current_pd) => :projected_pd)
     fs = innerjoin(fs, FOM_df, on = :projected_pd)
 
     # Fill in total depreciation
