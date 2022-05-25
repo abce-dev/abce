@@ -171,7 +171,7 @@ all_gc_results, all_prices = Dispatch.propagate_all_results(fc_pd-1, all_gc_resu
 Dispatch.save_raw_results(all_prices, all_gc_results)
 
 @info "Postprocessing dispatch simulation..."
-long_econ_results, final_profit_pivot, final_gen_pivot, all_gc_results, all_prices = Dispatch.postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, pd)
+long_econ_results = Dispatch.postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, pd)
 
 CSV.write("long_econ_results_$pd.csv", long_econ_results)
 
@@ -212,16 +212,20 @@ agent_all_year_portfolios = Dispatch.create_all_year_portfolios(agent_system_por
 
 agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, agent_all_year_portfolios)
 
-m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], system_portfolios, db, agent_id, final_profit_pivot, agent_fs, fc_pd)
+m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
 @info "Solving optimization problem..."
 optimize!(m)
-status = termination_status.(m)
-# This MILP should always return integral solutions; convert the float values
-#   to integers to avoid some future TypeErrors
-unit_qty = Int.(round.(value.(m[:u])))
-
+status = string(termination_status.(m))
+if status == "OPTIMAL"
+    # This MILP should always return integral solutions; convert the float values
+    #   to integers to avoid some future TypeErrors
+    unit_qty = Int.(round.(value.(m[:u])))
+else
+    # If the agent has no valid options, do nothing
+    unit_qty = zeros(Int64, size(PA_uids)[1])
+end
 
 ###### Display the results
 all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
