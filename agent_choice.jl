@@ -173,7 +173,6 @@ long_econ_results, final_profit_pivot, final_gen_pivot, all_gc_results, all_pric
 CSV.write("long_econ_results.csv", long_econ_results)
 
 @info "Setting up project alternatives..."
-@info fc_pd
 PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results)
 
 @info "Project alternatives:"
