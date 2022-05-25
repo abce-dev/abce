@@ -994,7 +994,7 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, current_pd, current_peak_demand, system_portfolios, db, agent_id, final_profit_pivot, agent_fs, fc_pd)
+function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, current_pd, current_peak_demand, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     @info "Setting up model..."
     #m = Model(GLPK.Optimizer)
