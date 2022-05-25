@@ -39,12 +39,6 @@ println("Building CPLEX...")
 Pkg.build("CPLEX")
 println("CPLEX built.")
 
-println("Adding Gurobi")
-Pkg.add("Gurobi")
-println("Building Gurobi...")
-Pkg.build("Gurobi")
-println("Gurobi built.")
-
 # Add the non-optimizer packages (which don't need to be built)
 for i=1:size(julia_pkg_list)[1]
     println(string("Adding ", julia_pkg_list[i]))
