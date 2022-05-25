@@ -14,7 +14,7 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables
+using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables, CPLEX
 
 include("./dispatch.jl")
 using .Dispatch
@@ -340,12 +340,12 @@ end
 #####
 
 
-function set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd, final_profit_pivot, final_gen_pivot)
+function set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
     PA_uids = create_PA_unique_ids(unit_specs, asset_counts, num_lags)
 
     PA_fs_dict = create_PA_pro_formas(PA_uids, fc_pd)
 
-    PA_uids, PA_fs_dict = populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, final_profit_pivot, final_gen_pivot)
+    PA_uids, PA_fs_dict = populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
 
     return PA_uids, PA_fs_dict
 
@@ -407,12 +407,14 @@ function create_PA_pro_formas(PA_uids, fc_pd)
                           )
     end
 
+    @info size(PA_fs_dict[1])
+
     return PA_fs_dict
 
 end
 
 
-function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, final_profit_pivot, final_gen_pivot)
+function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
     for uid in PA_uids[!, :uid]
         # Retrieve current project alternative definition for convenience
         current_PA = filter(:uid => x -> x == uid, PA_uids)[1, :]
@@ -442,8 +444,7 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
             db,
             current_pd,
             current_PA[:lag],
-            final_profit_pivot,
-            final_gen_pivot,
+            long_econ_results,
             mode = current_PA[:project_type],
             orig_ret_pd = current_PA[:ret_pd])
 
@@ -613,7 +614,7 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag, final_profit_pivot, final_gen_pivot; mode="new_xtr", orig_ret_pd)
+function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Compute estimated revenue from submarginal hours
@@ -632,11 +633,11 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db,
     end
 
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, final_gen_pivot; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, final_profit_pivot; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
 
 end
 
@@ -737,7 +738,7 @@ end
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, final_profit_pivot; mode, orig_ret_pd=9999)
+function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd=9999)
     check_valid_vector_mode(mode)
 
     # Helpful short variables
@@ -760,15 +761,16 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
         # The maximum end of revenue period is capped at the length of the
         #   unit_fs dataframe (as some units with unspecified retirement
         #   periods default to a retirement period of 9999).
-        rev_end = min(orig_ret_pd, size(unit_fs)[1])
+        rev_end = min(orig_ret_pd, size(unit_fs)[1]-1)
     end
 
     # Compute final projected revenue series
 #    unit_fs[rev_start:rev_end, :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+    agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_rev_perunit => sum, renamecols=false)
     for y = rev_start:rev_end
-        val = filter(:y => x -> x == y, final_profit_pivot)[1, Symbol(unit_type_data[:unit_type])]
-        if typeof(val) != Missing
-            unit_fs[y, :Revenue] = val
+        row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == unit_type_data[:unit_type]), agg_econ_results)
+        if size(row)[1] != 0
+            unit_fs[y, :Revenue] = row[1, :annualized_rev_perunit]
         else
             unit_fs[y, :Revenue] = 0
         end
@@ -781,7 +783,7 @@ end
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, final_gen_results; mode, orig_ret_pd)
+function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
@@ -806,14 +808,16 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
         gen_end = min(orig_ret_pd, size(unit_fs)[1])
     end
 
+    transform!(long_econ_results, [:gen, :Probability, :num_units] => ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) => :annualized_gen_perunit)
+    agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_gen_perunit => sum, renamecols=false)
+
     # Distribute generation values time series
 #    unit_fs[gen_start:gen_end, :gen] .= gen
     for y = gen_start:gen_end
-        #println(y)
-        #println(unit_type_data[:unit_type])
-        val = filter([:unit_type, :y] => (unit_type, df_y) -> (unit_type == unit_type_data[:unit_type]) && (df_y == y), final_gen_results)
-        if size(val)[1] == 1
-            unit_fs[y, :gen] = filter([:unit_type, :y] => (unit_type, df_y) -> (unit_type == unit_type_data[:unit_type]) && (df_y == y), final_gen_results)[1, :GenPerUnit]
+        row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == unit_type_data[:unit_type]), agg_econ_results)
+        if size(row)[1] == 1
+            unit_fs[y, :gen] = row[1, :annualized_gen_perunit]
+            #unit_fs[y, :gen] = filter([:unit_type, :y] => (unit_type, df_y) -> (unit_type == unit_type_data[:unit_type]) && (df_y == y), final_gen_results)[1, :GenPerUnit]
         else
             unit_fs[y, :gen] = 0
         end
@@ -990,15 +994,17 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, current_pd, current_peak_demand, system_portfolios, db, agent_id, final_profit_pivot, agent_fs)
+function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, current_pd, current_peak_demand, system_portfolios, db, agent_id, final_profit_pivot, agent_fs, fc_pd)
     # Create the model object
     @info "Setting up model..."
-    m = Model(GLPK.Optimizer)
+    #m = Model(GLPK.Optimizer)
+    m = Model(CPLEX.Optimizer)
+    #set_optimizer_attribute(m, "CPXPARAM_OptimalityTarget", 3)
 
     # For debugging, enable the following line to increase verbosity
-    set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
-    set_optimizer_attribute(m, "tm_lim", 60000)
-    set_optimizer_attribute(m, "mip_gap", 0.005)
+    #set_optimizer_attribute(m, "msg_lev", GLPK.GLP_MSG_ALL)
+    #set_optimizer_attribute(m, "tm_lim", 60000)
+    #set_optimizer_attribute(m, "mip_gap", 0.005)
 
     # Parameter names
     num_alternatives = size(PA_uids)[1]
@@ -1050,11 +1056,12 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     end
 
     # Prevent excessive overbuild in the medium term
-    for i = 5:10
+    for i = 3:10
         @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= current_peak_demand * 1.1)   # settings["planning_reserve_margin"]
     end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
+    #   near the beginning of the simulation
     if current_pd < 4
         for i = 1:(4-current_pd)
             @constraint(m, transpose(u) * marg_eff_cap[:, i] >= -0.5 * excess_capacity[i])
@@ -1077,42 +1084,19 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
         end
     end
 
-    # Retrieve the agent's current outstanding principal
-    last_pd = current_pd - 1
-    agent_principal = DBInterface.execute(db, "SELECT outstanding_principal FROM agent_debt WHERE agent_id = $agent_id AND period = $last_pd") |> DataFrame
-    agent_principal = agent_principal[1, :outstanding_principal]
-
-    # Stack the final_profit_pivot
-    unit_profits = stack(final_profit_pivot, 2:size(final_profit_pivot)[2])
-    rename!(unit_profits, :variable => :unit_type)
+    CSV.write(string("./agent_fs_", current_pd, "_", agent_id, ".csv"), agent_fs)
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
-    for i = 1:5
-        this_pd = current_pd + i - 1
-        agent_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $this_pd AND retirement_pd > $this_pd GROUP BY unit_type") |> DataFrame
-        rename!(agent_portfolio, Symbol("COUNT(unit_type)") => :num_units)
-        agent_portfolio[!, :y] .= i
-        agent_portfolio = innerjoin(unit_profits, agent_portfolio, on = [:y, :unit_type])
-        transform!(agent_portfolio, [:num_units, :value] => ((num_units, val) -> num_units .* val) => :total_profit)
-        agent_total_profit = sum(agent_portfolio[!, :total_profit])
-        agent_NI = agent_total_profit * (1 - 0.21) * 0.5
-#        if agent_id == 201
-#            agent_NI = agent_total_profit * (1 - 0.21) * .8
-        if agent_id == 202
-            agent_NI = agent_total_profit * (1 - 0.21) * 0.3
-        end
-
-        #@constraint(m, agent_params[1, :starting_fcf] / 1e9 + (1 - 4.2) * (transpose(u) * marg_int[:, i]) >= 0)
-        #@constraint(m, agent_params[1, :starting_fcf] / (0.2 * 1e9) - (transpose(u) * marg_debt[:, i]) >= 0)
-        #@constraint(m, agent_params[1, :starting_fcf] / 1e9 + sum((transpose(u) .* (marg_FCF[:, i] - marg_div[:, i] - 0.15 .* marg_debt[:, i]))) >= 0)
-
-        @constraint(m, (agent_NI / 1e9 + sum(u .* marg_FCF[:, i])) + (1 - 4.2) * (agent_principal / 1e9 * agent_params[1, "cost_of_debt"] + sum(u .* marg_int[:, i])) >= 0)
-
+    for i = 1:6
+        @constraint(m, agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (1 - 4.2) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])) >= 0)
+        # These constraints need to be rewritten
         #@constraint(m, (agent_NI / 1e9 + sum((transpose(u) .* marg_FCF[:, i]))) / (0.2) - (agent_principal / 1e9 + sum(transpose(u) .* marg_debt[:, i])) >= 0)
-#        @constraint(m, (agent_NI + (transpose(u) * marg_FCF[:, i])) + sum((transpose(u) .* (marg_FCF[:, i] - marg_div[:, i] - 0.15 .* marg_debt[:, i]))) >= 0)
+        #@constraint(m, (agent_NI + (transpose(u) * marg_FCF[:, i])) + sum((transpose(u) .* (marg_FCF[:, i] - marg_div[:, i] - 0.15 .* marg_debt[:, i]))) >= 0)
     end
 
+    # Enforce the user-specified maximum number of new construction/retirement
+    #   projects by type per period
     for i = 1:num_alternatives
         if PA_uids[i, :project_type] == "new_xtr"
             @constraint(m, u[i] .<= settings["max_type_newbuilds_per_pd"])
@@ -1125,6 +1109,10 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
         end
     end
 
+    # The total number of assets of each type to be retired cannot exceed
+    #   the total number of assets of that type owned by the agent
+
+    # Setup
     # Convenient variable for the number of distinct retirement alternatives
     k = size(asset_counts)[1]
     # Shortened name for the number of lag periods to consider
@@ -1150,8 +1138,37 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
         @constraint(m, sum(ret_summation_matrix[i, :] .* u) <= asset_counts[i, :count])
     end
 
+    discount_factors = ones(size(agent_fs)[1])
+    wacc = agent_params[1, :cost_of_debt] * agent_params[1, :debt_fraction] + agent_params[1, :cost_of_equity] * (1 - agent_params[1, :debt_fraction])
+    for i = 1:size(agent_fs)[1]
+        discount_factors[i] = (1+wacc)^(-(i-1))
+    end
+
+    delta_eff_cap = transpose(u) * marg_eff_cap
+    baseline_eff_cap = [sum(system_portfolios[year][!, :effective_capacity]) for year in keys(system_portfolios)]
+    penalty_rate = 1.0  # 1% increase in capacity reduces revenue by 1%
+
     # Create the objective function 
-    @objective(m, Max, transpose(u) * PA_uids[!, :NPV])
+#    @NLobjective(m, Max, sum((transpose(discount_factors) * agent_fs[!, :FCF] + sum(u .* PA_uids[!, :NPV])) .* (ones(size(agent_fs)[1]) .- penalty_rate .* (transpose(sum(u .* marg_eff_cap)) ./ baseline_eff_cap))))
+#    @objective(m, Max, sum((discount_factors[i] * agent_fs[i, :FCF] + sum(u[j] * PA_fs_dict[j][i, :FCF] for j in 1:size(u)[1])) * (1 - penalty_rate * (sum(u[k] * marg_eff_cap[k, i] for k in 1:size(u)[1]) / baseline_eff_cap[i])) for i in 1:size(agent_fs)[1]-1))
+#    @objective(m, Max, sum((discount_factors[i] * agent_fs[i, :FCF] + sum(u sum(u[j] * PA_fs_dict[j][i, :FCF] for j in 1:size(u)[1])) * (1 - penalty_rate * (sum(u[k] * marg_eff_cap[k, i] for k in 1:size(u)[1]) / baseline_eff_cap[i])) for i in 1:size(agent_fs)[1]-1))
+
+    @info size(u)
+    @info size(PA_uids)
+    @info size(marg_eff_cap)
+    @info size(baseline_eff_cap)
+    @info size(agent_fs)
+    println(size([key for key in keys(system_portfolios)]))
+    @info size(system_portfolios[1])
+
+    lamda_1 = 0.9
+    lamda_2 = 0.1
+
+    #@objective(m, Max, transpose(u) * PA_uids[!, :NPV] - sum((transpose(transpose(u) * marg_eff_cap) ./ baseline_eff_cap[1:fc_pd]) .* (agent_fs[1:fc_pd, :FCF] ./ 1e9)))
+    #@objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (1 - 4.2) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])))) 
+    @objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * sum((agent_fs[!, :FCF] / 1e9 + transpose(transpose(u) * marg_FCF) + (1 - 4.2) * (agent_fs[!, :interest_payment] / 1e9 + transpose(transpose(u) * marg_int)))))
+   
+
     @info "Optimization model set up."
 
     return m
@@ -1289,6 +1306,12 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_perunit, :annualized_VOM_perunit, :annualized_FC_perunit])
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])
 
+    println(first(short_econ_results))
+    println(last(short_econ_results))
+
+    println(first(all_year_portfolios))
+    println(last(all_year_portfolios))
+
     # Inner join the year's portfolio with financial pivot
     fin_results = innerjoin(short_econ_results, all_year_portfolios, on = [:y, :unit_type])
 
@@ -1305,12 +1328,15 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     results_pivot = combine(groupby(fin_results, :y), [:total_rev, :total_VOM, :total_FC] .=> sum; renamecols=false)
 
     fs = DataFrame(
-             base_pd = ones(Int64, fc_pd+1) .* current_pd,
-             projected_pd = current_pd:fc_pd,
+             base_pd = ones(Int64, fc_pd) .* current_pd,
+             projected_pd = current_pd:current_pd+fc_pd-1,
              revenue = results_pivot[!, :total_rev],
              VOM = results_pivot[!, :total_VOM],
              fuel_costs = results_pivot[!, :total_FC]
          )
+
+    println(first(fs))
+    println(last(fs))
 
     # Fill in total FOM
     # Inner join the FOM table with the agent portfolios
@@ -1318,8 +1344,13 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* 1000) => :total_FOM)
     FOM_df = select(combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols=false), [:y, :total_FOM])
     rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
+    transform!(FOM_df, [:projected_pd] => ((y) -> y - 1) => :projected_pd)
+    println(first(FOM_df))
+    println(last(FOM_df))
 
     fs = innerjoin(fs, FOM_df, on = :projected_pd)
+    println(first(fs))
+    println(last(fs))
 
     # Fill in total depreciation
     total_pd_depreciation = DBInterface.execute(db, "SELECT projected_pd, SUM(depreciation) FROM depreciation_projections WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd") |> DataFrame
@@ -1362,8 +1393,6 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     transform!(fs, [:Net_Income, :depreciation, :capex] => ((NI, dep, capex) -> NI + dep - capex) => :FCF)
 
     # Save the dataframe to the database
-
-    println(fs)
 
     return fs
 

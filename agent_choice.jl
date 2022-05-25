@@ -19,7 +19,7 @@ using Logging
 @info "-----------------------------------------------------------"
 @info "Julia agent choice algorithm: starting"
 @info "Loading packages..."
-using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
+using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, CPLEX
 
 # Set up command-line parser
 s = ArgParseSettings()
@@ -100,8 +100,8 @@ total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 available_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand)
-#@info "Available demand:"
-#@info DataFrame(net_demand = available_demand)[1:10, :]
+@info "Available demand:"
+@info DataFrame(net_demand = available_demand)[1:10, :]
 
 # Load the price data
 price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
@@ -123,7 +123,7 @@ for y = 0:settings["num_dispatch_years"]
     rename!(year_portfolio, Symbol("COUNT(unit_type)") => :num_units)
 
     # Add the year-i portfolio to the dictionary
-    system_portfolios[y] = year_portfolio
+    system_portfolios[y+1] = year_portfolio
 end
 
 @info "Dispatch portfolios set up."
@@ -143,16 +143,15 @@ ts_data = Dispatch.load_ts_data(
 all_prices, all_gc_results = Dispatch.set_up_results_dfs()
 
 run_next_year = true
-y = 0
-while (run_next_year) && (y < settings["num_dispatch_years"])
+y = 1
+while (run_next_year) && (y <=settings["num_dispatch_years"])
     @info "Start of year $y dispatch simulation..."
     # Retrieve the current year's expected portfolio
     year_portfolio = system_portfolios[y]
 
     # Set up and run the dispatch simulation for this year
-    global run_next_year = Dispatch.run_annual_dispatch(y, year_portfolio, total_demand[y+1, :demand], ts_data, unit_specs, all_gc_results, all_prices)
+    global run_next_year = Dispatch.run_annual_dispatch(y, year_portfolio, total_demand[y, :demand], ts_data, unit_specs, all_gc_results, all_prices)
     @info "Year $y dispatch complete."
-    println(run_next_year)
 
     # Manually increment the year counter
     global y = y + 1
@@ -171,8 +170,11 @@ Dispatch.save_raw_results(all_prices, all_gc_results)
 @info "Postprocessing dispatch simulation..."
 long_econ_results, final_profit_pivot, final_gen_pivot, all_gc_results, all_prices = Dispatch.postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd)
 
+CSV.write("long_econ_results.csv", long_econ_results)
+
 @info "Setting up project alternatives..."
-PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, final_profit_pivot, all_gc_results)
+@info fc_pd
+PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results)
 
 @info "Project alternatives:"
 @info PA_uids
@@ -180,11 +182,12 @@ PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_
 ###### Set up the model
 system_portfolios = Dict()
 agent_system_portfolios = Dict()
-for y = 0:fc_pd
+for i = 1:fc_pd
+    k = pd + i - 1
     # Retrieve a list of all units expected to be operational during this year,
     #   grouped by unit type
-    year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
-    agent_year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
+    year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $k AND retirement_pd > $k AND cancellation_pd > $k GROUP BY unit_type") |> DataFrame
+    agent_year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $k AND retirement_pd > $k AND cancellation_pd > $k GROUP BY unit_type") |> DataFrame
 
     # Rename the COUNT(unit_type) column to num_units
     rename!(year_portfolio, Symbol("COUNT(unit_type)") => :num_units)
@@ -197,8 +200,8 @@ for y = 0:fc_pd
     transform!(year_portfolio, [:num_units, :CF, :capacity] => ((num_units, CF, cap) -> num_units .* CF .* cap) => :effective_capacity)
 
     # Add the year-i portfolio to the dictionary
-    system_portfolios[y] = year_portfolio
-    agent_system_portfolios[y] = agent_year_portfolio
+    system_portfolios[i] = year_portfolio
+    agent_system_portfolios[i] = agent_year_portfolio
 
 end
 
@@ -206,7 +209,7 @@ agent_all_year_portfolios = Dispatch.create_all_year_portfolios(agent_system_por
 
 agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, agent_all_year_portfolios)
 
-m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], system_portfolios, db, agent_id, final_profit_pivot, agent_fs)
+m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], system_portfolios, db, agent_id, final_profit_pivot, agent_fs, fc_pd)
 
 ###### Solve the model
 @info "Solving optimization problem..."

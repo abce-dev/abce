@@ -90,7 +90,7 @@ function set_up_wind_solar_repdays(ts_data)
 end
 
 
-function set_up_model(ts_data, year_portfolio, unit_specs, y)
+function set_up_model(ts_data, year_portfolio, unit_specs)
     # Create joined portfolio-unit_specs dataframe, to ensure consistent
     #   accounting for units which are actually present and consistent
     #   unit ordering
@@ -290,8 +290,6 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     # Constants
     num_hours = 24
 
-    println(year_portfolio)
-
     # Scale the load data to the PD value for this year
     ts_data = scale_load(ts_data, peak_demand)
 
@@ -306,7 +304,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     ts_data = set_up_wind_solar_repdays(ts_data)
 
     @info "Setting up optimization model..."
-    m, portfolio_specs = set_up_model(ts_data, year_portfolio, unit_specs, y)
+    m, portfolio_specs = set_up_model(ts_data, year_portfolio, unit_specs)
 
     @info "Optimization model set up."
     @info string("Solving repday dispatch for year ", y, "...")
@@ -442,18 +440,7 @@ end
 function compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd)
     # Combine the system portfolios into a single dataframe with indicator
     #   column :y
-    all_year_portfolios = DataFrame()
-    for i = 0:length(keys(system_portfolios))-1
-        df = system_portfolios[i]
-        df[!, :y] .= i
-        append!(all_year_portfolios, df)
-    end
-
-    for i = length(keys(system_portfolios)):fc_pd
-        df = system_portfolios[length(keys(system_portfolios))-1]
-        df[!, :y] .= i
-        append!(all_year_portfolios, df)
-    end
+    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd)
 
     # Calculate operating and net profit per unit per unit type
     g_unpivot = innerjoin(g_unpivot, all_year_portfolios, on = [:unit_type, :y])
@@ -495,14 +482,14 @@ function create_all_year_portfolios(system_portfolios, fc_pd)
 
     # Explicit dispatch results
     all_year_portfolios = DataFrame()
-    for i = 0:length(keys(system_portfolios))-1
+    for i = 1:length(keys(system_portfolios))
         df = system_portfolios[i]
         df[!, :y] .= i
         append!(all_year_portfolios, df)
     end
 
     # Extend dispatch results by assuming no change after last dispatch year
-    for i = length(keys(system_portfolios)):fc_pd
+    for i = length(keys(system_portfolios))+1:fc_pd
         df = system_portfolios[length(keys(system_portfolios))-1]
         df[!, :y] .= i
         append!(all_year_portfolios, df)
