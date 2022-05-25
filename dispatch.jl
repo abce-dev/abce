@@ -518,13 +518,19 @@ end
 function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
     # Organize data
     long_rev_results = deepcopy(g_pivot)
-    long_rev_results = stack(long_rev_results, 4:9)
-    rename!(long_rev_results, :variable => :unit_type, :value => :gen)
-    short_unit_specs = select(unit_specs, [:unit_type, :capacity, :VOM, :FC_per_MWh])
-    long_rev_results = innerjoin(long_rev_results, short_unit_specs, on = :unit_type)
 
     # Get a single long dataframe with unit numbers by type for each year
     all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
+
+    # Get a list of all long_rev_results columns whose names match entries in
+    #   unit_specs
+    types_list = unit_specs[!, :unit_type]
+    extant_types = [col for col in names(long_rev_results) if col in types_list]
+    
+    long_rev_results = stack(long_rev_results, extant_types)
+    rename!(long_rev_results, :variable => :unit_type, :value => :gen)
+    short_unit_specs = select(unit_specs, [:unit_type, :capacity, :VOM, :FC_per_MWh])
+    long_rev_results = innerjoin(long_rev_results, short_unit_specs, on = :unit_type)
 
     # Append unit number data to long_rev_results
     long_rev_results = innerjoin(long_rev_results, all_year_portfolios, on = [:y, :unit_type])
@@ -549,20 +555,7 @@ function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_d
 
     long_econ_results = postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
 
-   # Set up revenue columns in g_pivot
-    g_pivot = set_up_ppx_revenue(g_pivot, ts_data, unit_specs)
-
-    # Reorganize the g_pivot dataframe
-    g_unpivot, g_gen = reorganize_g_pivot(g_pivot, unit_specs)
-
-    # Compute operating and net profit, including by unit type
-    final_profit_pivot = compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd, current_pd)
-    final_gen_pivot = compute_final_gen(g_gen, system_portfolios, fc_pd, current_pd)
-
-    CSV.write("unit_profit_summary.csv", final_profit_pivot)
-    CSV.write("unit_generation_summary.csv", final_gen_pivot)
-
-    return long_econ_results, final_profit_pivot, final_gen_pivot, all_gc_results, all_prices
+    return long_econ_results
 end
 
 end
