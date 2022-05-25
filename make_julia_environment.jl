@@ -49,6 +49,7 @@ println("All libraries added to the environment.")
 
 # Ensure all non-default Python packages are installed via Conda.jl
 println("Ensuring Conda packages are installed...")
+Pkg.build("Conda")
 using Conda
 for i=1:size(conda_list)[1]
     println(string("Adding ", conda_list[i]))
