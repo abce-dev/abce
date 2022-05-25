@@ -1161,8 +1161,8 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     println(size([key for key in keys(system_portfolios)]))
     @info size(system_portfolios[1])
 
-    lamda_1 = 0.9
-    lamda_2 = 0.1
+    lamda_1 = 1.0 / 1e9
+    lamda_2 = 1.0
 
     #@objective(m, Max, transpose(u) * PA_uids[!, :NPV] - sum((transpose(transpose(u) * marg_eff_cap) ./ baseline_eff_cap[1:fc_pd]) .* (agent_fs[1:fc_pd, :FCF] ./ 1e9)))
     #@objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (1 - 4.2) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])))) 
@@ -1344,7 +1344,7 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* 1000) => :total_FOM)
     FOM_df = select(combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols=false), [:y, :total_FOM])
     rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
-    transform!(FOM_df, [:projected_pd] => ((y) -> y - 1) => :projected_pd)
+    transform!(FOM_df, [:projected_pd] => ((y) -> y .- 1 .+ current_pd) => :projected_pd)
     println(first(FOM_df))
     println(last(FOM_df))
 
