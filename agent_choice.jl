@@ -124,8 +124,8 @@ for y = pd:settings["num_dispatch_years"]+pd
 
     # Add the year-i portfolio to the dictionary
     system_portfolios[y] = year_portfolio
-    @info y
-    @info system_portfolios[y]
+    @debug y
+    @debug system_portfolios[y]
 end
 
 @info "Dispatch portfolios set up."
@@ -185,12 +185,10 @@ PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_
 system_portfolios = Dict()
 agent_system_portfolios = Dict()
 for i = pd:pd+fc_pd-1
-    #k = pd + i - 1
-    k = i
     # Retrieve a list of all units expected to be operational during this year,
     #   grouped by unit type
-    year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $k AND retirement_pd > $k AND cancellation_pd > $k GROUP BY unit_type") |> DataFrame
-    agent_year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $k AND retirement_pd > $k AND cancellation_pd > $k GROUP BY unit_type") |> DataFrame
+    year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $i AND retirement_pd > $i AND cancellation_pd > $i GROUP BY unit_type") |> DataFrame
+    agent_year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $i AND retirement_pd > $i AND cancellation_pd > $i GROUP BY unit_type") |> DataFrame
 
     # Rename the COUNT(unit_type) column to num_units
     rename!(year_portfolio, Symbol("COUNT(unit_type)") => :num_units)
