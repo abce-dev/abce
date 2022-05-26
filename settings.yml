@@ -14,9 +14,8 @@ output_file: "outputs.xlsx"
 
 first_asset_id: 2001
 
-num_steps: 1
+num_steps: 3
 
-revenue_prediction_mode: "price_curve"  # "price_curve" or "dispatch"
 use_precomputed_price_curve: True
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
@@ -35,6 +34,8 @@ policies:
 num_repdays: 25
 
 allowed_xtr_types:
+  - Wind
+  - NGCC
   - PWR_C2N0
   - HTGR_C2N0
   - SFR_C2N0
