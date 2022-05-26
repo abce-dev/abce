@@ -256,7 +256,7 @@ end
 
 
 function get_next_asset_id(db)
-    tables_to_check = ["assets", "WIP_projects", "asset_updates", "WIP_updates"]
+    tables_to_check = ["assets", "WIP_projects", "asset_updates", "WIP_updates", "depreciation_projections"]
 
     id_vals = Vector{Any}()
 
