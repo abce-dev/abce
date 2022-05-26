@@ -1175,7 +1175,7 @@ end
 
 
 ### Postprocessing
-function postprocess_agent_decisions(all_results, unit_data, db, current_pd, agent_id)
+function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, agent_id)
     for i = 1:size(all_results)[1]
         # Retrieve the individual result row for convenience
         result = all_results[i, :]
@@ -1183,13 +1183,18 @@ function postprocess_agent_decisions(all_results, unit_data, db, current_pd, age
         if result[:project_type] == "new_xtr"
         # New construction decisions are binding for this period only
             if (result[:lag] == 0) && (result[:units_to_execute] != 0)
-                record_new_construction_projects(result, unit_data, db, current_pd, agent_id)
+                record_new_construction_projects(result, unit_specs, db, current_pd, agent_id)
+                # If the project is a C2N project, retire two coal units at
+                #    the appropriate time
+                if occursin(C2N, result[:unit_type])
+                    record_asset_retirement(result, db, agent_id, unit_specs, current_pd, mode="C2N_newbuild")
+                end
             end
         elseif result[:project_type] == "retirement"
         # Retirements are recorded as binding, whether the retirement date is
         #   this period or in the future
             if result[:units_to_execute] != 0
-                record_asset_retirements(result, db, agent_id)
+                record_asset_retirements(result, db, agent_id, unit_specs, current_pd)
             end
         else
             @warn "I'm not sure what to do with the following project type:"
@@ -1265,19 +1270,45 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
 end
 
 
-function record_asset_retirements(result, db, agent_id)
-    # Generate a list of assets which match 'result' on agent owner, 
-    #   unit type, and mandatory retirement date
-    match_vals = (result[:unit_type], result[:ret_pd], agent_id)
-    ret_candidates = DBInterface.execute(
-        db,
-        "SELECT asset_id FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?",
-        match_vals
-    ) |> DataFrame
+function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; mode="standalone")
+    if mode == "standalone"
+        # Generate a list of assets which match 'result' on agent owner, 
+        #   unit type, and mandatory retirement date
+        match_vals = (result[:unit_type], result[:ret_pd], agent_id)
+        ret_candidates = DBInterface.execute(
+            db,
+            "SELECT asset_id FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?",
+            match_vals
+        ) |> DataFrame
+
+        # Set the number of units to execute
+        units_to_execute = result[:units_to_execute]
+
+        # Set the new retirement pd
+        new_ret_pd = result[:lag]
+
+    elseif mode == "C2N_newbuild"
+        # Determine the period in which the coal units must retire
+        unit_type_specs = filter(:unit_type => x -> x == result[:unit_type], unit_specs)[1, :]
+        new_ret_pd = current_pd + convert(Int64, ceil(round(unit_type_specs[:coal_ret_lead], digits=3)))
+
+        # Generate a list of coal units which will still be operational by
+        #   the necessary period
+        match_vals = (new_ret_pd, new_ret_pd, agent_id)
+        ret_candidates = DBInterface.execute(
+            db,
+            "SELECT asset_id FROM assets WHERE unit_type = 'Coal' AND completion_pd <= ? AND retirement_pd > ? AND agent_id = ?",
+            match_vals
+        ) |> DataFrame
+
+        # Set the number of units to execute
+        units_to_execute = 2
+
+    end
 
     # Retire as many of these matching assets as is indicated by the agent
     #   optimization result
-    for j = 1:result[:units_to_execute]
+    for j = 1:units_to_execute
         asset_to_retire = ret_candidates[convert(Int64, j), :asset_id]
         asset_data = DBInterface.execute(
             db,
@@ -1286,7 +1317,7 @@ function record_asset_retirements(result, db, agent_id)
 
         # Overwrite the original record's retirement period with the current
         #   period
-        asset_data[1, :retirement_pd] = result[:lag]
+        asset_data[1, :retirement_pd] = new_ret_pd
         replacement_data = [item for item in asset_data[1, :]]
 
         # Save this new record to the asset_updates table
