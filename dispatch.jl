@@ -292,7 +292,7 @@ function set_up_model(ts_data, year_portfolio, unit_specs)
         end
     end
 
-    @objective(m, Min, sum(sum(sum(g[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] .* portfolio_specs[i, :heat_rate]) for i = 1:num_units))
+    @objective(m, Min, sum(sum(sum(g[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh]) for i = 1:num_units))
 
     return m, portfolio_specs
 end
