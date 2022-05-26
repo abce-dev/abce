@@ -16,6 +16,7 @@ first_asset_id: 2001
 
 num_steps: 1
 
+revenue_prediction_mode: "price_curve"  # "price_curve" or "dispatch"
 use_precomputed_price_curve: True
 enable_subsidy: True
 subsidy_amount: 40    # $/MWh
