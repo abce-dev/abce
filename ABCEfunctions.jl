@@ -1116,15 +1116,15 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     end
 
     # Enforce the user-specified maximum number of new construction/retirement
-    #   projects by type per period
+    #   projects by type per period, and the :allowed field in PA_uids
     for i = 1:num_alternatives
         if PA_uids[i, :project_type] == "new_xtr"
-            @constraint(m, u[i] .<= settings["max_type_newbuilds_per_pd"])
+            @constraint(m, u[i] .<= convert(Int64, PA_uids[i, :allowed]) .* settings["max_type_newbuilds_per_pd"])
         elseif PA_uids[i, :project_type] == "retirement"
             unit_type = PA_uids[i, :unit_type]
             ret_pd = PA_uids[i, :ret_pd]
             asset_count = filter([:unit_type, :retirement_pd] => (x, y) -> x == unit_type && y == ret_pd, asset_counts)[1, :count]
-            max_retirement = min(asset_count, settings["max_type_rets_per_pd"])
+            max_retirement = convert(Int64, PA_uids[i, :allowed]) .* min(asset_count, settings["max_type_rets_per_pd"])
             @constraint(m, u[i] .<= max_retirement)
         end
     end
