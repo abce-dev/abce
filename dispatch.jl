@@ -1,6 +1,112 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX
+using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, SQLite
+
+
+function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
+    @info string("Running the dispatch simulation for ", settings["num_dispatch_years"], " years...")
+
+    # Set up all timeseries data
+    ts_data = load_ts_data(
+                  joinpath(settings["ABCE_abs_path"],
+                           "inputs",
+                           "ALEAF_inputs"
+                  ),
+                  settings["num_repdays"]
+              )
+
+    # Set up dataframes to record all results
+    all_prices, all_gc_results = set_up_results_dfs()
+
+    long_econ_results = handle_annual_dispatch(
+                            settings,
+                            current_pd,
+                            fc_pd,
+                            all_year_system_portfolios,
+                            total_demand,
+                            ts_data,
+                            unit_specs,
+                            all_gc_results,
+                            all_prices
+                        )
+
+    return long_econ_results
+end
+
+
+function set_up_dispatch_portfolios(db, year_of_interest, fc_pd, agent_id, unit_specs)
+    # Set up portfolio dictionaries
+    @debug "Setting up dispatch portfolios..."
+    all_year_system_portfolios = Dict()
+    all_year_agent_portfolios = Dict()
+
+    for y = year_of_interest:year_of_interest+fc_pd
+        # Retrieve annual system portfolios
+        system_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $year_of_interest AND retirement_pd > $year_of_interest AND cancellation_pd > $year_of_interest GROUP BY unit_type") |> DataFrame
+
+        # Retrieve annual system portfolios for the current agent
+        agent_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $year_of_interest AND retirement_pd > $year_of_interest AND cancellation_pd > $year_of_interest GROUP BY unit_type") |> DataFrame
+
+        # Clean up column names in the portfolio dataframes
+        rename!(system_portfolio, Symbol("COUNT(unit_type)") => :num_units)
+        rename!(agent_portfolio, Symbol("COUNT(unit_type)") => :num_units)
+
+        all_year_system_portfolios[y] = system_portfolio
+        all_year_agent_portfolios[y] = agent_portfolio
+    end
+
+    return all_year_system_portfolios, all_year_agent_portfolios
+
+end
+
+
+function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices)
+    # Run the annual dispatch for the user-specified number of dispatch years
+    for y = current_pd:current_pd+settings["num_dispatch_years"]
+        @info "\n\nDISPATCH SIMULATION: YEAR $y"
+
+        # Select the current year's expected portfolio
+        year_portfolio = all_year_system_portfolios[y]
+
+        # Determine appropriate demand for this year
+        demand_year = y - current_pd + 1 # add 1 because Julia is 1-indexed
+        year_demand = total_demand[demand_year, :demand]
+
+        # Set up and run the dispatch simulation for this year
+        # This function updates all_gc_results and all_prices in-place, and
+        #   returns a boolean to determine whether the next year should be run
+        run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices)
+
+        @info "DISPATCH SIMULATION: YEAR $y COMPLETE."
+        @info "RUN NEXT YEAR: $run_next_year"
+
+        if !run_next_year
+            break
+        end
+    end
+
+    # If no years ran correctly, throw an error and exit
+    if size(all_gc_results)[1] == 0
+        throw(ErrorException("No dispatch simulations could be run. Re-check your inputs."))
+    end
+
+    # Propagate the results dataframes out to the end of the projection horizon
+    # Assume no change after the last modeled year
+    all_gc_results, all_prices = propagate_all_results(fc_pd-1, all_gc_results, all_prices, current_pd)
+
+    # Save the raw results
+    save_raw_results(all_prices, all_gc_results)
+
+    # Create the final results set for use by the agent decision algorithm
+    @info "Postprocessing all dispatch results..."
+    long_econ_results = postprocess_results(all_year_system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
+
+    # Save a copy of the results to file
+    CSV.write("./long_econ_results_$current_pd.csv", long_econ_results)
+
+    return long_econ_results    
+
+end
 
 
 function load_ts_data(ts_file_dir, num_repdays)

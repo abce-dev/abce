@@ -111,69 +111,11 @@ unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
 
 @info "Data initialized."
 
-# Set up portfolio projections
-@info "Setting up dispatch portfolios..."
-system_portfolios = Dict()
-for y = pd:settings["num_dispatch_years"]+pd
-    # Retrieve a list of all units expected to be operational during this year,
-    #   grouped by unit type
-    year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
-
-    # Rename the COUNT(unit_type) column to num_units
-    rename!(year_portfolio, Symbol("COUNT(unit_type)") => :num_units)
-
-    # Add the year-i portfolio to the dictionary
-    system_portfolios[y] = year_portfolio
-    @debug y
-    @debug system_portfolios[y]
+#if settings["revenue_prediction_mode"] == "dispatch"
+if true
+    all_year_system_portfolios, all_year_agent_portfolios = Dispatch.set_up_dispatch_portfolios(db, pd, fc_pd, agent_id, unit_specs)
+    long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
 end
-
-@info "Dispatch portfolios set up."
-
-# Run dispatch for each forecast year
-@info string("Running the dispatch simulation for ", settings["num_dispatch_years"], " years...")
-num_repdays = settings["num_repdays"]
-ts_data = Dispatch.load_ts_data(
-              joinpath(settings["ABCE_abs_path"],
-                       "inputs",
-                       "ALEAF_inputs"
-              ),
-              num_repdays
-          )
-
-# Set up dataframes to record all results
-all_prices, all_gc_results = Dispatch.set_up_results_dfs()
-
-run_next_year = true
-y = pd
-while (run_next_year) && (y <=settings["num_dispatch_years"])
-    @info "Start of year $y dispatch simulation..."
-    # Retrieve the current year's expected portfolio
-    year_portfolio = system_portfolios[y]
-
-    # Set up and run the dispatch simulation for this year
-    # total_demand is 0-indexed
-    global run_next_year = Dispatch.run_annual_dispatch(y, year_portfolio, total_demand[y+1, :demand], ts_data, unit_specs, all_gc_results, all_prices)
-    @info "Year $y dispatch complete."
-
-    # Manually increment the year counter
-    global y = y + 1
-end
-
-if size(all_gc_results)[1] == 0
-    throw(ErrorException("No dispatch simulations were able to be run. Re-check your inputs."))
-end
-
-# Propagate the results dataframes out to the end of the projection horizon
-# Assume no change after the last modeled year
-all_gc_results, all_prices = Dispatch.propagate_all_results(fc_pd-1, all_gc_results, all_prices, pd)
-
-Dispatch.save_raw_results(all_prices, all_gc_results)
-
-@info "Postprocessing dispatch simulation..."
-long_econ_results = Dispatch.postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, pd)
-
-CSV.write("long_econ_results_$pd.csv", long_econ_results)
 
 @info "Setting up project alternatives..."
 PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results, settings["allowed_xtr_types"])
@@ -182,35 +124,11 @@ PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_
 @info PA_uids
 
 ###### Set up the model
-system_portfolios = Dict()
-agent_system_portfolios = Dict()
-for i = pd:pd+fc_pd-1
-    # Retrieve a list of all units expected to be operational during this year,
-    #   grouped by unit type
-    year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $i AND retirement_pd > $i AND cancellation_pd > $i GROUP BY unit_type") |> DataFrame
-    agent_year_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $i AND retirement_pd > $i AND cancellation_pd > $i GROUP BY unit_type") |> DataFrame
+unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_portfolios, fc_pd, pd)
 
-    # Rename the COUNT(unit_type) column to num_units
-    rename!(year_portfolio, Symbol("COUNT(unit_type)") => :num_units)
-    rename!(agent_year_portfolio, Symbol("COUNT(unit_type)") => :num_units)
+agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios)
 
-    year_portfolio = innerjoin(unit_specs, year_portfolio, on = :unit_type)
-
-    year_portfolio = select(year_portfolio, [:unit_type, :num_units, :CF, :capacity])
-
-    transform!(year_portfolio, [:num_units, :CF, :capacity] => ((num_units, CF, cap) -> num_units .* CF .* cap) => :effective_capacity)
-
-    # Add the year-i portfolio to the dictionary
-    system_portfolios[i] = year_portfolio
-    agent_system_portfolios[i] = agent_year_portfolio
-
-end
-
-agent_all_year_portfolios = Dispatch.create_all_year_portfolios(agent_system_portfolios, fc_pd, pd)
-
-agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, agent_all_year_portfolios)
-
-m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], system_portfolios, db, agent_id, agent_fs, fc_pd)
+m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
 @info "Solving optimization problem..."
