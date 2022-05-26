@@ -1186,7 +1186,7 @@ function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, ag
                 record_new_construction_projects(result, unit_specs, db, current_pd, agent_id)
                 # If the project is a C2N project, retire two coal units at
                 #    the appropriate time
-                if occursin(C2N, result[:unit_type])
+                if occursin("C2N", result[:unit_type])
                     record_asset_retirement(result, db, agent_id, unit_specs, current_pd, mode="C2N_newbuild")
                 end
             end
