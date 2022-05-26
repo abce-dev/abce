@@ -470,10 +470,10 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
 
         # save a representative example of each unit type to file (new_xtr only)
-        #if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag]) == 0
-        #    ctype = current_PA[:unit_type]
-        #    CSV.write("./$ctype.fs.csv", PA_fs_dict[uid])
-        #end
+        if (current_PA[:project_type] == "retirement") && (current_PA[:lag]) == 0
+            ctype = current_PA[:unit_type]
+            CSV.write("./$ctype.fs.csv", PA_fs_dict[uid])
+        end
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
@@ -790,11 +790,18 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
         rev_end = min(orig_ret_pd, size(unit_fs)[1]-1)
     end
 
+    # If the project is a C2N project, use the AdvancedNuclear results
+    # Otherwise, use the unit's own results
+    type_filter = unit_type_data[:unit_type]
+    if occursin("C2N", unit_type_data[:unit_type])
+        type_filter = "AdvancedNuclear"
+    end
+
     # Compute final projected revenue series
 #    unit_fs[rev_start:rev_end, :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
     agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_rev_perunit => sum, renamecols=false)
     for y = rev_start:rev_end
-        row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == unit_type_data[:unit_type]), agg_econ_results)
+        row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
         if size(row)[1] != 0
             unit_fs[y, :Revenue] = row[1, :annualized_rev_perunit]
         else
@@ -834,13 +841,20 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
         gen_end = min(orig_ret_pd, size(unit_fs)[1])
     end
 
+    # If the project is a C2N project, use the AdvancedNuclear results
+    # Otherwise, use the unit's own results
+    type_filter = unit_type_data[:unit_type]
+    if occursin("C2N", unit_type_data[:unit_type])
+        type_filter = "AdvancedNuclear"
+    end
+
     transform!(long_econ_results, [:gen, :Probability, :num_units] => ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) => :annualized_gen_perunit)
     agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_gen_perunit => sum, renamecols=false)
 
     # Distribute generation values time series
 #    unit_fs[gen_start:gen_end, :gen] .= gen
     for y = gen_start:gen_end
-        row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == unit_type_data[:unit_type]), agg_econ_results)
+        row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
         if size(row)[1] == 1
             unit_fs[y, :gen] = row[1, :annualized_gen_perunit]
             #unit_fs[y, :gen] = filter([:unit_type, :y] => (unit_type, df_y) -> (unit_type == unit_type_data[:unit_type]) && (df_y == y), final_gen_results)[1, :GenPerUnit]
