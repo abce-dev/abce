@@ -67,7 +67,7 @@ end
 
 function set_forecast_period(unit_specs, num_lags)
     transform!(unit_specs, [:d_x, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
-    max_horizon = maximum(unit_specs[!, :full_life]) + num_lags
+    max_horizon = convert(Int64, ceil(maximum(unit_specs[!, :full_life]) + num_lags))
     return max_horizon
 end
 
@@ -281,7 +281,7 @@ function get_unit_specs(db)
     df = DBInterface.execute(db, "SELECT * FROM unit_specs") |> DataFrame
     num_types = size(df)[1]
     # Convert the Int-type columns to Int64
-    df[!, :d_x] = convert.(Int64, df[:, :d_x])
+    #df[!, :d_x] = convert.(Int64, df[:, :d_x])
     df[!, :unit_life] = convert.(Int64, df[:, :unit_life])
     return df, num_types
 end
@@ -547,19 +547,39 @@ function generate_capex_profile(unit_type_data, lag, fc_pd)
     # No construction expenditures before the project begins
     head_zeros = zeros(lag)
 
-    # Uniformly distribute projected total project costs over the construction
-    #   period
-    capex_per_pd = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW / unit_type_data[:d_x]
-    capex = ones(unit_type_data[:d_x]) .* capex_per_pd
+    if occursin("C2N", unit_type_data[:unit_type])
+        capex = project_C2N_capex(unit_type_data, lag, fc_pd)
+    else
+        # Uniformly distribute projected total project costs over the construction
+        #   period
+        capex_per_pd = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW / unit_type_data[:d_x]
+        capex = ones(convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))) .* capex_per_pd
+    end
 
     # No construction expenditures from the end of construction until the end
     #   of the model's forecast period
-    tail_zeros = zeros(fc_pd - lag - unit_type_data[:d_x])
+    tail_zeros = zeros(fc_pd - lag - convert(Int64, ceil(unit_type_data[:d_x])))
 
     # Concatenate the above series into one
     capex_column = vcat(head_zeros, capex, tail_zeros)
 
     return capex_column
+end
+
+
+function project_C2N_capex(unit_type_data, lag, fc_pd)
+    # Uniformly distribute projected total project costs
+    capex_per_pd = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW / unit_type_data[:d_x]
+
+    # Assign all periods to the nominal capex_per_pd
+    capex = ones(convert(Int64, ceil(unit_type_data[:d_x]))) * capex_per_pd
+
+    # Prorate the last period according to fraction of year duration remaining
+    last_year_capex = (unit_type_data[:d_x] - floor(unit_type_data[:d_x])) * capex_per_pd
+    capex[size(capex)[1]] = last_year_capex
+
+    return capex
+
 end
 
 
@@ -569,7 +589,7 @@ end
 Set up the record of the accrual of debt during construction.
 """
 function set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
-    for i = lag+1:lag+unit_type_data[:d_x]
+    for i = lag+1:lag+convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
         unit_fs[i, :remaining_debt_principal] = sum(unit_fs[1:i, :capex]) * agent_params[1, :debt_fraction]
     end
 end
@@ -586,7 +606,7 @@ Generate the "prime mover" time series during the operating life of the plant:
 Revenue is calculated in a separate function.
 """
 function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
-    unit_d_x = unit_type_data[:d_x]
+    unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
     for i = (lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life)
         # Apply a constant debt payment (sinking fund at cost of debt), based
@@ -748,7 +768,7 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
     check_valid_vector_mode(mode)
 
     # Helpful short variables
-    unit_d_x = unit_type_data[:d_x]
+    unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
 
     # Add a Revenue column to the financial statement dataframe
@@ -793,7 +813,7 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
-    unit_d_x = unit_type_data[:d_x]
+    unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
 
     # Compute total generation
@@ -844,7 +864,7 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
-    unit_d_x = unit_type_data[:d_x]
+    unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
 
     # Compute total fuel cost
