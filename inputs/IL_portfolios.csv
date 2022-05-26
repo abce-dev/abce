@@ -3,7 +3,7 @@ agent_id,unit_type,num_units
 201,Solar,7
 201,NGCC,32
 201,NGCT,226
-201,AdvancedNuclear,25
-201,Coal,9
+201,ConventionalNuclear,25
+201,Coal,5
 202,NGCC,20
 202,Coal,10
