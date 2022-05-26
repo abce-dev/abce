@@ -34,7 +34,9 @@ policies:
 num_repdays: 25
 
 allowed_xtr_types:
-  - AdvancedNuclear
+  - PWR_C2N0
+  - HTGR_C2N0
+  - SFR_C2N0
 
 #peak_demand: 28967  # MWh, to scale load duration data
 peak_demand: 25000
