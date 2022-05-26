@@ -136,7 +136,7 @@ def update_DB_table_inplace(db, cur, table, new_data, where):
 
 
 
-def process_outputs(settings, output_dir):
+def process_outputs(settings, output_dir, unit_specs):
     """
     A handler function for postprocessing A-LEAF results stored from the
       individual time-steps of an ABCE simulation run.
@@ -161,13 +161,13 @@ def process_outputs(settings, output_dir):
         file_lists[ftype] = glob.glob(os.path.join(output_dir, f"*{ftype}*"))
 
     # Postprocess the expansion results
-    expansion_results = process_expansion_results(file_lists["expansion_result"], output_dir, ALEAF_scenario_name)
+    expansion_results = process_expansion_results(file_lists["expansion_result"], output_dir, ALEAF_scenario_name, unit_specs)
 
     # Postprocess the system-level results
     system_summary_results = process_system_summary(file_lists["system_summary_OP"], output_dir, ALEAF_scenario_name)
 
     # Postprocess the generation unit type results
-    system_tech_results = process_tech_summary(file_lists["system_tech_summary_OP"], output_dir, ALEAF_scenario_name)
+    system_tech_results = process_tech_summary(file_lists["system_tech_summary_OP"], output_dir, ALEAF_scenario_name, unit_specs)
 
     # Postprocess the electricity price data
     unsorted_lmp_data, sorted_lmp_data = process_dispatch_data(file_lists["dispatch_summary_OP"], output_dir, ALEAF_scenario_name)
@@ -191,7 +191,7 @@ def process_outputs(settings, output_dir):
     plot_pdcs(sorted_lmp_data)
 
 
-def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name):
+def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name, unit_specs):
     """
     Process the "capacity expansion" results output by A-LEAF. For ABCE,
       A-LEAF should never be able to actually build or retire new units, so
@@ -214,8 +214,12 @@ def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name):
 
     # Delete unneeded columns and give unit id more helpful names
     exp_df = exp_df.drop(["u_new_i", "u_ret_i"], axis=1)
-    unit_types = ["Wind", "Solar", "Coal", "NGCC", "NGCT", "Advanced Nuclear"]
-    exp_df["unit_id"] = unit_types
+
+    # Warning: this currently assumes the units in unit_specs are listed in the
+    #   same order as in the A-LEAF outputs
+    # unit_specs should inherit its ordering from the master A-LEAF unit specs
+    #   file, but this may be fragile.
+    exp_df["unit_id"] = unit_specs["unit_type"]
     exp_df = exp_df.rename(columns={"unit_id": "unit_type"})
 
     # Create separate dataframe in MW instead of # of units
@@ -278,7 +282,7 @@ def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
     return ss_df
 
 
-def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name):
+def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name, unit_specs):
     """
     Process all sets of A-LEAF unit-type summary statistics. Cleans up unit
       type names and then organizes results into a unified dataframe.
@@ -291,8 +295,10 @@ def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name):
 
         # Clean up unit type representation
         df = df.rename(columns={"UnitGroup": "unit_type"})
-        unit_types = ["Wind", "Solar", "Coal", "NGCC", "NGCT", "Advanced Nuclear"]
-        df["unit_type"] = unit_types
+
+        # Replace default numbers with unit names
+        # Same fragility warning as process_expansion_results()
+        df["unit_type"] = unit_specs["unit_type"]
 
         # If this is step 0, use the file to set up DataFrames for all tracked
         #   items
