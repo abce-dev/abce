@@ -176,7 +176,7 @@ long_econ_results = Dispatch.postprocess_results(system_portfolios, all_prices, 
 CSV.write("long_econ_results_$pd.csv", long_econ_results)
 
 @info "Setting up project alternatives..."
-PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results)
+PA_uids, PA_fs_dict = set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results, settings["allowed_xtr_types"])
 
 @info "Project alternatives:"
 @info PA_uids

@@ -340,8 +340,8 @@ end
 #####
 
 
-function set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
-    PA_uids = create_PA_unique_ids(unit_specs, asset_counts, num_lags)
+function set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results, allowed_xtr_types)
+    PA_uids = create_PA_unique_ids(unit_specs, asset_counts, num_lags, allowed_xtr_types)
 
     PA_fs_dict = create_PA_pro_formas(PA_uids, fc_pd)
 
@@ -351,14 +351,15 @@ function set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, 
 
 end
 
-function create_PA_unique_ids(unit_specs, asset_counts, num_lags)
+function create_PA_unique_ids(unit_specs, asset_counts, num_lags, allowed_xtr_types)
     PA_uids = DataFrame(
                    unit_type = String[],
                    project_type = String[],
                    lag = Int64[],
                    ret_pd = Union{Int64, Nothing}[],
                    uid = Int64[],
-                   NPV = Float64[]
+                   NPV = Float64[],
+                   allowed = Bool[]
                )
 
     # First project ID is 1
@@ -371,18 +372,25 @@ function create_PA_unique_ids(unit_specs, asset_counts, num_lags)
     # New construction
     project_type = "new_xtr"
     for unit_type in unit_specs[!, :unit_type]
+        # Assume alternative is alterable unless set up otherwise
+        allowed=true
+        if !(unit_type in allowed_xtr_types)
+            allowed=false
+        end
+
         for lag = 0:num_lags
-            push!(PA_uids, [unit_type project_type lag nothing uid NPV])
+            push!(PA_uids, [unit_type project_type lag nothing uid NPV allowed])
             uid += 1
         end
     end
 
     # Retirement
     project_type = "retirement"
+    allowed = true   # by default, retirements are always allowed
     for unit_type in unique(asset_counts[!, :unit_type])
         for ret_pd in filter(:unit_type => x -> x == unit_type, asset_counts)[!, :retirement_pd]
             for lag = 0:num_lags
-                push!(PA_uids, [unit_type project_type lag ret_pd uid NPV])
+                push!(PA_uids, [unit_type project_type lag ret_pd uid NPV allowed])
                 uid += 1
             end
         end

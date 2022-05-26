@@ -14,7 +14,7 @@ output_file: "outputs.xlsx"
 
 first_asset_id: 2001
 
-num_steps: 6
+num_steps: 1
 
 use_precomputed_price_curve: True
 enable_subsidy: True
@@ -32,6 +32,9 @@ policies:
       - Solar
     qty: 10   # $/MWh
 num_repdays: 25
+
+allowed_xtr_types:
+  - AdvancedNuclear
 
 #peak_demand: 28967  # MWh, to scale load duration data
 peak_demand: 25000
@@ -59,6 +62,6 @@ ALEAF_abs_path: "/home/biegelk/kb_aleaf"
 ALEAF_master_settings_file: "ALEAF_Master_original.xlsx"
 ALEAF_model_type: "LC_GEP"
 ALEAF_region: "IL"
-ALEAF_model_settings_file: "ALEAF_Master_LC_GEP_IL.xlsx"
-ALEAF_portfolio_file: "ALEAF_IL.xlsx"
-ALEAF_scenario_name: "ABCE_IL"
+ALEAF_model_settings_file: "ALEAF_Master_LC_GEP_IL_C2N.xlsx"
+ALEAF_portfolio_file: "ALEAF_IL_C2N.xlsx"
+ALEAF_scenario_name: "ABCE_IL_C2N"
