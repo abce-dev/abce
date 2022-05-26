@@ -114,9 +114,6 @@ class GridModel(Model):
             self.schedule.add(gc)
             self.initialize_agent_assets(agent_id)
 
-        # Determine price-prediction mode setting
-        self.revenue_prediction_mode = settings["revenue_prediction_mode"]
-
         # Determine setting for use of a precomputed price curve
         self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
 
