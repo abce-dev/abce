@@ -67,10 +67,11 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
 
         # Select the current year's expected portfolio
         year_portfolio = all_year_system_portfolios[y]
+        @info year_portfolio
 
-        # Determine appropriate demand for this year
-        demand_year = y - current_pd + 1 # add 1 because Julia is 1-indexed
-        year_demand = total_demand[demand_year, :demand]
+        # Determine appropriate total demand for this year
+        year_demand = filter(:period => ((pd) -> pd == y), total_demand)[1, :total_demand]
+        @info year_demand
 
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
@@ -78,7 +79,9 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices)
 
         @info "DISPATCH SIMULATION: YEAR $y COMPLETE."
-        @info "RUN NEXT YEAR: $run_next_year"
+        if y < current_pd + settings["num_dispatch_years"]
+            @info "RUN NEXT YEAR: $run_next_year"
+        end
 
         if !run_next_year
             break
@@ -315,7 +318,7 @@ function solve_model(model; model_type="integral")
 
     elseif model_type == "relaxed_integrality"
         optimize!(model)
-        status = termination_status.(model)
+        status = string(termination_status.(model))
         @info "$model_type model status: $status"
         
 
@@ -448,7 +451,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
 
     else
         # Dispatcher is unable to solve the current year: assume agents have
-        #   had a chance to address conditions in this year yet
+        #   not had a chance to address conditions in this year yet
         # Break the loop
         run_next_year = false
     end

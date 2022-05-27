@@ -153,19 +153,21 @@ end
 
 function project_demand_flat(visible_demand, fc_pd)
     demand = DataFrame(demand = zeros(Float64, convert(Int64, fc_pd)))
-    demand[1:size(visible_demand)[1], :demand] .= visible_demand[!, :demand]
-    demand[(size(visible_demand)[1] + 1):fc_pd, :demand] .= demand[size(visible_demand)[1], :demand] 
+    demand[1:size(visible_demand)[1], :total_demand] .= visible_demand[!, :total_demand]
+    demand[(size(visible_demand)[1] + 1):fc_pd, :total_demand] .= demand[size(visible_demand)[1], :total_demand] 
     return demand
 end
 
 
 function project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
-    future_demand = ones(fc_pd - size(visible_demand)[1])
-    for i = 1:size(future_demand)[1]
-        future_demand[i] = last(visible_demand)[1] * (1 + term_demand_gr) ^ i
+    total_demand = deepcopy(visible_demand)
+    prev_pd = visible_demand[size(visible_demand)[1], :period]
+    prev_demand = last(visible_demand[!, :demand])
+    for i = prev_pd+1:fc_pd
+        next_demand = prev_demand * (1 + term_demand_gr) ^ (i - prev_pd - 1)
+        push!(total_demand, [i, next_demand])
     end
-    demand = DataFrame(demand = vcat(visible_demand[!, :demand], future_demand))
-    return demand
+    return total_demand
 end
 
 
@@ -217,41 +219,37 @@ function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
     # Retrieve 
     demand_vis_horizon = settings["demand_visibility_horizon"]
     vals = (pd, pd + demand_vis_horizon)
-    visible_demand = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
+    visible_demand = DBInterface.execute(db, "SELECT period, demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
+
     demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
     prm = DBInterface.execute(db, "SELECT * FROM model_params WHERE parameter = 'PRM'") |> DataFrame
-    demand_forecast = demand_forecast .* (1 + prm[1, :value]) .+ settings["peak_initial_reserves"]
+
+    transform!(demand_forecast, :demand => ((dem) -> dem .* (1 + prm[1, :value]) .+ settings["peak_initial_reserves"]) => :total_demand)
+
+    demand_forecast = select(demand_forecast, [:period, :total_demand])
+
     return demand_forecast
 end
 
 
-function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast)
+function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast, all_year_system_portfolios, unit_specs)
     # Calculate the amount of forecasted net demand in future periods
     installed_cap_forecast = DataFrame(period = Int64[], derated_capacity = Float64[])
     vals = (pd, pd)
-    # Select a list of all current assets, which are not cancelled, retired, or hidden from public view
-    current_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE cancellation_pd > ? AND retirement_pd > ?", vals) |> DataFrame
-    if size(current_assets)[1] == 0
-        @warn "There are no currently-active generation assets in the system; unpredictable behavior may occur."
+
+    total_caps = DataFrame(period = Int64[], total_eff_cap = Float64[])
+
+    for i = pd:pd+fc_pd-1
+        year_portfolio = innerjoin(all_year_system_portfolios[i], unit_specs, on = :unit_type)
+        transform!(year_portfolio, [:num_units, :capacity, :CF] => ((num_units, cap, CF) -> num_units .* cap .* CF) => :effective_capacity)
+        total_year_cap = sum(year_portfolio[!, :effective_capacity])
+        push!(total_caps, [i, total_year_cap])
     end
-    current_assets[!, :capacity] = zeros(size(current_assets)[1])
-    current_assets[!, :CF] = zeros(size(current_assets)[1])
-    unit_specs = DBInterface.execute(db, "SELECT * FROM unit_specs") |> DataFrame
-    for i = 1:size(current_assets)[1]
-        asset_type = current_assets[i, :unit_type]
-        unit = filter(row -> row[:unit_type] == asset_type, unit_specs)
-        current_assets[i, :capacity] = unit[1, :capacity]
-        current_assets[i, :CF] = unit[1, :CF]
-        transform!(current_assets, [:capacity, :CF] => ((cap, cf) -> cap .* cf) => :derated_capacity)
-    end
-    for i=pd:pd+fc_pd-1
-        future_active_assets = filter(row -> (row[:completion_pd] <= i) && (row[:retirement_pd] > i), current_assets)
-        total_cap = sum(future_active_assets[!, :derated_capacity])
-        df = DataFrame(period = i, derated_capacity = total_cap)
-        append!(installed_cap_forecast, df)
-    end
-    net_demand_forecast = demand_forecast[!, :demand] - installed_cap_forecast[!, :derated_capacity]
-    return net_demand_forecast
+
+    demand_forecast = innerjoin(demand_forecast, total_caps, on = :period)
+    transform!(demand_forecast, [:total_demand, :total_eff_cap] => ((demand, eff_cap) -> demand - eff_cap) => :net_demand)
+
+    return demand_forecast
 end
 
 
@@ -281,7 +279,6 @@ function get_unit_specs(db)
     df = DBInterface.execute(db, "SELECT * FROM unit_specs") |> DataFrame
     num_types = size(df)[1]
     # Convert the Int-type columns to Int64
-    #df[!, :d_x] = convert.(Int64, df[:, :d_x])
     df[!, :unit_life] = convert.(Int64, df[:, :unit_life])
     return df, num_types
 end
@@ -470,7 +467,7 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
 
         # save a representative example of each unit type to file (new_xtr only)
-        if (current_PA[:project_type] == "retirement") && (current_PA[:lag]) == 0
+        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag]) == 0
             ctype = current_PA[:unit_type]
             CSV.write("./$ctype.fs.csv", PA_fs_dict[uid])
         end
@@ -1034,7 +1031,7 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, current_pd, current_peak_demand, system_portfolios, db, agent_id, agent_fs, fc_pd)
+function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, current_pd, total_demand, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     @info "Setting up model..."
     m = Model(CPLEX.Optimizer)
@@ -1048,21 +1045,12 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     # Number of units of each type to build: must be Integer
     @variable(m, u[1:num_alternatives] >= 0, Int)
 
-    # To prevent unnecessary infeasibility conditions, convert nonpositive
-    #   available_demand values to 0
-    unserved_demand = deepcopy(available_demand)
-    for i = 1:size(unserved_demand)[1]
-        if unserved_demand[i] < 0
-            unserved_demand[i] = 0
-        end
-    end
-
     excess_capacity = deepcopy(available_demand)
     for i = 1:size(excess_capacity)[1]
-        if excess_capacity[i] > 0
-            excess_capacity[i] = 0
+        if excess_capacity[i, :net_demand] > 0
+            excess_capacity[i, :net_demand] = 0
         else
-            excess_capacity[i] = (-1) * excess_capacity[i]
+            excess_capacity[i, :net_demand] = (-1) * excess_capacity[i, :net_demand]
         end
     end
 
@@ -1091,15 +1079,19 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
 
     # Prevent excessive overbuild in the medium term
 #    for i = 3:10
-#        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= current_peak_demand * 1.1)   # settings["planning_reserve_margin"]
+#        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= total_demand[current_pd+i, :total_demand] * 1.1)   # settings["planning_reserve_margin"]
 #    end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     #   near the beginning of the simulation
-    if current_pd < 4
-        for i = 1:(4-current_pd)
-            @constraint(m, transpose(u) * marg_eff_cap[:, i] >= -0.2 * excess_capacity[i])
-        end
+    shortage_protection_pd = 5
+#    if current_pd < 4
+#        for i = 1:(4-current_pd)
+#            @constraint(m, transpose(u) * marg_eff_cap[:, i] >= -0.2 * excess_capacity[current_pd+i, :total_demand])
+#        end
+#    end
+    for i = 1:shortage_protection_pd
+        @constraint(m, transpose(u) * marg_eff_cap[:, i] >= -0.4 * excess_capacity[current_pd+i, :net_demand])
     end
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
@@ -1175,7 +1167,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     # Create the objective function 
 
     lamda_1 = 1.0 / 1e9
-    lamda_2 = 3.0
+    lamda_2 = 2.0
     lim = 6
     int_bound = 5.0
  

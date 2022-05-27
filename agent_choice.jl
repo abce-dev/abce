@@ -95,14 +95,6 @@ num_alternatives = num_types * (num_lags + 1)
 #   for the most long-lived possible unit
 fc_pd = set_forecast_period(unit_specs, num_lags)
 
-# Load the demand data
-total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
-
-# Extend the unserved demand data to match the total forecast period (constant projection)
-available_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand)
-@info "Available demand:"
-@info DataFrame(net_demand = available_demand)[1:10, :]
-
 # Load the price data
 price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
 
@@ -112,6 +104,17 @@ unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
 @info "Data initialized."
 
 all_year_system_portfolios, all_year_agent_portfolios = Dispatch.set_up_dispatch_portfolios(db, pd, fc_pd, agent_id, unit_specs)
+
+# Load the demand data
+total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
+@info "Total demand:"
+@info total_demand[1:10, :]
+
+# Extend the unserved demand data to match the total forecast period (constant projection)
+available_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_system_portfolios, unit_specs)
+@info "Available demand:"
+@info available_demand[1:10, :]
+
 long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
 
 @info "Setting up project alternatives..."
@@ -125,7 +128,7 @@ unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_po
 
 agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios)
 
-m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand[1, :demand], all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
+m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
 @info "Solving optimization problem..."
