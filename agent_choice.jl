@@ -107,13 +107,11 @@ all_year_system_portfolios, all_year_agent_portfolios = Dispatch.set_up_dispatch
 
 # Load the demand data
 total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
-@info "Total demand:"
-@info total_demand[1:10, :]
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
-available_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_system_portfolios, unit_specs)
-@info "Available demand:"
-@info available_demand[1:10, :]
+total_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_system_portfolios, unit_specs)
+@info "Demand data:"
+@info total_demand[1:10, :]
 
 long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
 
@@ -128,7 +126,7 @@ unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_po
 
 agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios)
 
-m = set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, pd, total_demand, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
+m = set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
 @info "Solving optimization problem..."
