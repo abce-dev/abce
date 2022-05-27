@@ -34,18 +34,18 @@ function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, t
 end
 
 
-function set_up_dispatch_portfolios(db, year_of_interest, fc_pd, agent_id, unit_specs)
+function set_up_dispatch_portfolios(db, start_year, fc_pd, agent_id, unit_specs)
     # Set up portfolio dictionaries
     @debug "Setting up dispatch portfolios..."
     all_year_system_portfolios = Dict()
     all_year_agent_portfolios = Dict()
 
-    for y = year_of_interest:year_of_interest+fc_pd
+    for y = start_year:start_year+fc_pd
         # Retrieve annual system portfolios
-        system_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $year_of_interest AND retirement_pd > $year_of_interest AND cancellation_pd > $year_of_interest GROUP BY unit_type") |> DataFrame
+        system_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
 
         # Retrieve annual system portfolios for the current agent
-        agent_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $year_of_interest AND retirement_pd > $year_of_interest AND cancellation_pd > $year_of_interest GROUP BY unit_type") |> DataFrame
+        agent_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
 
         # Clean up column names in the portfolio dataframes
         rename!(system_portfolio, Symbol("COUNT(unit_type)") => :num_units)
@@ -70,7 +70,7 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         @info year_portfolio
 
         # Determine appropriate total demand for this year
-        year_demand = filter(:period => ((pd) -> pd == y), total_demand)[1, :total_demand]
+        year_demand = filter(:period => ((pd) -> pd == y), total_demand)[1, :real_demand]
         @info year_demand
 
         # Set up and run the dispatch simulation for this year
@@ -408,6 +408,9 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     # Scale the wind and solar data according to the current year's total
     #   installed capacity
     ts_data = scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
+
+    CSV.write("./dispatch_wind_input_$y.csv", ts_data[:wind_data])
+    CSV.write("./dispatch_solar_input_$y.csv", ts_data[:solar_data])
 
     # Set up representative days for wind and solar
     ts_data = set_up_wind_solar_repdays(ts_data)
