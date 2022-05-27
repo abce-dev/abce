@@ -162,10 +162,10 @@ end
 function project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
     total_demand = deepcopy(visible_demand)
     prev_pd = visible_demand[size(visible_demand)[1], :period]
-    prev_demand = last(visible_demand[!, :demand])
+    prev_real_demand = last(visible_demand[!, :real_demand])
     for i = prev_pd+1:fc_pd
-        next_demand = prev_demand * (1 + term_demand_gr) ^ (i - prev_pd - 1)
-        push!(total_demand, [i, next_demand])
+        next_real_demand = prev_real_demand * (1 + term_demand_gr) ^ (i - prev_pd - 1)
+        push!(total_demand, [i, next_real_demand])
     end
     return total_demand
 end
@@ -221,12 +221,12 @@ function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
     vals = (pd, pd + demand_vis_horizon)
     visible_demand = DBInterface.execute(db, "SELECT period, demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
 
+    rename!(visible_demand, :demand => :real_demand)
+
     demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
     prm = DBInterface.execute(db, "SELECT * FROM model_params WHERE parameter = 'PRM'") |> DataFrame
 
-    transform!(demand_forecast, :demand => ((dem) -> dem .* (1 + prm[1, :value]) .+ settings["peak_initial_reserves"]) => :total_demand)
-
-    demand_forecast = select(demand_forecast, [:period, :total_demand])
+    transform!(demand_forecast, :real_demand => ((dem) -> dem .* (1 + prm[1, :value]) .+ settings["peak_initial_reserves"]) => :total_demand)
 
     return demand_forecast
 end
@@ -467,10 +467,10 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
 
         # save a representative example of each unit type to file (new_xtr only)
-        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag]) == 0
-            ctype = current_PA[:unit_type]
-            CSV.write("./$ctype.fs.csv", PA_fs_dict[uid])
-        end
+#        if (current_PA[:project_type] == "retirement") && (current_PA[:lag] == 2) && (current_PA[:ret_pd] != 9999)
+#            ctype = current_PA[:unit_type]
+#            CSV.write("./$ctype.lag2.fs.csv", PA_fs_dict[uid])
+#        end
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
@@ -1031,11 +1031,10 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_counts, agent_params, unit_specs, current_pd, total_demand, system_portfolios, db, agent_id, agent_fs, fc_pd)
+function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     @info "Setting up model..."
     m = Model(CPLEX.Optimizer)
-    #set_optimizer_attribute(m, "CPXPARAM_OptimalityTarget", 3)
 
     # Parameter names
     num_alternatives = size(PA_uids)[1]
@@ -1045,12 +1044,11 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     # Number of units of each type to build: must be Integer
     @variable(m, u[1:num_alternatives] >= 0, Int)
 
-    excess_capacity = deepcopy(available_demand)
-    for i = 1:size(excess_capacity)[1]
-        if excess_capacity[i, :net_demand] > 0
-            excess_capacity[i, :net_demand] = 0
-        else
-            excess_capacity[i, :net_demand] = (-1) * excess_capacity[i, :net_demand]
+    transform!(total_demand, [:real_demand, :total_eff_cap] => ((dem, eff_cap) -> eff_cap - dem) => :excess_capacity)
+
+    for i = 1:size(total_demand)[1]
+        if total_demand[i, :excess_capacity] < 0
+            total_demand[i, :excess_capacity] = 0
         end
     end
 
@@ -1070,7 +1068,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
                     marg_eff_cap[i, j] = unit_type_data[1, :capacity] * unit_type_data[1, :CF]
                 end
             elseif PA_uids[i, :project_type] == "retirement"
-                if j > PA_uids[i, :lag]
+                if (j > PA_uids[i, :lag]) && (j <= PA_uids[i, :ret_pd])
                     marg_eff_cap[i, j] = (-1) * unit_type_data[1, :capacity] * unit_type_data[1, :CF]
                 end
             end
@@ -1079,20 +1077,24 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
 
     # Prevent excessive overbuild in the medium term
 #    for i = 3:10
-#        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= total_demand[current_pd+i, :total_demand] * 1.1)   # settings["planning_reserve_margin"]
+#        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= forecasted_demand[current_pd+i, :total_demand] * 1.1)   # settings["planning_reserve_margin"]
 #    end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
-    #   near the beginning of the simulation
     shortage_protection_pd = 5
-#    if current_pd < 4
-#        for i = 1:(4-current_pd)
-#            @constraint(m, transpose(u) * marg_eff_cap[:, i] >= -0.2 * excess_capacity[current_pd+i, :total_demand])
-#        end
-#    end
     for i = 1:shortage_protection_pd
-        @constraint(m, transpose(u) * marg_eff_cap[:, i] >= -0.4 * excess_capacity[current_pd+i, :net_demand])
+        pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
+        total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
+        if (total_eff_cap > pd_total_demand)
+            margin = -0.3
+        else
+            margin = 0.0
+        end
+        @constraint(m, transpose(u) * marg_eff_cap[:, i] >= (total_eff_cap - pd_total_demand) * margin)
+
     end
+
+    CSV.write("./marg_eff_cap.csv", DataFrame(marg_eff_cap, :auto))
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1167,12 +1169,27 @@ function set_up_model(settings, PA_uids, PA_fs_dict, available_demand, asset_cou
     # Create the objective function 
 
     lamda_1 = 1.0 / 1e9
-    lamda_2 = 2.0
+    lamda_2 = 1.0
     lim = 6
     int_bound = 5.0
  
-    @objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * sum((agent_fs[1:lim, :FCF] / 1e9 + transpose(transpose(u) * marg_FCF[:, 1:lim]) + (1 - int_bound) * (agent_fs[1:lim, :interest_payment] / 1e9 + transpose(transpose(u) * marg_int[:, 1:lim])))))
+    #@objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * sum((agent_fs[1:lim, :FCF] / 1e9 + transpose(transpose(u) * marg_FCF[:, 1:lim]) + (1 - int_bound) * (agent_fs[1:lim, :interest_payment] / 1e9 + transpose(transpose(u) * marg_int[:, 1:lim])))))
    
+    @objective(
+        m,
+        Max,
+        (
+            lamda_1 * (transpose(u) * PA_uids[!, :NPV])
+            + lamda_2 * (
+                sum(agent_fs[1:lim, :FCF]) / 1e9
+                + sum(transpose(u) * marg_FCF[:, 1:lim])
+                + sum(agent_fs[1:lim, :interest_payment]) / 1e9
+                + sum(transpose(u) * marg_int[:, 1:lim])
+                - (int_bound*lim) * (sum(agent_fs[1:lim, :interest_payment]) / 1e9 + sum(transpose(u) * marg_int[:, 1:lim]))
+            )
+        )
+    )
+
 
     @info "Optimization model set up."
 
@@ -1367,8 +1384,6 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
              VOM = results_pivot[!, :total_VOM],
              fuel_costs = results_pivot[!, :total_FC]
          )
-
-    CSV.write("./agent_fs_half_$agent_id.$current_pd.csv", fs)
 
     # Fill in total FOM
     # Inner join the FOM table with the agent portfolios
