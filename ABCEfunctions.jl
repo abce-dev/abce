@@ -120,11 +120,11 @@ function get_current_assets_list(db, pd, agent_id)
     #   unit type and mandatory retirement date
     # Time-period convention:
     #   <status>_pd == "the first period where this asset has status <status>"
-    SQL_get_assets = SQLite.Stmt(db, string("SELECT asset_id, unit_type, retirement_pd FROM assets WHERE agent_id = ", agent_id, " AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd))
+    SQL_get_assets = SQLite.Stmt(db, string("SELECT asset_id, unit_type, retirement_pd, C2N_reserved FROM assets WHERE agent_id = ", agent_id, " AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd))
     asset_list = DBInterface.execute(SQL_get_assets) |> DataFrame
 
     # Count the number of assets by type
-    asset_counts = combine(groupby(asset_list, [:unit_type, :retirement_pd]), nrow => :count)
+    asset_counts = combine(groupby(asset_list, [:unit_type, :retirement_pd, :C2N_reserved]), nrow => :count)
     @info asset_counts
 
     return asset_list, asset_counts
@@ -385,7 +385,7 @@ function create_PA_unique_ids(unit_specs, asset_counts, num_lags, allowed_xtr_ty
     project_type = "retirement"
     allowed = true   # by default, retirements are always allowed
     for unit_type in unique(asset_counts[!, :unit_type])
-        for ret_pd in filter(:unit_type => x -> x == unit_type, asset_counts)[!, :retirement_pd]
+        for ret_pd in filter([:unit_type, :C2N_reserved] => ((x, reserved) -> (x == unit_type) && (reserved == 0)), asset_counts)[!, :retirement_pd]
             for lag = 0:num_lags
                 push!(PA_uids, [unit_type project_type lag ret_pd uid NPV allowed])
                 uid += 1
@@ -1141,8 +1141,9 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     #   the total number of assets of that type owned by the agent
 
     # Setup
-    # Convenient variable for the number of distinct retirement alternatives
-    k = size(asset_counts)[1]
+    # Convenient variable for the number of distinct retirement alternatives,
+    #   excluding assets reserved for C2N conversion
+    k = size(filter([:C2N_reserved] => ((reserved) -> reserved == 0), asset_counts))[1]
     # Shortened name for the number of lag periods to consider
     #   1 is added, as the user-set value only specifies future periods,
     #   with the "lag = 0" instance being implied
@@ -1151,7 +1152,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # This matrix has one long row for each retiring-asset category,
     #   with 1's in each element where the corresponding element of u[] is
     #   one of these units
-    ret_summation_matrix = zeros(size(asset_counts)[1], size(PA_uids)[1])
+    ret_summation_matrix = zeros(k, size(PA_uids)[1])
     for i = 1:k
         for j = 1:size(PA_uids)[1]
             if (PA_uids[j, :project_type] == "retirement") & (PA_uids[j, :unit_type] == asset_counts[i, :unit_type]) & (PA_uids[j, :ret_pd] == asset_counts[i, :retirement_pd])
