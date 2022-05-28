@@ -1363,6 +1363,10 @@ class GridModel(Model):
         WIP_updates.to_sql("WIP_projects", self.db, if_exists="append", index=False)
         self.db.commit()
 
+        # Record newly-started C2N WIP projects from the agents' decisions
+        C2N_updates = pd.read_sql_query("SELECT * FROM WIP_C2N_updates", self.db)
+        C2N_updates.to_sql("WIP_C2N", self.db, if_exists="append", index=False)
+
         # Record status updates to existing assets (i.e. retirements)
         # Convert asset_updates to a dict of dicts for convenience
         asset_updates = pd.read_sql_query("SELECT * FROM asset_updates", self.db)
