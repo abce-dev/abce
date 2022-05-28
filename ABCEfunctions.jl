@@ -1247,6 +1247,7 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
     total_capex = 0
     cap_pmt = 0
     anpe = unit_type_specs[1, :uc_x] * unit_type_specs[1, :capacity] * 1000 / unit_type_specs[1, :d_x]
+    C2N_reserved = 0
 
     # Add a number of project instances equal to the 'units_to_execute'
     #   value from the decision solution
@@ -1281,7 +1282,8 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
             cancellation_pd,
             retirement_pd,
             total_capex,
-            cap_pmt
+            cap_pmt,
+            C2N_reserved
         )
         DBInterface.execute(
             db,
@@ -1313,14 +1315,15 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
     elseif mode == "C2N_newbuild"
         # Determine the period in which the coal units must retire
         unit_type_specs = filter(:unit_type => x -> x == result[:unit_type], unit_specs)[1, :]
-        new_ret_pd = current_pd + convert(Int64, ceil(round(unit_type_specs[:coal_ret_lead], digits=3)))
+        new_ret_pd = current_pd + result[:lag] + convert(Int64, ceil(round(unit_type_specs[:coal_ret_lead], digits=3)))
+        C2N_reserved = 0 # Ensure a coal unit cannot be selected twice for C2N decommissioning
 
         # Generate a list of coal units which will still be operational by
         #   the necessary period
-        match_vals = (new_ret_pd, new_ret_pd, agent_id)
+        match_vals = (new_ret_pd, new_ret_pd, agent_id, C2N_reserved)
         ret_candidates = DBInterface.execute(
             db,
-            "SELECT asset_id FROM assets WHERE unit_type = 'Coal' AND completion_pd <= ? AND retirement_pd > ? AND agent_id = ?",
+            "SELECT asset_id FROM assets WHERE unit_type = 'Coal' AND completion_pd <= ? AND retirement_pd > ? AND agent_id = ? AND C2N_reserved = ?",
             match_vals
         ) |> DataFrame
 
@@ -1341,12 +1344,16 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
         # Overwrite the original record's retirement period with the current
         #   period
         asset_data[1, :retirement_pd] = new_ret_pd
+        # If this is a C2N-related coal retirement, mark it as such
+        if occursin("C2N", asset_data[1, :unit_type])
+            asset_data[1, :C2N_reserved] = 1
+        end
         replacement_data = [item for item in asset_data[1, :]]
 
         # Save this new record to the asset_updates table
         DBInterface.execute(
             db,
-            "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             replacement_data
         )
     end

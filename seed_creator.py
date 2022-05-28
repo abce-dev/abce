@@ -41,7 +41,8 @@ abce_tables = {"WIP_projects":
                   ("cancellation_pd", "integer"),
                   ("retirement_pd", "integer"),
                   ("total_capex", "real"),
-                  ("cap_pmt", "real")
+                  ("cap_pmt", "real"),
+                  ("C2N_reserved", "integer")
                  ],
 
                # Table to temporarily hold updates on construction progress
@@ -77,7 +78,8 @@ abce_tables = {"WIP_projects":
                   ("cancellation_pd", "integer"),
                   ("retirement_pd", "integer"),
                   ("total_capex", "real"),
-                  ("cap_pmt", "real")
+                  ("cap_pmt", "real"),
+                  ("C2N_reserved", "integer")
                  ],
 
                "agent_params":

@@ -609,7 +609,9 @@ class GridModel(Model):
                               "cancellation_pd": 9999,
                               "retirement_pd": retirement_pd,
                               "total_capex": unit_capex,
-                              "cap_pmt": cap_pmt}
+                              "cap_pmt": cap_pmt,
+                              "C2N_reserved": 0
+                             }
 
                 # For each asset in this block, create a dataframe record and
                 #   store it to the master_assets_df
