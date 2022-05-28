@@ -98,14 +98,19 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
     all_gc_results, all_prices = propagate_all_results(fc_pd-1, all_gc_results, all_prices, current_pd)
 
     # Save the raw results
-    save_raw_results(all_prices, all_gc_results)
+    save_raw_results(settings, all_prices, all_gc_results)
 
     # Create the final results set for use by the agent decision algorithm
     @info "Postprocessing all dispatch results..."
-    long_econ_results = postprocess_results(all_year_system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
+    long_econ_results = postprocess_results(settings, all_year_system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
 
     # Save a copy of the results to file
-    CSV.write("./long_econ_results_$current_pd.csv", long_econ_results)
+    savefile = joinpath(
+                   settings["ABCE_abs_path"],
+                   "tmp",
+                   "long_econ_results_$current_pd.csv"
+               )
+    CSV.write(savefile, long_econ_results)
 
     return long_econ_results    
 
@@ -461,11 +466,19 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
 end
 
 
-function save_raw_results(all_prices, all_gc_results)
-    pfile = "./price_results.csv"
+function save_raw_results(settings, all_prices, all_gc_results)
+    pfile = joinpath(
+                settings["ABCE_abs_path"],
+                "tmp",
+                "price_results.csv"
+            )
     CSV.write(pfile, all_prices)
 
-    gcfile = "./gc_results.csv"
+    gcfile = joinpath(
+                 settings["ABCE_abs_path"],
+                 "tmp",
+                 "./gc_results.csv"
+             )
     CSV.write(gcfile, all_gc_results)
 end
 
@@ -624,7 +637,7 @@ function compute_final_gen(g_gen, system_portfolios, fc_pd, current_pd)
 end
 
 
-function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
+function postprocess_long_results(g_pivot, settings, system_portfolios, unit_specs, fc_pd, current_pd)
     # Organize data
     long_rev_results = deepcopy(g_pivot)
 
@@ -641,11 +654,27 @@ function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd,
     short_unit_specs = select(unit_specs, [:unit_type, :capacity, :VOM, :FC_per_MWh, :policy_adj_per_MWh])
     long_rev_results = innerjoin(long_rev_results, short_unit_specs, on = :unit_type)
 
+    # Create dataframe of subsidy values
+    subs = DataFrame(
+               unit_type = String[],
+               subs_val = Float64[]
+                    )
+    for unit_type in unique(all_year_portfolios[!, :unit_type])
+        subs_val = 1  # multiplier
+        if (occursin("C2N", unit_type)) || (unit_type == "AdvancedNuclear")
+            subs_val = settings["C2N_subsidy"]
+        end
+        push!(subs, [unit_type subs_val])
+    end
+
     # Append unit number data to long_rev_results
     long_rev_results = innerjoin(long_rev_results, all_year_portfolios, on = [:y, :unit_type])
 
+    # Append subsidy data to long_rev_results
+    long_rev_results = innerjoin(long_rev_results, subs, on = :unit_type)
+
     # Calculate revenues
-    transform!(long_rev_results, [:gen, :price, :Probability, :num_units] => ((gen, price, prob, num_units) -> gen .* price .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
+    transform!(long_rev_results, [:gen, :price, :subs_val, :Probability, :num_units] => ((gen, price, subs, prob, num_units) -> gen .* price .* subs .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
 
     # Calculate VOM
     transform!(long_rev_results, [:gen, :VOM, :Probability, :num_units] => ((gen, VOM, prob, num_units) -> gen .* VOM .* prob .* 365 ./ num_units) => :annualized_VOM_perunit)
@@ -661,11 +690,11 @@ function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd,
 end 
 
 
-function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
+function postprocess_results(settings, system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
     # Pivot the generation and commitment results
     g_pivot, c_pivot = pivot_gc_results(all_gc_results, all_prices, ts_data[:repdays_data])
 
-    long_econ_results = postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
+    long_econ_results = postprocess_long_results(g_pivot, settings, system_portfolios, unit_specs, fc_pd, current_pd)
 
     return long_econ_results
 end
