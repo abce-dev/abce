@@ -467,7 +467,7 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
 
         # save a representative example of each unit type to file (new_xtr only)
-#        if (current_PA[:project_type] == "retirement") && (current_PA[:lag] == 2) && (current_PA[:ret_pd] != 9999)
+#        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == 2)
 #            ctype = current_PA[:unit_type]
 #            CSV.write("./$ctype.lag2.fs.csv", PA_fs_dict[uid])
 #        end
@@ -605,10 +605,11 @@ Revenue is calculated in a separate function.
 function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
     unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
-    for i = (lag + unit_d_x + 1):(lag + unit_d_x + unit_op_life)
+    financing_term = 30
+    for i = (lag + unit_d_x + 1):(lag + unit_d_x + financing_term)
         # Apply a constant debt payment (sinking fund at cost of debt), based
         #   on the amount of debt outstanding at the end of the xtr project
-        unit_fs[i, :debt_payment] = unit_fs[lag + unit_d_x, :remaining_debt_principal] .* cod ./ (1 - (1+cod) .^ (-1*unit_op_life))
+        unit_fs[i, :debt_payment] = unit_fs[lag + unit_d_x, :remaining_debt_principal] .* cod ./ (1 - (1+cod) .^ (-1*financing_term))
 
         # Determine the portion of each payment which pays down interest
         #   (instead of principal)
@@ -616,10 +617,13 @@ function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
 
         # Update the amount of principal remaining at the end of the period
         unit_fs[i, :remaining_debt_principal] = unit_fs[i-1, :remaining_debt_principal] - (unit_fs[i, :debt_payment] - unit_fs[i, :interest_payment])
+    end
 
+    dep_term = 20
+    for i = (lag + unit_d_x + 1):(lag + unit_d_x + dep_term)
         # Apply straight-line depreciation, based on debt outstanding at the
-        #   project's completion
-        unit_fs[i, :depreciation] = unit_fs[lag + unit_d_x, :capex] ./ unit_op_life
+        #   project's completion: all units have a dep. life of 20 years
+        unit_fs[i, :depreciation] = unit_fs[lag + unit_d_x, :capex] ./ dep_term
     end
 
 end
@@ -796,11 +800,11 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
 
     # Compute final projected revenue series
 #    unit_fs[rev_start:rev_end, :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
-    agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_rev_perunit => sum, renamecols=false)
+    agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), [:annualized_rev_perunit, :annualized_policy_adj_perunit] .=> sum, renamecols=false)
     for y = rev_start:rev_end
         row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
         if size(row)[1] != 0
-            unit_fs[y, :Revenue] = row[1, :annualized_rev_perunit]
+            unit_fs[y, :Revenue] = row[1, :annualized_rev_perunit] + row[1, :annualized_policy_adj_perunit]
         else
             unit_fs[y, :Revenue] = 0
         end
@@ -880,13 +884,13 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
 
     # Compute total fuel cost
     # Unit conversions:
-    #  gen [kWh/year] * FC_per_MWh [$/MWh] * [1 MWh / 1000 kWh] = $/year
-    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[:FC_per_MWh] ./ MW2kW) => :Fuel_Cost)
+    #  gen [MWh/year] * FC_per_MWh [$/MWh] = $/year
+    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[:FC_per_MWh]) => :Fuel_Cost)
 
     # Compute total VOM cost incurred during generation
     # Unit conversions:
-    #   gen [kWh/year] * VOM [$/MWh] * [1 MWh / 1000 kWh] = $/year
-    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[:VOM] ./ MW2kW) => :VOM_Cost)
+    #   gen [MWh/year] * VOM [$/MWh] = $/year
+    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[:VOM]) => :VOM_Cost)
 
     # Compute total FOM cost for each period
     # Unit conversions:
@@ -1174,8 +1178,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     lim = 6
     int_bound = 5.0
  
-    #@objective(m, Max, lamda_1 * (transpose(u) * PA_uids[!, :NPV]) + lamda_2 * sum((agent_fs[1:lim, :FCF] / 1e9 + transpose(transpose(u) * marg_FCF[:, 1:lim]) + (1 - int_bound) * (agent_fs[1:lim, :interest_payment] / 1e9 + transpose(transpose(u) * marg_int[:, 1:lim])))))
-   
     @objective(
         m,
         Max,
