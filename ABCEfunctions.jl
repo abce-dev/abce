@@ -1099,7 +1099,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 #    end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
-    shortage_protection_pd = 4
+    shortage_protection_pd = 10
     for i = 1:shortage_protection_pd
         pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
         total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
@@ -1198,7 +1198,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # Create the objective function 
 
     lamda_1 = 1.0 / 1e9
-    lamda_2 = 0.0
+    lamda_2 = 1.0
     lim = 6
     int_bound = 5.0
  
@@ -1212,7 +1212,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
                 + sum(transpose(u) * marg_FCF[:, 1:lim])
                 + sum(agent_fs[1:lim, :interest_payment]) / 1e9
                 + sum(transpose(u) * marg_int[:, 1:lim])
-                - (int_bound*lim) * (sum(agent_fs[1:lim, :interest_payment]) / 1e9 + sum(transpose(u) * marg_int[:, 1:lim]))
+                - (int_bound) * (sum(agent_fs[1:lim, :interest_payment]) / 1e9 + sum(transpose(u) * marg_int[:, 1:lim]))
             )
         )
     )
@@ -1372,7 +1372,7 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
         #   period
         asset_data[1, :retirement_pd] = new_ret_pd
         # If this is a C2N-related coal retirement, mark it as such
-        if occursin("C2N", asset_data[1, :unit_type])
+        if mode == "C2N_newbuild"
             asset_data[1, :C2N_reserved] = 1
         end
         replacement_data = [item for item in asset_data[1, :]]
