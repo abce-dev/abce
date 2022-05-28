@@ -1,7 +1,7 @@
 agent_id,unit_type,num_units
 201,Wind,67
 201,Solar,7
-201,NGCC,32
+201,NGCC,27
 201,NGCT,226
 201,ConventionalNuclear,23
 201,AdvancedNuclear,2
