@@ -431,6 +431,8 @@ class GridModel(Model):
             unit_specs_data.loc[i, "d_x"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["d_x"].values[0]
             # Set unit useful life for this unit
             unit_specs_data.loc[i, "unit_life"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["unit_life"].values[0]
+            # Set unit lead time until a coal unit must be retired, if any
+            unit_specs_data.loc[i, "cpp_ret_lead"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["cpp_ret_lead"].values[0]
 
         return unit_specs_data
 
