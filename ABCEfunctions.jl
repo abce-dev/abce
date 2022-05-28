@@ -337,12 +337,12 @@ end
 #####
 
 
-function set_up_project_alternatives(unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results, allowed_xtr_types)
+function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results, allowed_xtr_types)
     PA_uids = create_PA_unique_ids(unit_specs, asset_counts, num_lags, allowed_xtr_types)
 
     PA_fs_dict = create_PA_pro_formas(PA_uids, fc_pd)
 
-    PA_uids, PA_fs_dict = populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
+    PA_uids, PA_fs_dict = populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
 
     return PA_uids, PA_fs_dict
 
@@ -417,7 +417,7 @@ function create_PA_pro_formas(PA_uids, fc_pd)
 end
 
 
-function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
+function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
     for uid in PA_uids[!, :uid]
         # Retrieve current project alternative definition for convenience
         current_PA = filter(:uid => x -> x == uid, PA_uids)[1, :]
@@ -441,6 +441,7 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
 
         # Forecast unit revenue ($/period) and generation (kWh/period)
         forecast_unit_revenue_and_gen(
+            settings,
             unit_type_data,
             PA_fs_dict[uid],
             price_curve,
@@ -467,9 +468,20 @@ function populate_PA_pro_formas(PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_pa
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
 
         # save a representative example of each unit type to file (new_xtr only)
-#        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == 2)
+#        savelag = 2
+#        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
 #            ctype = current_PA[:unit_type]
-#            CSV.write("./$ctype.lag2.fs.csv", PA_fs_dict[uid])
+#            fspath = joinpath(
+#                         settings["ABCE_abs_path"],
+#                         "tmp",
+#                         string(
+#                             ctype,
+#                             "_",
+#                             savelag,
+#                             "_fs.csv"
+#                         )
+#                     )
+#            CSV.write(fspath, PA_fs_dict[uid])
 #        end
 
         # Save the NPV result
@@ -641,7 +653,7 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db, pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
+function forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, price_curve, db, pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Compute estimated revenue from submarginal hours
@@ -664,7 +676,7 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, price_curve, db,
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
 
 end
 
@@ -765,7 +777,7 @@ end
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd=9999)
+function compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd=9999)
     check_valid_vector_mode(mode)
 
     # Helpful short variables
@@ -794,8 +806,10 @@ function compute_total_revenue(unit_type_data, unit_fs, submarginal_hours_revenu
     # If the project is a C2N project, use the AdvancedNuclear results
     # Otherwise, use the unit's own results
     type_filter = unit_type_data[:unit_type]
+#    adjustment = 1
     if occursin("C2N", unit_type_data[:unit_type])
         type_filter = "AdvancedNuclear"
+#        adjustment = settings["C2N_subsidy"]
     end
 
     # Compute final projected revenue series
@@ -1085,7 +1099,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 #    end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
-    shortage_protection_pd = 5
+    shortage_protection_pd = 4
     for i = 1:shortage_protection_pd
         pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
         total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
@@ -1097,8 +1111,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         @constraint(m, transpose(u) * marg_eff_cap[:, i] >= (total_eff_cap - pd_total_demand) * margin)
 
     end
-
-    CSV.write("./marg_eff_cap.csv", DataFrame(marg_eff_cap, :auto))
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1116,7 +1128,18 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    CSV.write(string("./agent_fs_", current_pd, "_", agent_id, ".csv"), agent_fs)
+    agent_fs_path = joinpath(
+                        settings["ABCE_abs_path"],
+                        "tmp",
+                        string(
+                            "agent_",
+                            agent_id,
+                            "_pd_",
+                            current_pd,
+                            ".csv"
+                        )
+                    )
+    CSV.write(agent_fs_path, agent_fs)
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
@@ -1147,7 +1170,8 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # Setup
     # Convenient variable for the number of distinct retirement alternatives,
     #   excluding assets reserved for C2N conversion
-    k = size(filter([:C2N_reserved] => ((reserved) -> reserved == 0), asset_counts))[1]
+    retireable_asset_counts = filter([:C2N_reserved] => ((reserved) -> reserved == 0), asset_counts)
+    k = size(retireable_asset_counts)[1]
     # Shortened name for the number of lag periods to consider
     #   1 is added, as the user-set value only specifies future periods,
     #   with the "lag = 0" instance being implied
@@ -1167,14 +1191,14 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 
     # Specify constraint: the agent cannot plan to retire more units (during
     #   all lag periods) than exist of that unit type
-    for i = 1:size(asset_counts)[1]
-        @constraint(m, sum(ret_summation_matrix[i, :] .* u) <= asset_counts[i, :count])
+    for i = 1:size(retireable_asset_counts)[1]
+        @constraint(m, sum(ret_summation_matrix[i, :] .* u) <= retireable_asset_counts[i, :count])
     end
 
     # Create the objective function 
 
     lamda_1 = 1.0 / 1e9
-    lamda_2 = 1.0
+    lamda_2 = 0.0
     lim = 6
     int_bound = 5.0
  
@@ -1213,7 +1237,7 @@ function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, ag
                 # If the project is a C2N project, retire two coal units at
                 #    the appropriate time
                 if occursin("C2N", result[:unit_type])
-                    record_asset_retirement(result, db, agent_id, unit_specs, current_pd, mode="C2N_newbuild")
+                    record_asset_retirements(result, db, agent_id, unit_specs, current_pd, mode="C2N_newbuild")
                 end
             end
         elseif result[:project_type] == "retirement"
@@ -1290,7 +1314,7 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
         )
         DBInterface.execute(
             db,
-            "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             assets_vals
         )
     end
@@ -1318,7 +1342,7 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
     elseif mode == "C2N_newbuild"
         # Determine the period in which the coal units must retire
         unit_type_specs = filter(:unit_type => x -> x == result[:unit_type], unit_specs)[1, :]
-        new_ret_pd = current_pd + result[:lag] + convert(Int64, ceil(round(unit_type_specs[:coal_ret_lead], digits=3)))
+        new_ret_pd = current_pd + result[:lag] + convert(Int64, ceil(round(unit_type_specs[:cpp_ret_lead], digits=3)))
         C2N_reserved = 0 # Ensure a coal unit cannot be selected twice for C2N decommissioning
 
         # Generate a list of coal units which will still be operational by
@@ -1366,17 +1390,14 @@ end
 
 function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios)
     # Retrieve horizontally-abbreviated dataframes
-    short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_perunit, :annualized_VOM_perunit, :annualized_FC_perunit])
+    short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_perunit, :annualized_VOM_perunit, :annualized_FC_perunit, :annualized_policy_adj_perunit])
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])
 
     # Inner join the year's portfolio with financial pivot
     fin_results = innerjoin(short_econ_results, all_year_portfolios, on = [:y, :unit_type])
 
-    CSV.write("./all_year_portfolios.csv", all_year_portfolios)
-    CSV.write("./fin_results.csv", fin_results)
-
     # Fill in total revenue
-    transform!(fin_results, [:annualized_rev_perunit, :num_units] => ((rev, num_units) -> rev .* num_units) => :total_rev)
+    transform!(fin_results, [:annualized_rev_perunit, :annualized_policy_adj_perunit, :num_units] => ((rev, adj, num_units) -> (rev .+ adj) .* num_units) => :total_rev)
 
     # Fill in total VOM
     transform!(fin_results, [:annualized_VOM_perunit, :num_units] => ((VOM, num_units) -> VOM .* num_units) => :total_VOM)
@@ -1402,7 +1423,6 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     FOM_df = select(combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols=false), [:y, :total_FOM])
     rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
 
-    #transform!(FOM_df, [:projected_pd] => ((y) -> y .- 1 .+ current_pd) => :projected_pd)
     fs = innerjoin(fs, FOM_df, on = :projected_pd)
 
     # Fill in total depreciation
