@@ -295,7 +295,7 @@ function set_up_model(ts_data, year_portfolio, unit_specs)
         end
     end
 
-    @objective(m, Min, sum(sum(sum(g[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh]) for i = 1:num_units))
+    @objective(m, Min, sum(sum(sum(g[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] - portfolio_specs[i, :policy_adj_per_MWh]) for i = 1:num_units))
 
     return m, portfolio_specs
 end
@@ -408,9 +408,6 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     # Scale the wind and solar data according to the current year's total
     #   installed capacity
     ts_data = scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
-
-    CSV.write("./dispatch_wind_input_$y.csv", ts_data[:wind_data])
-    CSV.write("./dispatch_solar_input_$y.csv", ts_data[:solar_data])
 
     # Set up representative days for wind and solar
     ts_data = set_up_wind_solar_repdays(ts_data)
@@ -641,7 +638,7 @@ function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd,
     
     long_rev_results = stack(long_rev_results, extant_types)
     rename!(long_rev_results, :variable => :unit_type, :value => :gen)
-    short_unit_specs = select(unit_specs, [:unit_type, :capacity, :VOM, :FC_per_MWh])
+    short_unit_specs = select(unit_specs, [:unit_type, :capacity, :VOM, :FC_per_MWh, :policy_adj_per_MWh])
     long_rev_results = innerjoin(long_rev_results, short_unit_specs, on = :unit_type)
 
     # Append unit number data to long_rev_results
@@ -655,6 +652,9 @@ function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd,
 
     # Calculate fuel cost
     transform!(long_rev_results, [:gen, :FC_per_MWh, :Probability, :num_units] => ((gen, fc, prob, num_units) -> gen .* fc .* prob .* 365 ./ num_units) => :annualized_FC_perunit)
+
+    # Calculate policy adjustment
+    transform!(long_rev_results, [:gen, :policy_adj_per_MWh, :Probability, :num_units] => ((gen, adj, prob, num_units) -> gen .* adj .* prob .* 365 ./ num_units) => :annualized_policy_adj_perunit)
 
     return long_rev_results
 
