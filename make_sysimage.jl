@@ -51,7 +51,7 @@ Pkg.activate
 if mode == "ABCE"
     # Run the current version of unit_choice.jl, outputting function-compilation
     #   records to `./precompile.jl`
-    run(`julia --trace-compile=precompile.jl agent_choice.jl --settings_file=./settings.yml --current_pd=1 --agent_id=201`)
+    run(`julia --project=. --trace-compile=precompile.jl agent_choice.jl --settings_file=./settings.yml --current_pd=1 --agent_id=201`)
 
     # Create `abceSysimage.so` using the specified packages and the newly
     #   generated `precompile.jl` file.
