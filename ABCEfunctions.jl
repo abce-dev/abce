@@ -470,21 +470,21 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
 
         # save a representative example of each unit type to file (new_xtr only)
-#        savelag = 2
-#        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
-#            ctype = current_PA[:unit_type]
-#            fspath = joinpath(
-#                         settings["ABCE_abs_path"],
-#                         "tmp",
-#                         string(
-#                             ctype,
-#                             "_",
-#                             savelag,
-#                             "_fs.csv"
-#                         )
-#                     )
-#            CSV.write(fspath, PA_fs_dict[uid])
-#        end
+        savelag = 2
+        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
+            ctype = current_PA[:unit_type]
+            fspath = joinpath(
+                         settings["ABCE_abs_path"],
+                         "tmp",
+                         string(
+                             ctype,
+                             "_",
+                             savelag,
+                             "_fs.csv"
+                         )
+                     )
+            CSV.write(fspath, PA_fs_dict[uid])
+        end
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
@@ -642,7 +642,16 @@ function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
     unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
     financing_term = 30
-    for i = (lag + unit_d_x + 1):(lag + unit_d_x + financing_term)
+
+    # Find the end of the capital expenditures period
+    capex_end = 0
+    for i = 1:size(unit_fs)[1]
+        if round(unit_fs[i, :capex], digits=3) > 0
+            capex_end = i
+        end
+    end
+
+    for i = (capex_end+1):(capex_end+1+financing_term)
         # Apply a constant debt payment (sinking fund at cost of debt), based
         #   on the amount of debt outstanding at the end of the xtr project
         unit_fs[i, :debt_payment] = unit_fs[lag + unit_d_x, :remaining_debt_principal] .* cod ./ (1 - (1+cod) .^ (-1*financing_term))
@@ -656,7 +665,7 @@ function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
     end
 
     dep_term = 20
-    for i = (lag + unit_d_x + 1):(lag + unit_d_x + dep_term)
+    for i = (capex_end+1):(capex_end+1+dep_term)
         # Apply straight-line depreciation, based on debt outstanding at the
         #   project's completion: all units have a dep. life of 20 years
         unit_fs[i, :depreciation] = unit_fs[lag + unit_d_x, :capex] ./ dep_term
@@ -817,8 +826,15 @@ function compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_ho
     #   after the soonest of {the lag, the mandatory retirement period, the end
     #   of the forecast period}.
     if mode == "new_xtr"
-        rev_start = lag + unit_d_x + 1
-        rev_end = lag + unit_d_x + unit_op_life
+        # Find the end of the capital expenditures period
+        capex_end = 0
+        for i = 1:size(unit_fs)[1]
+            if round(unit_fs[i, :capex], digits=3) > 0
+                capex_end = i
+            end
+        end
+        rev_start = capex_end + 1
+        rev_end = min(rev_start + unit_op_life, size(unit_fs)[1])
     elseif mode == "retirement"
         rev_start = 1
         # The maximum end of revenue period is capped at the length of the
@@ -830,10 +846,8 @@ function compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_ho
     # If the project is a C2N project, use the AdvancedNuclear results
     # Otherwise, use the unit's own results
     type_filter = unit_type_data[:unit_type]
-#    adjustment = 1
     if occursin("C2N", unit_type_data[:unit_type])
         type_filter = "AdvancedNuclear"
-#        adjustment = settings["C2N_subsidy"]
     end
 
     # Compute final projected revenue series
@@ -870,8 +884,16 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
     #   soonest of {the lag, the mandatory retirement period, the end of the
     #   forecast period}.
     if mode == "new_xtr"
-        gen_start = lag + unit_d_x + 1
-        gen_end = lag + unit_d_x + unit_op_life
+        # Find the end of the capital expenditures period
+        capex_end = 0
+        for i = 1:size(unit_fs)[1]
+            if round(unit_fs[i, :capex], digits=3) > 0
+                capex_end = i
+            end
+        end
+        gen_start = capex_end + 1
+
+        gen_end = min(gen_start + unit_op_life, size(unit_fs)[1])
     elseif mode == "retirement"
         gen_start = 1
         # The maximum end of generation period is capped at the length of the
@@ -891,12 +913,10 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
     agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_gen_perunit => sum, renamecols=false)
 
     # Distribute generation values time series
-#    unit_fs[gen_start:gen_end, :gen] .= gen
     for y = gen_start:gen_end
         row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
         if size(row)[1] == 1
             unit_fs[y, :gen] = row[1, :annualized_gen_perunit]
-            #unit_fs[y, :gen] = filter([:unit_type, :y] => (unit_type, df_y) -> (unit_type == unit_type_data[:unit_type]) && (df_y == y), final_gen_results)[1, :GenPerUnit]
         else
             unit_fs[y, :gen] = 0
         end
@@ -934,7 +954,15 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     # Unit conversions:
     #   FOM [$/kW-year] * capacity [MW] * [1000 kW / 1 MW] = $/year
     if mode == "new_xtr"
-        pre_zeros = zeros(lag + unit_d_x)
+        # Find the end of the capital expenditures period
+        capex_end = 0
+        for i = 1:size(unit_fs)[1]
+            if round(unit_fs[i, :capex], digits=3) > 0
+                capex_end = i
+            end
+        end
+
+        pre_zeros = zeros(capex_end)
         op_ones = ones(unit_op_life)
     elseif mode == "retirement"
         pre_zeros = zeros(0)
