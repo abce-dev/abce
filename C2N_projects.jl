@@ -5,8 +5,6 @@ using Logging, CSV, DataFrames
 
 function create_C2N_capex_timeline(db, conv_type, rxtr_type, base_pd, lag, fc_pd, C2N_specs, unit_type_data)
     check_init_inputs(conv_type, rxtr_type, lag, fc_pd)
-    println(conv_type)
-    println(rxtr_type)
     capex_tl, activity_schedule = project_capex_profile(base_pd, lag, db, fc_pd, rxtr_type, conv_type, C2N_specs, unit_type_data; status="new", asset_id=nothing)
 
 end
