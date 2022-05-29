@@ -668,7 +668,7 @@ function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
     for i = (capex_end+1):(capex_end+1+dep_term)
         # Apply straight-line depreciation, based on debt outstanding at the
         #   project's completion: all units have a dep. life of 20 years
-        unit_fs[i, :depreciation] = unit_fs[lag + unit_d_x, :capex] ./ dep_term
+        unit_fs[i, :depreciation] = unit_fs[capex_end, :remaining_debt_principal] ./ dep_term
     end
 
 end
@@ -861,6 +861,14 @@ function compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_ho
             unit_fs[y, :Revenue] = 0
         end
     end
+    if occursin("C2N", unit_type_data[:unit_type])
+        for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):rev_end
+            row2 = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
+            if (size(row2)[1] != 0)
+                unit_fs[y, :Revenue] = unit_fs[y, :Revenue] - 2*(row2[1, :annualized_rev_perunit] + row2[1, :annualized_policy_adj_perunit])
+            end
+        end
+    end
 
 end
 
@@ -907,6 +915,7 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
     type_filter = unit_type_data[:unit_type]
     if occursin("C2N", unit_type_data[:unit_type])
         type_filter = "AdvancedNuclear"
+        unit_fs[!, :coal_gen] .= 0.0
     end
 
     transform!(long_econ_results, [:gen, :Probability, :num_units] => ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) => :annualized_gen_perunit)
@@ -915,12 +924,21 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
     # Distribute generation values time series
     for y = gen_start:gen_end
         row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
-        if size(row)[1] == 1
+        if size(row)[1] != 0
             unit_fs[y, :gen] = row[1, :annualized_gen_perunit]
         else
             unit_fs[y, :gen] = 0
         end
     end
+    if occursin("C2N", unit_type_data[:unit_type])
+        for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):gen_end
+            row2 = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
+            if (size(row2)[1] != 0)
+                unit_fs[y, :coal_gen] = 2*(row2[1, :annualized_gen_perunit])
+            end
+        end
+    end
+
 
 end
 
@@ -940,15 +958,20 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
 
-    # Compute total fuel cost
-    # Unit conversions:
-    #  gen [MWh/year] * FC_per_MWh [$/MWh] = $/year
-    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[:FC_per_MWh]) => :Fuel_Cost)
+    if !occursin("C2N", unit_type_data[:unit_type])
+        # Compute total fuel cost
+        # Unit conversions:
+        #  gen [MWh/year] * FC_per_MWh [$/MWh] = $/year
+        transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[:FC_per_MWh]) => :Fuel_Cost)
 
-    # Compute total VOM cost incurred during generation
-    # Unit conversions:
-    #   gen [MWh/year] * VOM [$/MWh] = $/year
-    transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[:VOM]) => :VOM_Cost)
+        # Compute total VOM cost incurred during generation
+        # Unit conversions:
+        #   gen [MWh/year] * VOM [$/MWh] = $/year
+        transform!(unit_fs, [:gen] => ((gen) -> gen .* unit_type_data[:VOM]) => :VOM_Cost)
+    else
+        transform!(unit_fs, [:gen, :coal_gen] => ((gen, coal_gen) -> gen .* unit_type_data[:FC_per_MWh] .- coal_gen .* 143.07) => :Fuel_Cost)
+        transform!(unit_fs, [:gen, :coal_gen] => ((gen, coal_gen) -> gen .* unit_type_data[:VOM] .- coal_gen .* 4.4) => :VOM_Cost)
+    end
 
     # Compute total FOM cost for each period
     # Unit conversions:
@@ -971,7 +994,11 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     post_zeros = zeros(size(unit_fs)[1] - size(pre_zeros)[1] - size(op_ones)[1])
     unit_fs[!, :FOM_Cost] = vcat(pre_zeros, op_ones, post_zeros)
 
-    unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[:FOM] .* unit_type_data[:capacity] .* MW2kW
+    if !occursin("C2N", unit_type_data[:unit_type])
+        unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[:FOM] .* unit_type_data[:capacity] .* MW2kW
+    else
+        unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[:FOM] .* unit_type_data[:capacity] .* MW2kW .- unit_fs[!, :FOM_Cost] .* (2 * 632 * MW2kW * 39.70)
+    end
 
 end
 
