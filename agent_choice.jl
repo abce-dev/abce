@@ -49,7 +49,9 @@ julia_ABCE_module = joinpath(settings["ABCE_abs_path"], "ABCEfunctions.jl")
 include(julia_ABCE_module)
 dispatch_module = joinpath(settings["ABCE_abs_path"], "dispatch.jl")
 include(dispatch_module)
-using .ABCEfunctions, .Dispatch
+C2N_module = joinpath(settings["ABCE_abs_path"], "C2N_projects.jl")
+include(C2N_module)
+using .ABCEfunctions, .Dispatch, .C2N
 
 @info "Packages loaded successfully."
 
@@ -58,6 +60,11 @@ using .ABCEfunctions, .Dispatch
 
 # File names
 db_file = joinpath(settings["ABCE_abs_path"], settings["db_file"])
+C2N_specs_file = joinpath(
+                     settings["ABCE_abs_path"],
+                     "inputs",
+                     "C2N_project_definitions.yml"
+                 )
 # Constants
 hours_per_year = settings["hours_per_year"]
 consider_future_projects = settings["consider_future_projects"]
@@ -73,6 +80,9 @@ MMBTU2BTU = 1000   # Converts MMBTU to BTU
 db = load_db(db_file)
 pd = CLI_args["current_pd"]
 agent_id = CLI_args["agent_id"]
+
+# Load C2N specs data
+C2N_specs = YAML.load_file(C2N_specs_file)
 
 # Set up agent-specific data
 # Get a list of all ongoing construction projects for the current agent
@@ -116,7 +126,7 @@ total_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_sy
 long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
 
 @info "Setting up project alternatives..."
-PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results, settings["allowed_xtr_types"])
+PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results, settings["allowed_xtr_types"], C2N_specs)
 
 @info "Project alternatives:"
 @info PA_uids

@@ -2,38 +2,12 @@ module C2N
 
 using Logging, CSV, DataFrames
 
-mutable struct C2N_project
-    conv_type::String
-    rxtr_type::String
-    lag::Int64
-    uid::Int64
-    fs::DataFrame
-end
 
-
-function C2N_project(conv_type, rxtr_type, base_pd, lag, uid, fc_pd)
-    # Validate inputs
-    check_init_inputs(conv_type, lag, uid, fc_pd)
-
-    capex_tl = project_capex_profile(base_pd, lag, db, fc_pd, C2N_PA, unit_specs; status="new", asset_id=nothing)
-
-
-    fs = DataFrame(
-        year = 1:fc_pd,
-        capex = capex_tl[!, :capex],
-        remaining_debt_principal = zeros(fc_pd),
-        debt_payment = zeros(fc_pd),
-        interest_payment = zeros(fc_pd),
-        depreciation = zeros(fc_pd)
-    )
-
-    return C2N_project(C2N_type, lag, uid, fs)
-end
-
-
-function create_C2N_fs(db, conv_type, rxtr_type, base_pd, lag, fc_pd, C2N_specs)
+function create_C2N_capex_timeline(db, conv_type, rxtr_type, base_pd, lag, fc_pd, C2N_specs, unit_type_data)
     check_init_inputs(conv_type, rxtr_type, lag, fc_pd)
-    capex_tl = project_capex_profile(base_pd, lag, db, fc_pd, rxtr_type, conv_type, C2N_specs; status="new", asset_id=nothing)
+    println(conv_type)
+    println(rxtr_type)
+    capex_tl, activity_schedule = project_capex_profile(base_pd, lag, db, fc_pd, rxtr_type, conv_type, C2N_specs, unit_type_data; status="new", asset_id=nothing)
 
 end
 
@@ -75,7 +49,7 @@ function check_init_inputs(conv_type, rxtr_type, lag, fc_pd)
 end
 
 
-function project_capex_profile(base_pd, lag, db, fc_pd, rxtr_type, conv_type, C2N_specs; status="new", asset_id=nothing)
+function project_capex_profile(base_pd, lag, db, fc_pd, rxtr_type, conv_type, C2N_specs, unit_type_data; status="new", asset_id="nothing")
     # Determine the project's current status
     if status == "new"
         project_current_status = deepcopy(C2N_specs)
@@ -108,18 +82,15 @@ function project_capex_profile(base_pd, lag, db, fc_pd, rxtr_type, conv_type, C2
     activity_schedule = get_C2N_available_activities(conv_type, project_current_status, base_pd, lag)
 
     # Convert the binary project schedule into a capex schedule
-    capex_activity_schedule = allocate_funds_to_activities(activity_schedule, project_current_status, C2N_specs)
+    capex_activity_schedule = allocate_funds_to_activities(activity_schedule, project_current_status, C2N_specs, unit_type_data)
 
     # Convert the interval-based schedule into a yearly schedule
     capex_tl, capex_activity_schedule = convert_to_annual_capex_schedule(capex_activity_schedule)
 
-    println(capex_activity_schedule)
-    println(capex_tl)
-
     # Finalize the CapEx projection
     #transform!(capex_tl, [:npp_ns_xtr, :npp_safety_xtr, :cpp_wr, :cpp_nrc, :cpp_dnd] => ((a, b, c, d, e) -> a + b + c + d + e) => total_capex)
 
-    return capex_tl
+    return capex_tl, activity_schedule
 
 end
 
@@ -139,7 +110,6 @@ function get_C2N_available_activities(conv_type, project_current_status, base_pd
 
     project_ongoing = true
 
-    # The first entry in the dataframe is always the lag period
     test_status = deepcopy(project_current_status)
 
     while project_ongoing
@@ -159,7 +129,6 @@ function get_C2N_available_activities(conv_type, project_current_status, base_pd
 
         # Find the activity with the shortest time remaining
         sort!(end_dates, :time_rem)
-        println(end_dates)
         next_finished = end_dates[1, :activity]
         next_interval_duration = end_dates[1, :time_rem]
 
@@ -215,21 +184,23 @@ function get_available_activities(project_current_status, conv_type)
 end
 
 
-function get_greenfield_available_activities(project_current_status)
+function get_available_activities_greenfield(project_current_status)
     all_activities = ["npp_ns_xtr", "npp_safety_xtr", "cpp_dnd", "cpp_wr", "cpp_nrc"]
+    completed_activities = []
     for activity in all_activities
         act_time_rem = project_current_status[activity]["time_rem"]
-        act_cost_rem = project_current_status[activity]["cost_rem"]
-        if (round(act_time_rem, digits = 3) == 0) && (round(act_cost_rem, digits = 3) == 0)
-            deleteat!(all_activities, findall(x -> x == activity, all_activities))
+        if (round(act_time_rem, digits = 3) == 0)
+            push!(completed_activities, activity)
         end
     end
+
+    incomplete_activities = [all_activities[i] for i = 1:size(all_activities)[1] if !(all_activities[i] in completed_activities)]
 
     # The first remaining activity in all_activities is the sole available
     #   activity
     # If no activities remain, the project is done; return empty list
-    if size(all_activities)[1] != 0
-        available_activities = [all_activities[1]]
+    if size(incomplete_activities)[1] != 0
+        available_activities = [incomplete_activities[1]]
     else
         available_activities = []
     end
@@ -326,8 +297,6 @@ function get_available_activities_steam_noTES(project_current_status)
         push!(available_activities, "cpp_dnd")
     end
 
-    println(available_activities)
-
     return available_activities
 end
 
@@ -379,7 +348,7 @@ end
 
 
 
-function allocate_funds_to_activities(activity_schedule, C2N_specs, project_current_status)
+function allocate_funds_to_activities(activity_schedule, C2N_specs, project_current_status, unit_type_data)
     all_activities = [key for key in keys(C2N_specs)]
 
     capex_activity_schedule = deepcopy(activity_schedule)
@@ -390,7 +359,8 @@ function allocate_funds_to_activities(activity_schedule, C2N_specs, project_curr
         else
             linear_cost = 0
         end
-        transform!(capex_activity_schedule, [Symbol(activity), :state_start, :state_end] => ((activity, s_start, s_end) -> activity .* linear_cost * 900 * 1000) => Symbol(activity))
+        capacity = unit_type_data[:capacity]
+        transform!(capex_activity_schedule, [Symbol(activity), :state_start, :state_end] => ((activity, s_start, s_end) -> activity .* linear_cost * capacity * 1000) => Symbol(activity))
     end
 
     return capex_activity_schedule

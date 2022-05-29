@@ -18,6 +18,8 @@ using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables, CPLEX
 
 include("./dispatch.jl")
 using .Dispatch
+include("./C2N_projects.jl")
+using .C2N
 
 export ProjectAlternative, load_db, get_current_period, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_capex_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives, update_agent_financial_statement
 
@@ -337,12 +339,12 @@ end
 #####
 
 
-function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results, allowed_xtr_types)
+function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results, allowed_xtr_types, C2N_specs)
     PA_uids = create_PA_unique_ids(unit_specs, asset_counts, num_lags, allowed_xtr_types)
 
     PA_fs_dict = create_PA_pro_formas(PA_uids, fc_pd)
 
-    PA_uids, PA_fs_dict = populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
+    PA_uids, PA_fs_dict = populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results, C2N_specs)
 
     return PA_uids, PA_fs_dict
 
@@ -417,7 +419,7 @@ function create_PA_pro_formas(PA_uids, fc_pd)
 end
 
 
-function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results)
+function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd, agent_params, price_curve, db, current_pd, long_econ_results, C2N_specs)
     for uid in PA_uids[!, :uid]
         # Retrieve current project alternative definition for convenience
         current_PA = filter(:uid => x -> x == uid, PA_uids)[1, :]
@@ -429,7 +431,7 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
         #   related to construction costs
         if current_PA[:project_type] == "new_xtr"
             # Generate this alternative's expected construction expenditure profile
-            PA_fs_dict[uid][!, :capex] = generate_capex_profile(unit_type_data, current_PA[:lag], fc_pd)
+            PA_fs_dict[uid][!, :capex] = generate_capex_profile(db, settings, current_pd, unit_type_data, current_PA[:lag], fc_pd, C2N_specs)
 
             # Set up the time-series of outstanding debt based on this
             #   construction expenditure profile
@@ -552,12 +554,13 @@ Returns:
     with zeros to indicate no construction costs outside the construction
     period.
 """
-function generate_capex_profile(unit_type_data, lag, fc_pd)
+function generate_capex_profile(db, settings, current_pd, unit_type_data, lag, fc_pd, C2N_specs)
     # No construction expenditures before the project begins
     head_zeros = zeros(lag)
 
     if occursin("C2N", unit_type_data[:unit_type])
-        capex = project_C2N_capex(unit_type_data, lag, fc_pd)
+        capex_tl, activity_schedule = project_C2N_capex(db, settings, unit_type_data, lag, fc_pd, current_pd, C2N_specs)
+        capex = capex_tl[!, :total_capex]
     else
         # Uniformly distribute projected total project costs over the construction
         #   period
@@ -567,7 +570,7 @@ function generate_capex_profile(unit_type_data, lag, fc_pd)
 
     # No construction expenditures from the end of construction until the end
     #   of the model's forecast period
-    tail_zeros = zeros(fc_pd - lag - convert(Int64, ceil(unit_type_data[:d_x])))
+    tail_zeros = zeros(fc_pd - lag - size(capex)[1])
 
     # Concatenate the above series into one
     capex_column = vcat(head_zeros, capex, tail_zeros)
@@ -576,18 +579,39 @@ function generate_capex_profile(unit_type_data, lag, fc_pd)
 end
 
 
-function project_C2N_capex(unit_type_data, lag, fc_pd)
-    # Uniformly distribute projected total project costs
-    capex_per_pd = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW / unit_type_data[:d_x]
+function project_C2N_capex(db, settings, unit_type_data, lag, fc_pd, current_pd, C2N_specs)
+    assumption = settings["C2N_assumption"]
+    # Set the project parameters
+    if occursin("C2N0", unit_type_data[:unit_type])
+        conversion_type = "greenfield"
+        if occursin("PWR", unit_type_data[:unit_type])
+            rxtr_type = "PWR"
+            data = C2N_specs["greenfield"]["PWR"]
+        elseif occursin("HTGR", unit_type_data[:unit_type])
+            rxtr_type = "HTGR"
+            data = C2N_specs["greenfield"]["HTGR"]
+        else
+            rxtr_type = "SFR"
+            data = C2N_specs["greenfield"]["SFR"]
+        end
+    else
+        if unit_type_data[:unit_type] == "C2N1"
+            conversion_type = "electrical"
+            rxtr_type = "PWR"
+        elseif unit_type_data[:unit_type] == "C2N2"
+            conversion_type = "steam_noTES"
+            rxtr_type = "HTGR"
+        else
+            conversion_type = "steam_TES"
+            rxtr_type = "SFR"
+        end
+        data = C2N_specs[conversion_type][assumption]
+    end
 
-    # Assign all periods to the nominal capex_per_pd
-    capex = ones(convert(Int64, ceil(unit_type_data[:d_x]))) * capex_per_pd
+    # Develop the C2N capex profile
+    capex_tl, activity_schedule = C2N.create_C2N_capex_timeline(db, conversion_type, rxtr_type, current_pd, lag, fc_pd, data, unit_type_data)
 
-    # Prorate the last period according to fraction of year duration remaining
-    last_year_capex = (unit_type_data[:d_x] - floor(unit_type_data[:d_x])) * capex_per_pd
-    capex[size(capex)[1]] = last_year_capex
-
-    return capex
+    return capex_tl, activity_schedule
 
 end
 

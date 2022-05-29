@@ -13,8 +13,8 @@ greenfield:
       cost_rem: 0.0
       time_rem: 0.0
     cpp_dnd:
-      cost_rem: 1.0
-      time_rem: 194.0
+      cost_rem: 194.0
+      time_rem: 1.0
   HTGR:
     npp_ns_xtr:
       cost_rem: 1977.0
