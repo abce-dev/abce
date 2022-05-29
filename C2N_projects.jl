@@ -361,7 +361,7 @@ function get_available_activities_steam_TES(project_current_status)
     end
 
     # NPP safety xtr prerequisite: NPP NS xtr
-    if ("npp_ns_xtr" in completed_activities)
+    if ("npp_ns_xtr" in completed_activities) && ("npp_safety_xtr" in incomplete_activities)
         push!(available_activities, "npp_safety_xtr")
     end
 
