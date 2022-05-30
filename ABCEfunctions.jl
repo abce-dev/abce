@@ -642,6 +642,7 @@ function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
     unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
     financing_term = 30
+    rev_head_start = ceil(Int64, round(unit_type_data[:rev_head_start], digits=3))
 
     # Find the end of the capital expenditures period
     capex_end = 0
@@ -651,7 +652,7 @@ function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
         end
     end
 
-    for i = (capex_end+1):(capex_end+1+financing_term)
+    for i = (capex_end+1-rev_head_start):(capex_end+1-rev_head_start+financing_term)
         # Apply a constant debt payment (sinking fund at cost of debt), based
         #   on the amount of debt outstanding at the end of the xtr project
         unit_fs[i, :debt_payment] = unit_fs[lag + unit_d_x, :remaining_debt_principal] .* cod ./ (1 - (1+cod) .^ (-1*financing_term))
@@ -665,7 +666,7 @@ function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
     end
 
     dep_term = 20
-    for i = (capex_end+1):(capex_end+1+dep_term)
+    for i = (capex_end+1-rev_head_start):(capex_end+1-rev_head_start+dep_term)
         # Apply straight-line depreciation, based on debt outstanding at the
         #   project's completion: all units have a dep. life of 20 years
         unit_fs[i, :depreciation] = unit_fs[capex_end, :remaining_debt_principal] ./ dep_term
@@ -833,7 +834,7 @@ function compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_ho
                 capex_end = i
             end
         end
-        rev_start = capex_end + 1
+        rev_start = capex_end + 1 - ceil(Int64, round(unit_type_data[:rev_head_start], digits=3))
         rev_end = min(rev_start + unit_op_life, size(unit_fs)[1])
     elseif mode == "retirement"
         rev_start = 1
@@ -861,8 +862,11 @@ function compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_ho
             unit_fs[y, :Revenue] = 0
         end
     end
+
+    avg_cpp_life_rem = 15
+
     if occursin("C2N", unit_type_data[:unit_type])
-        for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):rev_end
+        for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):(floor(Int64, unit_type_data[:cpp_ret_lead])+lag+avg_cpp_life_rem)
             row2 = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
             if (size(row2)[1] != 0)
                 unit_fs[y, :Revenue] = unit_fs[y, :Revenue] - 2*(row2[1, :annualized_rev_perunit] + row2[1, :annualized_policy_adj_perunit])
@@ -899,7 +903,7 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
                 capex_end = i
             end
         end
-        gen_start = capex_end + 1
+        gen_start = capex_end + 1 - ceil(Int64, round(unit_type_data[:rev_head_start], digits=3))
 
         gen_end = min(gen_start + unit_op_life, size(unit_fs)[1])
     elseif mode == "retirement"
@@ -930,8 +934,11 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
             unit_fs[y, :gen] = 0
         end
     end
+
+    coal_avg_rem_life = 15
+
     if occursin("C2N", unit_type_data[:unit_type])
-        for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):gen_end
+        for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):(floor(Int64, unit_type_data[:cpp_ret_lead])+lag+coal_avg_rem_life)
             row2 = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
             if (size(row2)[1] != 0)
                 unit_fs[y, :coal_gen] = 2*(row2[1, :annualized_gen_perunit])
@@ -957,6 +964,8 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     # Helpful short variable names
     unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
+    rev_head_start = ceil(Int64, round(unit_type_data[:rev_head_start], digits=3))
+    cpp_ret_lead = floor(Int64, round(unit_type_data[:cpp_ret_lead], digits=3))
 
     if !occursin("C2N", unit_type_data[:unit_type])
         # Compute total fuel cost
@@ -978,14 +987,18 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     #   FOM [$/kW-year] * capacity [MW] * [1000 kW / 1 MW] = $/year
     if mode == "new_xtr"
         # Find the end of the capital expenditures period
-        capex_end = 0
-        for i = 1:size(unit_fs)[1]
-            if round(unit_fs[i, :capex], digits=3) > 0
-                capex_end = i
-            end
-        end
-
-        pre_zeros = zeros(capex_end)
+        capex_end = maximum(filter(:capex => capex -> capex > 0, unit_fs)[!, :year])
+#        capex_end = 0
+#        for i = 1:size(unit_fs)[1]
+#            if round(unit_fs[i, :capex], digits=3) > 0
+#                capex_end = i
+#            end
+#        end
+        println(unit_type_data[:unit_type])
+        println(lag)
+        println(capex_end)
+        println(rev_head_start)
+        pre_zeros = zeros(capex_end-rev_head_start)
         op_ones = ones(unit_op_life)
     elseif mode == "retirement"
         pre_zeros = zeros(0)
@@ -994,10 +1007,11 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     post_zeros = zeros(size(unit_fs)[1] - size(pre_zeros)[1] - size(op_ones)[1])
     unit_fs[!, :FOM_Cost] = vcat(pre_zeros, op_ones, post_zeros)
 
-    if !occursin("C2N", unit_type_data[:unit_type])
-        unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[:FOM] .* unit_type_data[:capacity] .* MW2kW
-    else
-        unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[:FOM] .* unit_type_data[:capacity] .* MW2kW .- unit_fs[!, :FOM_Cost] .* (2 * 632 * MW2kW * 39.70)
+    unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[:FOM] .* unit_type_data[:capacity] .* MW2kW
+    if occursin("C2N", unit_type_data[:unit_type])
+        for y = (lag+1+cpp_ret_lead):(lag+1+cpp_ret_lead+unit_op_life)
+            unit_fs[y, :FOM_Cost] = unit_fs[y, :FOM_Cost] - (2 * 632 * MW2kW * 39.70)
+        end
     end
 
 end
@@ -1183,13 +1197,15 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
         total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
         if (total_eff_cap > pd_total_demand)
-            margin = -0.3
+            margin = -0.5
         else
             margin = 0.0
         end
         @constraint(m, transpose(u) * marg_eff_cap[:, i] >= (total_eff_cap - pd_total_demand) * margin)
 
     end
+
+    CSV.write("./tmp/marg_eff_cap.csv", DataFrame(marg_eff_cap, :auto))
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1239,7 +1255,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
             ret_pd = PA_uids[i, :ret_pd]
             asset_count = filter([:unit_type, :retirement_pd] => (x, y) -> x == unit_type && y == ret_pd, asset_counts)[1, :count]
             max_retirement = convert(Int64, PA_uids[i, :allowed]) .* min(asset_count, settings["max_type_rets_per_pd"])
-            @constraint(m, u[i] .<= max_retirement)
+#            @constraint(m, u[i] .<= max_retirement)
         end
     end
 
@@ -1262,11 +1278,13 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     ret_summation_matrix = zeros(k, size(PA_uids)[1])
     for i = 1:k
         for j = 1:size(PA_uids)[1]
-            if (PA_uids[j, :project_type] == "retirement") & (PA_uids[j, :unit_type] == asset_counts[i, :unit_type]) & (PA_uids[j, :ret_pd] == asset_counts[i, :retirement_pd])
+            if (PA_uids[j, :project_type] == "retirement") & (PA_uids[j, :unit_type] == retireable_asset_counts[i, :unit_type]) & (PA_uids[j, :ret_pd] == retireable_asset_counts[i, :retirement_pd])
                 ret_summation_matrix[i, j] = 1
             end
         end
     end
+
+    CSV.write("./tmp/ret_rum_mat_$agent_id.csv", DataFrame(ret_summation_matrix, :auto))
 
     # Specify constraint: the agent cannot plan to retire more units (during
     #   all lag periods) than exist of that unit type

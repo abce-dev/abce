@@ -433,6 +433,8 @@ class GridModel(Model):
             unit_specs_data.loc[i, "unit_life"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["unit_life"].values[0]
             # Set unit lead time until a coal unit must be retired, if any
             unit_specs_data.loc[i, "cpp_ret_lead"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["cpp_ret_lead"].values[0]
+            # Set unit revenue head start vs end of xtr period
+            unit_specs_data.loc[i, "rev_head_start"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["rev_head_start"].values[0]
 
         return unit_specs_data
 

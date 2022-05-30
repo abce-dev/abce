@@ -130,7 +130,9 @@ abce_tables = {"WIP_projects":
                   ("FC_per_MWh", "real"),      # $/MWh
                   ("is_VRE", "text"),          # boolean
                   ("emissions_rate", "real"),  # tCO2 / MWh
-                  ("policy_adj_per_MWh", "real") # net $/MWh subsidy or penalty due to carbon tax, PTC, etc.
+                  ("policy_adj_per_MWh", "real"), # net $/MWh subsidy or penalty due to carbon tax, PTC, etc.,
+                  ("cpp_ret_lead", "real"),    # lead time between xtr start and cpp retirement
+                  ("rev_head_start", "real")   # time before xtr finish when revenues begin
                  ],
 
 
