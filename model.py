@@ -1242,11 +1242,12 @@ class GridModel(Model):
 
        # Compute periodic sinking fund payments
         unit_type = asset_data.loc[0, "unit_type"]
-        unit_life = self.unit_specs.loc[self.unit_specs.unit_type == unit_type, "unit_life"].values[0]
+        unit_life = int(math.ceil(self.unit_specs.loc[self.unit_specs.unit_type == unit_type, "unit_life"].values[0]))
         #capex_payment = self.compute_sinking_fund_payment(asset_data.loc[0, "agent_id"], asset_data.loc[0, "cum_exp"], unit_life)
         capex_payment = 0  # to be replaced by capex and financial instrument tracking
 
         to_update = {"completion_pd": self.current_pd,
+                     "retirement_pd": self.current_pd + unit_life,
                      "total_capex": project_data.loc[0, "cum_exp"],
                      "cap_pmt": capex_payment}
         filters = {"asset_id": asset_id}
@@ -1383,6 +1384,9 @@ class GridModel(Model):
 
             if len(orig_record) == 0:
                 # The asset does not already exist and an entry must be added
+                # Ensure that completion and retirement periods are integers
+                new_record.at[row_num, "completion_pd"] = int(math.ceil(new_record.at[row_num, "completion_pd"]))
+                new_record.at[row_num, "retirement_pd"] = int(math.ceil(new_record.at[row_num, "retirement_pd"]))
                 pd.DataFrame(new_record).to_sql("assets", self.db, if_exists="append", index=False)
             else:
                 # The prior record must be overwritten
