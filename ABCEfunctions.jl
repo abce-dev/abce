@@ -988,16 +988,6 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     if mode == "new_xtr"
         # Find the end of the capital expenditures period
         capex_end = maximum(filter(:capex => capex -> capex > 0, unit_fs)[!, :year])
-#        capex_end = 0
-#        for i = 1:size(unit_fs)[1]
-#            if round(unit_fs[i, :capex], digits=3) > 0
-#                capex_end = i
-#            end
-#        end
-        println(unit_type_data[:unit_type])
-        println(lag)
-        println(capex_end)
-        println(rev_head_start)
         pre_zeros = zeros(capex_end-rev_head_start)
         op_ones = ones(unit_op_life)
     elseif mode == "retirement"
@@ -1094,7 +1084,8 @@ For this project alternative (unit type + lag time), compute the project's FCF N
 """
 function compute_alternative_NPV(unit_fs, agent_params)
     # Discount rate is WACC
-    d = agent_params[1, :debt_fraction] * agent_params[1, :cost_of_debt] + (1 - agent_params[1, :debt_fraction]) * agent_params[1, :cost_of_equity]
+    #d = agent_params[1, :debt_fraction] * agent_params[1, :cost_of_debt] + (1 - agent_params[1, :debt_fraction]) * agent_params[1, :cost_of_equity]
+    d = agent_params[1, :cost_of_debt]
 
     # Add a column of compounded discount factors to the dataframe
     transform!(unit_fs, [:year] => ((year) -> (1+d) .^ (-1 .* (year .- 1))) => :discount_factor)
@@ -1223,6 +1214,8 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
+    CSV.write("./tmp/marg_int.csv", DataFrame(marg_int, :auto))
+
     agent_fs_path = joinpath(
                         settings["ABCE_abs_path"],
                         "tmp",
@@ -1295,7 +1288,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # Create the objective function 
 
     lamda_1 = 1.0 / 1e9
-    lamda_2 = 1.0
+    lamda_2 = 0.0
     lim = 6
     int_bound = 5.0
  
