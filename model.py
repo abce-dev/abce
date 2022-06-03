@@ -117,9 +117,6 @@ class GridModel(Model):
         # Determine setting for use of a precomputed price curve
         self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
 
-        # Check whether a market price subsidy is in effect, and its value
-        self.set_market_subsidy(self.settings)
-                                               
         # Create an appropriate price duration curve
         self.create_price_duration_curve(self.settings)
 
@@ -712,23 +709,6 @@ class GridModel(Model):
         self.db.commit()
 
 
-    def set_market_subsidy(self, settings):
-        """
-        If a subsidy is enabled, set the model's `subsidy_amount` to the
-        quantity specified by the user in 'settings.yml'.
-
-        Args:
-          settings (dict): model settings from 'settings.yml'
-        """
-        self.subsidy_enabled = False
-        self.subsidy_amount = 0
-
-        if "enable_subsidy" in settings:
-            self.subsidy_enabled = settings["enable_subsidy"]
-            if self.subsidy_enabled and "subsidy_amount" in settings:
-                self.subsidy_amount = settings["subsidy_amount"]
-
-
     def create_price_duration_curve(self, settings, dispatch_data=None):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
@@ -740,7 +720,6 @@ class GridModel(Model):
             self.price_duration_data = pc.load_time_series_data(
                                              price_curve_data_file,
                                              file_type="price",
-                                             subsidy=self.subsidy_amount,
                                              output_type = "dataframe")
         else:
             # Create the systemwide merit order curve
@@ -1385,8 +1364,8 @@ class GridModel(Model):
             if len(orig_record) == 0:
                 # The asset does not already exist and an entry must be added
                 # Ensure that completion and retirement periods are integers
-                new_record.at[row_num, "completion_pd"] = int(math.ceil(new_record.at[row_num, "completion_pd"]))
-                new_record.at[row_num, "retirement_pd"] = int(math.ceil(new_record.at[row_num, "retirement_pd"]))
+                new_record.at[0, "completion_pd"] = int(math.ceil(new_record.at[0, "completion_pd"]))
+                new_record.at[0, "retirement_pd"] = int(math.ceil(new_record.at[0, "retirement_pd"]))
                 pd.DataFrame(new_record).to_sql("assets", self.db, if_exists="append", index=False)
             else:
                 # The prior record must be overwritten

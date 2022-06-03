@@ -21,7 +21,7 @@ import sys
 import os
 
 
-def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0, output_type="np.array"):
+def load_time_series_data(data_file_name, file_type, peak_demand=0, output_type="np.array"):
     file_name, file_ext = os.path.splitext(data_file_name)
 
     if "csv" in file_ext:
@@ -40,7 +40,7 @@ def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0, o
 
     # Invoke an appropriate organization function, depending on file type
     if file_type == "price":
-        ts_df = organize_price_data(file_name, ts_df, subsidy, output_type)
+        ts_df = organize_price_data(file_name, ts_df, output_type)
     elif file_type == "load":
         if peak_demand == 0:
             print(f"Using default peak demand value of {peak_demand}; " +
@@ -49,7 +49,7 @@ def load_time_series_data(data_file_name, file_type, subsidy=0, peak_demand=0, o
     return ts_df
 
 
-def organize_price_data(file_name, price_df, subsidy, output_type):
+def organize_price_data(file_name, price_df, output_type):
     if "output_DISPATCH" in file_name:
         # Old ALEAF output file format
         orig_col_name = "LMP"
@@ -66,7 +66,7 @@ def organize_price_data(file_name, price_df, subsidy, output_type):
     lamda = pd.DataFrame({"lamda": price_df[orig_col_name].iloc[::row_freq]})
     lamda = (lamda.sort_values(by = ["lamda"])
              .reset_index().drop(labels=["index"], axis=1))
-    lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x + subsidy))
+    lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x))
     if output_type == "np.array":
         lamda = lamda.to_numpy().transpose()[0]
     return lamda

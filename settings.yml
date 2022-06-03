@@ -14,13 +14,13 @@ output_file: "outputs.xlsx"
 
 first_asset_id: 2001
 
-num_steps: 1
+num_steps: 2
 
-C2N_subsidy: 10  # multiplicative
+C2N_subsidy: 5  # multiplicative
 C2N_assumption: baseline
 
 use_precomputed_price_curve: True
-enable_subsidy: True
+enable_subsidy: False
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
 policies:
@@ -30,8 +30,10 @@ policies:
   PTC:
     enabled: True
     eligible:
+      - Wind
+      - Solar
       - AdvancedNuclear
-    qty: 30   # $/MWh
+    qty: 20   # $/MWh
 num_repdays: 20
 
 allowed_xtr_types:
