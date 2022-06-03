@@ -21,7 +21,7 @@ import sys
 import os
 
 
-def load_time_series_data(data_file_name, file_type, peak_demand=0, output_type="np.array"):
+def load_time_series_data(data_file_name, current_pd, file_type, peak_demand=0, output_type="np.array"):
     file_name, file_ext = os.path.splitext(data_file_name)
 
     if "csv" in file_ext:
@@ -40,7 +40,7 @@ def load_time_series_data(data_file_name, file_type, peak_demand=0, output_type=
 
     # Invoke an appropriate organization function, depending on file type
     if file_type == "price":
-        ts_df = organize_price_data(file_name, ts_df, output_type)
+        ts_df = organize_price_data(file_name, ts_df, current_pd, output_type)
     elif file_type == "load":
         if peak_demand == 0:
             print(f"Using default peak demand value of {peak_demand}; " +
@@ -49,23 +49,28 @@ def load_time_series_data(data_file_name, file_type, peak_demand=0, output_type=
     return ts_df
 
 
-def organize_price_data(file_name, price_df, output_type):
-    if "output_DISPATCH" in file_name:
-        # Old ALEAF output file format
-        orig_col_name = "LMP"
-        row_freq = 7
-    elif "dispatch_summary" in file_name:
+def organize_price_data(file_name, price_df, current_pd, output_type):
+    if "dispatch_summary" in file_name:
         # New ALEAF output file format
         orig_col_name = "LMP_dht"
-        row_freq = 7
+        # The row frequency is the number of unique unit types in this
+        #   particular set of dispatch results (as disambiguated by Tech_ID)
+        row_freq = len([unit_type for unit_type in pd.unique(price_df["Tech_ID"])])
+
     else:
         # Assume it's an ERCOT file
         orig_col_name = "Total electricity price"
         row_freq = 1
-    # Filter and organize the price data
+
+    # Downselect to the specified row frequency, i.e. number of unique
+    #   unit types
     lamda = pd.DataFrame({"lamda": price_df[orig_col_name].iloc[::row_freq]})
+
+    # Sort values lowest to highest
     lamda = (lamda.sort_values(by = ["lamda"])
              .reset_index().drop(labels=["index"], axis=1))
+
+    # Set the maximum price to 9001
     lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x))
     if output_type == "np.array":
         lamda = lamda.to_numpy().transpose()[0]
