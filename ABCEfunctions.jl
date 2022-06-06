@@ -687,14 +687,14 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, price_curve, db, pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
+function forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, price_curve, db, current_pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Compute estimated revenue from submarginal hours
     num_submarg_hours, submarginal_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_curve)
 
     # Compute estimated revenue from marginal hours
-    num_marg_hours, marginal_hours_revenue = compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
+    num_marg_hours, marginal_hours_revenue = compute_marginal_hours_revenue(unit_type_data, price_curve, db, current_pd)
 
     # If the unit is VRE, assign an appropriate availability derate factor
     availability_derate_factor = compute_VRE_derate_factor(unit_type_data)
@@ -706,11 +706,11 @@ function forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, price_
     end
 
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_generation(current_pd, unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
 
 end
 
@@ -726,7 +726,7 @@ function compute_submarginal_hours_revenue(unit_type_data, price_curve)
     #   be sub-marginal, from the price-duration curve
     # Marginal cost unit conversion:
     #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
-    submarginal_hours = filter(row -> row.lamda > unit_type_data[:VOM] + unit_type_data[:FC_per_MWh], price_curve)
+    submarginal_hours = filter(row -> row.lamda > unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] + unit_type_data[:policy_adj_per_MWh], price_curve)
 
     # Create a conversion factor from number of periods in the price curve
     #   to hours (price curve may be in hours or five-minute periods)
@@ -758,7 +758,7 @@ function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
     #   be marginal, from the price-duration curve
     # Marginal cost unit convertion:
     #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
-    marginal_hours = filter(row -> row.lamda == unit_type_data[:VOM] + unit_type_data[:FC_per_MWh], price_curve)
+    marginal_hours = filter(row -> row.lamda == unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] + unit_type_data[:policy_adj_per_MWh], price_curve)
 
     # Compute the total capacity of this unit type in the current system
     command = string("SELECT asset_id FROM assets WHERE unit_type == '", unit_type_data[:unit_type], "' AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd)
@@ -811,7 +811,7 @@ end
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd=9999)
+function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, submarginal_hours_revenue, marginal_hours_revenue, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd=9999)
     check_valid_vector_mode(mode)
 
     # Helpful short variables
@@ -851,13 +851,26 @@ function compute_total_revenue(settings, unit_type_data, unit_fs, submarginal_ho
         type_filter = "AdvancedNuclear"
     end
 
+    hist_decay_rate = 0.25
+    starting_hist_wt = 0.5
+
     # Compute final projected revenue series
-#    unit_fs[rev_start:rev_end, :Revenue] .= (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
+    hist_rev = (submarginal_hours_revenue + marginal_hours_revenue) * availability_derate_factor
     agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), [:annualized_rev_perunit, :annualized_policy_adj_perunit] .=> sum, renamecols=false)
     for y = rev_start:rev_end
         row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
+
+        # Baseline weights
+        hist_wt = 0.0
+        proj_wt = 1.0
+
+        if (y - current_pd) < 4
+            hist_wt = starting_hist_wt * (1 + hist_decay_rate) ^ (- (y - current_pd))
+            proj_wt = 1 - hist_wt
+        end
+
         if size(row)[1] != 0
-            unit_fs[y, :Revenue] = row[1, :annualized_rev_perunit] + row[1, :annualized_policy_adj_perunit]
+            unit_fs[y, :Revenue] = proj_wt * (row[1, :annualized_rev_perunit] + row[1, :annualized_policy_adj_perunit]) + hist_wt * hist_rev
         else
             unit_fs[y, :Revenue] = 0
         end
@@ -881,7 +894,7 @@ end
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd)
+function compute_total_generation(current_pd, unit_type_data, unit_fs, num_submarg_hours, num_marg_hours, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
@@ -922,14 +935,29 @@ function compute_total_generation(unit_type_data, unit_fs, num_submarg_hours, nu
         unit_fs[!, :coal_gen] .= 0.0
     end
 
+    hist_decay_rate = 0.25
+    starting_hist_wt = 0.5
+
+    hist_gen = (num_marg_hours + num_submarg_hours) * availability_derate_factor * unit_type_data[:capacity]
+
     transform!(long_econ_results, [:gen, :Probability, :num_units] => ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) => :annualized_gen_perunit)
     agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_gen_perunit => sum, renamecols=false)
 
     # Distribute generation values time series
     for y = gen_start:gen_end
         row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
+
+        # Baseline weights
+        hist_wt = 0.0
+        proj_wt = 1.0
+
+        if (y - current_pd) < 4
+            hist_wt = starting_hist_wt * (1 + hist_decay_rate) ^ (- (y - current_pd))
+            proj_wt = 1 - hist_wt
+        end
+
         if size(row)[1] != 0
-            unit_fs[y, :gen] = row[1, :annualized_gen_perunit]
+            unit_fs[y, :gen] = proj_wt * row[1, :annualized_gen_perunit] + hist_wt * hist_gen
         else
             unit_fs[y, :gen] = 0
         end
