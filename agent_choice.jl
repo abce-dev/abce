@@ -106,7 +106,8 @@ num_alternatives = num_types * (num_lags + 1)
 fc_pd = set_forecast_period(unit_specs, num_lags)
 
 # Load the price data
-price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
+price_pd = pd - 1
+price_curve = DBInterface.execute(db, "SELECT * FROM price_curve WHERE base_pd = $price_pd") |> DataFrame
 
 # Add empty column for project NPVs in unit_specs
 unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
