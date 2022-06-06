@@ -74,7 +74,7 @@ def organize_price_data(file_name, price_df, current_pd, output_type):
     lamda["lamda"] = lamda["lamda"].apply(lambda x: min(9001, x))
 
     # Set the base_pd to the current period
-    lamda["base_pd"] = current_pd
+    lamda["base_pd"] = current_pd - 1
 
     # Format as np.array
     if output_type == "np.array":
