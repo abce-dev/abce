@@ -118,13 +118,13 @@ class GridModel(Model):
         self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
 
         # Create an appropriate price duration curve
-        self.create_price_duration_curve(self.settings)
+        #self.create_price_duration_curve(self.settings)
 
         # Save price duration data to the database
-        self.price_duration_data.to_sql("price_curve",
-                                        con = self.db,
-                                        index = False,
-                                        if_exists = "append")
+        #self.price_duration_data.to_sql("price_curve",
+        #                                con = self.db,
+        #                                index = False,
+        #                                if_exists = "append")
 
         self.db.commit()
 
@@ -719,6 +719,7 @@ class GridModel(Model):
                 price_curve_data_file = dispatch_data
             self.price_duration_data = pc.load_time_series_data(
                                              price_curve_data_file,
+                                             self.current_pd,
                                              file_type="price",
                                              output_type = "dataframe")
         else:
@@ -759,18 +760,20 @@ class GridModel(Model):
         print("==========================================================================")
 
         # Update price data from ALEAF
-        if self.current_pd != 0:
+        if self.current_pd == 0:
+            self.create_price_duration_curve(self.settings)
+        else:
             new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_pd - 1}.csv"
             new_dispatch_data = os.path.join(self.ABCE_output_data_path, new_dispatch_data_filename)
             print(f"Creating price duration curve using file {new_dispatch_data}")
             self.create_price_duration_curve(self.settings, new_dispatch_data)
 
-            # Save price duration data to the database
-            self.price_duration_data.to_sql("price_curve",
-                                            con = self.db,
-                                            index = False,
-                                            if_exists = "replace")
-            self.db.commit()
+        # Save price duration data to the database
+        self.price_duration_data.to_sql("price_curve",
+                                        con = self.db,
+                                        index = False,
+                                        if_exists = "append")
+        self.db.commit()
 
         # Advance the status of all WIP projects to the current period
         self.update_WIP_projects()
