@@ -143,7 +143,6 @@ abce_tables = {"WIP_projects":
 
                "price_curve":
                  [("base_pd", "integer"),
-                  ("projected_pd", "integer"),
                   ("lamda", "real")
                  ],
 

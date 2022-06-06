@@ -117,15 +117,6 @@ class GridModel(Model):
         # Determine setting for use of a precomputed price curve
         self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
 
-        # Create an appropriate price duration curve
-        #self.create_price_duration_curve(self.settings)
-
-        # Save price duration data to the database
-        #self.price_duration_data.to_sql("price_curve",
-        #                                con = self.db,
-        #                                index = False,
-        #                                if_exists = "append")
-
         self.db.commit()
 
         # Check ./outputs/ dir and clear out old files
