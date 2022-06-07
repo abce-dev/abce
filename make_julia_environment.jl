@@ -22,6 +22,7 @@ julia_pkg_list = ["ArgParse",
                   "PowerModels",
                   "PyCall",
                   "SQLite",
+                  "Tables",
                   "XLSX",
                   "YAML"]
 
