@@ -726,7 +726,7 @@ function compute_submarginal_hours_revenue(unit_type_data, price_curve)
     #   be sub-marginal, from the price-duration curve
     # Marginal cost unit conversion:
     #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
-    submarginal_hours = filter(row -> row.lamda > unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] + unit_type_data[:policy_adj_per_MWh], price_curve)
+    submarginal_hours = filter(row -> row.lamda > unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] - unit_type_data[:policy_adj_per_MWh], price_curve)
 
     # Create a conversion factor from number of periods in the price curve
     #   to hours (price curve may be in hours or five-minute periods)
@@ -758,7 +758,7 @@ function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
     #   be marginal, from the price-duration curve
     # Marginal cost unit convertion:
     #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
-    marginal_hours = filter(row -> row.lamda == unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] + unit_type_data[:policy_adj_per_MWh], price_curve)
+    marginal_hours = filter(row -> row.lamda == unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] - unit_type_data[:policy_adj_per_MWh], price_curve)
 
     # Compute the total capacity of this unit type in the current system
     command = string("SELECT asset_id FROM assets WHERE unit_type == '", unit_type_data[:unit_type], "' AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd)
@@ -783,6 +783,39 @@ function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
     end
 
     return num_marg_hours, marginal_hours_revenue
+end
+
+
+function compute_historical_unit_type_results(unit_specs, price_data, db, current_pd)
+    # Create dataframe to store results
+    unit_hist_results = DataFrame(
+                            unit_type = String[],
+                            total_gen = Float64[],
+                            total_rev = Float64[]
+                        )
+
+    for unit_type in unit_specs[!, :unit_type]
+        # Filter unit type data for convenience
+        unit_type_data = filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
+
+        # Get the unit type's number of hours generated and revenue while
+        #   submarginal
+        unit_submarg_hours, unit_submarg_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_data)
+
+        # Get the unit type's number of hours generated and revenue while
+        #   marginal
+        unit_marg_hours, unit_marg_hours_revenue = compute_marginal_hours_revenue(unit_type_data, price_data, db, current_pd)
+
+        unit_total_rev = unit_submarg_hours_revenue + unit_marg_hours_revenue
+        unit_total_gen = (unit_submarg_hours + unit_marg_hours) * unit_type_data[:capacity]
+
+        push!(unit_hist_results, [unit_type unit_total_rev unit_total_gen])
+    end
+
+    @info unit_hist_results
+
+    return unit_hist_results
+
 end
 
 
@@ -1506,7 +1539,7 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
 end
 
 
-function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios)
+function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios, price_data)
     # Retrieve horizontally-abbreviated dataframes
     short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_perunit, :annualized_VOM_perunit, :annualized_FC_perunit, :annualized_policy_adj_perunit])
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])
@@ -1522,6 +1555,10 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
 
     # Fill in total fuel costs
     transform!(fin_results, [:annualized_FC_perunit, :num_units] => ((FC, num_units) -> FC .* num_units) => :total_FC)
+
+    # Retrieve last year's generation and revenue results by unit type
+    unit_hist_results = compute_historical_unit_type_results(unit_specs, price_data, db, current_pd)
+
 
     # Create the annualized results dataframe so far
     results_pivot = combine(groupby(fin_results, :y), [:total_rev, :total_VOM, :total_FC] .=> sum; renamecols=false)
