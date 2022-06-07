@@ -16,7 +16,7 @@ first_asset_id: 2001
 
 num_steps: 1
 
-C2N_subsidy: 5  # multiplicative
+C2N_subsidy: 1  # multiplicative
 C2N_assumption: baseline
 
 use_precomputed_price_curve: True
@@ -30,10 +30,8 @@ policies:
   PTC:
     enabled: True
     eligible:
-      - Wind
-      - Solar
       - AdvancedNuclear
-    qty: 20   # $/MWh
+    qty: 60   # $/MWh
 num_repdays: 20
 
 allowed_xtr_types:
