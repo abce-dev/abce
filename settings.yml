@@ -1,7 +1,7 @@
 # File locations and runtime options for ABCE
 ABCE_abs_path: "/home/biegelk/abce/"
 demand_data_file: "inputs/demand_data.csv"
-seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_base__dispatch_summary_OP__step_0.csv"
+seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_IL_C2N__dispatch_summary_OP__step_0.csv"
 unit_specs_abce_supp_file: "inputs/unit_specs_abce_supplemental.csv"
 retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
 time_series_data_file: "inputs/timeseriesParams.xlsx"
@@ -14,7 +14,7 @@ output_file: "outputs.xlsx"
 
 first_asset_id: 2001
 
-num_steps: 2
+num_steps: 1
 
 C2N_subsidy: 5  # multiplicative
 C2N_assumption: baseline
