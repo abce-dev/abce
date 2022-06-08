@@ -773,7 +773,7 @@ function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
     if system_type_capacity == 0
         num_marg_hours = 0
     else
-        num_marg_hours = size(marginal_hours)[1] * unit_type_data[:capacity] / system_type_capacity * convert_to_hours
+        num_marg_hours = size(marginal_hours)[1] / system_type_capacity * convert_to_hours
     end
 
     if size(marginal_hours)[1] == 0
@@ -809,10 +809,8 @@ function compute_historical_unit_type_results(unit_specs, price_data, db, curren
         unit_total_rev = unit_submarg_hours_revenue + unit_marg_hours_revenue
         unit_total_gen = (unit_submarg_hours + unit_marg_hours) * unit_type_data[:capacity]
 
-        push!(unit_hist_results, [unit_type unit_total_rev unit_total_gen])
+        push!(unit_hist_results, [unit_type unit_total_gen unit_total_rev])
     end
-
-    @info unit_hist_results
 
     return unit_hist_results
 
@@ -1539,7 +1537,7 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
 end
 
 
-function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios, price_data)
+function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios, price_data, settings)
     # Retrieve horizontally-abbreviated dataframes
     short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_perunit, :annualized_VOM_perunit, :annualized_FC_perunit, :annualized_policy_adj_perunit])
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])

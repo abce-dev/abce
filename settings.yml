@@ -31,7 +31,7 @@ policies:
     enabled: True
     eligible:
       - AdvancedNuclear
-    qty: 60   # $/MWh
+    qty: 65   # $/MWh
 num_repdays: 20
 
 allowed_xtr_types:
