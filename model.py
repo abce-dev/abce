@@ -74,9 +74,10 @@ class GridModel(Model):
         # Set up all ALEAF file paths
         self.set_ALEAF_file_paths(settings)
 
-        # If ALEAF is enabled, re-initialize all input data based on local
-        #    reference copies
-        self.reinitialize_ALEAF_input_data()
+        if self.settings["run_ALEAF"]:
+            # If ALEAF is enabled, re-initialize all input data based on local
+            #    reference copies
+            self.reinitialize_ALEAF_input_data()
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
@@ -86,8 +87,9 @@ class GridModel(Model):
         #   data file
         self.add_unit_specs_to_db()
 
-        # Initialize the correct policy adjustments by unit type
-        ALI.update_ALEAF_policy_settings(self.ALEAF_model_settings_remote, self.ALEAF_model_settings_remote, self.settings["policies"], self.unit_specs)
+        if self.settings["run_ALEAF"]:
+            # Initialize the correct policy adjustments by unit type
+            ALI.update_ALEAF_policy_settings(self.ALEAF_model_settings_remote, self.ALEAF_model_settings_remote, self.settings["policies"], self.unit_specs)
 
         # Read in the GenCo parameters data from file
         gc_params_file_name = os.path.join(self.settings["ABCE_abs_path"],
@@ -706,7 +708,7 @@ class GridModel(Model):
     def create_price_duration_curve(self, settings, dispatch_data=None):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
-            if self.current_pd <= 0:
+            if (self.current_pd <= 0) or (self.settings["run_ALEAF"] == False):
                 price_curve_data_file = os.path.join(settings["ABCE_abs_path"],
                                                      settings["seed_dispatch_data_file"])
             else:
@@ -754,7 +756,7 @@ class GridModel(Model):
         print("==========================================================================")
 
         # Update price data from ALEAF
-        if self.current_pd == 0:
+        if (self.current_pd == 0) or (self.settings["run_ALEAF"] == False):
             self.create_price_duration_curve(self.settings)
         else:
             new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_pd - 1}.csv"
@@ -804,31 +806,32 @@ class GridModel(Model):
             print("Table of construction project updates:")
             print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
-        # Update the A-LEAF system portfolio based on any new units completed
-        #   or units retired this period
-        ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_remote, self.ALEAF_portfolio_remote, self.db, self.current_pd)
+        if self.settings["run_ALEAF"]:
+            # Update the A-LEAF system portfolio based on any new units completed
+            #   or units retired this period
+            ALI.update_ALEAF_system_portfolio(self.ALEAF_portfolio_remote, self.ALEAF_portfolio_remote, self.db, self.current_pd)
 
-        # Update ALEAF peak demand
-        ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,
-                                        self.ALEAF_model_settings_remote,
-                                        self.db,
-                                        self.settings,
-                                        self.current_pd)
+            # Update ALEAF peak demand
+            ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,
+                                            self.ALEAF_model_settings_remote,
+                                            self.db,
+                                            self.settings,
+                                            self.current_pd)
 
-        # Run A-LEAF
-        print("Running A-LEAF...")
-        run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
-        ALEAF_env_path = os.path.join(self.ALEAF_abs_path, ".")
-        ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
-        aleaf_cmd = f"julia --project={ALEAF_env_path} -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
-        if self.args.quiet:
-            sp = subprocess.check_call([aleaf_cmd],
-                                       shell=True,
-                                       stdout=open(os.devnull, "wb"))
-        else:
-            sp = subprocess.check_call([aleaf_cmd], shell=True)
+            # Run A-LEAF
+            print("Running A-LEAF...")
+            run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
+            ALEAF_env_path = os.path.join(self.ALEAF_abs_path, ".")
+            ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
+            aleaf_cmd = f"julia --project={ALEAF_env_path} -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
+            if self.args.quiet:
+                sp = subprocess.check_call([aleaf_cmd],
+                                           shell=True,
+                                           stdout=open(os.devnull, "wb"))
+            else:
+                sp = subprocess.check_call([aleaf_cmd], shell=True)
 
-        self.save_ALEAF_outputs()
+            self.save_ALEAF_outputs()
 
 
     def check_for_sysimage_files(self):
