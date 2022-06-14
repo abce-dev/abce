@@ -125,8 +125,8 @@ abce_tables = {"WIP_projects":
                   ("PMIN", "real"),            # frac
                   ("RUL", "real"),             # frac PL change/hr
                   ("RDL", "real"),             # frac PL change/hr
-                  ("ATB_FC", "real"),          # $/MWh or $/MMBTU
-                  ("ATB_FC_units", "text"),    # unit for ATB FC
+                  ("original_FC", "real"),          # $/MWh or $/MMBTU
+                  ("original_FC_units", "text"),    # unit for ATB FC
                   ("FC_per_MWh", "real"),      # $/MWh
                   ("is_VRE", "text"),          # boolean
                   ("emissions_rate", "real"),  # tCO2 / MWh

@@ -276,7 +276,7 @@ class GridModel(Model):
         ATB_header_write_converter = {"CAPEX": "uc_x",
                                       "Variable O&M": "VOM",
                                       "Fixed O&M": "FOM",
-                                      "Fuel": "ATB_FC"}
+                                      "Fuel": "original_FC"}
 
         # Set up the converter between A-LEAF input sheet search terms and
         #   ATB column headers
@@ -328,9 +328,9 @@ class GridModel(Model):
                         if datum_name == "Fuel":
                             # If the current datum is Fuel, also record its
                             #   associated units
-                            unit_specs_data.loc[unit_type, "ATB_FC_units"] = ATB_data.loc[mask, "units"].values[0]
+                            unit_specs_data.loc[unit_type, "original_FC_units"] = ATB_data.loc[mask, "units"].values[0]
                 elif (ALEAF_read_col == "FC_per_MWh") and (unit_specs_data.loc[unit_type, ALEAF_read_col] != "ATB"):
-                    unit_specs_data.loc[unit_type, "ATB_FC_units"] = "$/MWh"
+                    unit_specs_data.loc[unit_type, "original_FC_units"] = "$/MWh"
 
         # Set newly-filled ATB data columns to numeric data types
         #   Columns initialized with "ATB" will be a non-numeric data type,
@@ -415,10 +415,10 @@ class GridModel(Model):
         unit_specs_data["FC_per_MWh"] = unit_specs_data.apply(
             lambda x:
                 x["FC_per_MWh"] if x["FC_per_MWh"] != "ATB" else
-                    x["ATB_FC"] if x["ATB_FC_units"] == "$/MWh" else
-                        (x["ATB_FC"] * x["heat_rate"] if x["ATB_FC_units"] == "$/MMBTU" else
+                    x["original_FC"] if x["original_FC_units"] == "$/MWh" else
+                        (x["original_FC"] * x["heat_rate"] if x["original_FC_units"] == "$/MMBTU" else
                             (0 if x["is_VRE"] == True else
-                                (unit_problems.update({x["unit_type"]: x["ATB_FC_units"]})))),
+                                (unit_problems.update({x["unit_type"]: x["original_FC_units"]})))),
             axis = 1
         )
 
