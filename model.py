@@ -301,6 +301,8 @@ class GridModel(Model):
         # Load the ATB database sheet
         ATB_data = pd.read_csv(self.ATB_remote)
 
+        print(unit_specs_data.iloc[:, 1:17])
+
         # Fill values for each unit type
         for unit_type in list(unit_specs_data.index):
             # Retrieve the ATB search/matching settings for this unit type
@@ -327,6 +329,8 @@ class GridModel(Model):
                             # If the current datum is Fuel, also record its
                             #   associated units
                             unit_specs_data.loc[unit_type, "ATB_FC_units"] = ATB_data.loc[mask, "units"].values[0]
+                elif (ALEAF_read_col == "FC_per_MWh") and (unit_specs_data.loc[unit_type, ALEAF_read_col] != "ATB"):
+                    unit_specs_data.loc[unit_type, "ATB_FC_units"] = "$/MWh"
 
         # Set newly-filled ATB data columns to numeric data types
         #   Columns initialized with "ATB" will be a non-numeric data type,
@@ -401,13 +405,20 @@ class GridModel(Model):
         # Some generators' (currently NG and Coal) fuel cost is given in the
         #   ATB data in units of $/MMBTU. Convert these values to a $/MWh basis
         #   for consistency.
+        # Logic flow:
+        #   1. if the unit already has a numeric entry in FC_per_MWh, keep it. else:
+        #   2. if the unit's ATB_FC is in $/MWh, copy that value to FC_per_MWh. else:
+        #   3. if the unit's ATB_FC is in $/MMBTU, multiply its ATB_FC by its heat rate and copy that value to FC_per_MWh. else:
+        #   4. if the unit is flagged as is_VRE == True, use the value of 0. else:
+        #   5. record the current unit as having an unresolvable unit problem, and throw an error to the user.
         unit_problems = dict()
         unit_specs_data["FC_per_MWh"] = unit_specs_data.apply(
             lambda x:
-                x["ATB_FC"] if x["ATB_FC_units"] == "$/MWh" else
-                    (x["ATB_FC"] * x["heat_rate"] if x["ATB_FC_units"] == "$/MMBTU" else
-                        (0 if x["is_VRE"] == True else
-                            (unit_problems.update({x["unit_type"]: x["ATB_FC_units"]})))),
+                x["FC_per_MWh"] if x["FC_per_MWh"] != "ATB" else
+                    x["ATB_FC"] if x["ATB_FC_units"] == "$/MWh" else
+                        (x["ATB_FC"] * x["heat_rate"] if x["ATB_FC_units"] == "$/MMBTU" else
+                            (0 if x["is_VRE"] == True else
+                                (unit_problems.update({x["unit_type"]: x["ATB_FC_units"]})))),
             axis = 1
         )
 
