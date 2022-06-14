@@ -212,7 +212,7 @@ class GridModel(Model):
                                   "CAP": "capacity",
                                   "CAPEX": "uc_x",
                                   "HR": "heat_rate",
-                                  "FC": "FC_per_MWh",
+                                  "FC": "original_FC",
                                   "CAPCRED": "CF",
                                   "VRE_Flag": "is_VRE",
                                   "EMSFAC": "emissions_rate"}
@@ -272,7 +272,7 @@ class GridModel(Model):
         ATB_header_read_converter = {"CAPEX": "uc_x",
                                      "Variable O&M": "VOM",
                                      "Fixed O&M": "FOM",
-                                     "Fuel": "FC_per_MWh"}
+                                     "Fuel": "original_FC"}
         ATB_header_write_converter = {"CAPEX": "uc_x",
                                       "Variable O&M": "VOM",
                                       "Fixed O&M": "FOM",
@@ -329,7 +329,7 @@ class GridModel(Model):
                             # If the current datum is Fuel, also record its
                             #   associated units
                             unit_specs_data.loc[unit_type, "original_FC_units"] = ATB_data.loc[mask, "units"].values[0]
-                elif (ALEAF_read_col == "FC_per_MWh") and (unit_specs_data.loc[unit_type, ALEAF_read_col] != "ATB"):
+                elif (ALEAF_read_col == "original_FC") and (unit_specs_data.loc[unit_type, ALEAF_read_col] != "ATB"):
                     unit_specs_data.loc[unit_type, "original_FC_units"] = "$/MWh"
 
         # Set newly-filled ATB data columns to numeric data types
@@ -414,11 +414,10 @@ class GridModel(Model):
         unit_problems = dict()
         unit_specs_data["FC_per_MWh"] = unit_specs_data.apply(
             lambda x:
-                x["FC_per_MWh"] if x["FC_per_MWh"] != "ATB" else
-                    x["original_FC"] if x["original_FC_units"] == "$/MWh" else
-                        (x["original_FC"] * x["heat_rate"] if x["original_FC_units"] == "$/MMBTU" else
-                            (0 if x["is_VRE"] == True else
-                                (unit_problems.update({x["unit_type"]: x["original_FC_units"]})))),
+                x["original_FC"] if x["original_FC_units"] == "$/MWh" else
+                    (x["original_FC"] * x["heat_rate"] if x["original_FC_units"] == "$/MMBTU" else
+                        (0 if x["is_VRE"] == True else
+                            (unit_problems.update({x["unit_type"]: x["original_FC_units"]})))),
             axis = 1
         )
 
