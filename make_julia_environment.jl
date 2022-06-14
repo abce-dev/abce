@@ -35,7 +35,8 @@ conda_list = ["numpy",
 # Add and build the optimizer packages
 # CPLEX version 0.6.0 is required for compatibility with CPLEX 12.8
 println("Adding CPLEX")
-Pkg.add(Pkg.PackageSpec(;name="CPLEX", version="0.6.0"))
+Pkg.add("CPLEX")
+#Pkg.add(Pkg.PackageSpec(;name="CPLEX", version="0.6.0"))
 println("Building CPLEX...")
 Pkg.build("CPLEX")
 println("CPLEX built.")
