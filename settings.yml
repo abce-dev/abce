@@ -31,16 +31,26 @@ policies:
     enabled: True
     eligible:
       - AdvancedNuclear
-    qty: 65   # $/MWh
+      - Wind
+    qty: 25.0   # $/MWh
 num_repdays: 20
 
 allowed_xtr_types:
+  - Wind
+  - Solar
   - PWR_C2N0
   - HTGR_C2N0
   - SFR_C2N0
   - C2N1
   - C2N2
   - C2N3
+  - PWR_C2N0_s
+  - HTGR_C2N0_s
+  - SFR_C2N0_s
+  - C2N1_s
+  - C2N2_s
+  - C2N3_s
+
 
 #peak_demand: 28967  # MWh, to scale load duration data
 peak_demand: 30000
@@ -60,7 +70,7 @@ total_forecast_horizon: 100    # Number of periods in the complete forecast hori
 consider_future_projects: True
 num_future_periods_considered: 4    # Number of periods for which to consider future projects
 max_type_rets_per_pd: 5
-max_type_newbuilds_per_pd: 5
+max_type_newbuilds_per_pd: 3
 
 
 #### ALEAF SETTINGS
