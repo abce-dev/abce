@@ -107,8 +107,9 @@ def run_model():
             final_db = pd.read_sql_query(f"SELECT * FROM {table}", abce_model.db)
             final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
 
-    # Postprocess A-LEAF results
-    ABCEfunctions.process_outputs(settings, abce_model.ABCE_output_data_path, abce_model.unit_specs)
+    if abce_model.settings["run_ALEAF"]:
+        # Postprocess A-LEAF results
+        ABCEfunctions.process_outputs(settings, abce_model.ABCE_output_data_path, abce_model.unit_specs)
 
 
 # Run the model
