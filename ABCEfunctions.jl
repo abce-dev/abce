@@ -911,9 +911,9 @@ function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, su
 
     if occursin("C2N", unit_type_data[:unit_type])
         for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):(floor(Int64, unit_type_data[:cpp_ret_lead])+lag+avg_cpp_life_rem)
-            row2 = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
-            if (size(row2)[1] != 0)
-                unit_fs[y, :Revenue] = unit_fs[y, :Revenue] - 2*(row2[1, :annualized_rev_perunit] + row2[1, :annualized_policy_adj_perunit])
+            coal_data = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
+            if (size(coal_data)[1] != 0)
+                unit_fs[y, :Revenue] = unit_fs[y, :Revenue] - unit_type_data["num_cpp_rets"]*(coal_data[1, :annualized_rev_perunit] + coal_data[1, :annualized_policy_adj_perunit])
             end
         end
     end
@@ -998,9 +998,9 @@ function compute_total_generation(current_pd, unit_type_data, unit_fs, num_subma
 
     if occursin("C2N", unit_type_data[:unit_type])
         for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):(floor(Int64, unit_type_data[:cpp_ret_lead])+lag+coal_avg_rem_life)
-            row2 = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
-            if (size(row2)[1] != 0)
-                unit_fs[y, :coal_gen] = 2*(row2[1, :annualized_gen_perunit])
+            coal_data = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
+            if (size(coal_data)[1] != 0)
+                unit_fs[y, :coal_gen] = unit_type_data["num_cpp_rets"] * (coal_data[1, :annualized_gen_perunit])
             end
         end
     end
@@ -1059,7 +1059,7 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[:FOM] .* unit_type_data[:capacity] .* MW2kW
     if occursin("C2N", unit_type_data[:unit_type])
         for y = (lag+1+cpp_ret_lead):(lag+1+cpp_ret_lead+unit_op_life)
-            unit_fs[y, :FOM_Cost] = unit_fs[y, :FOM_Cost] - (2 * 632 * MW2kW * 39.70)
+            unit_fs[y, :FOM_Cost] = unit_fs[y, :FOM_Cost] - (unit_type_data["num_cpp_rets"] * 632 * MW2kW * 39.70)
         end
     end
 
@@ -1242,7 +1242,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 #    end
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
-    shortage_protection_pd = 10
+    shortage_protection_pd = 8
     for i = 1:shortage_protection_pd
         pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
         total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
@@ -1504,7 +1504,8 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
         ) |> DataFrame
 
         # Set the number of units to execute
-        units_to_execute = 2
+        units_to_execute = unit_type_specs["num_cpp_rets"]
+        @info "Units to execute: ", units_to_execute
 
     end
 
@@ -1554,12 +1555,11 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     # Fill in total fuel costs
     transform!(fin_results, [:annualized_FC_perunit, :num_units] => ((FC, num_units) -> FC .* num_units) => :total_FC)
 
-    # Retrieve last year's generation and revenue results by unit type
-    unit_hist_results = compute_historical_unit_type_results(unit_specs, price_data, db, current_pd)
-
-
     # Create the annualized results dataframe so far
     results_pivot = combine(groupby(fin_results, :y), [:total_rev, :total_VOM, :total_FC] .=> sum; renamecols=false)
+
+    # Retrieve last year's generation and revenue results by unit type
+    unit_hist_results = compute_historical_unit_type_results(unit_specs, price_data, db, current_pd)
 
     fs = DataFrame(
              base_pd = ones(Int64, fc_pd) .* current_pd,
