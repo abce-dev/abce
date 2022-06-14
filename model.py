@@ -137,7 +137,7 @@ class GridModel(Model):
               save them as member data.
         """
         # Set file paths of local reference copies of ALEAF input data
-        ALEAF_inputs_path = os.path.join(settings["ABCE_abs_path"], "inputs/ALEAF_inputs")
+        ALEAF_inputs_path = os.path.join(settings["ABCE_abs_path"], "inputs", "ALEAF_inputs")
         self.ALEAF_master_settings_ref = os.path.join(ALEAF_inputs_path,
                                                       settings["ALEAF_master_settings_file"])
         self.ALEAF_model_settings_ref = os.path.join(ALEAF_inputs_path,
@@ -415,14 +415,17 @@ class GridModel(Model):
         # Set unit baseline construction duration and life from supplemental data
         for i in range(len(unit_specs_data)):
             unit_type = unit_specs_data.loc[i, "unit_type"]
+            current_unit_ABCE_data = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]
             # Set construction duration for this unit
-            unit_specs_data.loc[i, "d_x"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["d_x"].values[0]
+            unit_specs_data.loc[i, "d_x"] = current_unit_ABCE_data["d_x"].values[0]
             # Set unit useful life for this unit
-            unit_specs_data.loc[i, "unit_life"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["unit_life"].values[0]
+            unit_specs_data.loc[i, "unit_life"] = current_unit_ABCE_data["unit_life"].values[0]
             # Set unit lead time until a coal unit must be retired, if any
-            unit_specs_data.loc[i, "cpp_ret_lead"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["cpp_ret_lead"].values[0]
+            unit_specs_data.loc[i, "cpp_ret_lead"] = current_unit_ABCE_data["cpp_ret_lead"].values[0]
+            # Set number of mandatory coal unit retirements
+            unit_specs_data.loc[i, "num_cpp_rets"] = current_unit_ABCE_data["num_cpp_rets"].values[0]
             # Set unit revenue head start vs end of xtr period
-            unit_specs_data.loc[i, "rev_head_start"] = unit_specs_ABCE[unit_specs_ABCE["unit_type"] == unit_type]["rev_head_start"].values[0]
+            unit_specs_data.loc[i, "rev_head_start"] = current_unit_ABCE_data["rev_head_start"].values[0]
 
         return unit_specs_data
 
