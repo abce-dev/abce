@@ -1,5 +1,5 @@
 # File locations and runtime options for ABCE
-ABCE_abs_path: "/home/biegelk/abce/"
+ABCE_abs_path: "/home/sdotson/argonne/abce/"
 demand_data_file: "inputs/demand_data.csv"
 seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_IL_C2N__dispatch_summary_OP__step_0.csv"
 unit_specs_abce_supp_file: "inputs/unit_specs_abce_supplemental.csv"
@@ -25,6 +25,9 @@ use_precomputed_price_curve: True # deprecated: to remove
 enable_subsidy: False # deprecated: to remove
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
+
+natural_gas_price: 99  # $/MWh
+
 policies:
   CTAX:
     enabled: False
@@ -76,7 +79,7 @@ max_type_newbuilds_per_pd: 3
 
 
 #### ALEAF SETTINGS
-ALEAF_abs_path: "/home/biegelk/kb_aleaf"
+ALEAF_abs_path: "/home/sdotson/argonne/a-leaf"
 ALEAF_master_settings_file: "ALEAF_Master_original.xlsx"
 ALEAF_model_type: "LC_GEP"
 ALEAF_region: "IL"

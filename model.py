@@ -54,6 +54,12 @@ class GridModel(Model):
         self.MW2kW = 1000          # Converts MW to kW
         self.MMBTU2BTU = 1000000   # Converts MMBTU to BTU
 
+        try:
+            self.natgas_price = settings['natural_gas_price']
+        except:
+            print('Using ATB value for natural gas price.')
+            self.natgas_price = 'ATB'
+        
         # Copy the command-line arguments as member data
         self.args = args
 
@@ -245,6 +251,10 @@ class GridModel(Model):
         # The original EMSFAC column from A-LEAF is in strange units (100*tCO2/MWh);
         #   convert to tCO2/MWh
         us_df["emissions_rate"] = us_df["emissions_rate"] / 100
+
+        if self.natgas_price != 'ATB':
+            ng_fuel = us_df['fuel_type'] == 'Gas'
+            us_df.loc[ng_fuel, 'original_FC'] = self.natgas_price
 
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
