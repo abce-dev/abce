@@ -255,7 +255,6 @@ class GridModel(Model):
         if self.natgas_price != 'ATB':
             ng_fuel = us_df['fuel_type'] == 'Gas'
             us_df.loc[ng_fuel, 'original_FC'] = self.natgas_price
-            print(us_df.loc[ng_fuel, 'original_FC'])
 
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
