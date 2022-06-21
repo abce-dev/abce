@@ -34,6 +34,22 @@ def read_settings(settings_file):
     return settings
 
 
+def set_up_local_paths(settings):
+    env_vars = {
+                "ABCE_abs_path": "ABCE_DIR",
+                "ALEAF_abs_path": "ALEAF_DIR"
+               }
+
+    for key, val in env_vars.items():
+        try:
+            settings[key] = os.environ[val]
+        except KeyError:
+            print(f"The environment variable {val} does not appear to be set. Please make sure it points to the correct directory.")
+            raise
+        
+    return settings
+
+
 def cli_args():
     """
     Set up the command-line argument parser. Then, read and parse whatever
@@ -92,6 +108,8 @@ def run_model():
     args = cli_args()
 
     settings = read_settings(args.settings_file)
+
+    settings = set_up_local_paths(settings)
 
     check_julia_environment(settings["ABCE_abs_path"])
 
