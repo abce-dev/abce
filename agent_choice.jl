@@ -45,11 +45,11 @@ settings_file = CLI_args["settings_file"]
 settings = YAML.load_file(settings_file)
 
 # Include local ABCE functions module
-julia_ABCE_module = joinpath(settings["ABCE_abs_path"], "ABCEfunctions.jl")
+julia_ABCE_module = "ABCEfunctions.jl"
 include(julia_ABCE_module)
-dispatch_module = joinpath(settings["ABCE_abs_path"], "dispatch.jl")
+dispatch_module = "dispatch.jl"
 include(dispatch_module)
-C2N_module = joinpath(settings["ABCE_abs_path"], "C2N_projects.jl")
+C2N_module = "C2N_projects.jl"
 include(C2N_module)
 using .ABCEfunctions, .Dispatch, .C2N
 
@@ -57,6 +57,8 @@ using .ABCEfunctions, .Dispatch, .C2N
 
 ###### Set up inputs
 @info "Initializing data..."
+
+settings = set_up_local_paths(settings)
 
 # File names
 db_file = joinpath(settings["ABCE_abs_path"], settings["db_file"])
