@@ -108,7 +108,7 @@ class GridModel(Model):
         # Check the portfolio specification to ensure the ownership totals 
         #   equal the total numbers of available units
         self.check_num_agents()
-        self.check_total_assets()
+        #self.check_total_assets()
 
         # Load the mandatory unit retirement data
         ret_data_file = os.path.join(self.settings["ABCE_abs_path"],
