@@ -110,8 +110,8 @@ end
 function show_table(db, table_name)
     command = string("SELECT * FROM ", string(table_name))
     df = DBInterface.execute(db, command) |> DataFrame
-    @info string("\nTable \'", table_name, "\':")
-    @info df
+    # @info string("\nTable \'", table_name, "\':")
+    # @info df
     return df
 end
 
@@ -136,7 +136,7 @@ function get_current_assets_list(db, pd, agent_id)
 
     # Count the number of assets by type
     asset_counts = combine(groupby(asset_list, [:unit_type, :retirement_pd, :C2N_reserved]), nrow => :count)
-    @info asset_counts
+    # @info asset_counts
 
     return asset_list, asset_counts
 end
@@ -310,7 +310,7 @@ function ensure_projects_not_empty(db, agent_id, project_list, current_period)
             asset_vals = (new_asset_id, string(agent_id), "gas", "no", "no", 9999, 0)
             DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", xtr_vals)
             DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)", asset_vals)
-            @info string("Created project ", new_asset_id)
+            # @info string("Created project ", new_asset_id)
 
             # Update the list of WIP construction projects and return it
             project_list = get_WIP_projects_list(db, agent_id)
@@ -480,20 +480,20 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
 
         # save a representative example of each unit type to file (new_xtr only)
         savelag = 2
-        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
-            ctype = current_PA[:unit_type]
-            fspath = joinpath(
-                         settings["ABCE_abs_path"],
-                         "tmp",
-                         string(
-                             ctype,
-                             "_",
-                             savelag,
-                             "_fs.csv"
-                         )
-                     )
-            CSV.write(fspath, PA_fs_dict[uid])
-        end
+        # if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
+        #     ctype = current_PA[:unit_type]
+        #     fspath = joinpath(
+        #                  settings["ABCE_abs_path"],
+        #                  "tmp",
+        #                  string(
+        #                      ctype,
+        #                      "_",
+        #                      savelag,
+        #                      "_fs.csv"
+        #                  )
+        #              )
+        #     CSV.write(fspath, PA_fs_dict[uid])
+        # end
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
@@ -1203,8 +1203,9 @@ Returns:
 """
 function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
-    @info "Setting up model..."
+    # @info "Setting up model..."
     m = Model(CPLEX.Optimizer)
+    set_silent(m)
 
     # Parameter names
     num_alternatives = size(PA_uids)[1]
@@ -1264,7 +1265,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 
     end
 
-    CSV.write("./tmp/marg_eff_cap.csv", DataFrame(marg_eff_cap, :auto))
+    # CSV.write("./tmp/marg_eff_cap.csv", DataFrame(marg_eff_cap, :auto))
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1282,7 +1283,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    CSV.write("./tmp/marg_int.csv", DataFrame(marg_int, :auto))
+    # CSV.write("./tmp/marg_int.csv", DataFrame(marg_int, :auto))
 
     agent_fs_path = joinpath(
                         settings["ABCE_abs_path"],
@@ -1295,7 +1296,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
                             ".csv"
                         )
                     )
-    CSV.write(agent_fs_path, agent_fs)
+    # CSV.write(agent_fs_path, agent_fs)
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
@@ -1345,7 +1346,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    CSV.write("./tmp/ret_rum_mat_$agent_id.csv", DataFrame(ret_summation_matrix, :auto))
+    # CSV.write("./tmp/ret_rum_mat_$agent_id.csv", DataFrame(ret_summation_matrix, :auto))
 
     # Specify constraint: the agent cannot plan to retire more units (during
     #   all lag periods) than exist of that unit type
@@ -1376,7 +1377,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     )
 
 
-    @info "Optimization model set up."
+    # @info "Optimization model set up."
 
     return m
 end
@@ -1514,7 +1515,7 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
 
         # Set the number of units to execute
         units_to_execute = unit_type_specs["num_cpp_rets"]
-        @info "Units to execute: ", units_to_execute
+        # @info "Units to execute: ", units_to_execute
 
     end
 

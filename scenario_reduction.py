@@ -25,7 +25,7 @@ def run_scenario_reduction(**kwargs):
     print ("Start ALEAF scenario reduction algorithm!")
 
     # set default parameters and pars kwargs
-    print ("==== current setting ========================")
+    # print ("==== current setting ========================")
     setting = {'time_resolution': "Hourly",
             'num_scenarios_list': [60],
             'fixing_extreme_days_flag': True,
@@ -45,8 +45,8 @@ def run_scenario_reduction(**kwargs):
     for key in setting.keys():
         if key in kwargs:
             setting[key] = kwargs[key]
-        print (str(key + "\t:  " + str(setting[key])).expandtabs(45))
-    print ("=============================================")
+        # print (str(key + "\t:  " + str(setting[key])).expandtabs(45))
+    # print ("=============================================")
 
     # Check input output folders
     for sc_dir in [setting["data_input_path"], setting["data_output_path"], setting["plot_output_path"]]:
@@ -54,7 +54,7 @@ def run_scenario_reduction(**kwargs):
 
     # Generate input data for the scenario reduction algorithm
     if setting["generate_input_data_flag"] == True:
-        print ("Processing input data files")
+        # print ("Processing input data files")
         generate_input_data(
             setting["time_resolution"],
             setting["data_input_path"],
@@ -101,20 +101,21 @@ def run_scenario_reduction(**kwargs):
             flag_net_load_MWh = True
 
 
-    print(f"Total number of cases to run: {len(setting['num_scenarios_list'])}")
+    # print(f"Total number of cases to run: {len(setting['num_scenarios_list'])}")
     idx = 1
 
     for list in setting["num_scenarios_list"]:
 
         num_scenarios = list
-        print("(case %d) running a case with %d number of representative days" % (idx, num_scenarios))
+        # print("(case %d) running a case with %d number of representative days" % (idx, num_scenarios))
         idx += 1
         # print("setting:  ", setting["fixing_extreme_days_flag"])
         if setting["fixing_extreme_days_flag"] == True:
             if num_scenarios < len(extreme_scenarios):
-                print(
-                    'The given number of scenarios to select is less than the number of extreme cases. Forcing it to the number of extreme cases')
-                num_scenarios = len(extreme_scenarios)
+                pass
+                # print(
+                #     'The given number of scenarios to select is less than the number of extreme cases. Forcing it to the number of extreme cases')
+                # num_scenarios = len(extreme_scenarios)
 
         # Prepare fixed scenarios set
         extreme_set = [load_shape.columns.get_loc(c) - 1 for c in extreme_scenarios]

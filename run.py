@@ -44,7 +44,7 @@ def set_up_local_paths(settings):
         try:
             settings[key] = os.environ[val]
         except KeyError:
-            print(f"The environment variable {val} does not appear to be set. Please make sure it points to the correct directory.")
+            # print(f"The environment variable {val} does not appear to be set. Please make sure it points to the correct directory.")
             raise
         
     return settings
@@ -91,9 +91,9 @@ def check_julia_environment(ABCE_abs_path):
         julia_cmd = (f"julia {os.path.join(ABCE_abs_path, 'make_julia_environment.jl')}")
         try:
             sp = subprocess.check_call([julia_cmd], shell = True)
-            print("Julia environment successfully created.\n\n")
+            # print("Julia environment successfully created.\n\n")
         except CalledProcessError:
-            print("Cannot proceed without a valid Julia environment. Terminating...")
+            # print("Cannot proceed without a valid Julia environment. Terminating...")
             quit()
 
 

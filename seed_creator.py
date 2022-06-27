@@ -258,7 +258,7 @@ def ask_user_permission_to_delete(abce_db):
     agree_responses = ["Y", "y", "Yes", "yes"]
     reply = False
     while user_resp not in acceptable_responses:
-        user_resp = input("There is already a database file at {abce_db}. Can I delete it? [y/n] ")
+        user_resp = input(f"There is already a database file at {abce_db}. Can I delete it? [y/n] ")
     if user_resp in agree_responses:
         reply = True
     return reply
