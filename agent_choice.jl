@@ -28,7 +28,7 @@ s = ArgParseSettings()
     "--settings_file"
         help = "absolute path to the settings file"
         required = false
-        default = joinpath(@__DIR__, "settings.yml")
+        default = joinpath(pwd(), "settings.yml")
     "--agent_id"
         help = "unique ID number of the agent"
         arg_type = Int
