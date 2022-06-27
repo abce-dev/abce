@@ -16,10 +16,11 @@
 
 using Logging
 
-@info "-----------------------------------------------------------"
-@info "Julia agent choice algorithm: starting"
-@info "Loading packages..."
-using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, CPLEX
+# @info "-----------------------------------------------------------"
+# @info "Julia agent choice algorithm: starting"
+# @info "Loading packages..."
+using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, CPLEX
+# using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, CPLEX
 
 # Set up command-line parser
 s = ArgParseSettings()
@@ -53,10 +54,10 @@ C2N_module = "C2N_projects.jl"
 include(C2N_module)
 using .ABCEfunctions, .Dispatch, .C2N
 
-@info "Packages loaded successfully."
+# @info "Packages loaded successfully."
 
 ###### Set up inputs
-@info "Initializing data..."
+# @info "Initializing data..."
 
 settings = set_up_local_paths(settings)
 
@@ -99,7 +100,8 @@ agent_params = get_agent_params(db, agent_id)
 # Read unit operational data (unit_specs) and number of unit types (num_types)
 unit_specs, num_types = get_unit_specs(db)
 if pd == 0
-    @info unit_specs
+    # @info unit_specs
+    
 end
 num_alternatives = num_types * (num_lags + 1)
 
@@ -114,7 +116,7 @@ price_curve = DBInterface.execute(db, "SELECT * FROM price_curve WHERE base_pd =
 # Add empty column for project NPVs in unit_specs
 unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
 
-@info "Data initialized."
+# @info "Data initialized."
 
 all_year_system_portfolios, all_year_agent_portfolios = Dispatch.set_up_dispatch_portfolios(db, pd, fc_pd, agent_id, unit_specs)
 
@@ -123,16 +125,16 @@ total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 total_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_system_portfolios, unit_specs)
-@info "Demand data:"
-@info total_demand[1:10, :]
+# @info "Demand data:"
+# @info total_demand[1:10, :]
 
 long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
 
-@info "Setting up project alternatives..."
+# @info "Setting up project alternatives..."
 PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results, settings["allowed_xtr_types"], C2N_specs)
 
-@info "Project alternatives:"
-@info PA_uids
+# @info "Project alternatives:"
+# @info PA_uids
 
 ###### Set up the model
 unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_portfolios, fc_pd, pd)
@@ -142,7 +144,7 @@ agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd,
 m = set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
-@info "Solving optimization problem..."
+# @info "Solving optimization problem..."
 optimize!(m)
 status = string(termination_status.(m))
 if status == "OPTIMAL"
@@ -156,9 +158,9 @@ end
 
 ###### Display the results
 all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
-@info status
-@info "Alternatives to execute:"
-@info all_results
+# @info status
+# @info "Alternatives to execute:"
+# @info all_results
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
@@ -171,8 +173,8 @@ postprocess_agent_decisions(all_results, unit_specs, db, pd, agent_id)
 #authorize_anpe(db, agent_id, pd, WIP_projects, unit_specs)
 
 # End
-@info "Julia: finishing"
-@info "-----------------------------------------------------------"
+# @info "Julia: finishing"
+# @info "-----------------------------------------------------------"
 
 
 

@@ -31,6 +31,9 @@ import seed_creator as sc
 import price_curve as pc
 import ALEAF_interface as ALI
 
+import warnings
+warnings.filterwarnings("ignore")
+
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
     def __init__(self, settings_file_name, settings, args):
@@ -57,7 +60,7 @@ class GridModel(Model):
         try:
             self.natgas_price = settings['natural_gas_price']
         except:
-            print('Using ATB value for natural gas price.')
+            # print('Using ATB value for natural gas price.')
             self.natgas_price = 'ATB'
         
         # Copy the command-line arguments as member data
@@ -318,7 +321,7 @@ class GridModel(Model):
         # Load the ATB database sheet
         ATB_data = pd.read_csv(self.ATB_remote)
 
-        print(unit_specs_data.iloc[:, 1:17])
+        # print(unit_specs_data.iloc[:, 1:17])
 
         # Fill values for each unit type
         for unit_type in list(unit_specs_data.index):
@@ -777,10 +780,11 @@ class GridModel(Model):
             self.has_ABCE_sysimage, self.has_dispatch_sysimage = self.check_for_sysimage_files()
 
         if not self.args.quiet:
-            print("\n\n\n")
-        print("\n=========================================================================")
-        print(f"Model step: {self.current_pd}")
-        print("==========================================================================")
+            pass
+            # print("\n\n\n")
+        # print("\n=========================================================================")
+        # print(f"Model step: {self.current_pd}")
+        # print("==========================================================================")
 
         # Update price data from ALEAF
         if (self.current_pd == 0) or (self.settings["run_ALEAF"] == False):
@@ -788,7 +792,7 @@ class GridModel(Model):
         else:
             new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_pd - 1}.csv"
             new_dispatch_data = os.path.join(self.ABCE_output_data_path, new_dispatch_data_filename)
-            print(f"Creating price duration curve using file {new_dispatch_data}")
+            # print(f"Creating price duration curve using file {new_dispatch_data}")
             self.create_price_duration_curve(self.settings, new_dispatch_data)
 
         # Save price duration data to the database
@@ -824,14 +828,14 @@ class GridModel(Model):
         self.execute_all_status_updates()
 
         if demo:
-            print("\n")
+            # print("\n")
             user_response = input("Press Enter to continue: ")
 
         if not self.args.quiet:
-            #print("Table of all assets:")
-            #print(pd.read_sql("SELECT * FROM assets", self.db))
-            print("Table of construction project updates:")
-            print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
+            print("Table of all assets:")
+            # print(pd.read_sql("SELECT * FROM assets", self.db))
+            # print("Table of construction project updates:")
+            # print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
         if self.settings["run_ALEAF"]:
             # Update the A-LEAF system portfolio based on any new units completed
@@ -846,7 +850,7 @@ class GridModel(Model):
                                             self.current_pd)
 
             # Run A-LEAF
-            print("Running A-LEAF...")
+            # print("Running A-LEAF...")
             run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
             ALEAF_env_path = os.path.join(self.ALEAF_abs_path, ".")
             ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
