@@ -27,7 +27,8 @@ s = ArgParseSettings()
 @add_arg_table s begin
     "--settings_file"
         help = "absolute path to the settings file"
-        required = true
+        required = false
+        default = joinpath(@__DIR__, "settings.yml")
     "--agent_id"
         help = "unique ID number of the agent"
         arg_type = Int
