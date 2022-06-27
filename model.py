@@ -80,6 +80,13 @@ class GridModel(Model):
         # Add model parameters to the database
         self.load_model_parameters_to_db(self.settings)
 
+        # Create the local tmp/ directory, if it doesn't already exist
+        tmp_dir_location = os.path.join(
+                               self.settings["ABCE_abs_path"],
+                               "tmp"
+                           )
+        os.makedirs(tmp_dir_location, exist_ok=True)
+
         # Set up all ALEAF file paths
         self.set_ALEAF_file_paths(settings)
 
@@ -111,7 +118,7 @@ class GridModel(Model):
         # Check the portfolio specification to ensure the ownership totals 
         #   equal the total numbers of available units
         self.check_num_agents()
-        # self.check_total_assets()
+        #self.check_total_assets()
 
         # Load the mandatory unit retirement data
         ret_data_file = os.path.join(self.settings["ABCE_abs_path"],

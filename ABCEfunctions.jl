@@ -1265,7 +1265,12 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 
     end
 
-    # CSV.write("./tmp/marg_eff_cap.csv", DataFrame(marg_eff_cap, :auto))
+    filename = joinpath(
+                   settings["ABCE_abs_path"],
+                   "tmp",
+                   "marg_eff_cap.csv"
+               )
+    CSV.write(filename, DataFrame(marg_eff_cap, :auto))
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1283,7 +1288,12 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    # CSV.write("./tmp/marg_int.csv", DataFrame(marg_int, :auto))
+    filename = joinpath(
+                   settings["ABCE_abs_path"],
+                   "tmp",
+                   "marg_int.csv"
+               )
+    CSV.write(filename, DataFrame(marg_int, :auto))
 
     agent_fs_path = joinpath(
                         settings["ABCE_abs_path"],
@@ -1346,7 +1356,12 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    # CSV.write("./tmp/ret_rum_mat_$agent_id.csv", DataFrame(ret_summation_matrix, :auto))
+    filename = joinpath(
+                   settings["ABCE_abs_path"],
+                   "tmp",
+                   "ret_rum_mat_$agent_id.csv"
+               )
+    CSV.write(filename, DataFrame(ret_summation_matrix, :auto))
 
     # Specify constraint: the agent cannot plan to retire more units (during
     #   all lag periods) than exist of that unit type
