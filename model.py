@@ -70,7 +70,7 @@ class GridModel(Model):
         self.current_pd = -1
 
         # Initialize database for managing asset and WIP construction project data
-        self.db_file = os.path.join(settings["ABCE_abs_path"],
+        self.db_file = os.path.join(os.getcwd(),
                                     settings["db_file"])
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
 
@@ -80,9 +80,10 @@ class GridModel(Model):
         # Add model parameters to the database
         self.load_model_parameters_to_db(self.settings)
 
-        # Create the local tmp/ directory, if it doesn't already exist
+        # Create the local tmp/ directory inside the current working directory,
+        #   if it doesn't already exist
         tmp_dir_location = os.path.join(
-                               self.settings["ABCE_abs_path"],
+                               os.getcwd(),
                                "tmp"
                            )
         os.makedirs(tmp_dir_location, exist_ok=True)

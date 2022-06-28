@@ -61,7 +61,7 @@ end
 
 
 function set_up_local_paths(settings)
-    settings["ABCE_abs_path"] = ENV["ABCE_DIR"]
+    settings["ABCE_abs_path"] = @__DIR__
     settings["ALEAF_abs_path"] = ENV["ALEAF_DIR"]
 
     return settings
@@ -483,7 +483,7 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
         # if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
         #     ctype = current_PA[:unit_type]
         #     fspath = joinpath(
-        #                  settings["ABCE_abs_path"],
+        #                  pwd(),
         #                  "tmp",
         #                  string(
         #                      ctype,
@@ -1266,7 +1266,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     end
 
     filename = joinpath(
-                   settings["ABCE_abs_path"],
+                   pwd(),
                    "tmp",
                    "marg_eff_cap.csv"
                )
@@ -1289,14 +1289,14 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     end
 
     filename = joinpath(
-                   settings["ABCE_abs_path"],
+                   pwd(),
                    "tmp",
                    "marg_int.csv"
                )
     CSV.write(filename, DataFrame(marg_int, :auto))
 
     agent_fs_path = joinpath(
-                        settings["ABCE_abs_path"],
+                        pwd(),
                         "tmp",
                         string(
                             "agent_",
@@ -1357,7 +1357,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     end
 
     filename = joinpath(
-                   settings["ABCE_abs_path"],
+                   pwd(),
                    "tmp",
                    "ret_rum_mat_$agent_id.csv"
                )
