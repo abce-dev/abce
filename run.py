@@ -30,22 +30,21 @@ def read_settings(settings_file):
     """
     Read in settings from the settings file.
     """
-    settings = yaml.load(settings_file, Loader=yaml.FullLoader)
+    with open(settings_file, "r") as setfile:
+        settings = yaml.load(setfile, Loader=yaml.FullLoader)
     return settings
 
 
-def set_up_local_paths(settings):
-    env_vars = {
-                "ABCE_abs_path": "ABCE_DIR",
-                "ALEAF_abs_path": "ALEAF_DIR"
-               }
+def set_up_local_paths(args, settings):
+    # Set the path for ABCE files to the directory where run.py is saved
+    settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
 
-    for key, val in env_vars.items():
-        try:
-            settings[key] = os.environ[val]
-        except KeyError:
-            # print(f"The environment variable {val} does not appear to be set. Please make sure it points to the correct directory.")
-            raise
+    # Try to locate an environment variable to specify where A-LEAF is located
+    try:
+        settings["ALEAF_abs_path"] = os.environ["ALEAF_DIR"]
+    except KeyError:
+        print("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
+        raise
         
     return settings
 
@@ -66,7 +65,7 @@ def cli_args():
                           action="store_true",
                           help="Agree to overwrite any existing DB files.")
     parser.add_argument("--settings_file",
-                          type=argparse.FileType("r"),
+                          type=str,
                           help="Simulation settings file name.",
                           default=os.path.join(
                                       os.getcwd(),
@@ -111,7 +110,7 @@ def run_model():
 
     settings = read_settings(args.settings_file)
 
-    settings = set_up_local_paths(settings)
+    settings = set_up_local_paths(args, settings)
 
     check_julia_environment(settings["ABCE_abs_path"])
 
