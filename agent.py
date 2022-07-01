@@ -100,11 +100,11 @@ class GenCo(Agent):
                      f"--current_pd={self.current_pd} " +
                      f"--agent_id={self.unique_id}")
         if self.quiet:
-            sp = subprocess.check_call([julia_cmd],
+            sp = subprocess.check_call(julia_cmd,
                                        shell = True,
                                        stdout=open(os.devnull, "wb"))
         else:
-            sp = subprocess.check_call([julia_cmd], shell = True)
+            sp = subprocess.check_call(julia_cmd, shell = True)
 
         print(f"Agent #{self.unique_id}'s turn is complete.\n")
 
