@@ -156,6 +156,10 @@ class GridModel(Model):
         """
 
         ALEAF_remote_path = Path(self.ALEAF_abs_path)
+        ALEAF_remote_data_path = (Path(self.ALEAF_abs_path) / 
+                                    "data" / 
+                                    self.ALEAF_model_type / 
+                                    self.ALEAF_region)
         # Set file paths of local reference copies of ALEAF input data
         ALEAF_inputs_path = Path(settings["ABCE_abs_path"]) / "inputs" / "ALEAF_inputs"
         self.ALEAF_master_settings_ref = (Path(ALEAF_inputs_path) /
@@ -171,15 +175,9 @@ class GridModel(Model):
                                                          self.ALEAF_master_settings_file_name)
         self.ALEAF_model_settings_remote = (Path(ALEAF_settings_path) /
                                                         f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
-        self.ALEAF_portfolio_remote = (ALEAF_remote_path /
-                                                   "data" /
-                                                   self.ALEAF_model_type /
-                                                   self.ALEAF_region /
+        self.ALEAF_portfolio_remote = (ALEAF_remote_data_path /
                                                    f"ALEAF_{self.ALEAF_region}.xlsx")
-        self.ATB_remote = (ALEAF_remote_path /
-                                       "data" /
-                                       self.ALEAF_model_type /
-                                       self.ALEAF_region /
+        self.ATB_remote = (ALEAF_remote_data_path /
                                        "ATBe.csv")
 
         # Set path to ALEAF outputs
