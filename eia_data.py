@@ -146,7 +146,7 @@ def get_region_techs(df, region):
     else:
         try:
             region_mask = df['County'] == region.upper()
-        except:
+        except BaseException:
             print(f'Detected county name. County name {region} not found.')
     df = df[region_mask]
     
