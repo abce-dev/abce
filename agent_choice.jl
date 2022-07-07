@@ -27,7 +27,8 @@ s = ArgParseSettings()
 @add_arg_table s begin
     "--settings_file"
         help = "absolute path to the settings file"
-        required = true
+        required = false
+        default = joinpath(pwd(), "settings.yml")
     "--agent_id"
         help = "unique ID number of the agent"
         arg_type = Int
@@ -62,9 +63,9 @@ using .ABCEfunctions, .Dispatch, .C2N
 settings = set_up_local_paths(settings)
 
 # File names
-db_file = joinpath(settings["ABCE_abs_path"], settings["db_file"])
+db_file = joinpath(pwd(), settings["db_file"])
 C2N_specs_file = joinpath(
-                     settings["ABCE_abs_path"],
+                     @__DIR__,
                      "inputs",
                      "C2N_project_definitions.yml"
                  )
