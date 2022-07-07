@@ -106,7 +106,7 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
 
     # Save a copy of the results to file
     savefile = joinpath(
-                   settings["ABCE_abs_path"],
+                   pwd(),
                    "tmp",
                    "long_econ_results_$current_pd.csv"
                )
@@ -469,14 +469,14 @@ end
 
 function save_raw_results(settings, all_prices, all_gc_results)
     pfile = joinpath(
-                settings["ABCE_abs_path"],
+                pwd(),
                 "tmp",
                 "price_results.csv"
             )
     # CSV.write(pfile, all_prices)
 
     gcfile = joinpath(
-                 settings["ABCE_abs_path"],
+                 pwd(),
                  "tmp",
                  "./gc_results.csv"
              )
