@@ -154,6 +154,8 @@ class GridModel(Model):
         """ Set up all absolute paths to ALEAF and its input files, and
               save them as member data.
         """
+
+        ALEAF_remote_path = Path(self.ALEAF_abs_path)
         # Set file paths of local reference copies of ALEAF input data
         ALEAF_inputs_path = Path(settings["ABCE_abs_path"]) / "inputs" / "ALEAF_inputs"
         self.ALEAF_master_settings_ref = (Path(ALEAF_inputs_path) /
@@ -164,24 +166,24 @@ class GridModel(Model):
                                                         settings["ALEAF_portfolio_file"])
 
         # Set the paths to where settings are stored in the ALEAF directory
-        ALEAF_settings_path = Path(self.ALEAF_abs_path) / "setting"
+        ALEAF_settings_path = ALEAF_remote_path / "setting"
         self.ALEAF_master_settings_remote = (Path(ALEAF_settings_path) /
                                                          self.ALEAF_master_settings_file_name)
         self.ALEAF_model_settings_remote = (Path(ALEAF_settings_path) /
                                                         f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
-        self.ALEAF_portfolio_remote = (Path(self.ALEAF_abs_path) /
+        self.ALEAF_portfolio_remote = (ALEAF_remote_path /
                                                    "data" /
                                                    self.ALEAF_model_type /
                                                    self.ALEAF_region /
                                                    f"ALEAF_{self.ALEAF_region}.xlsx")
-        self.ATB_remote = (Path(self.ALEAF_abs_path) /
+        self.ATB_remote = (ALEAF_remote_path /
                                        "data" /
                                        self.ALEAF_model_type /
                                        self.ALEAF_region /
                                        "ATBe.csv")
 
         # Set path to ALEAF outputs
-        self.ALEAF_output_data_path = (Path(self.ALEAF_abs_path)/
+        self.ALEAF_output_data_path = (ALEAF_remote_path/
                                                   "output"/
                                                   self.ALEAF_model_type/
                                                   self.ALEAF_region/
@@ -851,9 +853,9 @@ class GridModel(Model):
 
             # Run A-LEAF
             # print("Running A-LEAF...")
-            run_script_path = Path(self.ALEAF_abs_path) / "run.jl"
-            ALEAF_env_path = Path(self.ALEAF_abs_path) / "."
-            ALEAF_sysimage_path = Path(self.ALEAF_abs_path) / "aleafSysimage.so"
+            run_script_path = ALEAF_remote_path / "run.jl"
+            ALEAF_env_path = ALEAF_remote_path / "."
+            ALEAF_sysimage_path = ALEAF_remote_path / "aleafSysimage.so"
             aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
             if self.args.quiet:
                 sp = subprocess.check_call(aleaf_cmd,
