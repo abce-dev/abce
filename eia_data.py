@@ -81,17 +81,14 @@ def get_eia_generators(month=None, year=None):
 
     elif (month is None) and (year is not None):
         print("Please specify a month and a year.")
-        pass
 
     elif (month is not None) and (year is not None):
         print(f"Retrieving EIA Form 860m for {month.capitalize()} {year}")
         m = month
         y = year
-        pass
 
     elif (month is not None) and (year is None):
         print("Please specify a month and a year.")
-        pass
 
     url = (f"https://www.eia.gov/electricity/data/eia860m/archive/xls/" +
            f"{m}_generator{y}.xlsx")
