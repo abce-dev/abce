@@ -820,7 +820,7 @@ class GridModel(Model):
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
 
-        self.db = sqlite3.connect(Path(self.settings["ABCE_abs_path"], self.settings["db_file"]))
+        self.db = sqlite3.connect(str(Path(self.settings["ABCE_abs_path"], self.settings["db_file"])))
         self.cur = self.db.cursor()
 
         # Transfer all decisions and updates from the 'asset_updates' and
