@@ -87,8 +87,8 @@ def check_julia_environment(ABCE_abs_path):
     If either one is not found, run `make_julia_environment.jl` to
       automatically generate valid .toml files.
     """
-    if not (Path(Path(ABCE_abs_path) / "Manifest.toml").exists()
-            and Path(Path(ABCE_abs_path) / "Project.toml").exists()):
+    if not ( (Path(ABCE_abs_path) / "Manifest.toml").exists()
+            and (Path(ABCE_abs_path) / "Project.toml").exists()):
         julia_cmd = (f"julia {Path(ABCE_abs_path) / 'make_julia_environment.jl'}")
         try:
             sp = subprocess.check_call([julia_cmd], shell = True)
