@@ -137,7 +137,6 @@ class GridModel(Model):
         self.db.commit()
 
         # Check ./outputs/ dir and clear out old files
-        # self.ABCE_output_data_path = Path(settings["ABCE_abs_path"], "outputs", self.ALEAF_scenario_name)
         self.ABCE_output_data_path = Path(settings["ABCE_abs_path"]) / "outputs" / self.ALEAF_scenario_name
         if not Path(self.ABCE_output_data_path).is_dir():
             # If the desired output directory doesn't already exist, create it
@@ -715,8 +714,8 @@ class GridModel(Model):
 
     def load_demand_data_to_db(self, settings):
         # Load all-period demand data into the database
-        demand_data_file = Path(settings["ABCE_abs_path"]) /
-                                        settings["demand_data_file"]
+        demand_data_file = (Path(settings["ABCE_abs_path"]) /
+                                        settings["demand_data_file"])
         demand_df = pd.read_csv(demand_data_file) * settings["peak_demand"]
         # Create an expanded range of periods to backfill with demand_df data
         new_index = list(range(self.total_forecast_horizon))
@@ -740,8 +739,8 @@ class GridModel(Model):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
             if (self.current_pd <= 0) or (self.settings["run_ALEAF"] == False):
-                price_curve_data_file = Path(settings["ABCE_abs_path"]) /
-                                                     settings["seed_dispatch_data_file"]
+                price_curve_data_file = (Path(settings["ABCE_abs_path"]) /
+                                                    settings["seed_dispatch_data_file"])
             else:
                 price_curve_data_file = dispatch_data
             self.price_duration_data = pc.load_time_series_data(
@@ -754,8 +753,8 @@ class GridModel(Model):
             self.merit_curve = pc.create_merit_curve(self.db, self.current_pd)
             pc.plot_curve(self.merit_curve, plot_name="merit_curve.png")
             # Load demand data from file
-            time_series_data_file = Path(settings["ABCE_abs_path"]) /
-                                                 settings["time_series_data_file"]
+            time_series_data_file = (Path(settings["ABCE_abs_path"]) /
+                                                 settings["time_series_data_file"])
             self.demand_data = pc.load_time_series_data(
                                      time_series_data_file,
                                      file_type="load",
@@ -820,7 +819,7 @@ class GridModel(Model):
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
 
-        self.db = sqlite3.connect(str(Path(self.settings["ABCE_abs_path"], self.settings["db_file"])))
+        self.db = sqlite3.connect(str(Path(self.settings["ABCE_abs_path"]) / self.settings["db_file"]))
         self.cur = self.db.cursor()
 
         # Transfer all decisions and updates from the 'asset_updates' and
@@ -852,9 +851,9 @@ class GridModel(Model):
 
             # Run A-LEAF
             # print("Running A-LEAF...")
-            run_script_path = Path(self.ALEAF_abs_path, "run.jl")
-            ALEAF_env_path = Path(self.ALEAF_abs_path, ".")
-            ALEAF_sysimage_path = Path(self.ALEAF_abs_path, "aleafSysimage.so")
+            run_script_path = Path(self.ALEAF_abs_path) / "run.jl"
+            ALEAF_env_path = Path(self.ALEAF_abs_path) / "."
+            ALEAF_sysimage_path = Path(self.ALEAF_abs_path) / "aleafSysimage.so"
             aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
             if self.args.quiet:
                 sp = subprocess.check_call(aleaf_cmd,
@@ -1160,9 +1159,9 @@ class GridModel(Model):
         files_to_save = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
         for outfile in files_to_save:
             old_filename = f"{self.ALEAF_scenario_name}__{outfile}.csv"
-            old_filepath = Path(self.ALEAF_output_data_path, old_filename)
+            old_filepath = Path(self.ALEAF_output_data_path) / old_filename
             new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_pd}.csv"
-            new_filepath = Path(self.ABCE_output_data_path, new_filename)
+            new_filepath = Path(self.ABCE_output_data_path) / new_filename
             shutil.copy2(old_filepath, new_filepath)
 
 
