@@ -43,7 +43,10 @@ def get_date():
 def get_eia_generators(month=None, year=None):
     """
     This function returns a pandas dataframe containing information on
-    all electric generators in the United States. EIA form 860M
+    all electric generators in the United States from a recent EIA form 
+    860M. Note: EIA forms are often delayed therefore this function
+    subtracts four months from the current month to guarantee the file
+    exists to be downloaded.
 
     Parameters
     ----------
