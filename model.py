@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import sqlite3
 import logging
+from pathlib import Path
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 
@@ -70,8 +71,7 @@ class GridModel(Model):
         self.current_pd = -1
 
         # Initialize database for managing asset and WIP construction project data
-        self.db_file = os.path.join(os.getcwd(),
-                                    settings["db_file"])
+        self.db_file = (Path.cwd() / settings["db_file"])
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
 
         # Load all-period demand data into the database
@@ -82,11 +82,9 @@ class GridModel(Model):
 
         # Create the local tmp/ directory inside the current working directory,
         #   if it doesn't already exist
-        tmp_dir_location = os.path.join(
-                               os.getcwd(),
-                               "tmp"
-                           )
-        os.makedirs(tmp_dir_location, exist_ok=True)
+        tmp_dir_location = (Path.cwd() / "tmp")
+
+        Path(tmp_dir_location).mkdir(exist_ok=True)
 
         # Set up all ALEAF file paths
         self.set_ALEAF_file_paths(settings)
@@ -109,12 +107,12 @@ class GridModel(Model):
             ALI.update_ALEAF_policy_settings(self.ALEAF_model_settings_remote, self.ALEAF_model_settings_remote, self.settings["policies"], self.unit_specs)
 
         # Read in the GenCo parameters data from file
-        gc_params_file_name = os.path.join(self.settings["ABCE_abs_path"],
+        gc_params_file_name = Path(self.settings["ABCE_abs_path"] /
                                            self.settings["gc_params_file"])
         self.gc_params = yaml.load(open(gc_params_file_name, 'r'), Loader=yaml.FullLoader)
 
         # Load the unit-type ownership specification for all agents
-        self.portfolio_specification = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"], self.settings["portfolios_file"]))
+        self.portfolio_specification = pd.read_csv(Path(self.settings["ABCE_abs_path"]) / self.settings["portfolios_file"])
 
         # Check the portfolio specification to ensure the ownership totals 
         #   equal the total numbers of available units
@@ -122,7 +120,7 @@ class GridModel(Model):
         #self.check_total_assets()
 
         # Load the mandatory unit retirement data
-        ret_data_file = os.path.join(self.settings["ABCE_abs_path"],
+        ret_data_file = Path(self.settings["ABCE_abs_path"] /
                                      settings["retirement_period_specs_file"])
         self.ret_data = pd.read_csv(ret_data_file, comment="#")
 
@@ -139,14 +137,16 @@ class GridModel(Model):
         self.db.commit()
 
         # Check ./outputs/ dir and clear out old files
-        self.ABCE_output_data_path = os.path.join(settings["ABCE_abs_path"], "outputs", self.ALEAF_scenario_name)
-        if not os.path.isdir(self.ABCE_output_data_path):
+        # self.ABCE_output_data_path = Path(settings["ABCE_abs_path"], "outputs", self.ALEAF_scenario_name)
+        self.ABCE_output_data_path = Path(settings["ABCE_abs_path"]) / "outputs" / self.ALEAF_scenario_name
+        if not Path(self.ABCE_output_data_path).is_dir():
             # If the desired output directory doesn't already exist, create it
-            os.makedirs(self.ABCE_output_data_path, exist_ok=True)
+            Path(self.ABCE_output_data_path).mkdir(exist_ok=True)
         else:
             # Otherwise, delete any existing files in the directory
-            for existing_file in os.listdir(self.ABCE_output_data_path):
-                os.remove(os.path.join(self.ABCE_output_data_path, existing_file))
+            for existing_file in Path(self.ABCE_output_data_path).iterdir():
+                print("trying to remove directory")
+                (Path(self.ABCE_output_data_path) / existing_file).unlink()
 
             
 
@@ -156,36 +156,36 @@ class GridModel(Model):
               save them as member data.
         """
         # Set file paths of local reference copies of ALEAF input data
-        ALEAF_inputs_path = os.path.join(settings["ABCE_abs_path"], "inputs", "ALEAF_inputs")
-        self.ALEAF_master_settings_ref = os.path.join(ALEAF_inputs_path,
-                                                      settings["ALEAF_master_settings_file"])
-        self.ALEAF_model_settings_ref = os.path.join(ALEAF_inputs_path,
-                                                     settings["ALEAF_model_settings_file"])
-        self.ALEAF_portfolio_ref = os.path.join(ALEAF_inputs_path, 
-                                                self.settings["ALEAF_portfolio_file"])
+        ALEAF_inputs_path = Path(settings["ABCE_abs_path"]) / "inputs" / "ALEAF_inputs"
+        self.ALEAF_master_settings_ref = (Path(ALEAF_inputs_path) /
+                                                        settings["ALEAF_master_settings_file"])
+        self.ALEAF_model_settings_ref = (Path(ALEAF_inputs_path) / 
+                                                        settings["ALEAF_model_settings_file"])
+        self.ALEAF_portfolio_ref = (Path(ALEAF_inputs_path) / 
+                                                        settings["ALEAF_portfolio_file"])
 
         # Set the paths to where settings are stored in the ALEAF directory
-        ALEAF_settings_path = os.path.join(self.ALEAF_abs_path, "setting")
-        self.ALEAF_master_settings_remote = os.path.join(ALEAF_settings_path,
+        ALEAF_settings_path = Path(self.ALEAF_abs_path) / "setting"
+        self.ALEAF_master_settings_remote = (Path(ALEAF_settings_path) /
                                                          self.ALEAF_master_settings_file_name)
-        self.ALEAF_model_settings_remote = os.path.join(ALEAF_settings_path,
+        self.ALEAF_model_settings_remote = (Path(ALEAF_settings_path) /
                                                         f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
-        self.ALEAF_portfolio_remote = os.path.join(self.ALEAF_abs_path,
-                                                   "data",
-                                                   self.ALEAF_model_type,
-                                                   self.ALEAF_region,
+        self.ALEAF_portfolio_remote = (Path(self.ALEAF_abs_path) /
+                                                   "data" /
+                                                   self.ALEAF_model_type /
+                                                   self.ALEAF_region /
                                                    f"ALEAF_{self.ALEAF_region}.xlsx")
-        self.ATB_remote = os.path.join(self.ALEAF_abs_path,
-                                       "data",
-                                       self.ALEAF_model_type,
-                                       self.ALEAF_region,
+        self.ATB_remote = (Path(self.ALEAF_abs_path) /
+                                       "data" /
+                                       self.ALEAF_model_type /
+                                       self.ALEAF_region /
                                        "ATBe.csv")
 
         # Set path to ALEAF outputs
-        self.ALEAF_output_data_path = os.path.join(self.ALEAF_abs_path,
-                                                  "output",
-                                                  self.ALEAF_model_type,
-                                                  self.ALEAF_region,
+        self.ALEAF_output_data_path = (Path(self.ALEAF_abs_path)/
+                                                  "output"/
+                                                  self.ALEAF_model_type/
+                                                  self.ALEAF_region/
                                                   f"scenario_1_{self.ALEAF_scenario_name}")
 
 
@@ -420,8 +420,8 @@ class GridModel(Model):
 
         # Retrieve non-ALEAF parameters from the ABCE supplemental unit
         #   specification file
-        unit_specs_ABCE = pd.read_csv(os.path.join(self.settings["ABCE_abs_path"],
-                                                   self.settings["unit_specs_abce_supp_file"]))
+        unit_specs_ABCE = pd.read_csv(Path(self.settings["ABCE_abs_path"])/
+                                                   self.settings["unit_specs_abce_supp_file"])
 
         # Some generators' (currently NG and Coal) fuel cost is given in the
         #   ATB data in units of $/MMBTU. Convert these values to a $/MWh basis
@@ -715,7 +715,7 @@ class GridModel(Model):
 
     def load_demand_data_to_db(self, settings):
         # Load all-period demand data into the database
-        demand_data_file = os.path.join(settings["ABCE_abs_path"],
+        demand_data_file = Path(settings["ABCE_abs_path"],
                                         settings["demand_data_file"])
         demand_df = pd.read_csv(demand_data_file) * settings["peak_demand"]
         # Create an expanded range of periods to backfill with demand_df data
@@ -740,7 +740,7 @@ class GridModel(Model):
         # Set up the price curve according to specifications in settings
         if self.use_precomputed_price_curve:
             if (self.current_pd <= 0) or (self.settings["run_ALEAF"] == False):
-                price_curve_data_file = os.path.join(settings["ABCE_abs_path"],
+                price_curve_data_file = Path(settings["ABCE_abs_path"],
                                                      settings["seed_dispatch_data_file"])
             else:
                 price_curve_data_file = dispatch_data
@@ -754,7 +754,7 @@ class GridModel(Model):
             self.merit_curve = pc.create_merit_curve(self.db, self.current_pd)
             pc.plot_curve(self.merit_curve, plot_name="merit_curve.png")
             # Load demand data from file
-            time_series_data_file = os.path.join(settings["ABCE_abs_path"],
+            time_series_data_file = Path(settings["ABCE_abs_path"],
                                                  settings["time_series_data_file"])
             self.demand_data = pc.load_time_series_data(
                                      time_series_data_file,
@@ -792,7 +792,7 @@ class GridModel(Model):
             self.create_price_duration_curve(self.settings)
         else:
             new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_pd - 1}.csv"
-            new_dispatch_data = os.path.join(self.ABCE_output_data_path, new_dispatch_data_filename)
+            new_dispatch_data = Path(self.ABCE_output_data_path, new_dispatch_data_filename)
             # print(f"Creating price duration curve using file {new_dispatch_data}")
             self.create_price_duration_curve(self.settings, new_dispatch_data)
 
@@ -820,7 +820,7 @@ class GridModel(Model):
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
 
-        self.db = sqlite3.connect(os.path.join(self.settings["ABCE_abs_path"], self.settings["db_file"]))
+        self.db = sqlite3.connect(Path(self.settings["ABCE_abs_path"], self.settings["db_file"]))
         self.cur = self.db.cursor()
 
         # Transfer all decisions and updates from the 'asset_updates' and
@@ -852,35 +852,35 @@ class GridModel(Model):
 
             # Run A-LEAF
             # print("Running A-LEAF...")
-            run_script_path = os.path.join(self.ALEAF_abs_path, "run.jl")
-            ALEAF_env_path = os.path.join(self.ALEAF_abs_path, ".")
-            ALEAF_sysimage_path = os.path.join(self.ALEAF_abs_path, "aleafSysimage.so")
-            aleaf_cmd = f"julia --project={ALEAF_env_path} -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
+            run_script_path = Path(self.ALEAF_abs_path, "run.jl")
+            ALEAF_env_path = Path(self.ALEAF_abs_path, ".")
+            ALEAF_sysimage_path = Path(self.ALEAF_abs_path, "aleafSysimage.so")
+            aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
             if self.args.quiet:
-                sp = subprocess.check_call([aleaf_cmd],
+                sp = subprocess.check_call(aleaf_cmd,
                                            shell=True,
                                            stdout=open(os.devnull, "wb"))
             else:
-                sp = subprocess.check_call([aleaf_cmd], shell=True)
+                sp = subprocess.check_call(aleaf_cmd, shell=True)
 
             self.save_ALEAF_outputs()
 
 
     def check_for_sysimage_files(self):
-        ABCE_sysimage_path = os.path.join(
-            self.settings["ABCE_abs_path"],
+        ABCE_sysimage_path = (Path(
+            self.settings["ABCE_abs_path"]) /
             self.settings["ABCE_sysimage_file"]
         )
 
-        dispatch_sysimage_path = os.path.join(
-            self.settings["ABCE_abs_path"],
+        dispatch_sysimage_path = (Path(
+            self.settings["ABCE_abs_path"]) /
             self.settings["dispatch_sysimage_file"]
         )
 
         has_ABCE_sysimage = True
         has_dispatch_sysimage = True
 
-        if not os.path.exists(ABCE_sysimage_path):
+        if not Path(ABCE_sysimage_path).exists():
             msg = (f"No sysimage file found at {ABCE_sysimage_path}. " +
                     "Execution will proceed, but Julia may run extremely slowly. " +
                     "If you already have a sysimage file, please move it to " +
@@ -890,7 +890,7 @@ class GridModel(Model):
             logging.warn(msg)
             has_ABCE_sysimage = False
 
-        if not os.path.exists(dispatch_sysimage_path):
+        if not Path(dispatch_sysimage_path).exists():
             msg = (f"No sysimage file found at {dispatch_sysimage_path}. " +
                     "Execution will proceed, but the dispatch sub-module may run extremely slowly. " +
                     "If you already have a dispatch sysimage file, please move it to " +
@@ -1160,9 +1160,9 @@ class GridModel(Model):
         files_to_save = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
         for outfile in files_to_save:
             old_filename = f"{self.ALEAF_scenario_name}__{outfile}.csv"
-            old_filepath = os.path.join(self.ALEAF_output_data_path, old_filename)
+            old_filepath = Path(self.ALEAF_output_data_path, old_filename)
             new_filename = f"{self.ALEAF_scenario_name}__{outfile}__step_{self.current_pd}.csv"
-            new_filepath = os.path.join(self.ABCE_output_data_path, new_filename)
+            new_filepath = Path(self.ABCE_output_data_path, new_filename)
             shutil.copy2(old_filepath, new_filepath)
 
 

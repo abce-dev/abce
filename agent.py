@@ -21,6 +21,7 @@ import pandas as pd
 import subprocess
 import csv
 import os
+from pathlib import Path
 
 # import local modules
 import ABCEfunctions as ABCE
@@ -88,22 +89,22 @@ class GenCo(Agent):
         print(f"Agent #{self.unique_id} is taking its turn...")
 
         # Run the agent behavior choice algorithm
-        agent_choice_path = os.path.join(self.settings["ABCE_abs_path"],
+        agent_choice_path = (Path(self.settings["ABCE_abs_path"]) /
                                          "agent_choice.jl")
         sysimage_cmd = ""
         if self.model.has_ABCE_sysimage:
-            sysimage_path = os.path.join(self.settings["ABCE_abs_path"],
+            sysimage_path = (Path(self.settings["ABCE_abs_path"]) /
                                          self.settings["ABCE_sysimage_file"])
             sysimage_cmd = f"-J{sysimage_path}"
         julia_cmd = (f"julia --project={self.settings['ABCE_abs_path']} {sysimage_cmd} {agent_choice_path} " +
                      f"--current_pd={self.current_pd} " +
-                     f"--agent_id={self.unique_id}")
+                     f"--agent_id={self.unique_id}")                   
         if self.quiet:
-            sp = subprocess.check_call([julia_cmd],
+            sp = subprocess.check_call(julia_cmd,
                                        shell = True,
                                        stdout=open(os.devnull, "wb"))
         else:
-            sp = subprocess.check_call([julia_cmd], shell = True)
+            sp = subprocess.check_call(julia_cmd, shell = True)
 
         print(f"Agent #{self.unique_id}'s turn is complete.\n")
 

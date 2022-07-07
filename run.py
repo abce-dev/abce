@@ -24,6 +24,7 @@ import yaml
 import pandas as pd
 import argparse
 import ABCEfunctions
+from pathlib import Path
 
 
 def read_settings(settings_file):
@@ -37,11 +38,12 @@ def read_settings(settings_file):
 
 def set_up_local_paths(args, settings):
     # Set the path for ABCE files to the directory where run.py is saved
-    settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
+    # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
+    settings["ABCE_abs_path"] = Path(__file__).parent
 
     # Try to locate an environment variable to specify where A-LEAF is located
     try:
-        settings["ALEAF_abs_path"] = os.environ["ALEAF_DIR"]
+        settings["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
     except KeyError:
         print("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
         raise
@@ -67,9 +69,7 @@ def cli_args():
     parser.add_argument("--settings_file",
                           type=str,
                           help="Simulation settings file name.",
-                          default=os.path.join(
-                                      os.getcwd(),
-                                      "settings.yml"))
+                          default=Path(Path.cwd()) / "settings.yml")
     parser.add_argument("--quiet", "-q",
                           action="store_true",
                           help="Suppress all output except the turn and period counters.")
@@ -87,9 +87,9 @@ def check_julia_environment(ABCE_abs_path):
     If either one is not found, run `make_julia_environment.jl` to
       automatically generate valid .toml files.
     """
-    if not (os.path.exists(os.path.join(ABCE_abs_path, "Manifest.toml"))
-            and os.path.exists(os.path.join(ABCE_abs_path, "Project.toml"))):
-        julia_cmd = (f"julia {os.path.join(ABCE_abs_path, 'make_julia_environment.jl')}")
+    if not (Path(Path(ABCE_abs_path) / "Manifest.toml").exists()
+            and Path(Path(ABCE_abs_path) / "Project.toml").exists()):
+        julia_cmd = (f"julia {Path(ABCE_abs_path) / 'make_julia_environment.jl'}")
         try:
             sp = subprocess.check_call([julia_cmd], shell = True)
             # print("Julia environment successfully created.\n\n")
