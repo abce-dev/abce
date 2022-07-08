@@ -123,7 +123,10 @@ def get_eia_generators(month=None, year=None):
         y = year
 
     elif ((month is None) or (year is None)):
-        print("Please specify a month and a year.")
+        
+        print(f"Month {month} / Year {year}")
+        raise ValueError(("Please specify a month and a year."))
+
 
     url = (f"https://www.eia.gov/electricity/data/eia860m/archive/xls/" +
            f"{m}_generator{y}.xlsx")
@@ -147,8 +150,10 @@ def get_eia_generators(month=None, year=None):
                                usecols=columns,
                                index_col='Entity ID')
             print('Download successful.')
-        except FileNotFoundError:
-            print('Download failed. File not found.')
+        except ValueError:
+            fail_str = (f'Download failed. File not found' +
+                       f' for Month: {month} and Year: {year}')
+            raise ValueError(fail_str)
 
     return df
 
