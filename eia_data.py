@@ -107,7 +107,7 @@ def get_eia_generators(month=None, year=None):
 
     # initialize 
     m = 'thermidor'
-    y = 0
+    y = 2
 
     if (month is None) and (year is None):
         m, d, y = get_date()
