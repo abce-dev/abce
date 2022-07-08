@@ -105,7 +105,7 @@ def get_eia_generators(month=None, year=None):
         'County'
     ]
 
-    # initialize 
+    # initialize with invalid options
     m = 'thermidor'
     y = 2
 
