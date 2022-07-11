@@ -42,18 +42,19 @@ num_repdays: 20
 allowed_xtr_types:
   - Wind
   - Solar
-  - PWR_C2N0
-  - HTGR_C2N0
-  - SFR_C2N0
-  - C2N1
-  - C2N2
-  - C2N3
-  - PWR_C2N0_s
-  - HTGR_C2N0_s
-  - SFR_C2N0_s
-  - C2N1_s
-  - C2N2_s
-  - C2N3_s
+  - NGCC
+  # - PWR_C2N0
+  # - HTGR_C2N0
+  # - SFR_C2N0
+  # - C2N1
+  # - C2N2
+  # - C2N3
+  # - PWR_C2N0_s
+  # - HTGR_C2N0_s
+  # - SFR_C2N0_s
+  # - C2N1_s
+  # - C2N2_s
+  # - C2N3_s
 
 
 #peak_demand: 28967  # MWh, to scale load duration data

@@ -34,7 +34,7 @@
 using PackageCompiler, Pkg
 
 # Load all default Julia packages into the current environment
-Pkg.activate
+Pkg.activate(".")
 
 # Run the current version of unit_choice.jl, outputting function-compilation
 #   records to `./precompile.jl`
