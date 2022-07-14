@@ -43,9 +43,16 @@ def execute_scenario_reduction(db, current_pd, settings, unit_specs, num_repdays
     # Get the number of wind and solar units to allow computation of net
     #   demand
     current_portfolio = pd.read_sql_query(f"SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= {current_pd} AND retirement_pd > {current_pd} GROUP BY unit_type", db)
-    num_wind = current_portfolio.loc[current_portfolio.unit_type == "Wind", "COUNT(unit_type)"].values[0]
-    num_solar = current_portfolio.loc[current_portfolio.unit_type == "Solar", "COUNT(unit_type)"].values[0]
+    try:
+        num_wind = current_portfolio.loc[current_portfolio.unit_type == "Wind", "COUNT(unit_type)"].values[0]
+    except IndexError:
+        num_wind = 0
 
+    try:
+        num_solar = current_portfolio.loc[current_portfolio.unit_type == "Solar", "COUNT(unit_type)"].values[0]
+    except IndexError:
+        num_solar = 0
+    
     # Get the capacity of wind and solar units
     wind_cap = unit_specs.loc[unit_specs.unit_type == "Wind", "capacity"].values[0]
     solar_cap = unit_specs.loc[unit_specs.unit_type == "Solar", "capacity"].values[0]
