@@ -58,10 +58,14 @@ class GridModel(Model):
         self.MW2kW = 1000          # Converts MW to kW
         self.MMBTU2BTU = 1000000   # Converts MMBTU to BTU
 
-        if ('natural_gas_price' in settings):
+        try:
             self.natgas_price = settings['natural_gas_price']
-        if ('conv_nuclear_FOM' in settings): 
+        except KeyError:
+            self.natgas_price = 'ATB'
+        try:
             self.conv_nuclear_FOM = settings['conv_nuclear_FOM']
+        except KeyError:
+            self.conv_nuclear_FOM = 'ATB'
         
         # Copy the command-line arguments as member data
         self.args = args
