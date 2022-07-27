@@ -58,14 +58,10 @@ class GridModel(Model):
         self.MW2kW = 1000          # Converts MW to kW
         self.MMBTU2BTU = 1000000   # Converts MMBTU to BTU
 
-        try:
+        if 'natural_gas_price' in settings:
             self.natgas_price = settings['natural_gas_price']
-        except KeyError:
-            self.natgas_price = 'ATB'
-        try:
+        if 'conv_nuclear_FOM' in settings:
             self.conv_nuclear_FOM = settings['conv_nuclear_FOM']
-        except KeyError:
-            self.conv_nuclear_FOM = 'ATB'
         
         # Copy the command-line arguments as member data
         self.args = args
@@ -265,17 +261,27 @@ class GridModel(Model):
         #   convert to tCO2/MWh
         us_df["emissions_rate"] = us_df["emissions_rate"] / 100
 
-        if self.natgas_price != 'ATB':
-            print(f'using specified value: {self.natgas_price}')
+        try:
             ng_fuel = us_df['fuel_type'] == 'Gas'
             us_df.loc[ng_fuel, 'original_FC'] = self.natgas_price
-        
-        if self.conv_nuclear_FOM != 'ATB':
-            print(f'using specified value: {self.conv_nuclear_FOM}')
+            print(f'using specified value: {self.natgas_price}')
+        except AttributeError:
+            print('Using standard value.')        
+        try:
             nuke_fuel = us_df['UNITGROUP'] == 'ConventionalNuclear'
             us_df.loc[nuke_fuel, 'FOM'] = self.conv_nuclear_FOM
-
-        # breakpoint()
+            print(f'using specified value: {self.conv_nuclear_FOM}')
+        except AttributeError:
+            print('Using standard value.')
+        # if self.natgas_price != 'ATB':
+        #     print(f'using specified value: {self.natgas_price}')
+        #     ng_fuel = us_df['fuel_type'] == 'Gas'
+        #     us_df.loc[ng_fuel, 'original_FC'] = self.natgas_price
+        
+        # if self.conv_nuclear_FOM != 'ATB':
+        #     print(f'using specified value: {self.conv_nuclear_FOM}')
+        #     nuke_fuel = us_df['UNITGROUP'] == 'ConventionalNuclear'
+        #     us_df.loc[nuke_fuel, 'FOM'] = self.conv_nuclear_FOM
 
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
