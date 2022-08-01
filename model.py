@@ -137,10 +137,10 @@ class GridModel(Model):
         self.db.commit()
 
         # Check ./outputs/ dir and clear out old files
-        self.ABCE_output_data_path = Path(settings["ABCE_abs_path"]) / "outputs" / self.ALEAF_scenario_name
+        self.ABCE_output_data_path = Path(os.getcwd()) / "outputs" / self.ALEAF_scenario_name
         if not Path(self.ABCE_output_data_path).is_dir():
             # If the desired output directory doesn't already exist, create it
-            Path(self.ABCE_output_data_path).mkdir(exist_ok=True)
+            Path(self.ABCE_output_data_path).mkdir(exist_ok=True, parents=True)
         else:
             # Otherwise, delete any existing files in the directory
             for existing_file in Path(self.ABCE_output_data_path).iterdir():
@@ -1423,7 +1423,6 @@ class GridModel(Model):
         self.db.cursor().execute("DELETE FROM asset_updates")
         self.db.commit()
 
-        self.update_agent_debt()
 
 
 
