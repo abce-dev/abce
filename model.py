@@ -89,11 +89,6 @@ class GridModel(Model):
         # Set up all ALEAF file paths
         self.set_ALEAF_file_paths(settings)
 
-        if self.settings["run_ALEAF"]:
-            # If ALEAF is enabled, re-initialize all input data based on local
-            #    reference copies
-            self.reinitialize_ALEAF_input_data()
-
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
 
@@ -103,6 +98,8 @@ class GridModel(Model):
         self.add_unit_specs_to_db()
 
         if self.settings["run_ALEAF"]:
+            # Initialize the ALEAF model settings and generation technologies
+            self.reinitialize_ALEAF_input_data()
             # Initialize the correct policy adjustments by unit type
             ALI.update_ALEAF_policy_settings(self.ALEAF_model_settings_remote, self.ALEAF_model_settings_remote, self.settings["policies"], self.unit_specs)
 
