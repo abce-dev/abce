@@ -110,6 +110,8 @@ class GridModel(Model):
         self.add_unit_specs_to_db()
 
         if self.settings["run_ALEAF"]:
+            # Copy the reference copy of ALEAF_Master.xlsx over to the ALEAF/setting directory
+            shutil.copy2(self.ALEAF_master_settings_ref, self.ALEAF_master_settings_remote)
             # Initialize the ALEAF model settings and generation technologies
             self.reinitialize_ALEAF_input_data()
             # Initialize the correct policy adjustments by unit type
