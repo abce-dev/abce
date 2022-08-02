@@ -77,6 +77,30 @@ def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_r
 
     # Write the updated sheet to file
     sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
+
+    # Update key columns from unit_specs table
+    gen_tech = pd.DataFrame(writer.sheets["Gen Technology"].values)
+    gen_tech.columns = gen_tech.iloc[0]
+    gen_tech = gen_tech.drop(gen_tech.index[0]).reset_index().drop("index", axis=1)
+
+    ALEAF_header_converter = {"UNIT_TYPE": "unit_type",
+                              "FC": "FC_per_MWh",
+                              "VOM": "VOM"
+                             }
+
+    cols_to_update = [key for key in ALEAF_header_converter.keys() if key != "UNIT_TYPE"]
+
+    # Get the final unit_specs data from the database
+    unit_specs = pd.read_sql_query("SELECT * FROM unit_specs", db)
+
+    # Update all data in cols_to_update
+    for i in range(len(gen_tech)):
+        unit_type = gen_tech.loc[i, "UNIT_TYPE"]
+        for col in cols_to_update:
+            gen_tech.loc[i, col] = unit_specs.loc[unit_specs["unit_type"] == unit_type, ALEAF_header_converter[col]].values[0]
+
+    gen_tech.to_excel(writer, sheet_name = "Gen Technology", header=True, index=False)
+
     writer.save()
 
 
