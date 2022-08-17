@@ -1306,7 +1306,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
                             ".csv"
                         )
                     )
-    # CSV.write(agent_fs_path, agent_fs)
+    CSV.write(agent_fs_path, agent_fs)
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)

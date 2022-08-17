@@ -15,7 +15,9 @@ first_asset_id: 2001
 
 num_steps: 2
 
-run_ALEAF: True
+conv_nuclear_FOM: 140
+
+run_ALEAF: False
 
 C2N_subsidy: 1  # deprecated: to remove
 C2N_assumption: baseline
@@ -25,14 +27,14 @@ enable_subsidy: False # deprecated: to remove
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
 
-natural_gas_price: 99  # $/MWh
+natural_gas_price: 3  # $/MWh
 
 policies:
   CTAX:
     enabled: False
     qty: 30   # $/t CO2
   PTC:
-    enabled: False
+    enabled: True
     eligible:
       - ConventionalNuclear
       - Wind
