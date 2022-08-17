@@ -494,20 +494,20 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
 
         # save a representative example of each unit type to file (new_xtr only)
         savelag = 2
-        # if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
-        #     ctype = current_PA[:unit_type]
-        #     fspath = joinpath(
-        #                  pwd(),
-        #                  "tmp",
-        #                  string(
-        #                      ctype,
-        #                      "_",
-        #                      savelag,
-        #                      "_fs.csv"
-        #                  )
-        #              )
-        #     CSV.write(fspath, PA_fs_dict[uid])
-        # end
+#        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
+#            ctype = current_PA[:unit_type]
+#            fspath = joinpath(
+#                         pwd(),
+#                         "tmp",
+#                         string(
+#                             ctype,
+#                             "_",
+#                             savelag,
+#                             "_fs.csv"
+#                         )
+#                     )
+#            CSV.write(fspath, PA_fs_dict[uid])
+#        end
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
@@ -1017,16 +1017,16 @@ function compute_total_generation(current_pd, unit_type_data, unit_fs, num_subma
         end
     end
 
-    coal_avg_rem_life = 15
+    #coal_avg_rem_life = 15
 
-    if occursin("C2N", unit_type_data[:unit_type])
-        for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):(floor(Int64, unit_type_data[:cpp_ret_lead])+lag+coal_avg_rem_life)
-            coal_data = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
-            if (size(coal_data)[1] != 0)
-                unit_fs[y, :coal_gen] = unit_type_data["num_cpp_rets"] * (coal_data[1, :annualized_gen_perunit])
-            end
-        end
-    end
+    #if occursin("C2N", unit_type_data[:unit_type])
+    #    for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):(floor(Int64, unit_type_data[:cpp_ret_lead])+lag+coal_avg_rem_life)
+    #        coal_data = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
+    #        if (size(coal_data)[1] != 0)
+    #            unit_fs[y, :coal_gen] = unit_type_data["num_cpp_rets"] * (coal_data[1, :annualized_gen_perunit])
+    #        end
+    #    end
+    #end
 
 
 end
@@ -1319,7 +1319,7 @@ function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset
     filename = joinpath(
                    pwd(),
                    "tmp",
-                   "marg_int.csv"
+                   "marg_FCF.csv"
                )
     CSV.write(filename, DataFrame(marg_int, :auto))
 
@@ -1672,9 +1672,36 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     transform!(fs, [:Net_Income, :depreciation, :capex] => ((NI, dep, capex) -> NI + dep - capex) => :FCF)
 
     # Save the dataframe to the database
+    save_agent_fs!(fs, agent_id, db)
 
     return fs
 
+
+end
+
+
+function save_agent_fs!(fs, agent_id, db)
+    # Add the agent id to the dataframe
+    fs[!, :agent_id] .= agent_id
+
+    # Get the column order from the agent_financial_statements database table
+    sql_cmd = "SELECT name FROM PRAGMA_TABLE_INFO('agent_financial_statements')"
+    fs_col_order = DBInterface.execute(db, sql_cmd) |> DataFrame
+    fs_col_order = collect(fs_col_order[!, "name"]) # convert DF col to vector
+
+    # Reorder the agent fs to match the DB table
+    fs = select(fs, fs_col_order)
+
+    try
+        tup_fs = Tuple.(eachrow(fs))
+        for i = 1:size(fs)[1]
+            values = tup_fs[i]
+            ins_cmd = "INSERT INTO agent_financial_statements VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            DBInterface.execute(db, ins_cmd, values)
+        end
+    catch e
+        throw(e)
+    end
 
 end
 
