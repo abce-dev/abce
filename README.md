@@ -6,6 +6,8 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 * [Installation](#installation)
 * [Usage](#usage)
     - [Input Files](#input-files)
+    - [Settings File Parameters](#settings-file-parameters)
+    - [Agent Settings](#agent-settings)
     - [Using `abce` with `watts`](#use-abce-with-watts)
 * [Contributing](#contributing)
 * [Testing](#testing)
@@ -65,10 +67,24 @@ information on commands.
 
 ## Usage
 
+The simplest way to run `abce` is with `python run.py -f`. Where the `-f` flag overwrites pre-existing results. `abce` will ask for permission to overwrite if the flag is left out. This method defaults to a `settings.yml` file in the `abce` directory. However, users may create their own file and specify where the settings are with:
+
+`python run.py -f --settings_file /path/to/your/settings_file.yml`
+
 ### Input Files
 
+Here is a description of all the input files that one needs to successfully develop their own `abce` simulation.
+
+### Settings File Parameters
+
+Here is a description of each parameter in the settings file.
+
+### Agent Settings
+
+Here is a description of each parameter in the `gc_params.yml` file that describes agent characteristics.
 
 ### Use ABCE with `watts`
+The[ Workflow and Template Toolkit for Simulations (`watts`)](https://github.com/watts-dev/watts) has an `abce` plugin. Please see the `watts` documentation for usage. This workflow tool is useful for conducting sensitivity analyses and other experiments with `abce`.
 
 ## Contributing
 
