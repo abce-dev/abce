@@ -58,11 +58,10 @@ class GridModel(Model):
         self.MW2kW = 1000          # Converts MW to kW
         self.MMBTU2BTU = 1000000   # Converts MMBTU to BTU
 
-        try:
+        if 'natural_gas_price' in settings:
             self.natgas_price = settings['natural_gas_price']
-        except:
-            # print('Using ATB value for natural gas price.')
-            self.natgas_price = 'ATB'
+        if 'conv_nuclear_FOM' in settings:
+            self.conv_nuclear_FOM = settings['conv_nuclear_FOM']
         
         # Copy the command-line arguments as member data
         self.args = args
@@ -137,10 +136,10 @@ class GridModel(Model):
         self.db.commit()
 
         # Check ./outputs/ dir and clear out old files
-        self.ABCE_output_data_path = Path(settings["ABCE_abs_path"]) / "outputs" / self.ALEAF_scenario_name
+        self.ABCE_output_data_path = Path(os.getcwd()) / "outputs" / self.ALEAF_scenario_name
         if not Path(self.ABCE_output_data_path).is_dir():
             # If the desired output directory doesn't already exist, create it
-            Path(self.ABCE_output_data_path).mkdir(exist_ok=True)
+            Path(self.ABCE_output_data_path).mkdir(exist_ok=True, parents=True)
         else:
             # Otherwise, delete any existing files in the directory
             for existing_file in Path(self.ABCE_output_data_path).iterdir():
@@ -155,8 +154,8 @@ class GridModel(Model):
               save them as member data.
         """
 
-        ALEAF_remote_path = Path(self.ALEAF_abs_path)
-        ALEAF_remote_data_path = (Path(self.ALEAF_abs_path) / 
+        self.ALEAF_remote_path = Path(self.ALEAF_abs_path)
+        self.ALEAF_remote_data_path = (Path(self.ALEAF_abs_path) / 
                                     "data" / 
                                     self.ALEAF_model_type / 
                                     self.ALEAF_region)
@@ -170,18 +169,18 @@ class GridModel(Model):
                                                         settings["ALEAF_portfolio_file"])
 
         # Set the paths to where settings are stored in the ALEAF directory
-        ALEAF_settings_path = ALEAF_remote_path / "setting"
+        ALEAF_settings_path = self.ALEAF_remote_path / "setting"
         self.ALEAF_master_settings_remote = (Path(ALEAF_settings_path) /
                                                          self.ALEAF_master_settings_file_name)
         self.ALEAF_model_settings_remote = (Path(ALEAF_settings_path) /
                                                         f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
-        self.ALEAF_portfolio_remote = (ALEAF_remote_data_path /
+        self.ALEAF_portfolio_remote = (self.ALEAF_remote_data_path /
                                                    f"ALEAF_{self.ALEAF_region}.xlsx")
-        self.ATB_remote = (ALEAF_remote_data_path /
+        self.ATB_remote = (self.ALEAF_remote_data_path /
                                        "ATBe.csv")
 
         # Set path to ALEAF outputs
-        self.ALEAF_output_data_path = (ALEAF_remote_path/
+        self.ALEAF_output_data_path = (self.ALEAF_remote_path/
                                                   "output"/
                                                   self.ALEAF_model_type/
                                                   self.ALEAF_region/
@@ -262,9 +261,27 @@ class GridModel(Model):
         #   convert to tCO2/MWh
         us_df["emissions_rate"] = us_df["emissions_rate"] / 100
 
-        if self.natgas_price != 'ATB':
+        try:
             ng_fuel = us_df['fuel_type'] == 'Gas'
             us_df.loc[ng_fuel, 'original_FC'] = self.natgas_price
+            print(f'using specified value: {self.natgas_price}')
+        except AttributeError:
+            print('Using standard value.')        
+        try:
+            nuke_fuel = us_df['UNITGROUP'] == 'ConventionalNuclear'
+            us_df.loc[nuke_fuel, 'FOM'] = self.conv_nuclear_FOM
+            print(f'using specified value: {self.conv_nuclear_FOM}')
+        except AttributeError:
+            print('Using standard value.')
+        # if self.natgas_price != 'ATB':
+        #     print(f'using specified value: {self.natgas_price}')
+        #     ng_fuel = us_df['fuel_type'] == 'Gas'
+        #     us_df.loc[ng_fuel, 'original_FC'] = self.natgas_price
+        
+        # if self.conv_nuclear_FOM != 'ATB':
+        #     print(f'using specified value: {self.conv_nuclear_FOM}')
+        #     nuke_fuel = us_df['UNITGROUP'] == 'ConventionalNuclear'
+        #     us_df.loc[nuke_fuel, 'FOM'] = self.conv_nuclear_FOM
 
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
@@ -819,7 +836,7 @@ class GridModel(Model):
         if not self.args.quiet:
             print("\nAll agent turns are complete.\n")
 
-        self.db = sqlite3.connect(str(Path(self.settings["ABCE_abs_path"]) / self.settings["db_file"]))
+        self.db = sqlite3.connect(str(Path.cwd() / self.settings["db_file"]))
         self.cur = self.db.cursor()
 
         # Transfer all decisions and updates from the 'asset_updates' and
@@ -851,10 +868,17 @@ class GridModel(Model):
 
             # Run A-LEAF
             # print("Running A-LEAF...")
-            run_script_path = ALEAF_remote_path / "run.jl"
-            ALEAF_env_path = ALEAF_remote_path / "."
-            ALEAF_sysimage_path = ALEAF_remote_path / "aleafSysimage.so"
+<<<<<<< HEAD
+            run_script_path = self.ALEAF_remote_path / "run.jl"
+            ALEAF_env_path = self.ALEAF_remote_path / "."
+            ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
             aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
+=======
+            run_script_path = self.ALEAF_remote_path / "execute_ALEAF.jl"
+            ALEAF_env_path = self.ALEAF_remote_path / "."
+            ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
+            aleaf_cmd = f"julia --project={ALEAF_env_path} -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
+>>>>>>> new_aleaf2
             if self.args.quiet:
                 sp = subprocess.check_call(aleaf_cmd,
                                            shell=True,
@@ -1423,7 +1447,6 @@ class GridModel(Model):
         self.db.cursor().execute("DELETE FROM asset_updates")
         self.db.commit()
 
-        self.update_agent_debt()
 
 
 

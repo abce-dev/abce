@@ -39,7 +39,7 @@ def update_ALEAF_system_portfolio(ALEAF_portfolio_ref, ALEAF_portfolio_remote, d
             new_count = unit_type_count.loc[unit_type, "COUNT(unit_type)"]
         else:
             new_count = 0
-        df.loc[(df["bus_i"] == 1) & (df["Unit Type"] == unit_type), "EXUNITS"] = new_count
+        df.loc[(df["bus_i"] == 1) & (df["UNIT_TYPE"] == unit_type), "EXUNITS"] = new_count
 
     df.to_excel(writer, sheet_name="gen", header=True, index=False)
     writer.save()
@@ -50,7 +50,7 @@ def organize_ALEAF_portfolio(writer):
     df.columns = df.iloc[0]
     df = df.drop(df.index[0]).reset_index(drop=True)
     df["EXUNITS"] = df["EXUNITS"].astype("int64")
-    df["Unit Type"] = df["Unit Type"].astype("string")
+    df["UNIT_TYPE"] = df["UNIT_TYPE"].astype("string")
 
     return df
 
