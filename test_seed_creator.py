@@ -19,7 +19,7 @@ def test_ask_user_permission_to_delete_yes():
 
 def test_ask_user_permission_to_delete_no():
     """
-    Tests user permission. Where the answer is yes. 
+    Tests user permission. Where the answer is no. 
     """
 
     seed_creator.input = lambda _ : 'n'
@@ -34,7 +34,7 @@ def test_ask_user_permission_to_delete_no():
 @pytest.mark.skip("Unsure how to test with while loop")
 def test_ask_user_permission_to_delete_bad_input():
     """
-    Tests user permission. Where the answer is yes. 
+    Tests user permission. Where the answer is invalid. 
     """
 
     seed_creator.input = lambda _ : 'B'

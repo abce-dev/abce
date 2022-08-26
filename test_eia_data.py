@@ -63,7 +63,7 @@ def test_get_eia_generators_year_passed():
 def test_get_eia_generators_bad_year_month():
     """
     Tests the data download function where
-    only the year is passed.
+    an invalid month and year are passed.
     """
     month = 'thermidor'
     year = 2
