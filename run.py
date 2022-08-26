@@ -93,7 +93,7 @@ def check_julia_environment(ABCE_abs_path):
         try:
             sp = subprocess.check_call([julia_cmd], shell = True)
             # print("Julia environment successfully created.\n\n")
-        except CalledProcessError:
+        except subprocess.CalledProcessError:
             # print("Cannot proceed without a valid Julia environment. Terminating...")
             quit()
 
