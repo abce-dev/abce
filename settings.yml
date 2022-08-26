@@ -13,9 +13,9 @@ output_file: "outputs.xlsx"
 
 first_asset_id: 2001
 
-num_steps: 3
+num_steps: 2
 
-run_ALEAF: False
+run_ALEAF: True
 
 C2N_subsidy: 1  # deprecated: to remove
 C2N_assumption: baseline
@@ -32,9 +32,9 @@ policies:
     enabled: False
     qty: 30   # $/t CO2
   PTC:
-    enabled: True
+    enabled: False
     eligible:
-      - AdvancedNuclear
+      - ConventionalNuclear
       - Wind
     qty: 25.0   # $/MWh
 num_repdays: 20
@@ -79,9 +79,9 @@ max_type_newbuilds_per_pd: 3
 
 
 #### ALEAF SETTINGS
-ALEAF_master_settings_file: "ALEAF_Master_original.xlsx"
+ALEAF_master_settings_file: "ALEAF_Master.xlsx"
 ALEAF_model_type: "LC_GEP"
 ALEAF_region: "IL"
-ALEAF_model_settings_file: "ALEAF_Master_LC_GEP_IL_C2N.xlsx"
-ALEAF_portfolio_file: "ALEAF_IL_C2N.xlsx"
-ALEAF_scenario_name: "ABCE_IL_C2N"
+ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
+ALEAF_portfolio_file: "ALEAF_IL.xlsx"
+ALEAF_scenario_name: "ABCE_IL"
