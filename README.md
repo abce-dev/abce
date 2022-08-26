@@ -78,8 +78,19 @@ information on commands.
 ### Python Unit Tests
 Python tests may be run with
 ```bash
-$ cd abce
-$ pytest
+C:\> cd abce
+C:\abce> pytest
+C:\Users\samgd\Research\argonne\abce>pytest 
+========================================================================================= test session starts ==========================================================================================
+platform win32 -- Python 3.9.12, pytest-7.1.1, pluggy-1.0.0
+rootdir: C:\Users\samgd\Research\argonne\abce
+plugins: anyio-3.5.0
+collected 12 items
+
+test_eia_data.py .........                                                                                                                                                                        [ 75%] 
+test_seed_creator.py ..s                                                                                                                                                                          [100%] 
+
+==================================================================================== 11 passed, 1 skipped in 36.15s ====================================================================================
 ```
 **NOTE: Tests are still being added `abce`.**
 
