@@ -175,19 +175,23 @@ def get_region_techs(df, region):
         The dataframe for EIA form 860M
     region : string
         The region of interest. Region may be state or county. The state must
-        be given as an abbreviation a county must be provided as a full name.
+        be given as a two letter abbreviation and a county must be provided as 
+        a full name.
     """
         # filter by region
     if len(region) == 2:
-        try:
+        valid_state = (region.upper() in df['Plant State'].values)
+        if valid_state:
             region_mask = df['Plant State'] == region.upper()
-        except BaseException:
-            print(f'Detected state abbreviation. Abbreviation {region} not found.')
+        else:
+            raise ValueError(f'Detected state abbreviation. Abbreviation {region} not found.')
     else:
-        try:
-            region_mask = df['County'] == region.upper()
-        except BaseException:
-            print(f'Detected county name. County name {region} not found.')
+        valid_county = (region.capitalize() in df['County'].values)
+        if valid_county:
+            region_mask = df['County'] == region.capitalize()
+        else:
+            raise ValueError(f'Detected county name. County name {region} not found.')
+
     df = df[region_mask]
     
     return df
