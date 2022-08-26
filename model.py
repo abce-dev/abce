@@ -868,17 +868,11 @@ class GridModel(Model):
 
             # Run A-LEAF
             # print("Running A-LEAF...")
-<<<<<<< HEAD
-            run_script_path = self.ALEAF_remote_path / "run.jl"
-            ALEAF_env_path = self.ALEAF_remote_path / "."
-            ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
-            aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
-=======
+
             run_script_path = self.ALEAF_remote_path / "execute_ALEAF.jl"
             ALEAF_env_path = self.ALEAF_remote_path / "."
             ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
-            aleaf_cmd = f"julia --project={ALEAF_env_path} -J{ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
->>>>>>> new_aleaf2
+            aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.ALEAF_abs_path}"
             if self.args.quiet:
                 sp = subprocess.check_call(aleaf_cmd,
                                            shell=True,
