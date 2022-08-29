@@ -1206,8 +1206,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # @info "Setting up model..."
 
     solver = settings["solver"]
-    # println("Solver is `$solver`")
-    # m = Model(CPLEX.Optimizer)
     if solver == "cplex"
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
