@@ -21,41 +21,7 @@ using .Dispatch
 include("./C2N_projects.jl")
 using .C2N
 
-export (ProjectAlternative, 
-        load_db, 
-        get_current_period, 
-        set_up_local_paths, 
-        get_agent_id, 
-        get_agent_params,
-        load_unit_type_data, 
-        set_forecast_period, 
-        extrapolate_demand, 
-        project_demand_flat, 
-        project_demand_exponential, 
-        allocate_fuel_costs, 
-        create_FS_dict, 
-        get_unit_specs, 
-        get_table, 
-        show_table, 
-        get_WIP_projects_list, 
-        get_demand_forecast, 
-        get_net_demand, 
-        get_next_asset_id, 
-        ensure_projects_not_empty, 
-        authorize_anpe, 
-        generate_capex_profile, 
-        set_initial_debt_principal_series, 
-        generate_prime_movers, 
-        forecast_unit_revenue_and_gen, 
-        forecast_unit_op_costs, 
-        propagate_accounting_line_items, 
-        compute_alternative_NPV,
-        set_up_model, 
-        get_current_assets_list, 
-        convert_to_marginal_delta_FS, 
-        postprocess_agent_decisions, 
-        set_up_project_alternatives, 
-        update_agent_financial_statement)
+export ProjectAlternative, load_db, get_current_period, set_up_local_paths, get_agent_id, get_agent_params,load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_capex_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV,set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives, update_agent_financial_statement
 
 #####
 # Constants
@@ -1239,11 +1205,16 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # Create the model object
     # @info "Setting up model..."
 
+    solver = settings["solver"]
+    # println("Solver is `$solver`")
     # m = Model(CPLEX.Optimizer)
     if solver == "cplex"
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
         m = Model(GLPK.Optimizer)
+    elseif solver == "scip"
+        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+        # m = Model(SCIP.Optimizer)
     else
         throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
     end

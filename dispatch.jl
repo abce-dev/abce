@@ -1,6 +1,6 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, SQLite
+using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, SQLite, SCIP
 
 
 function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
@@ -76,7 +76,9 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
-        run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices)
+        solver = settings["solver"]
+        println("Solver is `$solver`")
+        run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
         # @info "DISPATCH SIMULATION: YEAR $y COMPLETE."
         if y < current_pd + settings["num_dispatch_years"]
@@ -237,10 +239,14 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
 
     # m = Model(CPLEX.Optimizer)
     # Initialize JuMP model
+    # println("Solver is `$solver`")
     if solver == "cplex"
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
         m = Model(GLPK.Optimizer)
+    elseif solver == "scip"
+        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+        # m = Model(SCIP.Optimizer)
     else
         throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
     end
@@ -408,7 +414,7 @@ function propagate_all_results(end_year, all_gc_results, all_prices, current_pd)
 end
 
 
-function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices)
+function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
     # Constants
     num_hours = 24
 
@@ -426,7 +432,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     ts_data = set_up_wind_solar_repdays(ts_data)
 
     # @info "Setting up optimization model..."
-    m, portfolio_specs = set_up_model(ts_data, year_portfolio, unit_specs)
+    m, portfolio_specs = set_up_model(ts_data, year_portfolio, unit_specs, solver)
 
     # @info "Optimization model set up."
     # @info string("Solving repday dispatch for year ", y, "...")
@@ -434,7 +440,17 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     # Create a copy of the model, to use later for the relaxed-integrality
     #   solution
     m_copy = copy(m)
-    set_optimizer(m_copy, CPLEX.Optimizer)
+    if solver == "cplex"
+        set_optimizer(m_copy, CPLEX.Optimizer)
+    elseif solver == "glpk"
+        set_optimizer(m_copy, GLPK.Optimizer)
+    elseif solver == "scip"
+        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+        # m = Model(SCIP.Optimizer)
+    else
+        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+    end
+
     set_silent(m_copy)
 
     # Solve the integral optimization problem
