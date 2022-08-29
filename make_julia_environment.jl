@@ -27,11 +27,6 @@ julia_pkg_list = ["ArgParse",
                   "XLSX",
                   "YAML"]
 
-req_file = "requirements.txt"
-open(req_file, "r") do filehandle
-    conda_list = readlines(filehandle)
-end
-
 # Add Julia libraries needed for ALEAF
 # Add and build the optimizer packages
 
@@ -56,12 +51,18 @@ end
 println("All libraries added to the environment.")
 
 # Ensure all non-default Python packages are installed via Conda.jl
+
 println("Ensuring Conda packages are installed...")
 Pkg.build("Conda")
 using Conda
-for i=1:size(conda_list)[1]
-    println(string("Adding ", conda_list[i]))
-    Conda.add(conda_list[i])
+
+req_file = "requirements.txt"
+open(req_file, "r") do filehandle
+    conda_list = readlines(filehandle)
+    for i=1:size(conda_list)[1]
+        println(string("Adding ", conda_list[i]))
+        Conda.add(conda_list[i])
+    end
 end
 
 println("All packages and Python libraries loaded successfully.")
