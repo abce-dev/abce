@@ -204,7 +204,7 @@ function set_up_wind_solar_repdays(ts_data)
 end
 
 
-function set_up_model(ts_data, year_portfolio, unit_specs)
+function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     # Create joined portfolio-unit_specs dataframe, to ensure consistent
     #   accounting for units which are actually present and consistent
     #   unit ordering
@@ -236,7 +236,14 @@ function set_up_model(ts_data, year_portfolio, unit_specs)
     solar_repdays = ts_data[:solar_repdays]
 
     # Initialize JuMP model
-    m = Model(CPLEX.Optimizer)
+    if solver == "cplex"
+        m = Model(CPLEX.Optimizer)
+    elseif solver == "glpk"
+        m = Model(GLPK.Optimizer)
+    else
+        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+    end
+    
 
     # Set verbosity to lowest setting
     set_silent(m)
