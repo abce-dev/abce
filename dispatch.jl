@@ -235,6 +235,7 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     wind_repdays = ts_data[:wind_repdays]
     solar_repdays = ts_data[:solar_repdays]
 
+    # m = Model(CPLEX.Optimizer)
     # Initialize JuMP model
     if solver == "cplex"
         m = Model(CPLEX.Optimizer)
