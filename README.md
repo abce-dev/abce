@@ -1,3 +1,5 @@
+[![GitHub Actions build status (Linux)](https://github.com/biegelk/abce/workflows/CI/badge.svg?branch=dev)](https://github.com/biegelk/abce/actions/workflows/python-app.yml)
+
 # abce: agent-based capacity expansion modeling
 
 abce is a module to perform agent-based capacity expansion (CE) modeling for electricity market systems. It is designed to be coupled with the A-LEAF software tool (by Argonne National Laboratory).
