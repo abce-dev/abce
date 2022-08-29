@@ -27,10 +27,10 @@ julia_pkg_list = ["ArgParse",
                   "XLSX",
                   "YAML"]
 
-conda_list = ["numpy",
-              "scipy",
-              "matplotlib",
-              "pandas"]
+req_file = "requirements.txt"
+open(req_file, "r") do filehandle
+    conda_list = readlines(filehandle)
+end
 
 # Add Julia libraries needed for ALEAF
 # Add and build the optimizer packages
