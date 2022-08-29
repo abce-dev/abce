@@ -19,15 +19,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-
-    - name: Set up Julia 1.7
-      uses: julia-actions/setup-julia@v1
-      with:
-        version: 1.7
-        arch: x86
-    - name: Install Julia dependencies
-      run: |
-        julia make_julia_environment.jl
   
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
@@ -47,3 +38,12 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+
+    - name: Set up Julia 1.7
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: 1.7
+        arch: x86
+    - name: Install Julia dependencies
+      run: |
+        julia make_julia_environment.jl
