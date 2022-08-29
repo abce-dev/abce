@@ -6,16 +6,16 @@ retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
 time_series_data_file: "inputs/timeseriesParams.xlsx"
 gc_params_file: "inputs/gc_params.yml"
 portfolios_file: "inputs/IL_portfolios.csv"
-db_file: "abce_db.db"
+db_file: "solver_test.db"
 ABCE_sysimage_file: "abceSysimage.so"
 dispatch_sysimage_file: "dispatch.so"
 output_file: "outputs.xlsx"
-
+solver: "cplex"  # 'cplex', 'glpk'
 first_asset_id: 2001
 
 num_steps: 2
 
-run_ALEAF: True
+run_ALEAF: False
 
 C2N_subsidy: 1  # deprecated: to remove
 C2N_assumption: baseline
