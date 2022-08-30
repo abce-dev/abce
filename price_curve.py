@@ -13,7 +13,6 @@
 ##########################################################################
 
 
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,13 +20,21 @@ import sys
 import os
 
 
-def load_time_series_data(data_file_name, current_pd, file_type, peak_demand=0, output_type="np.array"):
+def load_time_series_data(
+        data_file_name,
+        current_pd,
+        file_type,
+        peak_demand=0,
+        output_type="np.array"):
     file_name, file_ext = os.path.splitext(data_file_name)
 
     if "csv" in file_ext:
         ts_df = pd.read_csv(data_file_name)
     elif "xls" in file_ext and file_type == "price":
-        ts_df = pd.read_excel(data_file_name, engine="openpyxl", sheet_name="Jan")
+        ts_df = pd.read_excel(
+            data_file_name,
+            engine="openpyxl",
+            sheet_name="Jan")
     elif "xls" in file_ext and file_type == "load":
         # timeseriesParams.xlsx only has one sheet
         ts_df = pd.read_excel(data_file_name, engine="openpyxl")
@@ -44,7 +51,7 @@ def load_time_series_data(data_file_name, current_pd, file_type, peak_demand=0, 
     elif file_type == "load":
         if peak_demand == 0:
             print(f"Using default peak demand value of {peak_demand}; " +
-                   "a value must be specified if this is incorrect.")
+                  "a value must be specified if this is incorrect.")
         ts_df = organize_load_data(ts_df, peak_demand, output_type)
     return ts_df
 
@@ -55,7 +62,8 @@ def organize_price_data(file_name, price_df, current_pd, output_type):
         orig_col_name = "LMP_dht"
         # The row frequency is the number of unique unit types in this
         #   particular set of dispatch results (as disambiguated by Tech_ID)
-        row_freq = len([unit_type for unit_type in pd.unique(price_df["Tech_ID"])])
+        row_freq = len(
+            [unit_type for unit_type in pd.unique(price_df["Tech_ID"])])
 
     else:
         # Assume it's an ERCOT file
@@ -67,7 +75,7 @@ def organize_price_data(file_name, price_df, current_pd, output_type):
     lamda = pd.DataFrame({"lamda": price_df[orig_col_name].iloc[::row_freq]})
 
     # Sort values lowest to highest
-    lamda = (lamda.sort_values(by = ["lamda"])
+    lamda = (lamda.sort_values(by=["lamda"])
              .reset_index().drop(labels=["index"], axis=1))
 
     # Set the maximum price to 9001
@@ -95,14 +103,14 @@ def organize_load_data(load_df, peak_demand, output_type):
 
 def create_merit_curve(db, current_pd):
     system_portfolio = pd.read_sql_query(
-                         "SELECT assets.asset_id, assets.unit_type, " +
-                         "capacity, VOM, FC_per_MWh, heat_rate FROM assets " +
-                         "INNER JOIN unit_specs ON assets.unit_type " +
-                         "= unit_specs.unit_type WHERE retirement_pd > 0 " +
-                         "AND completion_pd <= 0", db)
+        "SELECT assets.asset_id, assets.unit_type, " +
+        "capacity, VOM, FC_per_MWh, heat_rate FROM assets " +
+        "INNER JOIN unit_specs ON assets.unit_type " +
+        "= unit_specs.unit_type WHERE retirement_pd > 0 " +
+        "AND completion_pd <= 0", db)
     system_portfolio["MC"] = (system_portfolio.apply(
-                                lambda df: df["FC_per_MWh"] + df["VOM"],
-                                axis=1))
+        lambda df: df["FC_per_MWh"] + df["VOM"],
+        axis=1))
     system_portfolio = (system_portfolio.sort_values(by=["MC"], ascending=True)
                         .reset_index().drop(labels=["index"], axis=1))
 
@@ -140,35 +148,15 @@ def plot_curve(data, plot_name="price_curve.png"):
     fig.savefig(plot_name)
 
 
-def compute_unit_revenue(price_duration_data, unit_VOM, unit_capacity, unit_CF, hours_per_year):
+def compute_unit_revenue(
+        price_duration_data,
+        unit_VOM,
+        unit_capacity,
+        unit_CF,
+        hours_per_year):
     price_mask = price_duration_data["lambda"] > unit_VOM
     active_period_prices = price_duration_data[price_mask]["lamda"]
     total_revenue = (sum(active_period_prices) * unit_capacity
                      * unit_CF * hours_per_year
                      / len(price_duration_data))
     return active_period_prices, total_revenue
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

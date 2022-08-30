@@ -30,7 +30,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =================================================================================
 
-This code is borrowed from `pygenesys` 
+This code is borrowed from `pygenesys`
 https://github.com/arfc/pygenesys/blob/main/pygenesys/data/eia_data.py
 
 author: Sam Dotson
@@ -74,7 +74,7 @@ def get_date():
 def get_eia_generators(month=None, year=None):
     """
     This function returns a pandas dataframe containing information on
-    all electric generators in the United States from a recent EIA form 
+    all electric generators in the United States from a recent EIA form
     860M. Note: EIA forms are often delayed therefore this function
     subtracts four months from the current month to guarantee the file
     exists to be downloaded.
@@ -123,10 +123,9 @@ def get_eia_generators(month=None, year=None):
         y = year
 
     elif ((month is None) or (year is None)):
-        
+
         print(f"Month {month} / Year {year}")
         raise ValueError(("Please specify a month and a year."))
-
 
     url = (f"https://www.eia.gov/electricity/data/eia860m/archive/xls/" +
            f"{m}_generator{y}.xlsx")
@@ -152,7 +151,7 @@ def get_eia_generators(month=None, year=None):
             print('Download successful.')
         except ValueError:
             fail_str = (f'Download failed. File not found' +
-                       f' for Month: {month} and Year: {year}')
+                        f' for Month: {month} and Year: {year}')
             raise ValueError(fail_str)
 
     return df
@@ -164,7 +163,7 @@ def get_region_techs(df, region):
     Currently, only electric capacity is considered.
 
     If the user has an internet connection, get_region_techs will collect
-    the most up-to-date electric generator data. 
+    the most up-to-date electric generator data.
 
     Users can also specify a month and year to obtain a specific historical
     dataset from EIA.
@@ -175,23 +174,25 @@ def get_region_techs(df, region):
         The dataframe for EIA form 860M
     region : string
         The region of interest. Region may be state or county. The state must
-        be given as a two letter abbreviation and a county must be provided as 
+        be given as a two letter abbreviation and a county must be provided as
         a full name.
     """
-        # filter by region
+    # filter by region
     if len(region) == 2:
         valid_state = (region.upper() in df['Plant State'].values)
         if valid_state:
             region_mask = df['Plant State'] == region.upper()
         else:
-            raise ValueError(f'Detected state abbreviation. Abbreviation {region} not found.')
+            raise ValueError(
+                f'Detected state abbreviation. Abbreviation {region} not found.')
     else:
         valid_county = (region.capitalize() in df['County'].values)
         if valid_county:
             region_mask = df['County'] == region.capitalize()
         else:
-            raise ValueError(f'Detected county name. County name {region} not found.')
+            raise ValueError(
+                f'Detected county name. County name {region} not found.')
 
     df = df[region_mask]
-    
+
     return df
