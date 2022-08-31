@@ -10,7 +10,7 @@ db_file: "solver_test.db"
 ABCE_sysimage_file: "abceSysimage.so"
 dispatch_sysimage_file: "dispatch.so"
 output_file: "outputs.xlsx"
-solver: "cplex"  # 'cplex', 'glpk'
+solver: "scip"  # 'cplex', 'glpk', 'cbc', 'scip'
 first_asset_id: 2001
 
 num_steps: 2
@@ -59,9 +59,9 @@ allowed_xtr_types:
 
 #peak_demand: 28967  # MWh, to scale load duration data
 peak_demand: 30000
-demand_visibility_horizon: 5
+demand_visibility_horizon: 2
 demand_projection_mode: exp_termrate     # flat, exp_fitted, or exp_termrate
-demand_projection_window: 10 # Total number of periods used to project demand
+demand_projection_window: 5 # Total number of periods used to project demand
 historical_demand_growth_rate: 0.01
 terminal_demand_growth_rate: 0.01  # Exponential growth rate of demand
 planning_reserve_margin: 0.1375
@@ -71,7 +71,7 @@ large_epsilon: 1.0    # Value for determining non-zero-ness of large values
 num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
 
 hours_per_year: 8760
-total_forecast_horizon: 100    # Number of periods in the complete forecast horizon
+total_forecast_horizon: 10    # Number of periods in the complete forecast horizon
 consider_future_projects: True
 num_future_periods_considered: 4    # Number of periods for which to consider future projects
 max_type_rets_per_pd: 5

@@ -40,7 +40,7 @@ class GridModel(Model):
     def __init__(self, settings_file_name, settings, args):
         self.settings_file_name = settings_file_name
         self.settings = settings
-        self.solver = settings['solver']
+        self.solver = settings['solver'].lower()
 
         # Get agent parameters from the settings dictionary
         self.first_asset_id = settings["first_asset_id"]
