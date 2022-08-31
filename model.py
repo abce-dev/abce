@@ -24,6 +24,7 @@ import logging
 from pathlib import Path
 from mesa import Agent, Model
 from mesa.time import RandomActivation
+import nrelpy.atb as ATB
 
 # import local modules
 from agent import GenCo
@@ -64,6 +65,12 @@ class GridModel(Model):
             self.natgas_price = settings['natural_gas_price']
         if 'conv_nuclear_FOM' in settings:
             self.conv_nuclear_FOM = settings['conv_nuclear_FOM']
+
+        if 'ATB_year' in settings:
+            self.ATB_year = settings['ATB_year']
+        else:
+            self.ATB_year = 2020
+        print(f"Using ATB Year {self.ATB_year}")
         
         # Copy the command-line arguments as member data
         self.args = args
@@ -178,9 +185,6 @@ class GridModel(Model):
                                                         f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
         self.ALEAF_portfolio_remote = (self.ALEAF_remote_data_path /
                                                    f"ALEAF_{self.ALEAF_region}.xlsx")
-        self.ATB_remote = (self.ALEAF_remote_data_path /
-                                       "ATBe.csv")
-
         # Set path to ALEAF outputs
         self.ALEAF_output_data_path = (self.ALEAF_remote_path/
                                                   "output"/
@@ -275,15 +279,6 @@ class GridModel(Model):
             print(f'using specified value: {self.conv_nuclear_FOM}')
         except AttributeError:
             print('Using standard value.')
-        # if self.natgas_price != 'ATB':
-        #     print(f'using specified value: {self.natgas_price}')
-        #     ng_fuel = us_df['fuel_type'] == 'Gas'
-        #     us_df.loc[ng_fuel, 'original_FC'] = self.natgas_price
-        
-        # if self.conv_nuclear_FOM != 'ATB':
-        #     print(f'using specified value: {self.conv_nuclear_FOM}')
-        #     nuke_fuel = us_df['UNITGROUP'] == 'ConventionalNuclear'
-        #     us_df.loc[nuke_fuel, 'FOM'] = self.conv_nuclear_FOM
 
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
@@ -338,7 +333,7 @@ class GridModel(Model):
         ATB_settings = ATB_settings.loc[ATB_settings["ATB_Setting_ID"] == "ATB_ID_1", :]
 
         # Load the ATB database sheet
-        ATB_data = pd.read_csv(self.ATB_remote)
+        ATB_data = ATB.as_dataframe(year=self.ATB_year, database='electricity')
 
         # print(unit_specs_data.iloc[:, 1:17])
 
