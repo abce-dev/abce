@@ -5,7 +5,7 @@ name: Python application
 
 on:
   push:
-    branches: [ "main", "dev"]
+    branches: [ "main", "dev", "github_actions"]
   pull_request:
     branches: [ "main", "dev"]
 
@@ -47,3 +47,7 @@ jobs:
     - name: Install Julia dependencies
       run: |
         julia make_julia_environment.jl
+    
+    - name: Run Minimal Working Example
+      run: |
+        python run.py -f
