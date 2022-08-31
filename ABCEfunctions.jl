@@ -1214,18 +1214,19 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # Create the model object
     # @info "Setting up model..."
 
-    solver = settings["solver"]
+    solver = lowercase(settings["solver"])
     if solver == "cplex"
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
         m = Model(GLPK.Optimizer)
     elseif solver == "scip"
-        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
-        # m = Model(SCIP.Optimizer)
+        m = Model(SCIP.Optimizer)
+    elseif solver == "cbc"
+        m = Model(Cbc.Optimizer)
     else
         throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
     end
-    set_silent(m)
+    # set_silent(m)
 
     # Parameter names
     num_alternatives = size(PA_uids)[1]
