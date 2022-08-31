@@ -1,6 +1,15 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, SQLite, SCIP
+using Logging, CSV, DataFrames, JuMP,  XLSX, Logging, SQLite
+
+# import solvers
+using GLPK, SCIP, Cbc
+
+try
+    using CPLEX
+catch
+    println("CPLEX not available!")
+end
 
 
 function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)

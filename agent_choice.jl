@@ -19,8 +19,16 @@ using Logging
 # @info "-----------------------------------------------------------"
 # @info "Julia agent choice algorithm: starting"
 # @info "Loading packages..."
-using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, CPLEX
-# using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, CPLEX
+using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
+
+# import solvers
+using GLPK, SCIP, Cbc
+
+try
+    using CPLEX
+catch
+    println("CPLEX not available!")
+end
 
 # Set up command-line parser
 s = ArgParseSettings()

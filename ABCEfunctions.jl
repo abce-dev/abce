@@ -14,7 +14,16 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables, CPLEX
+using SQLite, DataFrames, CSV, JuMP, Logging, Tables
+
+# import solvers
+using GLPK, SCIP, Cbc
+
+try
+    using CPLEX
+catch
+    println("CPLEX not available!")
+end
 
 include("./dispatch.jl")
 using .Dispatch
