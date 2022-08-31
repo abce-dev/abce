@@ -49,7 +49,7 @@ def set_up_local_paths(args, settings):
             print("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
             raise
     else:
-        settings["ALEAF_abs_path"] = "NULL_PATH"
+        settings["ALEAF_abs_path"] = Path("NULL_PATH")
         
     return settings
 
