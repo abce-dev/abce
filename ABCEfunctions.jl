@@ -1223,11 +1223,11 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 
     solver = lowercase(settings["solver"])
     if solver == "cplex"
-        try
-            # using CPLEX
-        catch LoadError
-            throw(error("CPLEX is not available! Use a different solver or install CPLEX."))
-        end
+        # try
+        #     # using CPLEX
+        # catch LoadError
+        #     throw(error("CPLEX is not available! Use a different solver or install CPLEX."))
+        # end
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
         # using GLPK
