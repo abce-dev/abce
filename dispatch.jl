@@ -252,8 +252,8 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     elseif solver == "glpk"
         m = Model(GLPK.Optimizer)
     elseif solver == "scip"
-        # throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
-        m = Model(SCIP.Optimizer)
+        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+        # m = Model(SCIP.Optimizer)
     elseif solver == "cbc"
         m = Model(Cbc.Optimizer)
     else
@@ -454,9 +454,8 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     elseif solver == "glpk"
         set_optimizer(m_copy, GLPK.Optimizer)
     elseif solver == "scip"
-        # throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
-        set_optimizer(m_copy, SCIP.Optimizer)
-        # m = Model(SCIP.Optimizer)
+        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+        # set_optimizer(m_copy, SCIP.Optimizer)
     elseif solver == "cbc"
         set_optimizer(m_copy, Cbc.Optimizer)
 
