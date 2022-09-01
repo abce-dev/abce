@@ -100,6 +100,61 @@ Python tests may be run with `pytest` in the top-level directory.
 
 **NOTE: Tests are still being added `abce`.**
 
+### Integration Tests
+
+These tests run a complete scenario to verify a working installation.
+
+#### HiGHS Solver
+The HiGHS solver is an open-source solver competitive with commercial solvers and much faster than common open-source solvers such as `GLPK` and `Cbc`. To run the `HiGHS` test case:
+
+```bash
+$ python run.py -f --settings-file=./test/highs_settings.yml
+```
+This command should produce the following output.
+```bash
+>>>(base) C:\Users\samgd\Research\argonne\abce>python run.py -f
+Using ATB Year 2020
+Existing file at C:\Users\samgd\Research\argonne\abce\solver_test.db deleted.       
+Creating a new database file at C:\Users\samgd\Research\argonne\abce\solver_test.db.
+Database created in file 'C:\Users\samgd\Research\argonne\abce\solver_test.db'.
+using specified value: 3
+using specified value: 140
+WARNING:root:No match (or multiple matches) found for unit type Wind; setting unit_specs value for Fuel to 0.
+WARNING:root:No match (or multiple matches) found for unit type Solar; setting unit_specs value for Fuel to 0.
+WARNING:root:No sysimage file found at C:\Users\samgd\Research\argonne\abce\dispatch.so. Execution will proceed, but the dispatch
+sub-module may run extremely slowly. If you already have a dispatch sysimage file, please move it to the filename 
+{dispatch_sysimage_path}. If you do not have a dispatch sysimage file, please run 'julia make_sysimage.jl --mode=dispatch' in this 
+directory.
+Start ALEAF scenario reduction algorithm!
+==== DONE ! ================================
+Agent #202 is taking its turn...
+[ Info: Solver is `highs`
+Agent #202's turn is complete.
+
+Agent #201 is taking its turn...
+[ Info: Solver is `highs`
+Agent #201's turn is complete.
+
+
+All agent turns are complete.
+
+Table of all assets:
+Start ALEAF scenario reduction algorithm!
+==== DONE ! ================================
+Agent #201 is taking its turn...
+[ Info: Solver is `highs`
+Agent #201's turn is complete.
+
+Agent #202 is taking its turn...
+[ Info: Solver is `highs`
+Agent #202's turn is complete.
+
+
+All agent turns are complete.
+
+Table of all assets:
+```
+
 
 ## License
 Copyright 2021 Argonne National Laboratory

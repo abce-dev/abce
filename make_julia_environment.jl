@@ -5,7 +5,6 @@ Pkg.activate(".")
 
 julia_pkg_list = ["ArgParse",
                   "CSV",
-                  "Cbc",
                   "Conda",
                   "DataFrames",
                   "FileIO",
@@ -25,21 +24,22 @@ julia_pkg_list = ["ArgParse",
                   "SQLite",
                   "Tables",
                   "XLSX",
-                  "YAML"]
+                  "YAML",
+                  "Cbc",
+                  "SCIP",
+                  "HiGHS"]
 
 # Add Julia libraries needed for ALEAF
 # Add and build the optimizer packages
 
 try
-    # CPLEX version 0.6.0 is required for compatibility with CPLEX 12.8
     println("Adding CPLEX")
     Pkg.add("CPLEX")
-    #Pkg.add(Pkg.PackageSpec(;name="CPLEX", version="0.6.0"))
     println("Building CPLEX...")
     Pkg.build("CPLEX")
     println("CPLEX built.")
 catch
-    println("CPLEX not available! ")
+    @info string("CPLEX not available")
 end
 
 # Add the non-optimizer packages (which don't need to be built)

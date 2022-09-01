@@ -14,7 +14,13 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables, CPLEX
+using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, SCIP, HiGHS
+
+try
+    using CPLEX
+catch LoadError
+    @info string("CPLEX is not available!")
+end
 
 include("./dispatch.jl")
 using .Dispatch
@@ -62,7 +68,15 @@ end
 
 function set_up_local_paths(settings)
     settings["ABCE_abs_path"] = @__DIR__
-    settings["ALEAF_abs_path"] = ENV["ALEAF_DIR"]
+    if settings["run_ALEAF"] == true
+        try
+            settings["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
+        catch LoadError
+            println("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
+        end
+    else
+        settings["ALEAF_abs_path"] = "NULL_PATH"
+    end
 
     return settings
 
@@ -1201,20 +1215,23 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
+function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     # @info "Setting up model..."
 
-    solver = settings["solver"]
     if solver == "cplex"
+        # using CPLEX
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
         m = Model(GLPK.Optimizer)
+    elseif solver == "cbc"
+        m = Model(Cbc.Optimizer)
     elseif solver == "scip"
-        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
-        # m = Model(SCIP.Optimizer)
+        m = Model(SCIP.Optimizer)
+    elseif solver == "highs"
+        m = Model(HiGHS.Optimizer)
     else
-        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+        throw(error("Solver `$solver` not supported. Try `cplex` instead."))
     end
     set_silent(m)
 
@@ -1317,7 +1334,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
                             ".csv"
                         )
                     )
-    # CSV.write(agent_fs_path, agent_fs)
+    CSV.write(agent_fs_path, agent_fs)
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
