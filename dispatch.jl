@@ -1,6 +1,6 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, SQLite
+using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, CPLEX, SQLite
 
 
 function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
