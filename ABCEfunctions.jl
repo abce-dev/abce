@@ -1226,7 +1226,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     else
         throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
     end
-    # set_silent(m)
+    set_silent(m)
 
     # Parameter names
     num_alternatives = size(PA_uids)[1]

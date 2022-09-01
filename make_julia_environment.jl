@@ -26,7 +26,8 @@ julia_pkg_list = ["ArgParse",
                   "Tables",
                   "XLSX",
                   "YAML",
-                  "Cbc"]
+                  "Cbc",
+                  "SCIP"]
 
 # Add Julia libraries needed for ALEAF
 # Add and build the optimizer packages
