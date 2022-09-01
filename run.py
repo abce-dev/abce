@@ -40,13 +40,6 @@ def set_up_local_paths(args, settings):
     # Set the path for ABCE files to the directory where run.py is saved
     # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
     settings["ABCE_abs_path"] = Path(__file__).parent
-    print("===============================================================")
-    print("===============================================================")
-    print(Path.cwd())
-    print("File parent path", Path(__file__).parent)
-    print("===============================================================")
-    print("===============================================================")
-
     if settings["run_ALEAF"]:
     # Try to locate an environment variable to specify where A-LEAF is located
         try:

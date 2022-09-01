@@ -79,11 +79,6 @@ class GridModel(Model):
         self.current_pd = -1
 
         # Initialize database for managing asset and WIP construction project data
-        print("===============================================================")
-        print("===============================================================")
-        print(Path.cwd())
-        print("===============================================================")
-        print("===============================================================")
 
         self.db_file = (Path.cwd() / settings["db_file"])
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
