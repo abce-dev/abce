@@ -63,7 +63,10 @@ settings = set_up_local_paths(settings)
 solver = lowercase(settings["solver"])
 @info string("Solver is `$solver`")
 if solver == "cplex"
-    using CPLEX
+    try
+        using CPLEX
+    catch LoadError
+        throw(error("CPLEX is not available!"))
 else
     throw(error("Solver `$solver` not supported. Try `cplex` instead."))
 end
