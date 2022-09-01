@@ -70,6 +70,8 @@ if solver == "cplex"
     end
 elseif solver == "glpk"
     using GLPK
+elseif solver == "cbc"
+    using Cbc
 else
     throw(error("Solver `$solver` not supported. Try `cplex` instead."))
 end

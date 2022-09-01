@@ -1,6 +1,6 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, SQLite
+using Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite
 
 try
     using CPLEX
@@ -246,6 +246,8 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
         m = Model(GLPK.Optimizer)
+    elseif solver == "cbc"
+        m = Model(Cbc.Optimizer)
     else
         throw(error("Solver `$solver` not supported. Try `cplex` instead."))
     end
@@ -440,6 +442,8 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
         set_optimizer(m_copy, CPLEX.Optimizer)
     elseif solver == "glpk"
         set_optimizer(m_copy, GLPK.Optimizer)
+    elseif solver == "cbc"
+        set_optimizer(m_copy, Cbc.Optimizer)
     end
     set_silent(m_copy)
 

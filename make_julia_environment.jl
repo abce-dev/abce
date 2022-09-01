@@ -5,12 +5,10 @@ Pkg.activate(".")
 
 julia_pkg_list = ["ArgParse",
                   "CSV",
-                  "Cbc",
                   "Conda",
                   "DataFrames",
                   "FileIO",
                   "GLPK",
-                  "SCIP",
                   "HDF5",
                   "Infiltrator",
                   "Ipopt",
