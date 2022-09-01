@@ -14,7 +14,7 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables
+using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, SCIP, HiGHS
 
 try
     using CPLEX
@@ -1226,6 +1226,10 @@ function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset
         m = Model(GLPK.Optimizer)
     elseif solver == "cbc"
         m = Model(Cbc.Optimizer)
+    elseif solver == "scip"
+        m = Model(SCIP.Optimizer)
+    elseif solver == "highs"
+        m = Model(HiGHS.Optimizer)
     else
         throw(error("Solver `$solver` not supported. Try `cplex` instead."))
     end
