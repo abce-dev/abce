@@ -76,6 +76,7 @@ function set_up_local_paths(settings)
         end
     else
         settings["ALEAF_abs_path"] = "NULL_PATH"
+    end
 
     return settings
 
