@@ -17,13 +17,13 @@ module ABCEfunctions
 using SQLite, DataFrames, CSV, JuMP, Logging, Tables
 
 # import solvers
-using GLPK, SCIP, Cbc
+# using GLPK, SCIP, Cbc
 
-try
-    using CPLEX
-catch
-    println("CPLEX not available!")
-end
+# try
+#     using CPLEX
+# catch
+#     println("CPLEX not available!")
+# end
 
 include("./dispatch.jl")
 using .Dispatch
@@ -1223,12 +1223,20 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 
     solver = lowercase(settings["solver"])
     if solver == "cplex"
+        try
+            using CPLEX
+        catch LoadError
+            throw(error("CPLEX is not available! Use a different solver or install CPLEX."))
+        end
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
+        using GLPK
         m = Model(GLPK.Optimizer)
     elseif solver == "scip"
+        using SCIP
         m = Model(SCIP.Optimizer)
     elseif solver == "cbc"
+        using Cbc
         m = Model(Cbc.Optimizer)
     else
         throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))

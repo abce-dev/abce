@@ -95,7 +95,7 @@ class GenCo(Agent):
         if self.model.has_ABCE_sysimage:
             sysimage_path = (Path(self.settings["ABCE_abs_path"]) /
                                          self.settings["ABCE_sysimage_file"])
-            sysimage_cmd = f"-J{sysimage_path}"
+            sysimage_cmd = f"-J {sysimage_path}"
         julia_cmd = (f"julia --project={self.settings['ABCE_abs_path']} {sysimage_cmd} {agent_choice_path} " +
                      f"--current_pd={self.current_pd} " +
                      f"--agent_id={self.unique_id}")                   
