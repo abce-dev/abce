@@ -14,7 +14,7 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables
+using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables, CPLEX
 
 include("./dispatch.jl")
 using .Dispatch
@@ -1206,7 +1206,7 @@ function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset
     # @info "Setting up model..."
 
     if solver == "cplex"
-        using CPLEX
+        # using CPLEX
         m = Model(CPLEX.Optimizer)
     else
         throw(error("Solver `$solver` not supported. Try `cplex` instead."))
