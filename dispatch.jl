@@ -3,8 +3,13 @@ module Dispatch
 using Logging, CSV, DataFrames, JuMP,  XLSX, Logging, SQLite
 
 # import solvers
-# using GLPK, SCIP, Cbc
+using GLPK, SCIP, Cbc
 
+try
+    # using CPLEX
+catch LoadError
+    throw(error("CPLEX is not available! Use a different solver or install CPLEX."))
+end
 
 function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
     # @info string("Running the dispatch simulation for ", settings["num_dispatch_years"], " years...")
@@ -80,19 +85,19 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
         solver = lowercase(settings["solver"])
-        if solver == "cplex"
-            try
-                using CPLEX
-            catch LoadError
-                throw(error("CPLEX is not available! Use a different solver or install CPLEX."))
-            end
-        elseif solver == "cbc"
-            using Cbc
-        elseif solver == "glpk"
-            using GLPK
-        elseif solver == "scip"
-            using SCIP
-        end
+        # if solver == "cplex"
+        #     # try
+        #     #     using CPLEX
+        #     # catch LoadError
+        #     #     throw(error("CPLEX is not available! Use a different solver or install CPLEX."))
+        #     # end
+        # elseif solver == "cbc"
+        #     # using Cbc
+        # elseif solver == "glpk"
+        #     # using GLPK
+        # elseif solver == "scip"
+        #     # using SCIP
+        # end
 
         println("Solver is `$solver`")
         run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
