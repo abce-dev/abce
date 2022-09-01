@@ -3,7 +3,7 @@ module Dispatch
 using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, Logging, CPLEX, SQLite
 
 
-function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
+function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
     # @info string("Running the dispatch simulation for ", settings["num_dispatch_years"], " years...")
 
     # Set up all timeseries data
@@ -27,7 +27,8 @@ function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, t
                             ts_data,
                             unit_specs,
                             all_gc_results,
-                            all_prices
+                            all_prices,
+                            solver
                         )
 
     return long_econ_results
@@ -60,7 +61,7 @@ function set_up_dispatch_portfolios(db, start_year, fc_pd, agent_id, unit_specs)
 end
 
 
-function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices)
+function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:current_pd+settings["num_dispatch_years"]
         # @info "\n\nDISPATCH SIMULATION: YEAR $y"
@@ -76,7 +77,7 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
-        run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices)
+        run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
         # @info "DISPATCH SIMULATION: YEAR $y COMPLETE."
         if y < current_pd + settings["num_dispatch_years"]
@@ -204,7 +205,7 @@ function set_up_wind_solar_repdays(ts_data)
 end
 
 
-function set_up_model(ts_data, year_portfolio, unit_specs)
+function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     # Create joined portfolio-unit_specs dataframe, to ensure consistent
     #   accounting for units which are actually present and consistent
     #   unit ordering
@@ -236,9 +237,11 @@ function set_up_model(ts_data, year_portfolio, unit_specs)
     solar_repdays = ts_data[:solar_repdays]
 
     # Initialize JuMP model
-    m = Model(CPLEX.Optimizer)
-
-    # Set verbosity to lowest setting
+    if solver == "cplex"
+        m = Model(CPLEX.Optimizer)
+    else
+        throw(error("Solver `$solver` not supported. Try `cplex` instead."))
+    end
     set_silent(m)
 
     # g: quantity generated (in MWh) for each unit type
@@ -400,7 +403,7 @@ function propagate_all_results(end_year, all_gc_results, all_prices, current_pd)
 end
 
 
-function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices)
+function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
     # Constants
     num_hours = 24
 
@@ -418,7 +421,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     ts_data = set_up_wind_solar_repdays(ts_data)
 
     # @info "Setting up optimization model..."
-    m, portfolio_specs = set_up_model(ts_data, year_portfolio, unit_specs)
+    m, portfolio_specs = set_up_model(ts_data, year_portfolio, unit_specs, solver)
 
     # @info "Optimization model set up."
     # @info string("Solving repday dispatch for year ", y, "...")
