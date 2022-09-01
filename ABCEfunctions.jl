@@ -71,7 +71,14 @@ end
 
 function set_up_local_paths(settings)
     settings["ABCE_abs_path"] = @__DIR__
-    settings["ALEAF_abs_path"] = ENV["ALEAF_DIR"]
+    if settings["run_ALEAF"] == true
+        try
+            settings["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
+        catch LoadError
+            println("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
+        end
+    else
+        settings["ALEAF_abs_path"] = "NULL_PATH"
 
     return settings
 
