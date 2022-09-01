@@ -14,7 +14,7 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables, CPLEX
+using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables
 
 include("./dispatch.jl")
 using .Dispatch
@@ -1201,10 +1201,16 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
+function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     # @info "Setting up model..."
-    m = Model(CPLEX.Optimizer)
+
+    if solver == "cplex"
+        using CPLEX
+        m = Model(CPLEX.Optimizer)
+    else
+        throw(error("Solver `$solver` not supported. Try `cplex` instead."))
+    end
     set_silent(m)
 
     # Parameter names
