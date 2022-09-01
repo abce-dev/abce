@@ -19,8 +19,7 @@ using Logging
 # @info "-----------------------------------------------------------"
 # @info "Julia agent choice algorithm: starting"
 # @info "Loading packages..."
-using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, CPLEX
-# using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, CPLEX
+using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
 
 # Set up command-line parser
 s = ArgParseSettings()
@@ -61,6 +60,13 @@ using .ABCEfunctions, .Dispatch, .C2N
 # @info "Initializing data..."
 
 settings = set_up_local_paths(settings)
+solver = lowercase(settings["solver"])
+@info string("Solver is `$solver`")
+if solver == "cplex"
+    using CPLEX
+else
+    throw(error("Solver `$solver` not supported. Try `cplex` instead."))
+end
 
 # File names
 db_file = joinpath(pwd(), settings["db_file"])
@@ -142,7 +148,7 @@ unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_po
 
 agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios, price_curve, settings)
 
-m = set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
+m = set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
 # @info "Solving optimization problem..."
