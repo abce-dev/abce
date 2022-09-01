@@ -19,7 +19,7 @@ using Logging
 # @info "-----------------------------------------------------------"
 # @info "Julia agent choice algorithm: starting"
 # @info "Loading packages..."
-using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
+using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, GLPK
 
 # Set up command-line parser
 s = ArgParseSettings()

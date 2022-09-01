@@ -5,7 +5,7 @@ using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, SQLite
 try
     using CPLEX
 catch LoadError
-    throw(error("CPLEX is not available!"))
+    @info string("CPLEX is not available!")
 end
 
 
@@ -245,6 +245,8 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     # Initialize JuMP model
     if solver == "cplex"
         m = Model(CPLEX.Optimizer)
+    elseif solver == "GLPK"
+        m = Model(GLPK.Optimizer)
     else
         throw(error("Solver `$solver` not supported. Try `cplex` instead."))
     end
@@ -435,7 +437,11 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     # Create a copy of the model, to use later for the relaxed-integrality
     #   solution
     m_copy = copy(m)
-    set_optimizer(m_copy, CPLEX.Optimizer)
+    if solver == "cplex"
+        set_optimizer(m_copy, CPLEX.Optimizer)
+    elseif solver == "glpk"
+        set_optimizer(m_copy, GLPK.Optimizer)
+    end
     set_silent(m_copy)
 
     # Solve the integral optimization problem

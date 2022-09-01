@@ -19,7 +19,7 @@ using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables
 try
     using CPLEX
 catch LoadError
-    throw(error("CPLEX is not available!"))
+    @info string("CPLEX is not available!")
 end
 
 include("./dispatch.jl")
@@ -1214,6 +1214,8 @@ function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset
     if solver == "cplex"
         # using CPLEX
         m = Model(CPLEX.Optimizer)
+    elseif solver == "glpk"
+        m = Model(GLPK.Optimizer)
     else
         throw(error("Solver `$solver` not supported. Try `cplex` instead."))
     end
