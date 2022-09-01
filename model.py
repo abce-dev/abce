@@ -24,7 +24,7 @@ import logging
 from pathlib import Path
 from mesa import Agent, Model
 from mesa.time import RandomActivation
-import nrelpy.atb as ATB
+# import nrelpy.atb as ATB
 
 # import local modules
 from agent import GenCo
@@ -185,12 +185,17 @@ class GridModel(Model):
                                                         f"ALEAF_Master_{self.ALEAF_model_type}.xlsx")
         self.ALEAF_portfolio_remote = (self.ALEAF_remote_data_path /
                                                    f"ALEAF_{self.ALEAF_region}.xlsx")
+        # self.ATB_remote = (self.ALEAF_remote_data_path /
+        #                                     "ATBe.csv")  
+        self.ATB_remote = (ALEAF_inputs_path /
+                                            "ATBe.csv")                                                 
         # Set path to ALEAF outputs
         self.ALEAF_output_data_path = (self.ALEAF_remote_path/
                                                   "output"/
                                                   self.ALEAF_model_type/
                                                   self.ALEAF_region/
                                                   f"scenario_1_{self.ALEAF_scenario_name}")
+                            
 
 
     def reinitialize_ALEAF_input_data(self):
@@ -333,8 +338,8 @@ class GridModel(Model):
         ATB_settings = ATB_settings.loc[ATB_settings["ATB_Setting_ID"] == "ATB_ID_1", :]
 
         # Load the ATB database sheet
-        ATB_data = ATB.as_dataframe(year=self.ATB_year, database='electricity')
-
+        # ATB_data = ATB.as_dataframe(year=self.ATB_year, database='electricity')
+        ATB_data = pd.read_csv(self.ATB_remote)
         # print(unit_specs_data.iloc[:, 1:17])
 
         # Fill values for each unit type
