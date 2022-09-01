@@ -245,7 +245,7 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     # Initialize JuMP model
     if solver == "cplex"
         m = Model(CPLEX.Optimizer)
-    elseif solver == "GLPK"
+    elseif solver == "glpk"
         m = Model(GLPK.Optimizer)
     else
         throw(error("Solver `$solver` not supported. Try `cplex` instead."))
