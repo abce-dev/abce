@@ -1,17 +1,14 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP,  XLSX, Logging, SQLite
-
-# import solvers
-using GLPK, SCIP, Cbc
+using Logging, CSV, DataFrames, JuMP, GLPK, XLSX, SQLite
 
 try
-    # using CPLEX
+    using CPLEX
 catch LoadError
-    throw(error("CPLEX is not available! Use a different solver or install CPLEX."))
+    @info string("CPLEX is not available!")
 end
 
-function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
+function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
     # @info string("Running the dispatch simulation for ", settings["num_dispatch_years"], " years...")
 
     # Set up all timeseries data
@@ -35,7 +32,8 @@ function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, t
                             ts_data,
                             unit_specs,
                             all_gc_results,
-                            all_prices
+                            all_prices,
+                            solver
                         )
 
     return long_econ_results
@@ -68,7 +66,7 @@ function set_up_dispatch_portfolios(db, start_year, fc_pd, agent_id, unit_specs)
 end
 
 
-function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices)
+function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:current_pd+settings["num_dispatch_years"]
         # @info "\n\nDISPATCH SIMULATION: YEAR $y"
@@ -84,22 +82,6 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
-        solver = lowercase(settings["solver"])
-        # if solver == "cplex"
-        #     # try
-        #     #     using CPLEX
-        #     # catch LoadError
-        #     #     throw(error("CPLEX is not available! Use a different solver or install CPLEX."))
-        #     # end
-        # elseif solver == "cbc"
-        #     # using Cbc
-        # elseif solver == "glpk"
-        #     # using GLPK
-        # elseif solver == "scip"
-        #     # using SCIP
-        # end
-
-        println("Solver is `$solver`")
         run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
         # @info "DISPATCH SIMULATION: YEAR $y COMPLETE."
@@ -264,17 +246,9 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
         m = Model(GLPK.Optimizer)
-    elseif solver == "scip"
-        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
-        # m = Model(SCIP.Optimizer)
-    elseif solver == "cbc"
-        m = Model(Cbc.Optimizer)
     else
-        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+        throw(error("Solver `$solver` not supported. Try `cplex` instead."))
     end
-    
-
-    # Set verbosity to lowest setting
     set_silent(m)
 
     # g: quantity generated (in MWh) for each unit type
@@ -466,17 +440,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
         set_optimizer(m_copy, CPLEX.Optimizer)
     elseif solver == "glpk"
         set_optimizer(m_copy, GLPK.Optimizer)
-    elseif solver == "scip"
-        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
-        # set_optimizer(m_copy, SCIP.Optimizer)
-    elseif solver == "cbc"
-        set_optimizer(m_copy, Cbc.Optimizer)
-
-        # m = Model(Cbc.Optimizer)
-    else
-        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
     end
-
     set_silent(m_copy)
 
     # Solve the integral optimization problem

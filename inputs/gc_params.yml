@@ -5,8 +5,8 @@
     cost_of_equity: 0.1
     tax_rate: 0.21
     starting_fcf: 3647000000
-    starting_debt: 1520000000
-    starting_PPE: 2520000000
+    starting_debt: 1500000
+    starting_PPE: 222000000
 
 202:
     terminal_growth_rate: 0.03
@@ -15,6 +15,6 @@
     cost_of_equity: 0.12
     tax_rate: 0.21
     starting_fcf: 551000000
-    starting_debt: 12200000
-    starting_PPE: 222000000
+    starting_debt: 108000000
+    starting_PPE: 25200000000
 

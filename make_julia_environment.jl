@@ -10,6 +10,7 @@ julia_pkg_list = ["ArgParse",
                   "DataFrames",
                   "FileIO",
                   "GLPK",
+                  "SCIP",
                   "HDF5",
                   "Infiltrator",
                   "Ipopt",
@@ -33,15 +34,13 @@ julia_pkg_list = ["ArgParse",
 # Add and build the optimizer packages
 
 try
-    # CPLEX version 0.6.0 is required for compatibility with CPLEX 12.8
     println("Adding CPLEX")
     Pkg.add("CPLEX")
-    #Pkg.add(Pkg.PackageSpec(;name="CPLEX", version="0.6.0"))
     println("Building CPLEX...")
     Pkg.build("CPLEX")
     println("CPLEX built.")
 catch
-    println("CPLEX not available! ")
+    @info string("CPLEX not available")
 end
 
 # Add the non-optimizer packages (which don't need to be built)

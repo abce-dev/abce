@@ -14,15 +14,12 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, Logging, Tables
-
-# import solvers
-using GLPK, SCIP, Cbc
+using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables
 
 try
     using CPLEX
-catch
-    println("CPLEX not available!")
+catch LoadError
+    @info string("CPLEX is not available!")
 end
 
 include("./dispatch.jl")
@@ -1217,29 +1214,17 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
+function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     # @info "Setting up model..."
 
-    solver = lowercase(settings["solver"])
     if solver == "cplex"
-        # try
-        #     # using CPLEX
-        # catch LoadError
-        #     throw(error("CPLEX is not available! Use a different solver or install CPLEX."))
-        # end
+        # using CPLEX
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
-        # using GLPK
         m = Model(GLPK.Optimizer)
-    elseif solver == "scip"
-        # using SCIP
-        m = Model(SCIP.Optimizer)
-    elseif solver == "cbc"
-        # using Cbc
-        m = Model(Cbc.Optimizer)
     else
-        throw(error("The solver `$solver` is not supported. Try using `glpk` or `cplex`."))
+        throw(error("Solver `$solver` not supported. Try `cplex` instead."))
     end
     set_silent(m)
 
@@ -1342,7 +1327,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
                             ".csv"
                         )
                     )
-    # CSV.write(agent_fs_path, agent_fs)
+    CSV.write(agent_fs_path, agent_fs)
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)

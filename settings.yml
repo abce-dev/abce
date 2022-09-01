@@ -10,10 +10,12 @@ db_file: "solver_test.db"
 ABCE_sysimage_file: "abceSysimage.so"
 dispatch_sysimage_file: "dispatch.so"
 output_file: "outputs.xlsx"
-solver: "cplex"  # 'cplex', 'glpk', 'cbc', 'scip'
+solver: "glpk"
 first_asset_id: 2001
 
 num_steps: 2
+
+conv_nuclear_FOM: 140
 
 run_ALEAF: False
 
@@ -25,14 +27,14 @@ enable_subsidy: False # deprecated: to remove
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
 
-natural_gas_price: 99  # $/MWh
+natural_gas_price: 3  # $/MWh
 
 policies:
   CTAX:
     enabled: False
     qty: 30   # $/t CO2
   PTC:
-    enabled: False
+    enabled: True
     eligible:
       - ConventionalNuclear
       - Wind
