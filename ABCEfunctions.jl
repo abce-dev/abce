@@ -20,6 +20,7 @@ try
     using CPLEX
 catch LoadError
     throw(error("CPLEX is not available!"))
+end
 
 include("./dispatch.jl")
 using .Dispatch

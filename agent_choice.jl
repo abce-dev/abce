@@ -67,6 +67,7 @@ if solver == "cplex"
         using CPLEX
     catch LoadError
         throw(error("CPLEX is not available!"))
+    end
 else
     throw(error("Solver `$solver` not supported. Try `cplex` instead."))
 end
