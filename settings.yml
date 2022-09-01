@@ -10,7 +10,7 @@ db_file: "abce_db.db"
 ABCE_sysimage_file: "abceSysimage.so"
 dispatch_sysimage_file: "dispatch.so"
 output_file: "outputs.xlsx"
-solver: "cplex"
+solver: "glpk"
 first_asset_id: 2001
 
 num_steps: 2

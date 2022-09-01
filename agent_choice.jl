@@ -19,7 +19,7 @@ using Logging
 # @info "-----------------------------------------------------------"
 # @info "Julia agent choice algorithm: starting"
 # @info "Loading packages..."
-using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse, GLPK
+using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
 
 # Set up command-line parser
 s = ArgParseSettings()
@@ -68,6 +68,8 @@ if solver == "cplex"
     catch LoadError
         throw(error("CPLEX is not available!"))
     end
+elseif solver == "glpk"
+    using GLPK
 else
     throw(error("Solver `$solver` not supported. Try `cplex` instead."))
 end
