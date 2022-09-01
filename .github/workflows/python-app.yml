@@ -47,7 +47,3 @@ jobs:
     - name: Install Julia dependencies
       run: |
         julia make_julia_environment.jl
-    
-    - name: Run Minimal Working Example
-      run: |
-        python run.py -f
