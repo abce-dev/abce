@@ -339,7 +339,6 @@ class GridModel(Model):
         ATB_settings = ATB_settings.loc[ATB_settings["ATB_Setting_ID"] == "ATB_ID_1", :]
 
         # Load the ATB database sheet
-        # ATB_data = ATB.as_dataframe(year=self.ATB_year, database='electricity')
         ATB_data = pd.read_csv(self.ATB_remote)
         # print(unit_specs_data.iloc[:, 1:17])
 
