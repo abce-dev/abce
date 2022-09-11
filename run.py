@@ -49,7 +49,7 @@ def set_up_local_paths(args, settings):
             raise
     else:
         settings["ALEAF_abs_path"] = Path("NULL_PATH")
-        
+
     return settings
 
 
@@ -66,18 +66,22 @@ def cli_args():
     """
     parser = argparse.ArgumentParser(description='Run an ABCE simulation.')
     parser.add_argument("--force", "-f",
-                          action="store_true",
-                          help="Agree to overwrite any existing DB files.")
+                        action="store_true",
+                        help="Agree to overwrite any existing DB files.")
     parser.add_argument("--settings_file",
-                          type=str,
-                          help="Simulation settings file name.",
-                          default=Path(Path.cwd()) / "settings.yml")
-    parser.add_argument("--quiet", "-q",
-                          action="store_true",
-                          help="Suppress all output except the turn and period counters.")
-    parser.add_argument("--demo", "-d",
-                          action="store_true",
-                          help="Pause the simulation after each step until user presses a key.")
+                        type=str,
+                        help="Simulation settings file name.",
+                        default=Path(Path.cwd()) / "settings.yml")
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress all output except the turn and period counters.")
+    parser.add_argument(
+        "--demo",
+        "-d",
+        action="store_true",
+        help="Pause the simulation after each step until user presses a key.")
     args = parser.parse_args()
     return args
 
@@ -89,11 +93,12 @@ def check_julia_environment(ABCE_abs_path):
     If either one is not found, run `make_julia_environment.jl` to
       automatically generate valid .toml files.
     """
-    if not ( (Path(ABCE_abs_path) / "Manifest.toml").exists()
+    if not ((Path(ABCE_abs_path) / "Manifest.toml").exists()
             and (Path(ABCE_abs_path) / "Project.toml").exists()):
-        julia_cmd = (f"julia {Path(ABCE_abs_path) / 'make_julia_environment.jl'}")
+        julia_cmd = (
+            f"julia {Path(ABCE_abs_path) / 'make_julia_environment.jl'}")
         try:
-            sp = subprocess.check_call([julia_cmd], shell = True)
+            sp = subprocess.check_call([julia_cmd], shell=True)
             # print("Julia environment successfully created.\n\n")
         except subprocess.CalledProcessError:
             # print("Cannot proceed without a valid Julia environment. Terminating...")
@@ -107,7 +112,7 @@ def run_model():
       - read in settings
       - run the model
       - pull the completed DB into a pandas DataFrame and save it to xlsx
-    """    
+    """
     args = cli_args()
 
     settings = read_settings(args.settings_file)
@@ -125,12 +130,16 @@ def run_model():
     with pd.ExcelWriter(settings["output_file"]) as writer:
         for i in range(len(db_tables)):
             table = db_tables.loc[i, "name"]
-            final_db = pd.read_sql_query(f"SELECT * FROM {table}", abce_model.db)
+            final_db = pd.read_sql_query(
+                f"SELECT * FROM {table}", abce_model.db)
             final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
 
     if abce_model.settings["run_ALEAF"]:
         # Postprocess A-LEAF results
-        ABCEfunctions.process_outputs(settings, abce_model.ABCE_output_data_path, abce_model.unit_specs)
+        ABCEfunctions.process_outputs(
+            settings,
+            abce_model.ABCE_output_data_path,
+            abce_model.unit_specs)
 
 
 # Run the model
