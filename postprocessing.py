@@ -32,7 +32,7 @@ if __name__ == "__main__":
     try:
         settings = yaml.load(open(settings_file_name, "r"), Loader=yaml.FullLoader)
     except:
-        println(f"Could not load settings file {settings_file_name}. Check the filename and try again.")
+        print(f"Could not load settings file {settings_file_name}. Check the filename and try again.")
 
     # Get the location of the output directory
     output_dir = os.path.join(args.toplevel_dir, "outputs", settings["ALEAF_scenario_name"])

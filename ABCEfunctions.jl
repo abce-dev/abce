@@ -14,14 +14,20 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Logging, Tables, CPLEX
+using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, SCIP, HiGHS
+
+try
+    using CPLEX
+catch LoadError
+    @info string("CPLEX is not available!")
+end
 
 include("./dispatch.jl")
 using .Dispatch
 include("./C2N_projects.jl")
 using .C2N
 
-export ProjectAlternative, load_db, get_current_period, set_up_local_paths, get_agent_id, get_agent_params, load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_capex_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV, set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives, update_agent_financial_statement
+export ProjectAlternative, load_db, get_current_period, set_up_local_paths, get_agent_id, get_agent_params,load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_capex_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV,set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives, update_agent_financial_statement
 
 #####
 # Constants
@@ -62,7 +68,15 @@ end
 
 function set_up_local_paths(settings)
     settings["ABCE_abs_path"] = @__DIR__
-    settings["ALEAF_abs_path"] = ENV["ALEAF_DIR"]
+    if settings["run_ALEAF"] == true
+        try
+            settings["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
+        catch LoadError
+            println("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
+        end
+    else
+        settings["ALEAF_abs_path"] = "NULL_PATH"
+    end
 
     return settings
 
@@ -1201,10 +1215,24 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
+function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     # @info "Setting up model..."
-    m = Model(CPLEX.Optimizer)
+
+    if solver == "cplex"
+        # using CPLEX
+        m = Model(CPLEX.Optimizer)
+    elseif solver == "glpk"
+        m = Model(GLPK.Optimizer)
+    elseif solver == "cbc"
+        m = Model(Cbc.Optimizer)
+    elseif solver == "scip"
+        m = Model(SCIP.Optimizer)
+    elseif solver == "highs"
+        m = Model(HiGHS.Optimizer)
+    else
+        throw(error("Solver `$solver` not supported. Try `cplex` instead."))
+    end
     set_silent(m)
 
     # Parameter names
@@ -1306,7 +1334,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
                             ".csv"
                         )
                     )
-    # CSV.write(agent_fs_path, agent_fs)
+    CSV.write(agent_fs_path, agent_fs)
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)

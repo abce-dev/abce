@@ -40,13 +40,15 @@ def set_up_local_paths(args, settings):
     # Set the path for ABCE files to the directory where run.py is saved
     # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
     settings["ABCE_abs_path"] = Path(__file__).parent
-
+    if settings["run_ALEAF"]:
     # Try to locate an environment variable to specify where A-LEAF is located
-    try:
-        settings["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
-    except KeyError:
-        print("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
-        raise
+        try:
+            settings["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
+        except KeyError:
+            print("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
+            raise
+    else:
+        settings["ALEAF_abs_path"] = Path("NULL_PATH")
         
     return settings
 
@@ -93,7 +95,7 @@ def check_julia_environment(ABCE_abs_path):
         try:
             sp = subprocess.check_call([julia_cmd], shell = True)
             # print("Julia environment successfully created.\n\n")
-        except CalledProcessError:
+        except subprocess.CalledProcessError:
             # print("Cannot proceed without a valid Julia environment. Terminating...")
             quit()
 
