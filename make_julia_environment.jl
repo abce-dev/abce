@@ -18,6 +18,7 @@ julia_pkg_list = ["ArgParse",
                   "PackageCompiler",
                   "PowerModels",
                   "PyCall",
+                  "SCIP",
                   "SQLite",
                   "Tables",
                   "XLSX",
@@ -25,6 +26,8 @@ julia_pkg_list = ["ArgParse",
                   "Cbc",
                   "SCIP",
                   "HiGHS"]
+
+problems = Dict()
 
 # Set up command-line parser
 s = ArgParseSettings()
@@ -65,15 +68,22 @@ try
     println("Building CPLEX...")
     Pkg.build("CPLEX")
     println("CPLEX built.")
-catch
-    @info string("CPLEX not available")
+catch e
+    @warn "There was a problem installing or building CPLEX."
+    problems["CPLEX"] = e
 end
 
 # Add the non-optimizer packages (which don't need to be built)
 for i=1:size(julia_pkg_list)[1]
-    @info string("Adding ", julia_pkg_list[i])
-    Pkg.add(julia_pkg_list[i])
-    Pkg.build(julia_pkg_list[i])
+    pkg = julia_pkg_list[i]
+    try
+        @info string("Adding ", pkg)
+        Pkg.add(pkg)
+        Pkg.build(pkg)
+    catch e
+        @warn "There was a problem installing $pkg. Installation of this package will be skipped, which may cause issues at ABCE runtime."
+        problems[pkg] = e
+    end
 end
 
 @info "All libraries added to the environment."
@@ -87,9 +97,20 @@ req_file = "requirements.txt"
 open(req_file, "r") do filehandle
     conda_list = readlines(filehandle)
     for i=1:size(conda_list)[1]
-        println(string("Adding ", conda_list[i]))
-        Conda.add(conda_list[i])
+        cpkg = conda_list[i]
+        println(string("Adding ", cpkg))
+        try
+            Conda.add(cpkg)
+        catch e
+            @warn string("A problem occurred while trying to install package $cpkg. Installation of this package will be skipped, which may cause issues at ABCE runtime.")
+            problems[cpkg] = e
+        end
     end
 end
 
-@info "All packages and Python libraries loaded successfully."
+@info "========================================================================\n\n"
+@info "All packages and Python libraries loaded, with the following exceptions:\n"
+
+for key in keys(problems)
+    @warn string(key, ": ", problems[key])
+end
