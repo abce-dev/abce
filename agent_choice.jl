@@ -198,9 +198,15 @@ end
 
 ###### Display the results
 all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
+short_results = filter(:units_to_execute => u -> u > 0, all_results)
 @info status
-@info "Alternatives to execute:"
-@info all_results
+if CLI_args["verbosity"] == 1
+    @info "Alternatives to execute:"
+    @info short_results
+elseif CLI_args["verbosity"] == 2
+    @debug "Alternatives to execute:"
+    @debug all_results
+end
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
