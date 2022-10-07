@@ -17,6 +17,7 @@
 import sqlite3
 import os
 import sys
+import logging
 import pandas as pd
 
 # Database Specification:
@@ -257,7 +258,7 @@ def clear_db_file(abce_db, force):
     if os.path.exists(abce_db):
         if force:
             os.remove(abce_db)
-            print(f"Existing file at {abce_db} deleted.")
+            logging.info(f"Existing file at {abce_db} deleted.")
         else:
             user_response = ask_user_permission_to_delete(abce_db)
             if user_response:
@@ -273,7 +274,7 @@ def clear_db_file(abce_db, force):
 
 
 def create_db_file(abce_db):
-    print(f"Creating a new database file at {abce_db}.")
+    logging.info(f"Creating a new database file at {abce_db}.")
     db = sqlite3.connect(str(abce_db), timeout=10)
     cur = db.cursor()
     return db, cur
@@ -297,7 +298,7 @@ def create_database(db_file_name, replace=False):
         make_table(cur, table)
     # Commit changes and close the connection to the database
     db.commit()
-    print(f"Database created in file '{db_file_name}'.")
+    logging.info(f"Database created in file '{db_file_name}'.")
     return db, cur
 
 
