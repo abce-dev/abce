@@ -13,6 +13,7 @@
 ##########################################################################
 
 import numpy as np
+import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 import yaml
@@ -52,13 +53,12 @@ class GenCo(Agent):
              and passes data to all agents.
            settings (dict): Runtime/model parameters, loaded and passed
              in by run.py.
-           quiet (bool): Set from CLI; sets verbosity level.
         """
 
         super().__init__(genco_id, model)
         self.model = model
-        self.quiet = cli_args.quiet
         self.settings = settings
+        self.args = cli_args
         self.assign_parameters(gc_params)
 
     def assign_parameters(self, gc_params):
@@ -95,10 +95,14 @@ class GenCo(Agent):
             sysimage_path = (Path(self.settings["ABCE_abs_path"]) /
                                          self.settings["ABCE_sysimage_file"])
             sysimage_cmd = f"-J {sysimage_path}"
-        julia_cmd = (f"julia --project={self.settings['ABCE_abs_path']} {sysimage_cmd} {agent_choice_path} " +
-                     f"--current_pd={self.current_pd} " +
-                     f"--agent_id={self.unique_id}")                   
-        if self.quiet:
+        julia_cmd = (
+            f"julia --project={self.settings['ABCE_abs_path']} " + 
+            f"{sysimage_cmd} {agent_choice_path} " +
+            f"--current_pd={self.current_pd} " +
+            f"--agent_id={self.unique_id} " +
+            f"--verbosity={self.args.verbosity}"
+        )
+        if self.args.verbosity > 0:
             sp = subprocess.check_call(julia_cmd,
                                        shell=True,
                                        stdout=open(os.devnull, "wb"))

@@ -41,6 +41,9 @@ class GridModel(Model):
     ''' A model with some number of GenCos. '''
 
     def __init__(self, settings_file_name, settings, args):
+        # Copy the command-line arguments as member data
+        self.args = args
+
         self.settings_file_name = settings_file_name
         self.settings = settings
         self.solver = settings['solver'].lower()
@@ -72,17 +75,14 @@ class GridModel(Model):
             self.ATB_year = settings['ATB_year']
         else:
             self.ATB_year = 2020
-        print(f"Using ATB Year {self.ATB_year}")
 
-        # Copy the command-line arguments as member data
-        self.args = args
+        logging.debug(f"Using ATB Year {self.ATB_year}")
 
         # Initialize the model one time step before the true start date
         self.current_pd = -1
 
         # Initialize database for managing asset and WIP construction project
         # data
-
         self.db_file = (Path.cwd() / settings["db_file"])
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
 
@@ -170,8 +170,9 @@ class GridModel(Model):
         else:
             # Otherwise, delete any existing files in the directory
             for existing_file in Path(self.ABCE_output_data_path).iterdir():
-                print("trying to remove directory")
+                logging.debug(f"Deleting file {existing_file} from the output directory")
                 (Path(self.ABCE_output_data_path) / existing_file).unlink()
+
 
     def set_ALEAF_file_paths(self, settings):
         """ Set up all absolute paths to ALEAF and its input files, and
@@ -294,15 +295,18 @@ class GridModel(Model):
         try:
             ng_fuel = us_df['fuel_type'] == 'Gas'
             us_df.loc[ng_fuel, 'original_FC'] = self.natgas_price
-            print(f'using specified value: {self.natgas_price}')
+            ng_msg = f"Using user-specified natural gas price: {self.natgas_price}"
         except AttributeError:
-            print('Using standard value.')
+            ng_msg = "Using standard value for natural gas price."
         try:
             nuke_fuel = us_df['UNITGROUP'] == 'ConventionalNuclear'
             us_df.loc[nuke_fuel, 'FOM'] = self.conv_nuclear_FOM
-            print(f'using specified value: {self.conv_nuclear_FOM}')
+            nfom_msg = f'Using user-specified conventional nuclear FOM value: {self.conv_nuclear_FOM}'
         except AttributeError:
-            print('Using standard value.')
+            nfom_msg = "Using standard value for conventional nuclear FOM."
+
+        logging.debug(ng_msg)
+        logging.debug(nfom_msg)
 
         # Create the final DataFrame for the unit specs data
         unit_specs_data = us_df[columns_to_select].copy()
@@ -361,7 +365,6 @@ class GridModel(Model):
 
         # Load the ATB database sheet
         ATB_data = pd.read_csv(self.ATB_remote)
-        # print(unit_specs_data.iloc[:, 1:17])
 
         # Fill values for each unit type
         for unit_type in list(unit_specs_data.index):
@@ -382,8 +385,10 @@ class GridModel(Model):
                         # If the mask matches nothing in ATBe, assume that
                         #   the appropriate value is 0 (e.g. battery VOM cost),
                         #   but warn the user.
-                        logging.warn(
-                            f"No match (or multiple matches) found for unit type {unit_type}; setting unit_specs value for {datum_name} to 0.")
+                        msg = (f"No match (or multiple matches) found for " +
+                               "unit type {unit type}; setting unit_specs " +
+                               "value for {datum_name} to 0.")
+                        logging.debug(msg)
                         unit_specs_data.loc[unit_type,
                                             ATB_header_write_converter[datum_name]] = 0
                     else:
@@ -826,6 +831,7 @@ class GridModel(Model):
                 self.price_duration_data,
                 plot_name="price_duration.png")
 
+
     def step(self, demo=False):
         """
         Advance the model by one step.
@@ -835,12 +841,7 @@ class GridModel(Model):
         if self.current_pd == 0:
             self.has_ABCE_sysimage, self.has_dispatch_sysimage = self.check_for_sysimage_files()
 
-        if not self.args.quiet:
-            pass
-            # print("\n\n\n")
-        # print("\n=========================================================================")
-        # print(f"Model step: {self.current_pd}")
-        # print("==========================================================================")
+        self.display_step_header()
 
         # Update price data from ALEAF
         if (self.current_pd == 0) or (self.settings["run_ALEAF"] == False):
@@ -849,7 +850,6 @@ class GridModel(Model):
             new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_pd - 1}.csv"
             new_dispatch_data = Path(
                 self.ABCE_output_data_path) / new_dispatch_data_filename
-            # print(f"Creating price duration curve using file {new_dispatch_data}")
             self.create_price_duration_curve(self.settings, new_dispatch_data)
 
         # Save price duration data to the database
@@ -878,11 +878,13 @@ class GridModel(Model):
 
         # Iterate through all agent turns
         self.schedule.step()
-        if not self.args.quiet:
-            print("\nAll agent turns are complete.\n")
+        print("\nAll agent turns are complete.\n")
 
         self.db = sqlite3.connect(str(Path.cwd() / self.settings["db_file"]))
         self.cur = self.db.cursor()
+
+        # Show update tables in the terminal
+        self.show_round_updates()
 
         # Transfer all decisions and updates from the 'asset_updates' and
         #   'WIP_updates' tables into their respective public-information
@@ -890,14 +892,8 @@ class GridModel(Model):
         self.execute_all_status_updates()
 
         if demo:
-            # print("\n")
+            print("\n")
             user_response = input("Press Enter to continue: ")
-
-        if not self.args.quiet:
-            print("Table of all assets:")
-            # print(pd.read_sql("SELECT * FROM assets", self.db))
-            # print("Table of construction project updates:")
-            # print(pd.read_sql("SELECT * FROM WIP_projects", self.db).tail(n=8))
 
         if self.settings["run_ALEAF"]:
             # Update the A-LEAF system portfolio based on any new units completed
@@ -916,7 +912,7 @@ class GridModel(Model):
                                             self.current_pd)
 
             # Run A-LEAF
-            # print("Running A-LEAF...")
+            print("Running A-LEAF...")
             run_script_path = self.ALEAF_remote_path / "execute_ALEAF.jl"
             ALEAF_env_path = self.ALEAF_remote_path / "."
             ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
@@ -930,6 +926,21 @@ class GridModel(Model):
                 sp = subprocess.check_call(aleaf_cmd, shell=True)
 
             self.save_ALEAF_outputs()
+
+
+    def display_step_header(self):
+        print("\n\n\n")
+        print(60*"=")
+        print(f"   Model step: {self.current_pd}")
+        print(60*"=")
+
+
+    def show_round_updates(self):
+        logging.info("Updates to assets:")
+        logging.info(pd.read_sql("SELECT * FROM asset_updates", self.db))
+        logging.info("\nConstruction project updates (last 10 entries):")
+        logging.info(pd.read_sql("SELECT * FROM WIP_updates", self.db).tail(n=10))
+
 
     def check_for_sysimage_files(self):
         ABCE_sysimage_path = (Path(
