@@ -791,6 +791,7 @@ class GridModel(Model):
         self.db.commit()
 
 
+
     def step(self, demo=False):
         """
         Advance the model by one step.
@@ -821,6 +822,7 @@ class GridModel(Model):
 
         # Iterate through all agent turns
         self.schedule.step()
+
         logging.log(
             self.settings["vis_lvl"],
             "\nAll agent turns are complete.\n"
