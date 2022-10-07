@@ -929,7 +929,8 @@ class GridModel(Model):
 
 
     def display_step_header(self):
-        print("\n\n\n")
+        if self.current_pd != 0:
+            print("\n\n\n")
         print(60*"=")
         print(f"   Model step: {self.current_pd}")
         print(60*"=")
