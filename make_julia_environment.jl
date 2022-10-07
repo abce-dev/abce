@@ -29,7 +29,6 @@ julia_pkg_list = [
     "SCIP",
     "HiGHS"
 ]
-
 # Initialize a dictionary to track any problems arising in the process
 problems = Dict()
 
