@@ -16,6 +16,7 @@
 
 import os
 import subprocess
+import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 from agent import GenCo
@@ -45,7 +46,10 @@ def set_up_local_paths(args, settings):
         try:
             settings["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
         except KeyError:
-            print("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
+            msg = ("The environment variable ALEAF_abs_path does not appear " +
+                   "to be set. Please make sure it points to the correct " +
+                   "directory.")
+            logging.error(msg)
             raise
     else:
         settings["ALEAF_abs_path"] = Path("NULL_PATH")
@@ -65,18 +69,24 @@ def cli_args():
          attributes. Retrieve values with args.<argument_name>.
     """
     parser = argparse.ArgumentParser(description='Run an ABCE simulation.')
-    parser.add_argument("--force", "-f",
-                        action="store_true",
-                        help="Agree to overwrite any existing DB files.")
-    parser.add_argument("--settings_file",
-                        type=str,
-                        help="Simulation settings file name.",
-                        default=Path(Path.cwd()) / "settings.yml")
     parser.add_argument(
-        "--quiet",
-        "-q",
+        "--force", "-f",
         action="store_true",
-        help="Suppress all output except the turn and period counters.")
+        help="Agree to overwrite any existing DB files."
+    )
+    parser.add_argument(
+        "--settings_file",
+        type=str,
+        help="Simulation settings file name.",
+        default=Path(Path.cwd()) / "settings.yml"
+    )
+    parser.add_argument(
+        "--verbosity",
+        choices=[0, 1, 2],
+        type=int,
+        help="Verbosity of output during runtime. 0 = totally silent; 1 = minimal output; 2 = full/debug output",
+        default=1
+    )
     parser.add_argument(
         "--demo",
         "-d",
@@ -85,6 +95,16 @@ def cli_args():
     args = parser.parse_args()
     return args
 
+
+def initialize_logging(args):
+    # Default verbosity (level 1) => INFO level of logging
+    lvl = 20
+    if args.verbosity == 0:
+        lvl = 40
+    elif args.verbosity == 2:
+        lvl = 0
+
+    logging.basicConfig(level=lvl)
 
 def check_julia_environment(ABCE_abs_path):
     """
@@ -99,9 +119,9 @@ def check_julia_environment(ABCE_abs_path):
             f"julia {Path(ABCE_abs_path) / 'make_julia_environment.jl'}")
         try:
             sp = subprocess.check_call([julia_cmd], shell=True)
-            # print("Julia environment successfully created.\n\n")
+            logging.info("Julia environment successfully created.\n\n")
         except subprocess.CalledProcessError:
-            # print("Cannot proceed without a valid Julia environment. Terminating...")
+            logging.error("Cannot proceed without a valid Julia environment. Terminating...")
             quit()
 
 
@@ -114,6 +134,8 @@ def run_model():
       - pull the completed DB into a pandas DataFrame and save it to xlsx
     """
     args = cli_args()
+
+    initialize_logging(args)
 
     settings = read_settings(args.settings_file)
 
