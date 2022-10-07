@@ -15,16 +15,16 @@ from scipy.spatial.distance import pdist, squareform, cdist
 import matplotlib
 import sys
 import matplotlib.pyplot as plt
+import logging
 import pandas as pd
 import os
 
 
 def run_scenario_reduction(**kwargs):
 
-    print("Start ALEAF scenario reduction algorithm!")
+    logging.info("Running the scenario reduction algorithm...")
 
     # set default parameters and pars kwargs
-    # print ("==== current setting ========================")
     setting = {
         'time_resolution': "Hourly",
         'num_scenarios_list': [60],
@@ -47,8 +47,6 @@ def run_scenario_reduction(**kwargs):
     for key in setting.keys():
         if key in kwargs:
             setting[key] = kwargs[key]
-        # print (str(key + "\t:  " + str(setting[key])).expandtabs(45))
-    # print ("=============================================")
 
     # Check input output folders
     for sc_dir in [
@@ -60,7 +58,6 @@ def run_scenario_reduction(**kwargs):
 
     # Generate input data for the scenario reduction algorithm
     if setting["generate_input_data_flag"]:
-        # print ("Processing input data files")
         generate_input_data(
             setting["time_resolution"],
             setting["data_input_path"],
@@ -108,21 +105,15 @@ def run_scenario_reduction(**kwargs):
             data[:, :, idx] = net_load_MWh.iloc[:-1, 1:].to_numpy()
             flag_net_load_MWh = True
 
-    # print(f"Total number of cases to run: {len(setting['num_scenarios_list'])}")
     idx = 1
 
     for list in setting["num_scenarios_list"]:
 
         num_scenarios = list
-        # print("(case %d) running a case with %d number of representative days" % (idx, num_scenarios))
         idx += 1
-        # print("setting:  ", setting["fixing_extreme_days_flag"])
         if setting["fixing_extreme_days_flag"]:
             if num_scenarios < len(extreme_scenarios):
                 pass
-                # print(
-                #     'The given number of scenarios to select is less than the number of extreme cases. Forcing it to the number of extreme cases')
-                # num_scenarios = len(extreme_scenarios)
 
         # Prepare fixed scenarios set
         extreme_set = sorted(
@@ -221,7 +212,7 @@ def run_scenario_reduction(**kwargs):
                 "Net Load Ramp (MWh)",
                 setting["plot_output_path"])
 
-    print("==== DONE ! ================================")
+    logging.info("Scenario reduction complete.")
 
 
 def get_dist(X, metric):
@@ -355,8 +346,6 @@ def scenario_reduction_core(
             # update previous timestep probabilities
             P[i - 1, :] = P[i, :]
             D[~J[i, :], ~J[i, :]] = infty
-
-        #print('Branches t=%i: %i' %  (i, branches))
 
     S = S[:, J[-1, :] > 0, :]
     P = P[:, J[-1, :] > 0]
@@ -834,7 +823,6 @@ def plot_ramp_duration_curve(
         dpi=160,
         bbox_inches="tight")
     plt.close()
-    # print (num_scenarios, "\t", type, "\t", gap_percent, "\t", NRMSD)
 
 
 def plot_duration_curve(
@@ -929,8 +917,6 @@ def plot_duration_curve(
         dpi=160,
         bbox_inches="tight")
     plt.close()
-
-    # print (num_scenarios, "\t", type, "\t", gap_percent, "\t", NRMSD)
 
 
 def calculate_NRMSD(benchmark_x, benchmark_data, scenario_x, scenario_data):
