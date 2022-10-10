@@ -41,7 +41,7 @@ s = ArgParseSettings()
         arg_type = Int
         required = false
         default = 1
-        range_tester = x -> x in [0, 1, 2]
+        range_tester = x -> x in [0, 1, 2, 3]
 end
 
 # Retrieve parsed arguments from command line
@@ -50,7 +50,9 @@ CLI_args = parse_args(s)
 lvl = 0
 if CLI_args["verbosity"] == 0
     lvl = 2000
-elseif CLI_args["verbosity"] == 2
+elseif CLI_args["verbosity"] == 1
+    lvl = 1000
+elseif CLI_args["verbosity"] == 3
     lvl = -1000
 end
 global_logger(ConsoleLogger(lvl))
@@ -200,10 +202,10 @@ end
 all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
 short_results = filter(:units_to_execute => u -> u > 0, all_results)
 @info status
-if CLI_args["verbosity"] == 1
+if CLI_args["verbosity"] == 2
     @info "Alternatives to execute:"
     @info short_results
-elseif CLI_args["verbosity"] == 2
+elseif CLI_args["verbosity"] == 3
     @debug "Alternatives to execute:"
     @debug all_results
 end

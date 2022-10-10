@@ -82,10 +82,10 @@ def cli_args():
     )
     parser.add_argument(
         "--verbosity",
-        choices=[0, 1, 2],
+        choices=[0, 1, 2, 3],
         type=int,
-        help="Verbosity of output during runtime. 0 = totally silent; 1 = minimal output; 2 = full/debug output",
-        default=1
+        help="Verbosity of output during runtime. 0 = totally silent; 1 = minimal output; 2 = default output; 3 = full/debug output",
+        default=2
     )
     parser.add_argument(
         "--demo",
@@ -100,8 +100,10 @@ def initialize_logging(args):
     # Default verbosity (level 1) => INFO level of logging
     lvl = 20
     if args.verbosity == 0:
+        lvl = 60
+    elif args.verbosity == 1:
         lvl = 40
-    elif args.verbosity == 2:
+    elif args.verbosity == 3:
         lvl = 0
 
     logging.basicConfig(level=lvl)

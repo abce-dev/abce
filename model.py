@@ -878,7 +878,8 @@ class GridModel(Model):
 
         # Iterate through all agent turns
         self.schedule.step()
-        print("\nAll agent turns are complete.\n")
+        if self.args.verbosity != 0:
+            print("\nAll agent turns are complete.\n")
 
         self.db = sqlite3.connect(str(Path.cwd() / self.settings["db_file"]))
         self.cur = self.db.cursor()
@@ -891,7 +892,7 @@ class GridModel(Model):
         #   equivalents
         self.execute_all_status_updates()
 
-        if demo:
+        if demo and self.args.verbosity != 0:
             print("\n")
             user_response = input("Press Enter to continue: ")
 
@@ -912,7 +913,8 @@ class GridModel(Model):
                                             self.current_pd)
 
             # Run A-LEAF
-            print("Running A-LEAF...")
+            if self.args.verbosity != 0:
+                print("Running A-LEAF...")
             run_script_path = self.ALEAF_remote_path / "execute_ALEAF.jl"
             ALEAF_env_path = self.ALEAF_remote_path / "."
             ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
@@ -929,11 +931,12 @@ class GridModel(Model):
 
 
     def display_step_header(self):
-        if self.current_pd != 0:
-            print("\n\n\n")
-        print(60*"=")
-        print(f"   Model step: {self.current_pd}")
-        print(60*"=")
+        if self.args.verbosity != 0:
+            if self.current_pd != 0:
+                print("\n\n\n")
+            print(60*"=")
+            print(f"   Model step: {self.current_pd}")
+            print(60*"=")
 
 
     def show_round_updates(self):
