@@ -52,20 +52,6 @@ end
 # Activate local environment
 Pkg.activate(".")
 
-# Try to add CPLEX to the environment
-# CPLEX may not be available on all platforms. If CPLEX is unavailable, 
-#   alert the user and proceed without it.
-#try
-#    println("Adding CPLEX")
-#    Pkg.add("CPLEX")
-#    println("Building CPLEX...")
-#    Pkg.build("CPLEX")
-#    println("CPLEX built.")
-#catch e
-#    @warn "There was a problem installing or building CPLEX."
-#    problems["CPLEX"] = e
-#end
-
 # Add all Julia packages to the environment, and ensure they are all built
 for i=1:size(julia_pkg_list)[1]
     pkg = julia_pkg_list[i]
