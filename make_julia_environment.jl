@@ -29,6 +29,7 @@ julia_pkg_list = [
     "SCIP",
     "HiGHS"
 ]
+
 # Initialize a dictionary to track any problems arising in the process
 problems = Dict()
 
@@ -38,7 +39,7 @@ for dfile in files_to_delete
     if isfile(abspath(dfile))
         rm(abspath(dfile))
         @info "Removed file $dfile"
-    end
+   end
 end
 
 # Activate local environment
