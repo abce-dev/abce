@@ -85,8 +85,7 @@ class GenCo(Agent):
         """
         # Set the current model step
         self.current_pd = self.model.current_pd
-        if self.model.args.verbosity != 0:
-            print(f"Agent #{self.unique_id} is taking its turn...")
+        logging.log(45, f"Agent #{self.unique_id} is taking its turn...")
 
         # Run the agent behavior choice algorithm
         agent_choice_path = (Path(self.settings["ABCE_abs_path"]) /
@@ -110,8 +109,7 @@ class GenCo(Agent):
         else:
             sp = subprocess.check_call(julia_cmd, shell=True)
 
-        if self.model.args.verbosity != 0:
-            print(f"Agent #{self.unique_id}'s turn is complete.\n")
+        logging.log(45, f"Agent #{self.unique_id}'s turn is complete.\n")
 
     def get_current_asset_list(self):
         """
