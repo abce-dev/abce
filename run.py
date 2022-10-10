@@ -15,6 +15,7 @@
 ##########################################################################
 
 import os
+import sys
 import subprocess
 import logging
 from mesa import Agent, Model
@@ -106,7 +107,13 @@ def initialize_logging(args):
     elif args.verbosity == 3:
         lvl = 0
 
-    logging.basicConfig(level=lvl)
+    fmt = ABCEFormatter()
+    hdlr = logging.StreamHandler(sys.stdout)
+
+    hdlr.setFormatter(fmt)
+    logging.root.addHandler(hdlr)
+
+    logging.root.setLevel(lvl)
 
 def check_julia_environment(ABCE_abs_path):
     """
@@ -164,6 +171,40 @@ def run_model():
             settings,
             abce_model.ABCE_output_data_path,
             abce_model.unit_specs)
+
+
+class ABCEFormatter(logging.Formatter):
+    """ A custom log formatter for non-standard logging levels.
+
+        This logger will handle graphical elements which should
+          be printed to the console on verbosity levels 1, 2, and 3,
+          but which shouldn't have any logger-style prefixes.
+
+        This replicates the behavior of print statements, with the
+          verbosity-aware handling of logging.
+    """
+
+    vis_fmt = "%(msg)s"
+
+    def __init__(self):
+        super().__init__(fmt="%(levelname)s: %(msg)s", datefmt=None, style="%")
+
+    def format(self, record):
+        # Save the original user-configured formatter settings for
+        #   later retrieval
+        format_orig = self._style._fmt
+
+        # For records with a level of 45 (visual element), use custom format
+        if record.levelno == 45:
+            self._style._fmt = ABCEFormatter.vis_fmt
+
+        # Call the original Formatter class to do the grunt work
+        result = logging.Formatter.format(self, record)
+
+        # Restore the original format configured by the user
+        self._style._fmt = format_orig
+
+        return result
 
 
 # Run the model
