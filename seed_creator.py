@@ -263,13 +263,19 @@ def clear_db_file(abce_db, force):
             user_response = ask_user_permission_to_delete(abce_db)
             if user_response:
                 os.remove(abce_db)
-                print(f"Existing file at {abce_db} deleted.")
-                print(
-                    "(Hint: you can specify --force or -f on the command line to automatically delete an existing DB file.)")
+                logging.log(45, f"Existing file at {abce_db} deleted.")
+                logging.log(
+                    45,
+                    ("(Hint: you can specify --force or -f on the command " +
+                     "line to automatically delete an existing DB file.)")
+                )
             else:
-                print(
-                    "DB file at {abce_db} not deleted. Please move it or specify a different file name.")
-                print("Terminating...")
+                logging.log(
+                    45,
+                    (f"DB file at {abce_db} not deleted. Please move it or " +
+                     "specify a different file name.")
+                    )
+                logging.log(45, "Terminating...")
                 exit()
 
 
