@@ -104,12 +104,6 @@ abce_tables = {"WIP_projects":
                 ("outstanding_principal", "real")
                 ],
 
-               "agent_debt":
-               [("agent_id", "text", "PRIMARY KEY"),
-                ("period", "integer"),
-                ("outstanding_principal", "real")
-                ],
-
                "unit_specs":
                [("unit_type", "text", "PRIMARY KEY"),
                 ("fuel_type", "text"),
