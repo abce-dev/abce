@@ -134,8 +134,6 @@ def update_ALEAF_policy_settings(ALEAF_model_settings_ref, ALEAF_model_settings_
                 elif unit_type in valid_nuclear_names:
                     sim_config["PTC_Nuc"] = val["qty"]
 
-    print(sim_config)
-
     # Write the updated sheet to file
     sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
     writer.save()
