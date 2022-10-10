@@ -87,9 +87,15 @@ open(req_file, "r") do filehandle
     end
 end
 
-@info "========================================================================\n\n"
-@info "All packages and Python libraries loaded, with the following exceptions:\n"
+# Inform the user if there were any problems
+if length(problems) == 0
+    @info "All packages installed and built successfully."
+else
+    println("\n\n")
+    @warn "All packages and Python libraries loaded, with the following exceptions:"
 
-for key in keys(problems)
-    @warn string(key, ": ", problems[key])
+    for key in keys(problems)
+        @warn string(key, ": ", problems[key])
+    end
 end
+
