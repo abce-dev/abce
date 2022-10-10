@@ -60,12 +60,13 @@ for i=1:size(julia_pkg_list)[1]
         Pkg.add(pkg)
         Pkg.build(pkg)
     catch e
-        @warn "There was a problem installing $pkg. Installation of this package will be skipped, which may cause issues at ABCE runtime."
+        msg = string("A problem occurred while trying to install package ",
+                     "$pkg. Installation of this package will be skipped, ",
+                     "which may cause issues at ABCE runtime.")
+        @warn msg
         problems[pkg] = e
     end
 end
-
-@info "All libraries added to the environment."
 
 # Ensure all non-default Python packages are installed via Conda.jl
 @info "Ensuring Conda packages are installed..."
@@ -81,7 +82,10 @@ open(req_file, "r") do filehandle
         try
             Conda.add(cpkg)
         catch e
-            @warn string("A problem occurred while trying to install package $cpkg. Installation of this package will be skipped, which may cause issues at ABCE runtime.")
+            msg = string("A problem occurred while trying to install package ",
+                         "$cpkg. Installation of this package will be ",
+                         "skipped, which may cause issues at ABCE runtime.")
+            @warn msg
             problems[cpkg] = e
         end
     end
@@ -92,7 +96,9 @@ if length(problems) == 0
     @info "All packages installed and built successfully."
 else
     println("\n\n")
-    @warn "All packages and Python libraries loaded, with the following exceptions:"
+    msg = string("All Julia packages and Python libraries loaded, with the ",
+                 "following exceptions:")
+    @warn msg
 
     for key in keys(problems)
         @warn string(key, ": ", problems[key])
