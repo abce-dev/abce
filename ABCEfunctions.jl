@@ -1635,7 +1635,7 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     total_pd_depreciation = DBInterface.execute(db, "SELECT projected_pd, SUM(depreciation) FROM depreciation_projections WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd") |> DataFrame
 
     # Fill in total interest payments
-    total_pd_interest = DBInterface.execute(db, "SELECT projected_pd, SUM(interest_payment) FROM agent_financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd") |> DataFrame
+    total_pd_interest = DBInterface.execute(db, "SELECT projected_pd, SUM(interest_payment) FROM financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd") |> DataFrame
 
     # Fill in total capex
     total_pd_capex = DBInterface.execute(db, "SELECT projected_pd, SUM(capex) FROM capex_projections WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd") |> DataFrame

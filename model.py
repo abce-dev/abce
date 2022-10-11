@@ -1198,7 +1198,7 @@ class GridModel(Model):
                 remaining_principal = remaining_principal - principal_payment
 
         fin_sched_updates.to_sql(
-            "agent_financing_schedule",
+            "financing_schedule",
             self.db,
             if_exists="append",
             index=False)

@@ -190,7 +190,7 @@ abce_tables = {"WIP_projects":
                 ("rate", "real")
                 ],
 
-               "agent_financing_schedule":
+               "financing_schedule":
                [("instrument_id", "integer", "PRIMARY KEY"),
                 ("agent_id", "integer"),
                 ("base_pd", "integer"),
