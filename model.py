@@ -728,19 +728,6 @@ class GridModel(Model):
 
         self.db.commit()
 
-        financing_row = (agent_id,
-                         -1,
-                         "debt",
-                         0,
-                         self.gc_params[agent_id]["starting_debt"],
-                         20,
-                         self.gc_params[agent_id]["starting_debt"])
-        self.cur.execute(
-            "INSERT INTO financing_schedule VALUES (?, ?, ?, ?, ?, ?, ?)",
-            financing_row)
-
-        self.db.commit()
-
     def compute_total_capex_preexisting(self, unit_type):
         unit_cost_per_kW = self.unit_specs[self.unit_specs.unit_type ==
                                            unit_type]["uc_x"].values[0]
@@ -1065,6 +1052,7 @@ class GridModel(Model):
 
         return projected_capex
 
+
     def update_financial_instrument_manifest(self):
         # Based on projected capital expenditures, project the total set of
         #   active financial instruments which will exist at any point in the
@@ -1079,6 +1067,9 @@ class GridModel(Model):
         fin_insts_updates = pd.read_sql_query(
             f"SELECT * FROM financial_instrument_manifest WHERE pd_issued < {self.current_pd - 1}",
             self.db)
+
+        # Delete all other contents of this table
+        self.db.cursor().execute("DELETE FROM financial_instrument_manifest")
 
         # On the first period, add instruments representing preexisting
         #   debt and equity for the agents
@@ -1155,7 +1146,7 @@ class GridModel(Model):
         fin_insts_updates.to_sql(
             "financial_instrument_manifest",
             self.db,
-            if_exists="replace",
+            if_exists="append",
             index=False)
         self.db.commit()
 
