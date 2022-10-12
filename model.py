@@ -791,7 +791,6 @@ class GridModel(Model):
         self.db.commit()
 
 
-
     def step(self, demo=False):
         """
         Advance the model by one step.
