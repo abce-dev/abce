@@ -40,6 +40,7 @@ author: Sam Dotson
 import pandas as pd
 import numpy as np
 import os
+import logging
 from datetime import date
 
 months = ['january',
