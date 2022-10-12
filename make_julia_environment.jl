@@ -36,16 +36,9 @@ problems = Dict()
 # Delete preexisting .toml files to avoid contamination
 files_to_delete = ["Manifest.toml", "Project.toml"]
 for dfile in files_to_delete
-    try
+    if isfile(abspath(dfile))
         rm(abspath(dfile))
         @info "Removed file $dfile"
-    catch e
-        if occursin("no such file", e.msg)
-            current_dir = @__DIR__
-            @info "No extant file $dfile in the current directory, $current_dir."
-        else
-            throw(e)
-        end
     end
 end
 
