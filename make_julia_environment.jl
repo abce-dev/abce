@@ -71,7 +71,7 @@ open(req_file, "r") do filehandle
     conda_list = readlines(filehandle)
     for i=1:size(conda_list)[1]
         cpkg = conda_list[i]
-        println(string("Adding ", cpkg))
+        @info "Adding $cpkg"
         try
             Conda.add(cpkg)
         catch e
