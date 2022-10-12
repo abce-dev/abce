@@ -1,4 +1,4 @@
-using Pkg, Logging
+using Pkg
 
 julia_pkg_list = [
     "ArgParse",
