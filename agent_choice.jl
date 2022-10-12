@@ -147,10 +147,6 @@ num_alternatives = num_types * (num_lags + 1)
 #   for the most long-lived possible unit
 fc_pd = set_forecast_period(unit_specs, num_lags)
 
-# Load the price data
-price_pd = pd - 1
-price_curve = DBInterface.execute(db, "SELECT * FROM price_curve WHERE base_pd = $price_pd") |> DataFrame
-
 # Add empty column for project NPVs in unit_specs
 unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
 
@@ -173,7 +169,7 @@ long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, 
 @info "Dispatch projections complete."
 
 @info "Setting up project alternatives..."
-PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results, settings["allowed_xtr_types"], C2N_specs)
+PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, pd, long_econ_results, settings["allowed_xtr_types"], C2N_specs)
 
 @info "Project alternatives set up."
 
@@ -184,7 +180,7 @@ PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_co
 @info "Setting up the agent's decision optimization model..."
 unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_portfolios, fc_pd, pd)
 
-agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios, price_curve, settings)
+agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios, settings)
 
 m = set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 

@@ -30,7 +30,6 @@ from mesa.time import RandomActivation
 from agent import GenCo
 import ABCEfunctions as ABCE
 import seed_creator as sc
-import price_curve as pc
 import ALEAF_interface as ALI
 
 import warnings
@@ -155,9 +154,6 @@ class GridModel(Model):
                 self.args)
             self.schedule.add(gc)
             self.initialize_agent_assets(agent_id)
-
-        # Determine setting for use of a precomputed price curve
-        self.use_precomputed_price_curve = settings["use_precomputed_price_curve"]
 
         self.db.commit()
 
@@ -794,42 +790,6 @@ class GridModel(Model):
             f"INSERT INTO model_params VALUES ('tax_rate', {tax_rate})")
         self.db.commit()
 
-    def create_price_duration_curve(self, settings, dispatch_data=None):
-        # Set up the price curve according to specifications in settings
-        if self.use_precomputed_price_curve:
-            if (self.current_pd <= 0) or (self.settings["run_ALEAF"] == False):
-                price_curve_data_file = (Path(settings["ABCE_abs_path"]) /
-                                         settings["seed_dispatch_data_file"])
-            else:
-                price_curve_data_file = dispatch_data
-            self.price_duration_data = pc.load_time_series_data(
-                price_curve_data_file,
-                self.current_pd,
-                file_type="price",
-                output_type="dataframe")
-        else:
-            # Create the systemwide merit order curve
-            self.merit_curve = pc.create_merit_curve(self.db, self.current_pd)
-            pc.plot_curve(self.merit_curve, plot_name="merit_curve.png")
-            # Load demand data from file
-            time_series_data_file = (Path(settings["ABCE_abs_path"]) /
-                                     settings["time_series_data_file"])
-            self.demand_data = pc.load_time_series_data(
-                time_series_data_file,
-                file_type="load",
-                peak_demand=settings["peak_demand"])
-            pc.plot_curve(self.demand_data, plot_name="demand_curve.png")
-            # Create the final price duration curve
-            self.price_duration_data = pc.compute_price_duration_curve(
-                self.demand_data,
-                self.merit_curve,
-                settings["price_cap"])
-            self.price_duration_data = pd.DataFrame(
-                {"lamda": self.price_duration_data})
-            # Save a plot of the price duration curve
-            pc.plot_curve(
-                self.price_duration_data,
-                plot_name="price_duration.png")
 
 
     def step(self, demo=False):
@@ -842,22 +802,6 @@ class GridModel(Model):
             self.has_ABCE_sysimage, self.has_dispatch_sysimage = self.check_for_sysimage_files()
 
         self.display_step_header()
-
-        # Update price data from ALEAF
-        if (self.current_pd == 0) or (self.settings["run_ALEAF"] == False):
-            self.create_price_duration_curve(self.settings)
-        else:
-            new_dispatch_data_filename = f"{self.ALEAF_scenario_name}__dispatch_summary_OP__step_{self.current_pd - 1}.csv"
-            new_dispatch_data = Path(
-                self.ABCE_output_data_path) / new_dispatch_data_filename
-            self.create_price_duration_curve(self.settings, new_dispatch_data)
-
-        # Save price duration data to the database
-        self.price_duration_data.to_sql("price_curve",
-                                        con=self.db,
-                                        index=False,
-                                        if_exists="append")
-        self.db.commit()
 
         # Advance the status of all WIP projects to the current period
         self.update_WIP_projects()

@@ -24,7 +24,6 @@ run_ALEAF: False
 C2N_subsidy: 1  # deprecated: to remove
 C2N_assumption: baseline
 
-use_precomputed_price_curve: True # deprecated: to remove
 enable_subsidy: False # deprecated: to remove
 subsidy_amount: 40    # $/MWh
 price_cap: 9001
