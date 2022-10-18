@@ -98,13 +98,25 @@ def cli_args():
 
 
 def initialize_logging(args):
-    # Default verbosity (level 1) => INFO level of logging
+    # Python logging levels:
+    #   CRITICAL = 50
+    #   ERROR =    40
+    #   WARNING =  30
+    #   INFO =     20
+    #   DEBUG =    10
+    #   NOTSET =    0
+
+    # Default verbosity (CL setting 1) = INFO
     lvl = 20
     if args.verbosity == 0:
+        # Do not show logging messages (no messages are generated with
+        #   a level of 60 or above)
         lvl = 60
     elif args.verbosity == 1:
+        # Only show logging messages of severity ERROR (level = 40) and above
         lvl = 40
     elif args.verbosity == 3:
+        # Show all logging messages (level 0 and greater)
         lvl = 0
 
     fmt = ABCEFormatter()

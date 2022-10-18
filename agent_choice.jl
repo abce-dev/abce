@@ -49,10 +49,13 @@ CLI_args = parse_args(s)
 
 lvl = 0
 if CLI_args["verbosity"] == 0
+    # Only show Logging messages of severity Error (level 2000) and above
     lvl = 2000
 elseif CLI_args["verbosity"] == 1
+    # Only show Logging messages of severity Warning (level 1000) and above
     lvl = 1000
 elseif CLI_args["verbosity"] == 3
+    # Show Logging messages of severity Debug (level -1000) and above
     lvl = -1000
 end
 global_logger(ConsoleLogger(lvl))
