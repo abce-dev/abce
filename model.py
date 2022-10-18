@@ -931,9 +931,9 @@ class GridModel(Model):
     def display_step_header(self):
         if self.current_pd != 0:
             logging.log(45, "\n\n\n")
-        logging.log(45, 60*"=")
+        logging.log(45, "=" * 60)
         logging.log(45, f"   Simulation step: {self.current_pd}")
-        logging.log(45, 60*"=")
+        logging.log(45, "=" * 60)
 
 
     def show_round_updates(self):
