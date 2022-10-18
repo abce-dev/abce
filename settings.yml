@@ -20,7 +20,6 @@ conv_nuclear_FOM: 140
 
 run_ALEAF: False
 
-C2N_subsidy: 1  # deprecated: to remove
 C2N_assumption: baseline
 
 enable_subsidy: False # deprecated: to remove
