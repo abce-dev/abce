@@ -94,22 +94,6 @@ abce_tables = {"WIP_projects":
                 ("starting_PPE", "real")
                 ],
 
-               "financing_schedule":
-               [("agent_id", "text", "PRIMARY KEY"),
-                ("period", "integer"),
-                ("type", "text"),
-                ("asset", "integer"),
-                ("original_principal", "real"),
-                ("term", "integer"),
-                ("outstanding_principal", "real")
-                ],
-
-               "agent_debt":
-               [("agent_id", "text", "PRIMARY KEY"),
-                ("period", "integer"),
-                ("outstanding_principal", "real")
-                ],
-
                "unit_specs":
                [("unit_type", "text", "PRIMARY KEY"),
                 ("fuel_type", "text"),
@@ -206,7 +190,7 @@ abce_tables = {"WIP_projects":
                 ("rate", "real")
                 ],
 
-               "agent_financing_schedule":
+               "financing_schedule":
                [("instrument_id", "integer", "PRIMARY KEY"),
                 ("agent_id", "integer"),
                 ("base_pd", "integer"),

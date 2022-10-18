@@ -728,21 +728,6 @@ class GridModel(Model):
 
         self.db.commit()
 
-        financing_row = (agent_id,
-                         -1,
-                         "debt",
-                         0,
-                         self.gc_params[agent_id]["starting_debt"],
-                         20,
-                         self.gc_params[agent_id]["starting_debt"])
-        self.cur.execute(
-            "INSERT INTO financing_schedule VALUES (?, ?, ?, ?, ?, ?, ?)",
-            financing_row)
-
-        debt_row = (agent_id, -1, self.gc_params[agent_id]["starting_debt"])
-        self.cur.execute("INSERT INTO agent_debt VALUES (?, ?, ?)", debt_row)
-        self.db.commit()
-
     def compute_total_capex_preexisting(self, unit_type):
         unit_cost_per_kW = self.unit_specs[self.unit_specs.unit_type ==
                                            unit_type]["uc_x"].values[0]
@@ -1067,6 +1052,7 @@ class GridModel(Model):
 
         return projected_capex
 
+
     def update_financial_instrument_manifest(self):
         # Based on projected capital expenditures, project the total set of
         #   active financial instruments which will exist at any point in the
@@ -1081,6 +1067,9 @@ class GridModel(Model):
         fin_insts_updates = pd.read_sql_query(
             f"SELECT * FROM financial_instrument_manifest WHERE pd_issued < {self.current_pd - 1}",
             self.db)
+
+        # Delete all other contents of this table
+        self.db.cursor().execute("DELETE FROM financial_instrument_manifest")
 
         # On the first period, add instruments representing preexisting
         #   debt and equity for the agents
@@ -1157,7 +1146,7 @@ class GridModel(Model):
         fin_insts_updates.to_sql(
             "financial_instrument_manifest",
             self.db,
-            if_exists="replace",
+            if_exists="append",
             index=False)
         self.db.commit()
 
@@ -1209,7 +1198,7 @@ class GridModel(Model):
                 remaining_principal = remaining_principal - principal_payment
 
         fin_sched_updates.to_sql(
-            "agent_financing_schedule",
+            "financing_schedule",
             self.db,
             if_exists="append",
             index=False)
@@ -1364,41 +1353,6 @@ class GridModel(Model):
             #   database 'assets' table
             self.update_expected_completion_period(project_data)
 
-    def update_agent_debt(self):
-        total_new_debt = {201: 0.0, 202: 0.0}
-
-        for agent_id, new_debt in total_new_debt.items():
-            if self.current_pd == 0:
-                agent_WIP_projects = pd.read_sql_query(
-                    f"SELECT asset_id FROM assets WHERE agent_id = {agent_id} AND completion_pd > {self.current_pd} AND retirement_pd > {self.current_pd} AND cancellation_pd > {self.current_pd}",
-                    self.db)
-            else:
-                agent_WIP_projects = pd.read_sql_query(
-                    f"SELECT asset_id FROM assets WHERE agent_id = {agent_id} AND completion_pd >= {self.current_pd} AND retirement_pd > {self.current_pd} AND cancellation_pd > {self.current_pd}",
-                    self.db)
-
-            for asset_id in agent_WIP_projects.asset_id:
-                new_anpe = pd.read_sql_query(
-                    f"SELECT anpe FROM WIP_projects WHERE asset_id = {asset_id} AND period = {self.current_pd}",
-                    self.db)
-                total_new_debt[agent_id] += new_anpe.iloc[0, 0]
-
-            # Update each agent's total debt
-            existing_principal = pd.read_sql_query(
-                f"SELECT outstanding_principal FROM agent_debt WHERE agent_id = {agent_id} AND period = {self.current_pd-1}",
-                self.db)
-            starting_debt = self.gc_params[agent_id]["starting_debt"]
-            if self.current_pd < 20:
-                paid_down = starting_debt * (20. - self.current_pd) / 20.
-            else:
-                paid_down = starting_debt
-            existing_principal = existing_principal.iloc[0, 0]
-            total_current_principal = existing_principal - paid_down + \
-                total_new_debt[agent_id] * self.gc_params[agent_id]["debt_fraction"]
-            debt_row = (agent_id, self.current_pd, total_current_principal)
-            self.cur.execute(
-                "INSERT INTO agent_debt VALUES (?, ?, ?)", debt_row)
-            self.db.commit()
 
     def record_completed_xtr_project(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
