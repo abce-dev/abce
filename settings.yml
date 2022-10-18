@@ -22,8 +22,6 @@ run_ALEAF: False
 
 C2N_assumption: baseline
 
-enable_subsidy: False # deprecated: to remove
-subsidy_amount: 40    # $/MWh
 price_cap: 9001
 
 natural_gas_price: 3  # $/MWh
