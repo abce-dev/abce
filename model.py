@@ -878,7 +878,10 @@ class GridModel(Model):
 
         # Iterate through all agent turns
         self.schedule.step()
-        logging.log(45, "\nAll agent turns are complete.\n")
+        logging.log(
+            self.settings["vis_lvl"],
+            "\nAll agent turns are complete.\n"
+        )
 
         self.db = sqlite3.connect(str(Path.cwd() / self.settings["db_file"]))
         self.cur = self.db.cursor()
@@ -892,7 +895,7 @@ class GridModel(Model):
         self.execute_all_status_updates()
 
         if demo:
-            logging.log(45, "\n")
+            logging.log(self.settings["vis_lvl"], "\n")
             user_response = input("Press Enter to continue: ")
 
         if self.settings["run_ALEAF"]:
@@ -912,7 +915,7 @@ class GridModel(Model):
                                             self.current_pd)
 
             # Run A-LEAF
-            logging.log(45, "Running A-LEAF...")
+            logging.log(self.settings["vis_lvl"], "Running A-LEAF...")
             run_script_path = self.ALEAF_remote_path / "execute_ALEAF.jl"
             ALEAF_env_path = self.ALEAF_remote_path / "."
             ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
@@ -930,10 +933,10 @@ class GridModel(Model):
 
     def display_step_header(self):
         if self.current_pd != 0:
-            logging.log(45, "\n\n\n")
-        logging.log(45, "=" * 60)
-        logging.log(45, f"   Simulation step: {self.current_pd}")
-        logging.log(45, "=" * 60)
+            logging.log(self.settings["vis_lvl"], "\n\n\n")
+        logging.log(self.settings["vis_lvl"], "=" * 60)
+        logging.log(self.settings["vis_lvl"], f"   Simulation step: {self.current_pd}")
+        logging.log(self.settings["vis_lvl"], "=" * 60)
 
 
     def show_round_updates(self):

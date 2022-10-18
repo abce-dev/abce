@@ -97,7 +97,7 @@ def cli_args():
     return args
 
 
-def initialize_logging(args):
+def initialize_logging(args, vis_lvl):
     # Python logging levels:
     #   CRITICAL = 50
     #   ERROR =    40
@@ -119,7 +119,7 @@ def initialize_logging(args):
         # Show all logging messages (level 0 and greater)
         lvl = 0
 
-    fmt = ABCEFormatter()
+    fmt = ABCEFormatter(vis_lvl)
     hdlr = logging.StreamHandler(sys.stdout)
 
     hdlr.setFormatter(fmt)
@@ -156,9 +156,9 @@ def run_model():
     """
     args = cli_args()
 
-    initialize_logging(args)
-
     settings = read_settings(args.settings_file)
+
+    initialize_logging(args, settings["vis_lvl"])
 
     settings = set_up_local_paths(args, settings)
 
@@ -198,16 +198,18 @@ class ABCEFormatter(logging.Formatter):
 
     vis_fmt = "%(msg)s"
 
-    def __init__(self):
+    def __init__(self, vis_lvl):
         super().__init__(fmt="%(levelname)s: %(msg)s", datefmt=None, style="%")
+        self.vis_lvl = vis_lvl
 
     def format(self, record):
         # Save the original user-configured formatter settings for
         #   later retrieval
         format_orig = self._style._fmt
 
-        # For records with a level of 45 (visual element), use custom format
-        if record.levelno == 45:
+        # For records with a level of vis_lvl (visual element, specified in
+        #   the settings.yml file), use custom format
+        if record.levelno == self.vis_lvl:
             self._style._fmt = ABCEFormatter.vis_fmt
 
         # Call the original Formatter class to do the grunt work

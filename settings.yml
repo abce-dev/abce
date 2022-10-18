@@ -10,10 +10,12 @@ db_file: "abce_db.db"
 ABCE_sysimage_file: "abceSysimage.so"
 dispatch_sysimage_file: "dispatch.so"
 output_file: "outputs.xlsx"
+vis_lvl: 45   # sets the logging level for bare visual elements
+
 solver: "HiGHS"
 first_asset_id: 2001
 
-num_steps: 2
+num_steps: 1
 
 conv_nuclear_FOM: 140
 
