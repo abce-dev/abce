@@ -15,7 +15,9 @@
 ##########################################################################
 
 import os
+import sys
 import subprocess
+import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 from agent import GenCo
@@ -45,7 +47,10 @@ def set_up_local_paths(args, settings):
         try:
             settings["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
         except KeyError:
-            print("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
+            msg = ("The environment variable ALEAF_abs_path does not appear " +
+                   "to be set. Please make sure it points to the correct " +
+                   "directory.")
+            logging.error(msg)
             raise
     else:
         settings["ALEAF_abs_path"] = Path("NULL_PATH")
@@ -65,18 +70,24 @@ def cli_args():
          attributes. Retrieve values with args.<argument_name>.
     """
     parser = argparse.ArgumentParser(description='Run an ABCE simulation.')
-    parser.add_argument("--force", "-f",
-                        action="store_true",
-                        help="Agree to overwrite any existing DB files.")
-    parser.add_argument("--settings_file",
-                        type=str,
-                        help="Simulation settings file name.",
-                        default=Path(Path.cwd()) / "settings.yml")
     parser.add_argument(
-        "--quiet",
-        "-q",
+        "--force", "-f",
         action="store_true",
-        help="Suppress all output except the turn and period counters.")
+        help="Agree to overwrite any existing DB files."
+    )
+    parser.add_argument(
+        "--settings_file",
+        type=str,
+        help="Simulation settings file name.",
+        default=Path(Path.cwd()) / "settings.yml"
+    )
+    parser.add_argument(
+        "--verbosity",
+        choices=[0, 1, 2, 3],
+        type=int,
+        help="Verbosity of output during runtime. 0 = totally silent; 1 = minimal output; 2 = default output; 3 = full/debug output",
+        default=2
+    )
     parser.add_argument(
         "--demo",
         "-d",
@@ -85,6 +96,36 @@ def cli_args():
     args = parser.parse_args()
     return args
 
+
+def initialize_logging(args, vis_lvl):
+    # Python logging levels:
+    #   CRITICAL = 50
+    #   ERROR =    40
+    #   WARNING =  30
+    #   INFO =     20
+    #   DEBUG =    10
+    #   NOTSET =    0
+
+    # Default verbosity (CL setting 1) = INFO
+    lvl = 20
+    if args.verbosity == 0:
+        # Do not show logging messages (no messages are generated with
+        #   a level of 60 or above)
+        lvl = 60
+    elif args.verbosity == 1:
+        # Only show logging messages of severity ERROR (level = 40) and above
+        lvl = 40
+    elif args.verbosity == 3:
+        # Show all logging messages (level 0 and greater)
+        lvl = 0
+
+    fmt = ABCEFormatter(vis_lvl)
+    hdlr = logging.StreamHandler(sys.stdout)
+
+    hdlr.setFormatter(fmt)
+    logging.root.addHandler(hdlr)
+
+    logging.root.setLevel(lvl)
 
 def check_julia_environment(ABCE_abs_path):
     """
@@ -99,9 +140,9 @@ def check_julia_environment(ABCE_abs_path):
             f"julia {Path(ABCE_abs_path) / 'make_julia_environment.jl'}")
         try:
             sp = subprocess.check_call([julia_cmd], shell=True)
-            # print("Julia environment successfully created.\n\n")
+            logging.info("Julia environment successfully created.\n\n")
         except subprocess.CalledProcessError:
-            # print("Cannot proceed without a valid Julia environment. Terminating...")
+            logging.error("Cannot proceed without a valid Julia environment. Terminating...")
             quit()
 
 
@@ -116,6 +157,8 @@ def run_model():
     args = cli_args()
 
     settings = read_settings(args.settings_file)
+
+    initialize_logging(args, settings["vis_lvl"])
 
     settings = set_up_local_paths(args, settings)
 
@@ -140,6 +183,42 @@ def run_model():
             settings,
             abce_model.ABCE_output_data_path,
             abce_model.unit_specs)
+
+
+class ABCEFormatter(logging.Formatter):
+    """ A custom log formatter for non-standard logging levels.
+
+        This logger will handle graphical elements which should
+          be printed to the console on verbosity levels 1, 2, and 3,
+          but which shouldn't have any logger-style prefixes.
+
+        This replicates the behavior of print statements, with the
+          verbosity-aware handling of logging.
+    """
+
+    vis_fmt = "%(msg)s"
+
+    def __init__(self, vis_lvl):
+        super().__init__(fmt="%(levelname)s: %(msg)s", datefmt=None, style="%")
+        self.vis_lvl = vis_lvl
+
+    def format(self, record):
+        # Save the original user-configured formatter settings for
+        #   later retrieval
+        format_orig = self._style._fmt
+
+        # For records with a level of vis_lvl (visual element, specified in
+        #   the settings.yml file), use custom format
+        if record.levelno == self.vis_lvl:
+            self._style._fmt = ABCEFormatter.vis_fmt
+
+        # Call the original Formatter class to do the grunt work
+        result = logging.Formatter.format(self, record)
+
+        # Restore the original format configured by the user
+        self._style._fmt = format_orig
+
+        return result
 
 
 # Run the model

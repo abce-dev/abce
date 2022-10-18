@@ -40,6 +40,7 @@ author: Sam Dotson
 import pandas as pd
 import numpy as np
 import os
+import logging
 from datetime import date
 
 months = ['january',
@@ -118,29 +119,29 @@ def get_eia_generators(month=None, year=None):
         m = months[month_idx]
 
     elif (month is not None) and (year is not None):
-        print(f"Retrieving EIA Form 860m for {month.capitalize()} {year}")
+        logging.debug(f"Retrieving EIA Form 860m for {month.capitalize()} {year}")
         m = month
         y = year
 
     elif ((month is None) or (year is None)):
 
-        print(f"Month {month} / Year {year}")
+        logging.debug(f"Month {month} / Year {year}")
         raise ValueError(("Please specify a month and a year."))
 
     url = (f"https://www.eia.gov/electricity/data/eia860m/archive/xls/" +
            f"{m}_generator{y}.xlsx")
 
     try:
-        print(f'Downloading from {url}\n')
+        logging.debug(f'Downloading from {url}\n')
         df = pd.read_excel(url,
                            sheet_name='Operating',
                            skipfooter=2,
                            skiprows=2,
                            usecols=columns,
                            index_col='Entity ID')
-        print('Download successful.')
+        logging.debug('Download successful.')
     except BaseException:
-        print('Download failed. Trying different sheet format.')
+        logging.debug('Download failed. Trying different sheet format.')
         try:
             df = pd.read_excel(url,
                                sheet_name='Operating',
@@ -148,7 +149,7 @@ def get_eia_generators(month=None, year=None):
                                skiprows=1,
                                usecols=columns,
                                index_col='Entity ID')
-            print('Download successful.')
+            logging.debug('Download successful.')
         except ValueError:
             fail_str = (f'Download failed. File not found' +
                         f' for Month: {month} and Year: {year}')

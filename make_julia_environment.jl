@@ -39,7 +39,7 @@ for dfile in files_to_delete
     if isfile(abspath(dfile))
         rm(abspath(dfile))
         @info "Removed file $dfile"
-    end
+   end
 end
 
 # Activate local environment

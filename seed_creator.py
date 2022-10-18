@@ -17,6 +17,7 @@
 import sqlite3
 import os
 import sys
+import logging
 import pandas as pd
 
 # Database Specification:
@@ -257,23 +258,29 @@ def clear_db_file(abce_db, force):
     if os.path.exists(abce_db):
         if force:
             os.remove(abce_db)
-            print(f"Existing file at {abce_db} deleted.")
+            logging.info(f"Existing file at {abce_db} deleted.")
         else:
             user_response = ask_user_permission_to_delete(abce_db)
             if user_response:
                 os.remove(abce_db)
-                print(f"Existing file at {abce_db} deleted.")
-                print(
-                    "(Hint: you can specify --force or -f on the command line to automatically delete an existing DB file.)")
+                logging.log(45, f"Existing file at {abce_db} deleted.")
+                logging.log(
+                    45,
+                    ("(Hint: you can specify --force or -f on the command " +
+                     "line to automatically delete an existing DB file.)")
+                )
             else:
-                print(
-                    "DB file at {abce_db} not deleted. Please move it or specify a different file name.")
-                print("Terminating...")
+                logging.log(
+                    45,
+                    (f"DB file at {abce_db} not deleted. Please move it or " +
+                     "specify a different file name.")
+                    )
+                logging.log(45, "Terminating...")
                 exit()
 
 
 def create_db_file(abce_db):
-    print(f"Creating a new database file at {abce_db}.")
+    logging.info(f"Creating a new database file at {abce_db}.")
     db = sqlite3.connect(str(abce_db), timeout=10)
     cur = db.cursor()
     return db, cur
@@ -297,7 +304,7 @@ def create_database(db_file_name, replace=False):
         make_table(cur, table)
     # Commit changes and close the connection to the database
     db.commit()
-    print(f"Database created in file '{db_file_name}'.")
+    logging.info(f"Database created in file '{db_file_name}'.")
     return db, cur
 
 

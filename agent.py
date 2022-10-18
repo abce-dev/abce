@@ -13,6 +13,7 @@
 ##########################################################################
 
 import numpy as np
+import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 import yaml
@@ -52,13 +53,12 @@ class GenCo(Agent):
              and passes data to all agents.
            settings (dict): Runtime/model parameters, loaded and passed
              in by run.py.
-           quiet (bool): Set from CLI; sets verbosity level.
         """
 
         super().__init__(genco_id, model)
         self.model = model
-        self.quiet = cli_args.quiet
         self.settings = settings
+        self.args = cli_args
         self.assign_parameters(gc_params)
 
     def assign_parameters(self, gc_params):
@@ -85,27 +85,35 @@ class GenCo(Agent):
         """
         # Set the current model step
         self.current_pd = self.model.current_pd
-        print(f"Agent #{self.unique_id} is taking its turn...")
+        logging.log(
+            self.model.settings["vis_lvl"],
+            f"Agent #{self.unique_id} is taking its turn..."
+        )
 
         # Run the agent behavior choice algorithm
         agent_choice_path = (Path(self.settings["ABCE_abs_path"]) /
                              "agent_choice.jl")
         sysimage_cmd = ""
+
         if self.model.has_ABCE_sysimage:
             sysimage_path = (Path(self.settings["ABCE_abs_path"]) /
                                          self.settings["ABCE_sysimage_file"])
             sysimage_cmd = f"-J {sysimage_path}"
-        julia_cmd = (f"julia --project={self.settings['ABCE_abs_path']} {sysimage_cmd} {agent_choice_path} " +
-                     f"--current_pd={self.current_pd} " +
-                     f"--agent_id={self.unique_id}")                   
-        if self.quiet:
-            sp = subprocess.check_call(julia_cmd,
-                                       shell=True,
-                                       stdout=open(os.devnull, "wb"))
-        else:
-            sp = subprocess.check_call(julia_cmd, shell=True)
 
-        print(f"Agent #{self.unique_id}'s turn is complete.\n")
+        julia_cmd = (
+            f"julia --project={self.settings['ABCE_abs_path']} " + 
+            f"{sysimage_cmd} {agent_choice_path} " +
+            f"--current_pd={self.current_pd} " +
+            f"--agent_id={self.unique_id} " +
+            f"--verbosity={self.args.verbosity}"
+        )
+
+        sp = subprocess.check_call(julia_cmd, shell=True)
+
+        logging.log(
+            self.model.settings["vis_lvl"],
+            f"Agent #{self.unique_id}'s turn is complete.\n"
+        )
 
     def get_current_asset_list(self):
         """

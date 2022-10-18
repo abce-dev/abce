@@ -36,10 +36,29 @@ s = ArgParseSettings()
         help = "current ABCE time period"
         arg_type = Int
         required = true
+    "--verbosity"
+        help = "level of output logged to the console"
+        arg_type = Int
+        required = false
+        default = 1
+        range_tester = x -> x in [0, 1, 2, 3]
 end
 
 # Retrieve parsed arguments from command line
 CLI_args = parse_args(s)
+
+lvl = 0
+if CLI_args["verbosity"] == 0
+    # Only show Logging messages of severity Error (level 2000) and above
+    lvl = 2000
+elseif CLI_args["verbosity"] == 1
+    # Only show Logging messages of severity Warning (level 1000) and above
+    lvl = 1000
+elseif CLI_args["verbosity"] == 3
+    # Show Logging messages of severity Debug (level -1000) and above
+    lvl = -1000
+end
+global_logger(ConsoleLogger(lvl))
 
 # Load settings and file locations from the settings file
 settings_file = CLI_args["settings_file"]
@@ -54,14 +73,14 @@ C2N_module = "C2N_projects.jl"
 include(C2N_module)
 using .ABCEfunctions, .Dispatch, .C2N
 
-# @info "Packages loaded successfully."
+@debug "Julia modules loaded successfully."
 
 ###### Set up inputs
-# @info "Initializing data..."
+@info "Initializing data..."
 
 settings = set_up_local_paths(settings)
 solver = lowercase(settings["solver"])
-@info string("Solver is `$solver`")
+@debug string("Solver is `$solver`")
 if solver == "cplex"
     try
         using CPLEX
@@ -135,7 +154,9 @@ price_curve = DBInterface.execute(db, "SELECT * FROM price_curve WHERE base_pd =
 # Add empty column for project NPVs in unit_specs
 unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
 
-# @info "Data initialized."
+@info "Data initialized."
+
+@info "Setting up dispatch simulation..."
 
 all_year_system_portfolios, all_year_agent_portfolios = Dispatch.set_up_dispatch_portfolios(db, pd, fc_pd, agent_id, unit_specs)
 
@@ -144,18 +165,23 @@ total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 total_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_system_portfolios, unit_specs)
-# @info "Demand data:"
-# @info total_demand[1:10, :]
+@debug "Demand data:"
+@debug total_demand[1:10, :]
 
+@info "Running dispatch simulation..."
 long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
+@info "Dispatch projections complete."
 
-# @info "Setting up project alternatives..."
+@info "Setting up project alternatives..."
 PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, price_curve, db, pd, long_econ_results, settings["allowed_xtr_types"], C2N_specs)
 
-# @info "Project alternatives:"
-# @info PA_uids
+@info "Project alternatives set up."
+
+@debug "Project alternatives:"
+@debug PA_uids
 
 ###### Set up the model
+@info "Setting up the agent's decision optimization model..."
 unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_portfolios, fc_pd, pd)
 
 agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios, price_curve, settings)
@@ -163,7 +189,7 @@ agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd,
 m = set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
-# @info "Solving optimization problem..."
+@info "Solving agent's decision optimization problem..."
 optimize!(m)
 status = string(termination_status.(m))
 if status == "OPTIMAL"
@@ -177,9 +203,15 @@ end
 
 ###### Display the results
 all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
-# @info status
-# @info "Alternatives to execute:"
-# @info all_results
+short_results = filter(:units_to_execute => u -> u > 0, all_results)
+@info status
+if CLI_args["verbosity"] == 2
+    @info "Alternatives to execute:"
+    @info short_results
+elseif CLI_args["verbosity"] == 3
+    @debug "Alternatives to execute:"
+    @debug all_results
+end
 
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
@@ -190,10 +222,5 @@ postprocess_agent_decisions(all_results, unit_specs, db, pd, agent_id)
 #WIP_projects = get_WIP_projects_list(db, pd, agent_id)
 # Authorize ANPE for the upcoming period (default: $1B/year)
 #authorize_anpe(db, agent_id, pd, WIP_projects, unit_specs)
-
-# End
-# @info "Julia: finishing"
-# @info "-----------------------------------------------------------"
-
 
 
