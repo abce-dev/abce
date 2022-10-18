@@ -91,10 +91,12 @@ class GenCo(Agent):
         agent_choice_path = (Path(self.settings["ABCE_abs_path"]) /
                              "agent_choice.jl")
         sysimage_cmd = ""
+
         if self.model.has_ABCE_sysimage:
             sysimage_path = (Path(self.settings["ABCE_abs_path"]) /
                                          self.settings["ABCE_sysimage_file"])
             sysimage_cmd = f"-J {sysimage_path}"
+
         julia_cmd = (
             f"julia --project={self.settings['ABCE_abs_path']} " + 
             f"{sysimage_cmd} {agent_choice_path} " +
@@ -102,12 +104,8 @@ class GenCo(Agent):
             f"--agent_id={self.unique_id} " +
             f"--verbosity={self.args.verbosity}"
         )
-        if self.args.verbosity > 0:
-            sp = subprocess.check_call(julia_cmd,
-                                       shell=True,
-                                       stdout=open(os.devnull, "wb"))
-        else:
-            sp = subprocess.check_call(julia_cmd, shell=True)
+
+        sp = subprocess.check_call(julia_cmd, shell=True)
 
         logging.log(45, f"Agent #{self.unique_id}'s turn is complete.\n")
 
