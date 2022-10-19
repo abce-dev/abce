@@ -3,6 +3,7 @@ simulation:
   solver: "HiGHS"
   num_steps: 1
   run_ALEAF: False
+  C2N_assumption: baseline
 
 scenario:
   conv_nuclear_FOM: 140
