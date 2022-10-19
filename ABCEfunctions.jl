@@ -66,19 +66,19 @@ function get_agent_params(db, agent_id)
 end
 
 
-function set_up_local_paths(settings, config)
-    config["file_paths"]["ABCE_abs_path"] = @__DIR__
+function set_up_local_paths(settings)
+    settings["file_paths"]["ABCE_abs_path"] = @__DIR__
     if settings["simulation"]["run_ALEAF"] == true
         try
-            config["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
+            settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
         catch LoadError
             println("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
         end
     else
-        config["file_paths"]["ALEAF_abs_path"] = "NULL_PATH"
+        settings["file_paths"]["ALEAF_abs_path"] = "NULL_PATH"
     end
 
-    return config
+    return settings
 
 end
 
@@ -156,15 +156,15 @@ function get_current_assets_list(db, pd, agent_id)
 end
 
 
-function extrapolate_demand(visible_demand, db, pd, fc_pd, config)
-    mode = config["demand"]["demand_projection_mode"]
+function extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
+    mode = settings["demand"]["demand_projection_mode"]
     if mode == "flat"
         demand = project_demand_flat(visible_demand, fc_pd)
     elseif mode == "exp_termrate"
-        term_demand_gr = config["demand"]["terminal_demand_growth_rate"]
+        term_demand_gr = settings["demand"]["terminal_demand_growth_rate"]
         demand = project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
     elseif mode == "exp_fitted"
-        demand = project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings, config)
+        demand = project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     else
         @error string("The specified demand extrapolation mode, ", mode, ", is not implemented.")
         @error "Please use 'flat', 'exp_termrate', or 'exp_fitted' at this time."
@@ -196,10 +196,10 @@ function project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
 end
 
 
-function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, config)
+function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     # Retrieve historical data, if available
-    demand_projection_window = config["demand"]["demand_projection_window"]
-    demand_history_start = max(0, pd - config["demand"]["demand_visibility_horizon"])
+    demand_projection_window = settings["demand"]["demand_projection_window"]
+    demand_history_start = max(0, pd - settings["demand"]["demand_visibility_horizon"])
     start_and_end = (demand_history_start, pd)
     demand_history = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ? ORDER BY period ASC", start_and_end) |> DataFrame
 
@@ -224,7 +224,7 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, config)
     # If there isn't enough demand history to fulfill the desired projection
     #   window, take a weighted average of the computed beta with the known
     #   historical beta
-    beta[2] = (beta[2] * size(y)[1] + config["demand"]["historical_demand_growth_rate"] * (demand_projection_window - size(y)[1])) / demand_projection_window
+    beta[2] = (beta[2] * size(y)[1] + settings["demand"]["historical_demand_growth_rate"] * (demand_projection_window - size(y)[1])) / demand_projection_window
 
     # Project future demand
     proj_horiz = fc_pd - size(visible_demand)[1]
@@ -240,17 +240,17 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, config)
 end
 
 
-function get_demand_forecast(db, pd, agent_id, fc_pd, config)
+function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
     # Retrieve 
-    vals = (pd, pd + config["demand"]["demand_visibility_horizon"])
+    vals = (pd, pd + settings["demand"]["demand_visibility_horizon"])
     visible_demand = DBInterface.execute(db, "SELECT period, demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
 
     rename!(visible_demand, :demand => :real_demand)
 
-    demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, config)
+    demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
     prm = DBInterface.execute(db, "SELECT * FROM model_params WHERE parameter = 'PRM'") |> DataFrame
 
-    transform!(demand_forecast, :real_demand => ((dem) -> dem .* (1 + prm[1, :value]) .+ config["system"]["peak_initial_reserves"]) => :total_demand)
+    transform!(demand_forecast, :real_demand => ((dem) -> dem .* (1 + prm[1, :value]) .+ settings["system"]["peak_initial_reserves"]) => :total_demand)
 
     return demand_forecast
 end
@@ -1176,7 +1176,7 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, config, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
+function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     # @info "Setting up model..."
 
@@ -1311,12 +1311,12 @@ function set_up_model(settings, config, PA_uids, PA_fs_dict, total_demand, asset
     #   projects by type per period, and the :allowed field in PA_uids
     for i = 1:num_alternatives
         if PA_uids[i, :project_type] == "new_xtr"
-            @constraint(m, u[i] .<= convert(Int64, PA_uids[i, :allowed]) .* config["agent_opt"]["max_type_newbuilds_per_pd"])
+            @constraint(m, u[i] .<= convert(Int64, PA_uids[i, :allowed]) .* settings["agent_opt"]["max_type_newbuilds_per_pd"])
         elseif PA_uids[i, :project_type] == "retirement"
             unit_type = PA_uids[i, :unit_type]
             ret_pd = PA_uids[i, :ret_pd]
             asset_count = filter([:unit_type, :retirement_pd] => (x, y) -> x == unit_type && y == ret_pd, asset_counts)[1, :count]
-            max_retirement = convert(Int64, PA_uids[i, :allowed]) .* min(asset_count, config["agent_opt"]["max_type_rets_per_pd"])
+            max_retirement = convert(Int64, PA_uids[i, :allowed]) .* min(asset_count, settings["agent_opt"]["max_type_rets_per_pd"])
 #            @constraint(m, u[i] .<= max_retirement)
         end
     end
@@ -1332,7 +1332,7 @@ function set_up_model(settings, config, PA_uids, PA_fs_dict, total_demand, asset
     # Shortened name for the number of lag periods to consider
     #   1 is added, as the user-set value only specifies future periods,
     #   with the "lag = 0" instance being implied
-    num_lags = config["agent_opt"]["num_future_periods_considered"] + 1
+    num_lags = settings["agent_opt"]["num_future_periods_considered"] + 1
     # Create the matrix to collapse lagged options
     # This matrix has one long row for each retiring-asset category,
     #   with 1's in each element where the corresponding element of u[] is

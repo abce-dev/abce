@@ -28,10 +28,6 @@ s = ArgParseSettings()
         help = "absolute path to the settings file"
         required = false
         default = joinpath(pwd(), "settings.yml")
-    "--config_file"
-        help = "absolute path to the config file"
-        required = false
-        default = joinpath(pwd(), "config.yml")
     "--agent_id"
         help = "unique ID number of the agent"
         arg_type = Int
@@ -68,8 +64,8 @@ global_logger(ConsoleLogger(lvl))
 settings_file = CLI_args["settings_file"]
 settings = YAML.load_file(settings_file)
 
-config_file = CLI_args["config_file"]
-config = YAML.load_file(config_file)
+settings_file = CLI_args["settings_file"]
+settings = YAML.load_file(settings_file)
 
 # Include local ABCE functions module
 julia_ABCE_module = "ABCEfunctions.jl"
@@ -85,7 +81,7 @@ using .ABCEfunctions, .Dispatch, .C2N
 ###### Set up inputs
 @info "Initializing data..."
 
-config = set_up_local_paths(settings, config)
+settings = set_up_local_paths(settings)
 
 solver = lowercase(settings["simulation"]["solver"])
 @debug string("Solver is `$solver`")
@@ -108,17 +104,17 @@ else
 end
 
 # File names
-db_file = joinpath(pwd(), config["file_paths"]["db_file"])
+db_file = joinpath(pwd(), settings["file_paths"]["db_file"])
 C2N_specs_file = joinpath(
                      @__DIR__,
                      "inputs",
                      "C2N_project_definitions.yml"
                  )
 # Constants
-hours_per_year = config["constants"]["hours_per_year"]
-consider_future_projects = config["agent_opt"]["consider_future_projects"]
+hours_per_year = settings["constants"]["hours_per_year"]
+consider_future_projects = settings["agent_opt"]["consider_future_projects"]
 if consider_future_projects
-    num_lags = config["agent_opt"]["num_future_periods_considered"]
+    num_lags = settings["agent_opt"]["num_future_periods_considered"]
 else
     num_lags = 0
 end
@@ -163,7 +159,7 @@ unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
 all_year_system_portfolios, all_year_agent_portfolios = Dispatch.set_up_dispatch_portfolios(db, pd, fc_pd, agent_id, unit_specs)
 
 # Load the demand data
-total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, config)
+total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
 total_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_system_portfolios, unit_specs)
@@ -171,7 +167,7 @@ total_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_sy
 @debug total_demand[1:10, :]
 
 @info "Running dispatch simulation..."
-long_econ_results = Dispatch.execute_dispatch_economic_projection(db, config, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
+long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
 @info "Dispatch projections complete."
 
 @info "Setting up project alternatives..."
@@ -188,7 +184,7 @@ unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_po
 
 agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios)
 
-m = set_up_model(settings, config, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
+m = set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
 @info "Solving agent's decision optimization problem..."

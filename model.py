@@ -39,12 +39,11 @@ warnings.filterwarnings("ignore")
 class GridModel(Model):
     ''' A model with some number of GenCos. '''
 
-    def __init__(self, settings, config, args):
+    def __init__(self, settings, args):
         # Copy the command-line arguments as member data
         self.args = args
 
         self.settings = settings
-        self.config = config
 
         # Set the solver to be used for the agent optimizations
         self.solver = settings["simulation"]["solver"].lower()
@@ -71,7 +70,7 @@ class GridModel(Model):
 
         # Initialize database for managing asset and WIP construction project
         # data
-        db_file = (Path.cwd() / config["file_paths"]["db_file"])
+        db_file = (Path.cwd() / settings["file_paths"]["db_file"])
         self.db, self.cur = sc.create_database(db_file, self.args.force)
 
         # Load all-period demand data into the database
@@ -110,8 +109,8 @@ class GridModel(Model):
 
         # Read in the GenCo parameters data from file
         gc_params_file_name = Path(
-            self.config["file_paths"]["ABCE_abs_path"] /
-            self.config["file_paths"]["gc_params_file"]
+            self.settings["file_paths"]["ABCE_abs_path"] /
+            self.settings["file_paths"]["gc_params_file"]
         )
         self.gc_params = yaml.load(
             open(
@@ -121,8 +120,8 @@ class GridModel(Model):
 
         # Load the unit-type ownership specification for all agents
         self.portfolio_specification = pd.read_csv(
-            Path(self.config["file_paths"]["ABCE_abs_path"]) /
-            self.config["file_paths"]["portfolios_file"]
+            Path(self.settings["file_paths"]["ABCE_abs_path"]) /
+            self.settings["file_paths"]["portfolios_file"]
         )
 
         # Check the portfolio specification to ensure the ownership totals
@@ -132,8 +131,8 @@ class GridModel(Model):
 
         # Load the mandatory unit retirement data
         ret_data_file = Path(
-            self.config["file_paths"]["ABCE_abs_path"] /
-            self.config["file_paths"]["retirement_period_specs_file"]
+            self.settings["file_paths"]["ABCE_abs_path"] /
+            self.settings["file_paths"]["retirement_period_specs_file"]
         )
         self.ret_data = pd.read_csv(ret_data_file, comment="#")
 
@@ -171,44 +170,44 @@ class GridModel(Model):
               save them as member data.
         """
 
-        self.ALEAF_remote_path = Path(self.config["ALEAF"]["ALEAF_abs_path"])
+        self.ALEAF_remote_path = Path(self.settings["ALEAF"]["ALEAF_abs_path"])
         self.ALEAF_remote_data_path = (self.ALEAF_remote_path /
                                        "data" /
-                                       self.config["ALEAF"]["ALEAF_model_type"] /
-                                       self.config["ALEAF"]["ALEAF_region"]
+                                       self.settings["ALEAF"]["ALEAF_model_type"] /
+                                       self.settings["ALEAF"]["ALEAF_region"]
                                       )
         # Set file paths of local reference copies of ALEAF input data
         ALEAF_inputs_path = (
-            Path(self.config["file_paths"]["ABCE_abs_path"]) /
+            Path(self.settings["file_paths"]["ABCE_abs_path"]) /
             "inputs" /
             "ALEAF_inputs"
         )
         self.ALEAF_master_settings_ref = (
             Path(ALEAF_inputs_path) /
-            self.config["ALEAF"]["ALEAF_master_settings_file"]
+            self.settings["ALEAF"]["ALEAF_master_settings_file"]
         )
         self.ALEAF_model_settings_ref = (
             Path(ALEAF_inputs_path) /
-            self.config["ALEAF"]["ALEAF_model_settings_file"]
+            self.settings["ALEAF"]["ALEAF_model_settings_file"]
         )
         self.ALEAF_portfolio_ref = (
             Path(ALEAF_inputs_path) /
-            self.config["ALEAF"]["ALEAF_portfolio_file"]
+            self.settings["ALEAF"]["ALEAF_portfolio_file"]
         )
 
         # Set the paths to where settings are stored in the ALEAF directory
         ALEAF_settings_path = self.ALEAF_remote_path / "setting"
         self.ALEAF_master_settings_remote = (
             Path(ALEAF_settings_path) /
-            self.config["ALEAF"]["ALEAF_master_settings_file"]
+            self.settings["ALEAF"]["ALEAF_master_settings_file"]
         )
         self.ALEAF_model_settings_remote = (
             Path(ALEAF_settings_path) /
-            f"ALEAF_Master_{self.config['ALEAF']['ALEAF_model_type']}.xlsx"
+            f"ALEAF_Master_{self.settings['ALEAF']['ALEAF_model_type']}.xlsx"
         )
         self.ALEAF_portfolio_remote = (
             self.ALEAF_remote_data_path /
-            f"ALEAF_{self.config['ALEAF']['ALEAF_region']}.xlsx"
+            f"ALEAF_{self.settings['ALEAF']['ALEAF_region']}.xlsx"
         )
         self.ATB_remote = (ALEAF_inputs_path / "ATBe.csv")
 
@@ -216,8 +215,8 @@ class GridModel(Model):
         self.ALEAF_output_data_path = (
             self.ALEAF_remote_path /
             "output" /
-            self.config["ALEAF"]["ALEAF_model_type"] /
-            self.config["ALEAF"]["ALEAF_region"] /
+            self.settings["ALEAF"]["ALEAF_model_type"] /
+            self.settings["ALEAF"]["ALEAF_region"] /
             f"scenario_1_{self.settings['simulation']['ALEAF_scenario_name']}"
         )
 
@@ -235,7 +234,7 @@ class GridModel(Model):
                                         self.ALEAF_model_settings_remote,
                                         self.db,
                                         self.settings,
-                                        self.config,
+                                        self.settings,
                                         period=0)
 
         # Update the ALEAF_ERCOT.xlsx system portfolio data:
@@ -476,8 +475,8 @@ class GridModel(Model):
         # Retrieve non-ALEAF parameters from the ABCE supplemental unit
         #   specification file
         unit_specs_ABCE = pd.read_csv(
-            Path(self.config["file_paths"]["ABCE_abs_path"]) /
-            self.config["file_paths"]["unit_specs_abce_supp_file"]
+            Path(self.settings["file_paths"]["ABCE_abs_path"]) /
+            self.settings["file_paths"]["unit_specs_abce_supp_file"]
         )
 
         # Some generators' (currently NG and Coal) fuel cost is given in the
@@ -577,7 +576,7 @@ class GridModel(Model):
         #   - portfolios.csv => self.portfolio_specification
         if not all(agent_id in self.gc_params.keys()
                    for agent_id in self.portfolio_specification.agent_id.unique()):
-            num_agents_msg = f"Agents specified in the portfolio specification file {self.config['file_paths']['portfolios_file']} do not all have corresponding entries in the gc_params file {self.settings['gc_params_file']}. Check your inputs and try again."
+            num_agents_msg = f"Agents specified in the portfolio specification file {self.settings['file_paths']['portfolios_file']} do not all have corresponding entries in the gc_params file {self.settings['gc_params_file']}. Check your inputs and try again."
             raise ValueError(num_agents_msg)
 
     def check_total_assets(self):
@@ -643,7 +642,7 @@ class GridModel(Model):
         # Set the initial asset ID
         asset_id = ABCE.get_next_asset_id(
                        self.db,
-                       self.config["constants"]["first_asset_id"]
+                       self.settings["constants"]["first_asset_id"]
                    )
 
         # Retrieve the column-header schema for the 'assets' table
@@ -720,11 +719,11 @@ class GridModel(Model):
                     asset_dict["asset_id"] = max(
                         ABCE.get_next_asset_id(
                             self.db,
-                            self.config["constants"]["first_asset_id"]
+                            self.settings["constants"]["first_asset_id"]
                         ),
                         max(
                             master_assets_df["asset_id"],
-                            default=self.config["constants"]["first_asset_id"]
+                            default=self.settings["constants"]["first_asset_id"]
                         ) + 1
                      )
 
@@ -754,7 +753,7 @@ class GridModel(Model):
         unit_capacity = self.unit_specs[self.unit_specs.unit_type ==
                                         unit_type]["capacity"].values[0]
 
-        total_capex = unit_cost_per_kW * unit_capacity * self.config["constants"]["MW2kW"]
+        total_capex = unit_cost_per_kW * unit_capacity * self.settings["constants"]["MW2kW"]
 
         return total_capex
 
@@ -786,13 +785,13 @@ class GridModel(Model):
     def load_demand_data_to_db(self):
         # Load all-period demand data into the database
         demand_data_file = (
-            Path(self.config["file_paths"]["ABCE_abs_path"]) /
-            self.config["file_paths"]["demand_data_file"]
+            Path(self.settings["file_paths"]["ABCE_abs_path"]) /
+            self.settings["file_paths"]["demand_data_file"]
         )
         demand_df = pd.read_csv(demand_data_file) * self.settings["scenario"]["peak_demand"]
 
         # Create an expanded range of periods to backfill with demand_df data
-        new_index = list(range(self.config["demand"]["total_forecast_horizon"]))
+        new_index = list(range(self.settings["demand"]["total_forecast_horizon"]))
         demand_df = demand_df.reindex(new_index, method="ffill")
 
         # Save data to DB
@@ -805,10 +804,10 @@ class GridModel(Model):
 
     def load_model_parameters_to_db(self):
         # Load specific parameters specified in settings.yml to the database
-        prm = self.config["system"]["planning_reserve_margin"]
+        prm = self.settings["system"]["planning_reserve_margin"]
         self.cur.execute(f"INSERT INTO model_params VALUES ('PRM', {prm})")
 
-        tax_rate = self.config["system"]["tax_rate"]
+        tax_rate = self.settings["system"]["tax_rate"]
         self.cur.execute(
             f"INSERT INTO model_params VALUES ('tax_rate', {tax_rate})")
         self.db.commit()
@@ -836,7 +835,7 @@ class GridModel(Model):
         ABCE.execute_scenario_reduction(
             self.db,
             self.current_pd,
-            self.config,
+            self.settings,
             self.unit_specs
         )
 
@@ -847,11 +846,11 @@ class GridModel(Model):
         self.schedule.step()
 
         logging.log(
-            self.config["constants"]["vis_lvl"],
+            self.settings["constants"]["vis_lvl"],
             "\nAll agent turns are complete.\n"
         )
 
-        self.db = sqlite3.connect(str(Path.cwd() / self.config["file_paths"]["db_file"]))
+        self.db = sqlite3.connect(str(Path.cwd() / self.settings["file_paths"]["db_file"]))
         self.cur = self.db.cursor()
 
         # Show update tables in the terminal
@@ -863,7 +862,7 @@ class GridModel(Model):
         self.execute_all_status_updates()
 
         if demo:
-            logging.log(self.config["constants"]["vis_lvl"], "\n")
+            logging.log(self.settings["constants"]["vis_lvl"], "\n")
             user_response = input("Press Enter to continue: ")
 
         if self.settings["simulation"]["run_ALEAF"]:
@@ -883,11 +882,11 @@ class GridModel(Model):
                                             self.current_pd)
 
             # Run A-LEAF
-            logging.log(self.config["constants"]["vis_lvl"], "Running A-LEAF...")
+            logging.log(self.settings["constants"]["vis_lvl"], "Running A-LEAF...")
             run_script_path = self.ALEAF_remote_path / "execute_ALEAF.jl"
             ALEAF_env_path = self.ALEAF_remote_path / "."
             ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
-            aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.config['ALEAF']['ALEAF_abs_path']}"
+            aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.settings['ALEAF']['ALEAF_abs_path']}"
 
             if self.args.quiet:
                 sp = subprocess.check_call(aleaf_cmd,
@@ -901,10 +900,10 @@ class GridModel(Model):
 
     def display_step_header(self):
         if self.current_pd != 0:
-            logging.log(self.config["constants"]["vis_lvl"], "\n\n\n")
-        logging.log(self.config["constants"]["vis_lvl"], "=" * 60)
-        logging.log(self.config["constants"]["vis_lvl"], f"   Simulation step: {self.current_pd}")
-        logging.log(self.config["constants"]["vis_lvl"], "=" * 60)
+            logging.log(self.settings["constants"]["vis_lvl"], "\n\n\n")
+        logging.log(self.settings["constants"]["vis_lvl"], "=" * 60)
+        logging.log(self.settings["constants"]["vis_lvl"], f"   Simulation step: {self.current_pd}")
+        logging.log(self.settings["constants"]["vis_lvl"], "=" * 60)
 
 
     def show_round_updates(self):
@@ -916,13 +915,13 @@ class GridModel(Model):
 
     def check_for_sysimage_files(self):
         ABCE_sysimage_path = (Path(
-            self.config["file_paths"]["ABCE_abs_path"]) /
-            self.config["file_paths"]["ABCE_sysimage_file"]
+            self.settings["file_paths"]["ABCE_abs_path"]) /
+            self.settings["file_paths"]["ABCE_sysimage_file"]
         )
 
         dispatch_sysimage_path = (Path(
-            self.config["file_paths"]["ABCE_abs_path"]) /
-            self.config["file_paths"]["dispatch_sysimage_file"]
+            self.settings["file_paths"]["ABCE_abs_path"]) /
+            self.settings["file_paths"]["dispatch_sysimage_file"]
         )
 
         has_ABCE_sysimage = True
@@ -1325,7 +1324,7 @@ class GridModel(Model):
 
             # If this period's authorized expenditures (ANPE) clear the RCEC,
             #   then the project is complete
-            if project_data.loc[0, "rcec"] <= self.config["constants"]["large_epsilon"]:
+            if project_data.loc[0, "rcec"] <= self.settings["constants"]["large_epsilon"]:
                 # Record the project's completion period as the current period
                 self.record_completed_xtr_project(project_data)
 

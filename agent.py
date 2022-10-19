@@ -81,13 +81,13 @@ class GenCo(Agent):
         Controller function to activate all agent behaviors at each time step.
         """
         logging.log(
-            self.model.config["constants"]["vis_lvl"],
+            self.model.settings["constants"]["vis_lvl"],
             f"Agent #{self.unique_id} is taking its turn..."
         )
 
         # Run the agent behavior choice algorithm
         agent_choice_path = (
-            Path(self.model.config["file_paths"]["ABCE_abs_path"]) /
+            Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
             "agent_choice.jl"
         )
 
@@ -95,12 +95,12 @@ class GenCo(Agent):
 
         if self.model.has_ABCE_sysimage:
             sysimage_path = (
-                Path(self.model.config["file_paths"]["ABCE_abs_path"]) /
-                     self.model.config["file_paths"]["ABCE_sysimage_file"])
+                Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
+                     self.model.settings["file_paths"]["ABCE_sysimage_file"])
             sysimage_cmd = f"-J {sysimage_path}"
 
         julia_cmd = (
-            f"julia --project={self.model.config['file_paths']['ABCE_abs_path']} " + 
+            f"julia --project={self.model.settings['file_paths']['ABCE_abs_path']} " + 
             f"{sysimage_cmd} {agent_choice_path} " +
             f"--current_pd={self.model.current_pd} " +
             f"--agent_id={self.unique_id} " +
@@ -111,7 +111,7 @@ class GenCo(Agent):
         sp = subprocess.check_call(julia_cmd, shell=True)
 
         logging.log(
-            self.model.config["constants"]["vis_lvl"],
+            self.model.settings["constants"]["vis_lvl"],
             f"Agent #{self.unique_id}'s turn is complete.\n"
         )
 

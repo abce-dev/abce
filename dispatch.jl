@@ -8,23 +8,23 @@ catch LoadError
     @info string("CPLEX is not available!")
 end
 
-function execute_dispatch_economic_projection(db, config, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
-    @info string("Running the dispatch simulation for ", config["dispatch"]["num_dispatch_years"], " years...")
+function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
+    @info string("Running the dispatch simulation for ", settings["dispatch"]["num_dispatch_years"], " years...")
 
     # Set up all timeseries data
     ts_data = load_ts_data(
-                  joinpath(config["file_paths"]["ABCE_abs_path"],
+                  joinpath(settings["file_paths"]["ABCE_abs_path"],
                            "inputs",
                            "ALEAF_inputs"
                   ),
-                  config["dispatch"]["num_repdays"]
+                  settings["dispatch"]["num_repdays"]
               )
 
     # Set up dataframes to record all results
     all_prices, all_gc_results = set_up_results_dfs()
 
     long_econ_results = handle_annual_dispatch(
-                            config,
+                            settings,
                             current_pd,
                             fc_pd,
                             all_year_system_portfolios,
@@ -66,9 +66,9 @@ function set_up_dispatch_portfolios(db, start_year, fc_pd, agent_id, unit_specs)
 end
 
 
-function handle_annual_dispatch(config, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
+function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
     # Run the annual dispatch for the user-specified number of dispatch years
-    for y = current_pd:current_pd + config["dispatch"]["num_dispatch_years"]
+    for y = current_pd:current_pd + settings["dispatch"]["num_dispatch_years"]
         # @info "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Select the current year's expected portfolio
@@ -85,7 +85,7 @@ function handle_annual_dispatch(config, current_pd, fc_pd, all_year_system_portf
         run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
         # @info "DISPATCH SIMULATION: YEAR $y COMPLETE."
-        if y < current_pd + config["dispatch"]["num_dispatch_years"]
+        if y < current_pd + settings["dispatch"]["num_dispatch_years"]
             # @info "RUN NEXT YEAR: $run_next_year"
         end
 

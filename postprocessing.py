@@ -27,11 +27,6 @@ def cli_args():
         help="Path to the simulation settings file name INSIDE the top-level ABCE directory.",
         default="settings.yml"
     )
-    parser.add_argument(
-        "--config_file",
-        help="Relative path to the config file inside the top-level ABCE directory.",
-        default="config.yml"
-    )
 
     args = parser.parse_args()
     return args
@@ -59,4 +54,4 @@ if __name__ == "__main__":
         "outputs",
         settings["simulation"]["ALEAF_scenario_name"])
 
-    af.process_outputs(settings, config, output_dir)
+    af.process_outputs(settings, output_dir)

@@ -58,9 +58,9 @@ def organize_ALEAF_portfolio(writer):
 def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_remote, db, settings, period=0):
     # Read in ALEAF simulation settings from ALEAF_Master_LC_GEP.xlsx-style file
     book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
-    sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
-    sim_config.columns = sim_config.iloc[0]
-    sim_config = sim_config.drop(sim_config.index[0]).reset_index().drop("index", axis=1)
+    sim_settings = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
+    sim_settings.columns = sim_settings.iloc[0]
+    sim_settings = sim_settings.drop(sim_settings.index[0]).reset_index().drop("index", axis=1)
 
     # Read in demand data from DB
     demand = pd.read_sql_query(f"SELECT demand FROM demand WHERE period = {period}", db)
@@ -68,15 +68,15 @@ def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_r
     # If this is the first step of the run, update top-level settings
     if period == 0:
         # Update ALEAF scenario name
-        sim_config.loc[0, "Scenario"] = settings["simulation"]["ALEAF_scenario_name"]
+        sim_settings.loc[0, "Scenario"] = settings["simulation"]["ALEAF_scenario_name"]
 
 
     # Update periodic data
     # Update peak demand (PD, MW)
-    sim_config.loc[sim_config["Scenario"] == settings["simulation"]["ALEAF_scenario_name"], "PD"] = demand.iloc[0, 0]
+    sim_settings.loc[sim_settings["Scenario"] == settings["simulation"]["ALEAF_scenario_name"], "PD"] = demand.iloc[0, 0]
 
     # Write the updated sheet to file
-    sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
+    sim_settings.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
 
     # Update key columns from unit_specs table
     gen_tech = pd.DataFrame(writer.sheets["Gen Technology"].values)
@@ -115,27 +115,27 @@ def update_ALEAF_policy_settings(ALEAF_model_settings_ref, ALEAF_model_settings_
 
     # Read in ALEAF simulation settings from ALEAF_Master_LC_GEP.xlsx-style file
     book, writer = prepare_xlsx_data(ALEAF_model_settings_ref, ALEAF_model_settings_remote)
-    sim_config = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
-    sim_config.columns = sim_config.iloc[0]
-    sim_config = sim_config.drop(sim_config.index[0]).reset_index().drop("index", axis=1)
+    sim_settings = pd.DataFrame(writer.sheets["Simulation Configuration"].values)
+    sim_settings.columns = sim_settings.iloc[0]
+    sim_settings = sim_settings.drop(sim_settings.index[0]).reset_index().drop("index", axis=1)
 
     # Zero out all policy columns
     for col in policy_cols:
-        sim_config[col] = 0
+        sim_settings[col] = 0
     for key, val in policies_dict.items():
         if (key in valid_CTAX_names) and (val["enabled"]):
-            sim_config["CTAX"] = val["qty"]
+            sim_settings["CTAX"] = val["qty"]
         elif (key in valid_PTC_names) and (val["enabled"]):
             for unit_type in val["eligible"]:
                 if unit_type in valid_wind_names:
-                    sim_config["PTC_W"] = val["qty"]
+                    sim_settings["PTC_W"] = val["qty"]
                 elif unit_type in valid_solar_names:
-                    sim_config["PTC_S"] = val["qty"]
+                    sim_settings["PTC_S"] = val["qty"]
                 elif unit_type in valid_nuclear_names:
-                    sim_config["PTC_Nuc"] = val["qty"]
+                    sim_settings["PTC_Nuc"] = val["qty"]
 
     # Write the updated sheet to file
-    sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
+    sim_settings.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
     writer.save()
 
 

@@ -49,7 +49,7 @@ def get_next_asset_id(db, suggested_next_id):
 def execute_scenario_reduction(
         db,
         current_pd,
-        config,
+        settings,
         unit_specs):
     # Get the number of wind and solar units to allow computation of net
     #   demand
@@ -72,20 +72,20 @@ def execute_scenario_reduction(
 
     # Set up directory locations
     init_data_dir = os.path.join(
-        config["file_paths"]["ABCE_abs_path"],
+        settings["file_paths"]["ABCE_abs_path"],
         "inputs",
         "ALEAF_inputs"
     )
 
     temp_data_dir = os.path.join(
-        config["file_paths"]["ABCE_abs_path"],
+        settings["file_paths"]["ABCE_abs_path"],
         "inputs",
         "ALEAF_inputs",
         "scenario_reduction_tmp"
     )
 
     output_dir = os.path.join(
-        config["file_paths"]["ABCE_abs_path"],
+        settings["file_paths"]["ABCE_abs_path"],
         "inputs",
         "ALEAF_inputs"
     )
@@ -97,7 +97,7 @@ def execute_scenario_reduction(
 
     sr.run_scenario_reduction(
         time_resolution="hourly",
-        num_scenarios_list=[config["dispatch"]["num_repdays"]],
+        num_scenarios_list=[settings["dispatch"]["num_repdays"]],
         generate_input_data_flag=True,
         data_location_timeseries=init_data_dir,
         data_input_path=temp_data_dir,
@@ -152,7 +152,7 @@ def update_DB_table_inplace(db, cur, table, new_data, where):
     cur.execute(update_cmd)
 
 
-def process_outputs(settings, config, output_dir, unit_specs):
+def process_outputs(settings, output_dir, unit_specs):
     """
     A handler function for postprocessing A-LEAF results stored from the
       individual time-steps of an ABCE simulation run.
