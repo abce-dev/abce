@@ -85,7 +85,8 @@ using .ABCEfunctions, .Dispatch, .C2N
 ###### Set up inputs
 @info "Initializing data..."
 
-settings = set_up_local_paths(settings, config)
+config = set_up_local_paths(settings, config)
+
 solver = lowercase(settings["simulation"]["solver"])
 @debug string("Solver is `$solver`")
 if solver == "cplex"
@@ -170,7 +171,7 @@ total_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_sy
 @debug total_demand[1:10, :]
 
 @info "Running dispatch simulation..."
-long_econ_results = Dispatch.execute_dispatch_economic_projection(db, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
+long_econ_results = Dispatch.execute_dispatch_economic_projection(db, config, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
 @info "Dispatch projections complete."
 
 @info "Setting up project alternatives..."

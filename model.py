@@ -50,7 +50,7 @@ class GridModel(Model):
         self.solver = settings["simulation"]["solver"].lower()
 
         # Get model/system parameters from the settings dictionary
-        self.policies = settings["policies"]
+        self.policies = settings["scenario"]["policies"]
 
         # If natural gas price or conventional nuclear FOM are set in
         #   settings.yml, retrieve those values
@@ -71,14 +71,14 @@ class GridModel(Model):
 
         # Initialize database for managing asset and WIP construction project
         # data
-        db_file = (Path.cwd() / settings["db_file"])
+        db_file = (Path.cwd() / config["file_paths"]["db_file"])
         self.db, self.cur = sc.create_database(db_file, self.args.force)
 
         # Load all-period demand data into the database
-        self.load_demand_data_to_db(self.settings, self.config)
+        self.load_demand_data_to_db()
 
         # Add model parameters to the database
-        self.load_model_parameters_to_db(self.settings, self.config)
+        self.load_model_parameters_to_db()
 
         # Create the local tmp/ directory inside the current working directory,
         #   if it doesn't already exist
@@ -86,7 +86,7 @@ class GridModel(Model):
         Path(tmp_dir_location).mkdir(exist_ok=True)
 
         # Set up all ALEAF file paths
-        self.set_ALEAF_file_paths(self.settings, self.config)
+        self.set_ALEAF_file_paths()
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
@@ -151,9 +151,11 @@ class GridModel(Model):
         self.db.commit()
 
         # Check ./outputs/ dir and clear out old files
-        self.ABCE_output_data_path = Path(os.getcwd()) /
-                                     "outputs" /
-                                     self.settings["simulation"]["ALEAF_scenario_name"]
+        self.ABCE_output_data_path = (
+            Path(os.getcwd()) /
+            "outputs" /
+            self.settings["simulation"]["ALEAF_scenario_name"]
+        )
         if not Path(self.ABCE_output_data_path).is_dir():
             # If the desired output directory doesn't already exist, create it
             Path(self.ABCE_output_data_path).mkdir(exist_ok=True, parents=True)
@@ -176,10 +178,11 @@ class GridModel(Model):
                                        self.config["ALEAF"]["ALEAF_region"]
                                       )
         # Set file paths of local reference copies of ALEAF input data
-        ALEAF_inputs_path = Path(
-            self.config["file_paths"]["ABCE_abs_path"]) /
+        ALEAF_inputs_path = (
+            Path(self.config["file_paths"]["ABCE_abs_path"]) /
             "inputs" /
             "ALEAF_inputs"
+        )
         self.ALEAF_master_settings_ref = (
             Path(ALEAF_inputs_path) /
             self.config["ALEAF"]["ALEAF_master_settings_file"]
@@ -197,7 +200,7 @@ class GridModel(Model):
         ALEAF_settings_path = self.ALEAF_remote_path / "setting"
         self.ALEAF_master_settings_remote = (
             Path(ALEAF_settings_path) /
-            config["ALEAF"]["ALEAF_master_settings_file"]
+            self.config["ALEAF"]["ALEAF_master_settings_file"]
         )
         self.ALEAF_model_settings_remote = (
             Path(ALEAF_settings_path) /
@@ -717,7 +720,7 @@ class GridModel(Model):
                     asset_dict["asset_id"] = max(
                         ABCE.get_next_asset_id(
                             self.db,
-                            self.settings["first_asset_id"]
+                            self.config["constants"]["first_asset_id"]
                         ),
                         max(
                             master_assets_df["asset_id"],
@@ -751,7 +754,7 @@ class GridModel(Model):
         unit_capacity = self.unit_specs[self.unit_specs.unit_type ==
                                         unit_type]["capacity"].values[0]
 
-        total_capex = unit_cost_per_kW * unit_capacity * self.MW2kW
+        total_capex = unit_cost_per_kW * unit_capacity * self.config["constants"]["MW2kW"]
 
         return total_capex
 
@@ -834,7 +837,7 @@ class GridModel(Model):
             self.db,
             self.current_pd,
             self.config,
-            self.unit_specs,
+            self.unit_specs
         )
 
         self.db.commit()

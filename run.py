@@ -178,12 +178,8 @@ def run_model():
 
     check_julia_environment(config["file_paths"]["ABCE_abs_path"])
 
-    logging.log(49, "Setting up GridModel")
-
     # Run the simulation
     abce_model = GridModel(settings, config, args)
-
-    logging.log(49, "GridModel set up")
 
     for i in range(settings["simulation"]["num_steps"]):
         abce_model.step(demo=args.demo)
@@ -198,7 +194,7 @@ def run_model():
                 f"SELECT * FROM {table}", abce_model.db)
             final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
 
-    if abce_model.settings["run_ALEAF"]:
+    if abce_model.settings["simulation"]["run_ALEAF"]:
         # Postprocess A-LEAF results
         ABCEfunctions.process_outputs(
             config,

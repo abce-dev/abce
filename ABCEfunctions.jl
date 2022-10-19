@@ -362,7 +362,7 @@ end
 
 
 function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, current_pd, long_econ_results, C2N_specs)
-    PA_uids = create_PA_unique_ids(unit_specs, asset_counts, num_lags)
+    PA_uids = create_PA_unique_ids(settings, unit_specs, asset_counts, num_lags)
 
     PA_fs_dict = create_PA_pro_formas(PA_uids, fc_pd)
 
@@ -372,7 +372,7 @@ function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lag
 
 end
 
-function create_PA_unique_ids(unit_specs, asset_counts, num_lags)
+function create_PA_unique_ids(settings, unit_specs, asset_counts, num_lags)
     PA_uids = DataFrame(
                    unit_type = String[],
                    project_type = String[],
@@ -827,7 +827,6 @@ function compute_historical_unit_type_results(unit_specs, price_data, db, curren
     end
 
     return unit_hist_results
->>>>>>> changing all references to settings[...] to references to settings or config, plus the new hierarchy
 
 end
 

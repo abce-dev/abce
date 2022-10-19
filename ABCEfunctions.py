@@ -50,8 +50,7 @@ def execute_scenario_reduction(
         db,
         current_pd,
         config,
-        unit_specs,
-        num_repdays):
+        unit_specs):
     # Get the number of wind and solar units to allow computation of net
     #   demand
     current_portfolio = pd.read_sql_query(
@@ -98,7 +97,7 @@ def execute_scenario_reduction(
 
     sr.run_scenario_reduction(
         time_resolution="hourly",
-        num_scenarios_list=[num_repdays],
+        num_scenarios_list=[config["dispatch"]["num_repdays"]],
         generate_input_data_flag=True,
         data_location_timeseries=init_data_dir,
         data_input_path=temp_data_dir,
