@@ -68,12 +68,12 @@ def update_ALEAF_model_settings(ALEAF_model_settings_ref, ALEAF_model_settings_r
     # If this is the first step of the run, update top-level settings
     if period == 0:
         # Update ALEAF scenario name
-        sim_config.loc[0, "Scenario"] = settings["ALEAF_scenario_name"]
+        sim_config.loc[0, "Scenario"] = settings["simulation"]["ALEAF_scenario_name"]
 
 
     # Update periodic data
     # Update peak demand (PD, MW)
-    sim_config.loc[sim_config["Scenario"] == settings["ALEAF_scenario_name"], "PD"] = demand.iloc[0, 0]
+    sim_config.loc[sim_config["Scenario"] == settings["simulation"]["ALEAF_scenario_name"], "PD"] = demand.iloc[0, 0]
 
     # Write the updated sheet to file
     sim_config.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)

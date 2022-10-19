@@ -66,19 +66,19 @@ function get_agent_params(db, agent_id)
 end
 
 
-function set_up_local_paths(settings)
-    settings["ABCE_abs_path"] = @__DIR__
-    if settings["run_ALEAF"] == true
+function set_up_local_paths(settings, config)
+    config["file_paths"]["ABCE_abs_path"] = @__DIR__
+    if settings["simulation"]["run_ALEAF"] == true
         try
-            settings["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
+            config["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
         catch LoadError
             println("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
         end
     else
-        settings["ALEAF_abs_path"] = "NULL_PATH"
+        config["file_paths"]["ALEAF_abs_path"] = "NULL_PATH"
     end
 
-    return settings
+    return config
 
 end
 
@@ -156,15 +156,15 @@ function get_current_assets_list(db, pd, agent_id)
 end
 
 
-function extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
-    mode = settings["demand_projection_mode"]
+function extrapolate_demand(visible_demand, db, pd, fc_pd, config)
+    mode = config["demand"]["demand_projection_mode"]
     if mode == "flat"
         demand = project_demand_flat(visible_demand, fc_pd)
     elseif mode == "exp_termrate"
-        term_demand_gr = settings["terminal_demand_growth_rate"]
+        term_demand_gr = config["demand"]["terminal_demand_growth_rate"]
         demand = project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
     elseif mode == "exp_fitted"
-        demand = project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
+        demand = project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings, config)
     else
         @error string("The specified demand extrapolation mode, ", mode, ", is not implemented.")
         @error "Please use 'flat', 'exp_termrate', or 'exp_fitted' at this time."
@@ -196,10 +196,10 @@ function project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
 end
 
 
-function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
+function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, config)
     # Retrieve historical data, if available
-    demand_projection_window = settings["demand_projection_window"]
-    demand_history_start = max(0, pd - settings["demand_visibility_horizon"])
+    demand_projection_window = config["demand"]["demand_projection_window"]
+    demand_history_start = max(0, pd - config["demand"]["demand_visibility_horizon"])
     start_and_end = (demand_history_start, pd)
     demand_history = DBInterface.execute(db, "SELECT demand FROM demand WHERE period >= ? AND period < ? ORDER BY period ASC", start_and_end) |> DataFrame
 
@@ -224,7 +224,7 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     # If there isn't enough demand history to fulfill the desired projection
     #   window, take a weighted average of the computed beta with the known
     #   historical beta
-    beta[2] = (beta[2] * size(y)[1] + settings["historical_demand_growth_rate"] * (demand_projection_window - size(y)[1])) / demand_projection_window
+    beta[2] = (beta[2] * size(y)[1] + config["demand"]["historical_demand_growth_rate"] * (demand_projection_window - size(y)[1])) / demand_projection_window
 
     # Project future demand
     proj_horiz = fc_pd - size(visible_demand)[1]
@@ -240,18 +240,17 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
 end
 
 
-function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
+function get_demand_forecast(db, pd, agent_id, fc_pd, config)
     # Retrieve 
-    demand_vis_horizon = settings["demand_visibility_horizon"]
-    vals = (pd, pd + demand_vis_horizon)
+    vals = (pd, pd + config["demand"]["demand_visibility_horizon"])
     visible_demand = DBInterface.execute(db, "SELECT period, demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
 
     rename!(visible_demand, :demand => :real_demand)
 
-    demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
+    demand_forecast = extrapolate_demand(visible_demand, db, pd, fc_pd, config)
     prm = DBInterface.execute(db, "SELECT * FROM model_params WHERE parameter = 'PRM'") |> DataFrame
 
-    transform!(demand_forecast, :real_demand => ((dem) -> dem .* (1 + prm[1, :value]) .+ settings["peak_initial_reserves"]) => :total_demand)
+    transform!(demand_forecast, :real_demand => ((dem) -> dem .* (1 + prm[1, :value]) .+ config["system"]["peak_initial_reserves"]) => :total_demand)
 
     return demand_forecast
 end
@@ -362,8 +361,8 @@ end
 #####
 
 
-function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, current_pd, long_econ_results, allowed_xtr_types, C2N_specs)
-    PA_uids = create_PA_unique_ids(unit_specs, asset_counts, num_lags, allowed_xtr_types)
+function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, current_pd, long_econ_results, C2N_specs)
+    PA_uids = create_PA_unique_ids(unit_specs, asset_counts, num_lags)
 
     PA_fs_dict = create_PA_pro_formas(PA_uids, fc_pd)
 
@@ -373,7 +372,7 @@ function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lag
 
 end
 
-function create_PA_unique_ids(unit_specs, asset_counts, num_lags, allowed_xtr_types)
+function create_PA_unique_ids(unit_specs, asset_counts, num_lags)
     PA_uids = DataFrame(
                    unit_type = String[],
                    project_type = String[],
@@ -396,7 +395,7 @@ function create_PA_unique_ids(unit_specs, asset_counts, num_lags, allowed_xtr_ty
     for unit_type in unit_specs[!, :unit_type]
         # Assume alternative is alterable unless set up otherwise
         allowed=true
-        if !(unit_type in allowed_xtr_types)
+        if !(unit_type in settings["scenario"]["allowed_xtr_types"])
             allowed=false
         end
 
@@ -466,7 +465,6 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
 
         # Forecast unit revenue ($/period) and generation (kWh/period)
         forecast_unit_revenue_and_gen(
-            settings,
             unit_type_data,
             PA_fs_dict[uid],
             db,
@@ -602,7 +600,7 @@ end
 
 
 function project_C2N_capex(db, settings, unit_type_data, lag, fc_pd, current_pd, C2N_specs)
-    assumption = settings["C2N_assumption"]
+    assumption = settings["simulation"]["C2N_assumption"]
     # Set the project parameters
     if occursin("C2N0", unit_type_data[:unit_type])
         conversion_type = "greenfield"
@@ -709,7 +707,7 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
+function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # If the unit is VRE, assign an appropriate availability derate factor
@@ -726,7 +724,110 @@ function forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, db, cu
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
+
+end
+
+
+"""
+    compute_submarginal_hours_revenue(unit_type_data, price_curve)
+
+Compute revenue accrued to the unit during hours when it is a submarginal
+bidder into the wholesale market, assuming the unit is a pure price taker.
+"""
+function compute_submarginal_hours_revenue(unit_type_data, price_curve)
+    # Get a list of all hours and their prices during which the unit would 
+    #   be sub-marginal, from the price-duration curve
+    # Marginal cost unit conversion:
+    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
+    submarginal_hours = filter(row -> row.lamda > unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] - unit_type_data[:policy_adj_per_MWh], price_curve)
+
+    # Create a conversion factor from number of periods in the price curve
+    #   to hours (price curve may be in hours or five-minute periods)
+    convert_to_hours = hours_per_year / size(price_curve)[1]
+
+    # Compute total number of submarginal hours
+    num_submarg_hours = size(submarginal_hours)[1] * convert_to_hours
+
+    # Calculate total revenue from submarginal hours, adjusting for net penalty
+    #   or subsidy due to the effect of policies
+    submarginal_hours_revenue = sum((submarginal_hours[!, :lamda] .+ unit_type_data[:policy_adj_per_MWh]) * unit_type_data[:capacity]) * convert_to_hours
+
+    return num_submarg_hours, submarginal_hours_revenue
+end
+
+
+"""
+    compute_marginal_hours_revenue(unit_type_data, price_curve, db)
+
+Compute revenue accrued to the unit during hours when it is the marginal
+bidder into the wholesale market, assuming the unit is a pure price taker.
+The unit "takes credit" for a percentage of the marginal-hour revenue
+corresponding to the percentage of unit-type capacity it comprises.
+For example, a 200-MW NGCC unit in a system with 1000 MW of total NGCC capacity
+receives 200/1000 = 20% of the revenues during hours when NGCC is marginal.
+"""
+function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
+    # Get a list of all hours and their prices during which the unit would 
+    #   be marginal, from the price-duration curve
+    # Marginal cost unit convertion:
+    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
+    marginal_hours = filter(row -> row.lamda == unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] - unit_type_data[:policy_adj_per_MWh], price_curve)
+
+    # Compute the total capacity of this unit type in the current system
+    command = string("SELECT asset_id FROM assets WHERE unit_type == '", unit_type_data[:unit_type], "' AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd)
+    system_type_list = DBInterface.execute(db, command) |> DataFrame
+    system_type_capacity = size(system_type_list)[1]
+
+    # Create a conversion factor from number of periods in the price curve
+    #   to hours (price curve may be in hours or five-minute periods)
+    convert_to_hours = hours_per_year / size(price_curve)[1]
+
+    # Compute effective number of marginal hours
+    if system_type_capacity == 0
+        num_marg_hours = 0
+    else
+        num_marg_hours = size(marginal_hours)[1] / system_type_capacity * convert_to_hours
+    end
+
+    if size(marginal_hours)[1] == 0
+        marginal_hours_revenue = 0
+    else
+        marginal_hours_revenue = sum((marginal_hours[!, :lamda]) .+ unit_type_data[:policy_adj_per_MWh]) * unit_type_data[:capacity] / system_type_capacity * convert_to_hours
+    end
+
+    return num_marg_hours, marginal_hours_revenue
+end
+
+
+function compute_historical_unit_type_results(unit_specs, price_data, db, current_pd)
+    # Create dataframe to store results
+    unit_hist_results = DataFrame(
+                            unit_type = String[],
+                            total_gen = Float64[],
+                            total_rev = Float64[]
+                        )
+
+    for unit_type in unit_specs[!, :unit_type]
+        # Filter unit type data for convenience
+        unit_type_data = filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
+
+        # Get the unit type's number of hours generated and revenue while
+        #   submarginal
+        unit_submarg_hours, unit_submarg_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_data)
+
+        # Get the unit type's number of hours generated and revenue while
+        #   marginal
+        unit_marg_hours, unit_marg_hours_revenue = compute_marginal_hours_revenue(unit_type_data, price_data, db, current_pd)
+
+        unit_total_rev = unit_submarg_hours_revenue + unit_marg_hours_revenue
+        unit_total_gen = (unit_submarg_hours + unit_marg_hours) * unit_type_data[:capacity]
+
+        push!(unit_hist_results, [unit_type unit_total_gen unit_total_rev])
+    end
+
+    return unit_hist_results
+>>>>>>> changing all references to settings[...] to references to settings or config, plus the new hierarchy
 
 end
 
@@ -756,7 +857,7 @@ end
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd=9999)
+function compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd=9999)
     check_valid_vector_mode(mode)
 
     # Helpful short variables
@@ -1076,10 +1177,11 @@ objective function.
 Returns:
   m (JuMP model object)
 """
-function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
+function set_up_model(settings, config, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
     # @info "Setting up model..."
 
+    solver = lowercase(settings["simulation"]["solver"])
     if solver == "cplex"
         # using CPLEX
         m = Model(CPLEX.Optimizer)
@@ -1210,12 +1312,12 @@ function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset
     #   projects by type per period, and the :allowed field in PA_uids
     for i = 1:num_alternatives
         if PA_uids[i, :project_type] == "new_xtr"
-            @constraint(m, u[i] .<= convert(Int64, PA_uids[i, :allowed]) .* settings["max_type_newbuilds_per_pd"])
+            @constraint(m, u[i] .<= convert(Int64, PA_uids[i, :allowed]) .* config["agent_opt"]["max_type_newbuilds_per_pd"])
         elseif PA_uids[i, :project_type] == "retirement"
             unit_type = PA_uids[i, :unit_type]
             ret_pd = PA_uids[i, :ret_pd]
             asset_count = filter([:unit_type, :retirement_pd] => (x, y) -> x == unit_type && y == ret_pd, asset_counts)[1, :count]
-            max_retirement = convert(Int64, PA_uids[i, :allowed]) .* min(asset_count, settings["max_type_rets_per_pd"])
+            max_retirement = convert(Int64, PA_uids[i, :allowed]) .* min(asset_count, config["agent_opt"]["max_type_rets_per_pd"])
 #            @constraint(m, u[i] .<= max_retirement)
         end
     end
@@ -1231,7 +1333,7 @@ function set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset
     # Shortened name for the number of lag periods to consider
     #   1 is added, as the user-set value only specifies future periods,
     #   with the "lag = 0" instance being implied
-    num_lags = settings["num_future_periods_considered"] + 1
+    num_lags = config["agent_opt"]["num_future_periods_considered"] + 1
     # Create the matrix to collapse lagged options
     # This matrix has one long row for each retiring-asset category,
     #   with 1's in each element where the corresponding element of u[] is
@@ -1452,7 +1554,7 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
 end
 
 
-function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios, settings)
+function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios)
     # Retrieve horizontally-abbreviated dataframes
     short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_perunit, :annualized_VOM_perunit, :annualized_FC_perunit, :annualized_policy_adj_perunit])
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])

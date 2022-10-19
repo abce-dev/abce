@@ -29,23 +29,27 @@ import ABCEfunctions
 from pathlib import Path
 
 
-def read_settings(settings_file):
+def read_settings(settings_file, config_file):
     """
     Read in settings from the settings file.
     """
     with open(settings_file, "r") as setfile:
         settings = yaml.load(setfile, Loader=yaml.FullLoader)
-    return settings
+
+    with open(config_file, "r") as confile:
+        config = yaml.load(confile, Loader=yaml.FullLoader)
+
+    return settings, config
 
 
-def set_up_local_paths(args, settings):
+def set_up_local_paths(args, config, run_ALEAF):
     # Set the path for ABCE files to the directory where run.py is saved
     # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
-    settings["ABCE_abs_path"] = Path(__file__).parent
-    if settings["run_ALEAF"]:
+    config["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
+    if run_ALEAF:
     # Try to locate an environment variable to specify where A-LEAF is located
         try:
-            settings["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
+            config["ALEAF"]["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
         except KeyError:
             msg = ("The environment variable ALEAF_abs_path does not appear " +
                    "to be set. Please make sure it points to the correct " +
@@ -53,9 +57,9 @@ def set_up_local_paths(args, settings):
             logging.error(msg)
             raise
     else:
-        settings["ALEAF_abs_path"] = Path("NULL_PATH")
+        config["ALEAF"]["ALEAF_abs_path"] = Path("NULL_PATH")
 
-    return settings
+    return config
 
 
 def cli_args():
@@ -80,6 +84,12 @@ def cli_args():
         type=str,
         help="Simulation settings file name.",
         default=Path(Path.cwd()) / "settings.yml"
+    )
+    parser.add_argument(
+        "--config_file",
+        type=str,
+        help="File name for the lower-level simulation settings file.",
+        default=Path(Path.cwd()) / "config.yml"
     )
     parser.add_argument(
         "--verbosity",
@@ -156,21 +166,32 @@ def run_model():
     """
     args = cli_args()
 
-    settings = read_settings(args.settings_file)
+    settings, config = read_settings(args.settings_file, args.config_file)
 
-    initialize_logging(args, settings["vis_lvl"])
+    initialize_logging(args, config["constants"]["vis_lvl"])
 
-    settings = set_up_local_paths(args, settings)
+    config = set_up_local_paths(
+                 args,
+                 config,
+                 settings["simulation"]["run_ALEAF"]
+             )
 
-    check_julia_environment(settings["ABCE_abs_path"])
+    check_julia_environment(config["file_paths"]["ABCE_abs_path"])
 
-    abce_model = GridModel(args.settings_file, settings, args)
-    for i in range(settings["num_steps"]):
+    logging.log(49, "Setting up GridModel")
+
+    # Run the simulation
+    abce_model = GridModel(settings, config, args)
+
+    logging.log(49, "GridModel set up")
+
+    for i in range(settings["simulation"]["num_steps"]):
         abce_model.step(demo=args.demo)
 
+    # Write the raw database to xlsx
     db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE " +
                                   "type='table';", abce_model.db)
-    with pd.ExcelWriter(settings["output_file"]) as writer:
+    with pd.ExcelWriter(config["file_paths"]["output_file"]) as writer:
         for i in range(len(db_tables)):
             table = db_tables.loc[i, "name"]
             final_db = pd.read_sql_query(
@@ -180,7 +201,7 @@ def run_model():
     if abce_model.settings["run_ALEAF"]:
         # Postprocess A-LEAF results
         ABCEfunctions.process_outputs(
-            settings,
+            config,
             abce_model.ABCE_output_data_path,
             abce_model.unit_specs)
 
