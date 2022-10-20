@@ -39,11 +39,11 @@ def read_settings(settings_file):
     return settings
 
 
-def set_up_local_paths(args, settings, run_ALEAF):
+def set_up_local_paths(args, settings):
     # Set the path for ABCE files to the directory where run.py is saved
     # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
     settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
-    if run_ALEAF:
+    if settings["simulation"]["run_ALEAF"]:
     # Try to locate an environment variable to specify where A-LEAF is located
         try:
             settings["ALEAF"]["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
@@ -163,8 +163,7 @@ def run_model():
 
     settings = set_up_local_paths(
                  args,
-                 settings,
-                 settings["simulation"]["run_ALEAF"]
+                 settings
              )
 
     check_julia_environment(settings["file_paths"]["ABCE_abs_path"])
