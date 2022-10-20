@@ -39,7 +39,7 @@ def read_settings(settings_file):
     return settings
 
 
-def set_up_local_paths(args, settings):
+def set_up_local_paths(settings):
     # Set the path for ABCE files to the directory where run.py is saved
     # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
     settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
@@ -161,10 +161,7 @@ def run_model():
 
     initialize_logging(args, settings["constants"]["vis_lvl"])
 
-    settings = set_up_local_paths(
-                 args,
-                 settings
-             )
+    settings = set_up_local_paths(settings)
 
     check_julia_environment(settings["file_paths"]["ABCE_abs_path"])
 
