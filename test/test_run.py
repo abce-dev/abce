@@ -5,7 +5,7 @@ sys.path.append("../")
 from run import *
 
 # Files and parameters
-settings_file_path = "./testing_settings.yml"
+settings_file_path = "./settings_test.yml"
 all_keys = ["simulation", "scenario", "constants", "file_paths", "system", "demand", "dispatch", "agent_opt", "ALEAF"]
 
 
@@ -29,4 +29,7 @@ def test_read_settings_peak_demand():
 settings = set_up_local_paths(settings)
 
 def test_set_up_local_paths():
-    assert settings["ABCE_abs_path"] == Path(__file__).parent
+    # First convert the ABCE_abs_path saved in settings["file_paths"] into an
+    #   absolute Posix path
+    # Then compare it to the directory one level up from this script
+    assert Path(settings["file_paths"]["ABCE_abs_path"]).resolve() == Path(__file__).parent.parent
