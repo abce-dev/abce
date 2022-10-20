@@ -1,4 +1,8 @@
 import pytest
+import sys
+
+sys.path.append("../")
+
 import seed_creator
 
 abce_db_path = "this/is/a/test/abce_db.db"
