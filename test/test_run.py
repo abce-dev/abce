@@ -23,3 +23,10 @@ def test_read_settings_scenario_name():
 
 def test_read_settings_peak_demand():
     assert settings["scenario"]["peak_demand"] == 29000
+
+
+# Test the set_up_local_paths() function
+settings = set_up_local_paths(settings)
+
+def test_set_up_local_paths():
+    assert settings["ABCE_abs_path"] == Path(__file__).parent
