@@ -131,11 +131,6 @@ abce_tables = {"WIP_projects":
                 ("demand", "real")
                 ],
 
-               "price_curve":
-               [("base_pd", "integer"),
-                ("lamda", "real")
-                ],
-
                "model_params":
                [("parameter", "text"),
                 ("value", "real")
