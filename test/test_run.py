@@ -1,3 +1,4 @@
+import pytest
 import sys
 
 sys.path.append("../")
@@ -8,28 +9,46 @@ from run import *
 settings_file_path = "./settings_test.yml"
 all_keys = ["simulation", "scenario", "constants", "file_paths", "system", "demand", "dispatch", "agent_opt", "ALEAF"]
 
+# Create a settings fixture
+@pytest.fixture
+def settings():
+    return read_settings(settings_file_path)
+
 
 # Test the read_settings() function
-settings = read_settings(settings_file_path)
+#settings = read_settings(settings_file_path)
 
-def test_read_settings_has_all_keys():
+def test_read_settings_has_all_keys(settings):
     assert all(key in all_keys for key in settings.keys())
 
-def test_read_settings_no_loose_keys():
+def test_read_settings_no_loose_keys(settings):
     assert all(key in settings.keys() for key in all_keys)
 
-def test_read_settings_scenario_name():
+def test_read_settings_scenario_name(settings):
     assert settings["simulation"]["ALEAF_scenario_name"] == "test_scenario"
 
-def test_read_settings_peak_demand():
+def test_read_settings_peak_demand(settings):
     assert settings["scenario"]["peak_demand"] == 29000
 
 
 # Test the set_up_local_paths() function
-settings = set_up_local_paths(settings)
+@pytest.fixture
+def fsettings(settings):
+    return set_up_local_paths(settings)
 
-def test_set_up_local_paths():
+def test_set_up_local_paths_ABCE_abs_path(fsettings):
     # First convert the ABCE_abs_path saved in settings["file_paths"] into an
     #   absolute Posix path
     # Then compare it to the directory one level up from this script
-    assert Path(settings["file_paths"]["ABCE_abs_path"]).resolve() == Path(__file__).parent.parent
+    assert Path(fsettings["file_paths"]["ABCE_abs_path"]).resolve() == Path(__file__).parent.parent
+
+orig_run_ALEAF_value = settings["simulation"]["run_ALEAF"]
+
+def test_set_up_local_paths_ALEAF_abs_path_run_true():
+    # Set run_ALEAF value to True for testing
+    settings["simulation"]["run_ALEAF"] = True
+    settings = set_up_local_paths(settings)
+
+    assert settings["ALEAF"]["ALEAF_abs_path"] == Path(os.environ["ALEAF_DIR"])
+
+    settings["simulation"]["run_ALEAF"] = orig_run_ALEAF_value
