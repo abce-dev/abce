@@ -681,27 +681,11 @@ function postprocess_long_results(g_pivot, settings, system_portfolios, unit_spe
     short_unit_specs = select(unit_specs, [:unit_type, :capacity, :VOM, :FC_per_MWh, :policy_adj_per_MWh])
     long_rev_results = innerjoin(long_rev_results, short_unit_specs, on = :unit_type)
 
-    # Create dataframe of subsidy values
-    subs = DataFrame(
-               unit_type = String[],
-               subs_val = Float64[]
-                    )
-    for unit_type in unique(all_year_portfolios[!, :unit_type])
-        subs_val = 1  # multiplier
-        if (occursin("C2N", unit_type)) || (unit_type == "AdvancedNuclear")
-            subs_val = settings["C2N_subsidy"]
-        end
-        push!(subs, [unit_type subs_val])
-    end
-
     # Append unit number data to long_rev_results
     long_rev_results = innerjoin(long_rev_results, all_year_portfolios, on = [:y, :unit_type])
 
-    # Append subsidy data to long_rev_results
-    long_rev_results = innerjoin(long_rev_results, subs, on = :unit_type)
-
     # Calculate revenues
-    transform!(long_rev_results, [:gen, :price, :subs_val, :Probability, :num_units] => ((gen, price, subs, prob, num_units) -> gen .* price .* subs .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
+    transform!(long_rev_results, [:gen, :price, :Probability, :num_units] => ((gen, price, subs, prob, num_units) -> gen .* price .* subs .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
 
     # Calculate VOM
     transform!(long_rev_results, [:gen, :VOM, :Probability, :num_units] => ((gen, VOM, prob, num_units) -> gen .* VOM .* prob .* 365 ./ num_units) => :annualized_VOM_perunit)
