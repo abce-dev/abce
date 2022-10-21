@@ -685,7 +685,7 @@ function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd,
     long_rev_results = innerjoin(long_rev_results, all_year_portfolios, on = [:y, :unit_type])
 
     # Calculate revenues
-    transform!(long_rev_results, [:gen, :price, :Probability, :num_units] => ((gen, price, subs, prob, num_units) -> gen .* price .* subs .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
+    transform!(long_rev_results, [:gen, :price, :Probability, :num_units] => ((gen, price, prob, num_units) -> gen .* price .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
 
     # Calculate VOM
     transform!(long_rev_results, [:gen, :VOM, :Probability, :num_units] => ((gen, VOM, prob, num_units) -> gen .* VOM .* prob .* 365 ./ num_units) => :annualized_VOM_perunit)
