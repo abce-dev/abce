@@ -105,7 +105,8 @@ class GenCo(Agent):
             f"{sysimage_cmd} {agent_choice_path} " +
             f"--current_pd={self.current_pd} " +
             f"--agent_id={self.unique_id} " +
-            f"--verbosity={self.args.verbosity}"
+            f"--verbosity={self.model.args.verbosity}"
+            f"--settings_file={self.model.args.settings_file}"
         )
 
         sp = subprocess.check_call(julia_cmd, shell=True)
