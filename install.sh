@@ -11,8 +11,6 @@ do
     esac
 done
 
-echo $aleaf_dir
-
 # Set up environment variables
 # Set ABCE_DIR to the location of this script
 ABCE_DIR=$( dirname -- $( readlink -f -- "$0"; ) )
