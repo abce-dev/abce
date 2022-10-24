@@ -9,7 +9,8 @@ set -o errexit
 
 # Constants
 RC_FILE="$HOME/.bashrc"
-CONDA_ENV_FILE="./environment.yml"
+CONDA_ENV_FILE="environment.yml"
+REQ_FILE="requirements.txt"
 
 # Check for command-line arguments
 while getopts a: flag
@@ -56,6 +57,7 @@ declare -A env_vars
 env_vars=( ["ABCE_DIR"]="$ABCE_DIR" ["ALEAF_DIR"]="$ALEAF_DIR" )
 
 # Update or append values for each environment variable in the rc file
+echo "Updating environment variables in the \$HOME/.bashrc file"
 for var_name in "${!env_vars[@]}";
 do
     if grep -q "${var_name}" "${RC_FILE}"; then
@@ -77,6 +79,7 @@ done
 # If conda is installed and available for environment management, use it
 if [[ ! -z $( conda --version | grep -Eo "conda.*[0-9][0-9]\.[0-9]\.[0-9]" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
     echo "conda environment detected; using conda to manage python packages"
+    CONDA_ENV_FILE="$ABCE_DIR/$CONDA_ENV_FILE"
     # If a conda environment called abce_env doesn't already exist, create it
     if [[ -z $( conda info --envs | grep "abce_env" ) ]]; then
         echo "No conda environment named abce_env found; creating new environment"
@@ -93,8 +96,8 @@ if [[ ! -z $( conda --version | grep -Eo "conda.*[0-9][0-9]\.[0-9]\.[0-9]" ) && 
 else
     echo "Using pip to manage python packages"
     python3 -m pip install --upgrade pip
-    if [[ -f "./requirements.txt" ]]; then
-        pip install -r "./requirements.txt";
+    if [[ -f "$ABCE_DIR/$REQ_FILE" ]]; then
+        pip install -r "$ABCE_DIR/$REQ_FILE";
     fi
 fi
 
