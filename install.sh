@@ -9,6 +9,7 @@ set -o errexit
 
 # Constants
 RC_FILE="$HOME/.bashrc"
+CONDA_ENV_FILE="./environment.yml"
 
 # Check for command-line arguments
 while getopts a: flag
@@ -66,6 +67,36 @@ do
         echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}"
     fi
 done
+
+#################################################################
+# Set up the Python environment
+#################################################################
+
+# Determine whether the script is running in a conda environment
+# If conda is installed and available for environment management, use it
+if [[ ! -z $( conda --version | grep -Eo "conda.*[0-9][0-9]\.[0-9]\.[0-9]" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
+    echo "conda environment detected; using conda to manage python packages"
+    # If a conda environment called abce_env doesn't already exist, create it
+    if [[ -z $( conda info --envs | grep "abce_env" ) ]]; then
+        echo "No conda environment named abce_env found; creating new environment"
+        conda env create -f "${CONDA_ENV_FILE}"
+    # If this environment already exists, update it
+    else
+        echo "Found preexisting conda environment named abce_env; updating it"
+        conda env update --prefix ./env --file "${CONDA_ENV_FILE}" --prune
+    fi
+    conda init bash
+    conda activate abce_env
+# If conda is not available for environment management, use pip to install
+#   packages directly
+else
+    echo "using pip to manage python packages"
+    python3 -m pip install --upgrade pip
+    if [[ -f "./requirements.txt" ]]; then
+        pip install -r "./requirements.txt";
+    fi
+fi
+
 
 #################################################################
 # Set up the Julia environment
