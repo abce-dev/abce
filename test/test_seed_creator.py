@@ -1,6 +1,7 @@
 import pytest
 import sys
 
+sys.path.append(".")
 sys.path.append("../")
 
 import seed_creator
