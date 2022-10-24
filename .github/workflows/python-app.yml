@@ -5,7 +5,7 @@ name: Python application
 
 on:
   push:
-    branches: [ "main", "dev", "github_actions"]
+    branches: [ "main", "dev", "github_actions", "install"]
   pull_request:
     branches: [ "main", "dev"]
 
@@ -24,11 +24,14 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: "3.10"
-    - name: Install Python dependencies
+    - name: Set up Julia 1.7
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: 1.7
+        arch: x86
+    - name: Install and configure ABCE
       run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        bash -i install.sh -a 
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -38,12 +41,3 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-
-    - name: Set up Julia 1.8
-      uses: julia-actions/setup-julia@v1
-      with:
-        version: 1.8
-        arch: x86
-    - name: Install Julia dependencies
-      run: |
-        julia make_julia_environment.jl
