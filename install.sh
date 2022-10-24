@@ -14,9 +14,13 @@ do
     esac
 done
 
+#################################################################
 # Set up environment variables
+#################################################################
+
 # Set ABCE_DIR to the location of this script
 ABCE_DIR=$( dirname -- $( readlink -f -- "$0"; ) )
+
 echo "Setting environment variable ABCE_DIR=${ABCE_DIR}"
 export ABCE_DIR="${ABCE_DIR}"
 
@@ -33,10 +37,11 @@ fi
 echo "Setting environment variable ALEAF_DIR=$aleaf_dir"
 export ALEAF_DIR=$aleaf_dir
 
-# If the bashrc file doesn't already exist: create it
+# Update the .bashrc file
+# If the .bashrc file doesn't already exist: create it
 echo "${RC_FILE}"
 if [[ ! -f "${RC_FILE}" ]]; then
-    echo "No .bashrc file found; creating a new one at ${RC_FILE}"
+    echo "No .bashrc file found; creating a new one at ${RC_FILE}";
     touch "${RC_FILE}";
 fi
 
@@ -58,13 +63,21 @@ do
     fi
 done
 
+###############################################################
 # Set up the Julia environment
+###############################################################
+
 echo "Setting up the local Julia environment..."
 julia make_julia_environment.jl --clean
 
 echo "Julia environment set up."
 
+###############################################################
 # Cleanup
+###############################################################
+
+# Prevent current value of $aleaf_dir from contaminating future runs of this
+#   script in the same terminal session
 unset aleaf_dir
 
 echo "All setup completed successfully."
