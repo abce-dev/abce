@@ -31,7 +31,8 @@ export ABCE_DIR="${ABCE_DIR}"
 
 # Set up ALEAF_DIR
 # If specified by a command-line argument, don't prompt the user for the
-#   ALEAF_DIR location
+#   ALEAF_DIR location. The empty string "" is a valid command-line value
+#   for this directory.
 if [[ ! -n ${aleaf_dir+x} ]]; then
     # If not specified in the command line, request a value from the user
     echo "Please enter the absolute path to the top level of the ALEAF source directory."
@@ -90,13 +91,14 @@ if [[ ! -z $( conda --version | grep -Eo "conda.*[0-9][0-9]\.[0-9]\.[0-9]" ) && 
 # If conda is not available for environment management, use pip to install
 #   packages directly
 else
-    echo "using pip to manage python packages"
+    echo "Using pip to manage python packages"
     python3 -m pip install --upgrade pip
     if [[ -f "./requirements.txt" ]]; then
         pip install -r "./requirements.txt";
     fi
 fi
 
+echo "Python environment created successfully."
 
 #################################################################
 # Set up the Julia environment
@@ -105,7 +107,7 @@ fi
 echo "Setting up the local Julia environment..."
 julia make_julia_environment.jl --clean
 
-echo "Julia environment set up."
+echo "Julia environment created successfully."
 
 #################################################################
 # Cleanup
