@@ -1,12 +1,14 @@
 import pytest
 import sys
+from pathlib import Path
 
+sys.path.append(".")
 sys.path.append("../")
 
 from run import *
 
 # Files and parameters
-settings_file_path = "./settings_test.yml"
+settings_file_path = Path(__file__).parent / "settings_test.yml"
 all_keys = ["simulation", "scenario", "constants", "file_paths", "system", "demand", "dispatch", "agent_opt", "ALEAF"]
 
 # Create a settings fixture
