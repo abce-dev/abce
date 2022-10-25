@@ -13,10 +13,13 @@ CONDA_ENV_FILE="environment.yml"
 REQ_FILE="requirements.txt"
 
 # Check for command-line arguments
-while getopts a: flag
+#   -a: pre-specify the ALEAF_DIR location as a command-line argument
+#   -p: force use of pip rather than conda to manage packages
+while getopts a:p: flag
 do
     case "${flag}" in
         a) aleaf_dir=${OPTARG};;
+        p) use_pip=${OPTARG};;
     esac
 done
 
@@ -117,7 +120,7 @@ fi
 
 # Determine whether the script is running in a conda environment
 # If conda is installed and available for environment management, use it
-if [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
+if [ "$use_pip" -neq 1 ] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
     echo "conda environment detected; using conda to manage python packages"
     CONDA_ENV_FILE="$ABCE_DIR/$CONDA_ENV_FILE"
     CONDA_ENV_NAME=$( grep "name: " "$CONDA_ENV_FILE" | sed "s|name: ||" )
