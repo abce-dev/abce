@@ -151,7 +151,7 @@ echo "Python environment created successfully."
 
 
 echo "Setting up the local Julia environment..."
-julia make_julia_environment.jl --clean
+julia make_julia_environment.jl
 
 echo "Julia environment created successfully."
 
