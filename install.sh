@@ -50,7 +50,8 @@ echo ALEAF_DIR=$aleaf_dir
 #   julia-1.8.2
 updated_julia=0
 if [[ -z $( julia --version | grep "1.8" ) ]]; then
-    # 
+    # If julia --version doesn't return something containing the value "1.8",
+    #   then julia 1.8 needs to be installed or set to the default local julia
     if [[ ! -d "$HOME/julia-1.8.2" ]]; then
         if [[ ! -f "$HOME/julia-1.8.2-linux-x86_64.tar.gz" ]]; then
             echo "Downloading Julia 1.8.2...";
@@ -69,7 +70,6 @@ fi
 #################################################################
 
 # If the .bashrc file doesn't already exist: create it
-echo "${RC_FILE}"
 if [[ ! -f "${RC_FILE}" ]]; then
     echo "No .bashrc file found; creating a new one at ${RC_FILE}";
     touch "${RC_FILE}";
@@ -112,8 +112,6 @@ if [[ $updated_julia ]]; then
     fi
 fi
 
-
-<< EOF
 
 #################################################################
 # Set up the Python environment
@@ -160,8 +158,6 @@ echo "Julia environment created successfully."
 #################################################################
 # Cleanup
 #################################################################
-
-EOF
 
 # Prevent current value of $aleaf_dir from contaminating future runs of this
 #   script in the same terminal session
