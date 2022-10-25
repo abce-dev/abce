@@ -40,7 +40,6 @@ if [[ ! -n ${aleaf_dir+x} ]]; then
     read aleaf_dir
 fi
 echo "\$ALEAF_DIR will be set to $aleaf_dir"
-echo ALEAF_DIR=$aleaf_dir
 
 #################################################################
 # Install Julia 1.8, if not already found
@@ -87,7 +86,6 @@ do
     # If the form "export $var_name" is found at the start of a line,
     #   replace the rest of the line with the appropriate value
         echo "Found ${var_name}; updating its referenced path";
-        grep -E "^export $var_name=.*" "${RC_FILE}";
         sed -i "s|^export $var_name=.*|export $var_name=${env_vars[$var_name]}|" "${RC_FILE}";
     else
     # If the form "export $var_name" does not start any lines in the rc file,
