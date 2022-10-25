@@ -1,4 +1,4 @@
-#!/bin/bash -i
+#!/bin/bash
 
 #################################################################
 # Install script initialization
@@ -121,7 +121,7 @@ fi
 
 # Determine whether the script is running in a conda environment
 # If conda is installed and available for environment management, use it
-if [ "$use_pip" -neq 1 ] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
+if [[ -z "$use_pip" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
     echo "conda environment detected; using conda to manage python packages"
     CONDA_ENV_FILE="$ABCE_DIR/$CONDA_ENV_FILE"
     CONDA_ENV_NAME=$( grep "name: " "$CONDA_ENV_FILE" | sed "s|name: ||" )
