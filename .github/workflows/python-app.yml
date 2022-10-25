@@ -32,6 +32,9 @@ jobs:
     - name: Install and configure ABCE
       run: |
         bash install.sh -a ""
+    - name: Activate conda environment
+      run: |
+        conda activate abce_env
     - name: Test with pytest
       run: |
         pytest
