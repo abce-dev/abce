@@ -122,27 +122,45 @@ fi
 # Determine whether the script is running in a conda environment
 # If conda is installed and available for environment management, use it
 if [[ -z "$use_pip" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
-    echo "conda environment detected; using conda to manage python packages"
-    CONDA_ENV_FILE="$ABCE_DIR/$CONDA_ENV_FILE"
-    CONDA_ENV_NAME=$( grep "name: " "$CONDA_ENV_FILE" | sed "s|name: ||" )
+    echo "conda environment detected; using conda to manage python packages";
 
-    # If a conda environment with the name specified in $CONDA_ENV_FILE
-    #   doesn't already exist, create it
-    if [[ -z $( conda info --envs | grep "$CONDA_ENV_NAME" ) ]]; then
-        echo "No conda environment named $CONDA_ENV_NAME found; creating new environment"
-        conda env create -f "${CONDA_ENV_FILE}"
-    # If this environment already exists, update it
+    # Check for an appropriate environment spec file, set in $CONDA_ENV_FILE
+    #   at the top of this script
+    if [[ ! -f "$CONDA_ENV_FILE" ]]; then
+        # The conda environment specification (environment.yml) file was not found
+        echo "$ABCE_DIR/$CONDA_ENV_FILE not found. Please ensure you have a conda environment specification file in the top level of your ABCE directory.";
+        echo "The default environment.yml file is available for download at https://github.com/biegelk/abce.";
+        echo "If you do not want to use conda to manage the ABCE environment, rerun this script with the force pip flag enabled:";
+        echo ">$ ./install.sh [other_args] -p 1";
+        exit 1;
     else
-        echo "Found preexisting conda environment named $CONDA_ENV_NAME; updating it"
-        conda env update --file "${CONDA_ENV_FILE}" --prune
+        # Retrieve the name of the desired conda environment from the yaml file
+        CONDA_ENV_NAME=$( grep "name: " "$ABCE_DIR/$CONDA_ENV_FILE" | sed "s|name: ||" );
+
+        # If a conda environment with the name specified in $CONDA_ENV_FILE
+        #   doesn't already exist, create it
+        if [[ -z $( conda info --envs | grep "$CONDA_ENV_NAME" ) ]]; then
+            echo "No conda environment named $CONDA_ENV_NAME found; creating new environment";
+            conda env create -f "$ABCE_DIR/$CONDA_ENV_FILE";
+        # If this environment already exists, update it
+        else
+            echo "Found preexisting conda environment named $CONDA_ENV_NAME; updating it"
+            conda env update --file "$ABCE_DIR/$CONDA_ENV_FILE" --prune;
+        fi
     fi
 
 # If conda is not available for environment management, use pip to install
 #   packages directly
 else
     echo "Using pip to manage python packages"
-    python3 -m pip install --upgrade pip
-    if [[ -f "$ABCE_DIR/$REQ_FILE" ]]; then
+    python3 -m pip install --upgrade pip;
+
+    # Check for a requirements.txt file in the top-level ABCE directory
+    if [[ ! -f "$ABCE_DIR/$REQ_FILE" ]]; then
+        echo "$ABCE_DIR/$REQ_FILE not found. Please ensure you have a requirements.txt file in the top level of your ABCE directory.";
+        echo "The default requirements.txt file is available for download at https://github.com/biegelk/abce.";
+        exit 1;
+    else
         pip install -r "$ABCE_DIR/$REQ_FILE";
     fi
 fi
