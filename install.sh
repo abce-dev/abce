@@ -27,6 +27,7 @@ done
 # Set ABCE_DIR to the location of this script
 abce_dir=$( dirname -- $( readlink -f -- "$0"; ) )
 echo "\$ABCE_DIR will be set to $abce_dir"
+export ABCE_DIR=$abce_dir
 
 # Set up ALEAF_DIR
 # If specified by a command-line argument, don't prompt the user for the
@@ -39,6 +40,7 @@ if [[ ! -n ${aleaf_dir+x} ]]; then
     read aleaf_dir
 fi
 echo "\$ALEAF_DIR will be set to $aleaf_dir"
+echo ALEAF_DIR=$aleaf_dir
 
 #################################################################
 # Install Julia 1.8, if not already found
@@ -159,11 +161,11 @@ echo "Julia environment created successfully."
 # Cleanup
 #################################################################
 
+EOF
+
 # Prevent current value of $aleaf_dir from contaminating future runs of this
 #   script in the same terminal session
 unset aleaf_dir
-unset JULIA_DIR
+unset abce_dir
 
 echo "All setup completed successfully."
-
-EOF
