@@ -170,4 +170,8 @@ unset abce_dir
 echo "All setup completed successfully."
 echo
 echo "Please close and restart your terminal session so the changes can take effect."
+if [[ ! -z $CONDA_ENV_NAME ]]; then
+    echo "In the new terminal session, switch to the ABCE conda environment with:"
+    echo ">$ conda activate $CONDA_ENV_NAME"
+fi
 echo
