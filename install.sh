@@ -14,8 +14,8 @@ REQ_FILE="requirements.txt"
 JULIA_MAKE_FILE="make_julia_environment.jl"
 
 # Check for command-line arguments
-#   -a: pre-specify the ALEAF_DIR location as a command-line argument
-#   -p: force use of pip rather than conda to manage packages
+#   -a: pre-specify the ALEAF_DIR absolute path as a command-line argument
+#   -p: force use of pip rather than conda to manage packages (1=use pip)
 while getopts a:p: flag
 do
     case "${flag}" in
