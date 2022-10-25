@@ -11,6 +11,7 @@ set -o errexit
 RC_FILE="$HOME/.bashrc"
 CONDA_ENV_FILE="environment.yml"
 REQ_FILE="requirements.txt"
+JULIA_MAKE_FILE="make_julia_environment.jl"
 
 # Check for command-line arguments
 #   -a: pre-specify the ALEAF_DIR location as a command-line argument
@@ -153,7 +154,7 @@ echo "Python environment created successfully."
 #################################################################
 
 echo "Setting up the local Julia environment..."
-julia make_julia_environment.jl
+julia "$ABCE_DIR/$JULIA_MAKE_FILE"
 
 echo "Julia environment created successfully."
 
