@@ -131,8 +131,6 @@ if [[ ! -z $( conda --version | grep -Eo "conda.*[0-9][0-9]\.[0-9]\.[0-9]" ) && 
         echo "Found preexisting conda environment named abce_env; updating it"
         conda env update --prefix ./env --file "${CONDA_ENV_FILE}" --prune
     fi
-    conda init bash
-    conda activate abce_env
 # If conda is not available for environment management, use pip to install
 #   packages directly
 else
@@ -165,3 +163,4 @@ unset aleaf_dir
 unset abce_dir
 
 echo "All setup completed successfully."
+echo "Please close and restart your terminal session so the changes can take effect."
