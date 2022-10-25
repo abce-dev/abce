@@ -129,7 +129,7 @@ if [[ ! -z $( conda --version | grep -Eo "conda.*[0-9][0-9]\.[0-9]\.[0-9]" ) && 
     # If this environment already exists, update it
     else
         echo "Found preexisting conda environment named abce_env; updating it"
-        conda env update --prefix ./env --file "${CONDA_ENV_FILE}" --prune
+        conda env update --file "${CONDA_ENV_FILE}" --prune
     fi
 # If conda is not available for environment management, use pip to install
 #   packages directly
