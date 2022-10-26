@@ -104,14 +104,13 @@ done
 if [[ $updated_julia ]]; then
     echo "Ensuring Julia 1.8.2 is added to \$PATH in ${RC_FILE}";
     if grep -q "export PATH=.*julia.*" "${RC_FILE}"; then
-        # If .bashrc already has a line adding julia to the path, update it to 1.8.2
-        echo "Updating existing julia reference in ${RC_FILE}";
-        sed -i "s|^export PATH=.*julia-.*|export PATH=\$PATH:$HOME/julia-1.8.2/bin/|" "${RC_FILE}";
-    else
-        # Otherwise, add a new line adding julia to the path
-        echo "Adding julia to \$PATH";
-        echo "export PATH=\$PATH:$HOME/julia-1.8.2/bin/" >> "${RC_FILE}";
+        # If .bashrc already has a line adding julia to the path, let the user
+        #    know that this will update which version of Julia is found
+        #    globally
+        echo "This operation will update the path in ${RC_FILE} where Julia is found globally (via the 'julia' command).";
+        echo "If you use Julia on this device for other applications which require a Julia version other than 1.8.2, issues may arise.";
     fi
+    echo "export PATH=$HOME/julia-1.8.2/bin/:\$PATH" >> "${RC_FILE}";
 fi
 
 
