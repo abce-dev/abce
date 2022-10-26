@@ -13,6 +13,9 @@ CONDA_ENV_FILE="environment.yml"
 REQ_FILE="requirements.txt"
 JULIA_MAKE_FILE="make_julia_environment.jl"
 
+# State variables
+updated_julia=0
+
 # Check for command-line arguments
 #   -a: pre-specify the ALEAF_DIR absolute path as a command-line argument
 #   -p: force use of pip rather than conda to manage packages (1=use pip)
@@ -45,27 +48,82 @@ if [[ ! -n ${aleaf_dir+x} ]]; then
 fi
 echo "\$ALEAF_DIR will be set to $aleaf_dir"
 
+
 #################################################################
-# Install Julia 1.8, if not already found
+# Set up the environment
 #################################################################
 
-# If julia 1.8 is not the current version of julia, download and install
-#   julia-1.8.2
-updated_julia=0
-if [[ -z $( julia --version | grep "1.8" ) ]]; then
-    # If julia --version doesn't return something containing the value "1.8",
-    #   then julia 1.8 needs to be installed or set to the default local julia
-    if [[ ! -d "$HOME/julia-1.8.2" ]]; then
-        if [[ ! -f "$HOME/julia-1.8.2-linux-x86_64.tar.gz" ]]; then
-            echo "Downloading Julia 1.8.2...";
-            wget https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.2-linux-x86_64.tar.gz -P "$HOME";
+# Determine whether the script is running in a conda environment
+# If conda is installed and available for environment management, use it
+if [[ -z "$use_pip" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
+    echo "conda environment detected; using conda to manage python packages";
+
+    # Check for an appropriate environment spec file, set in $CONDA_ENV_FILE
+    #   at the top of this script
+    if [[ ! -f "$CONDA_ENV_FILE" ]]; then
+        # The conda environment specification (environment.yml) file was not found
+        echo "$ABCE_DIR/$CONDA_ENV_FILE not found. Please ensure you have a conda environment specification file in the top level of your ABCE directory.";
+        echo "The default environment.yml file is available for download at https://github.com/biegelk/abce.";
+        echo "If you do not want to use conda to manage the ABCE environment, rerun this script with the force pip flag enabled:";
+        echo ">$ ./install.sh [other_args] -p 1";
+        exit 1;
+    else
+        # Retrieve the name of the desired conda environment from the yaml file
+        CONDA_ENV_NAME=$( grep "name: " "$ABCE_DIR/$CONDA_ENV_FILE" | sed "s|name: ||" );
+
+        # If a conda environment with the name specified in $CONDA_ENV_FILE
+        #   doesn't already exist, create it
+        if [[ -z $( conda info --envs | grep "$CONDA_ENV_NAME" ) ]]; then
+            echo "No conda environment named $CONDA_ENV_NAME found; creating new environment";
+            conda env create -f "$ABCE_DIR/$CONDA_ENV_FILE";
+        # If this environment already exists, update it
+        else
+            echo "Found preexisting conda environment named $CONDA_ENV_NAME; updating it"
+            conda env update --file "$ABCE_DIR/$CONDA_ENV_FILE" --prune;
         fi
-
-        echo "Installing Julia 1.8.2..."
-        tar zxvf "$HOME/julia-1.8.2-linux-x86_64.tar.gz";
     fi
-    updated_julia=1
+
+# If conda is not available for environment management, use pip to install
+#   packages directly
+else
+    echo "Using pip to manage python packages"
+    python3 -m pip install --upgrade pip;
+
+    # Check for a requirements.txt file in the top-level ABCE directory
+    if [[ ! -f "$ABCE_DIR/$REQ_FILE" ]]; then
+        echo "$ABCE_DIR/$REQ_FILE not found. Please ensure you have a requirements.txt file in the top level of your ABCE directory.";
+        echo "The default requirements.txt file is available for download at https://github.com/biegelk/abce.";
+        exit 1;
+    else
+        pip install -r "$ABCE_DIR/$REQ_FILE";
+    fi
+
+    # If julia 1.8 is not the current version of julia, download and install
+    #   julia-1.8.2
+    if [[ -z $( julia --version | grep "1.8" ) ]]; then
+        # If julia --version doesn't return something containing the value "1.8",
+        #   then julia 1.8 needs to be installed or set to the default local julia
+        if [[ ! -d "$HOME/julia-1.8.2" ]]; then
+            if [[ ! -f "$HOME/julia-1.8.2-linux-x86_64.tar.gz" ]]; then
+                echo "Downloading Julia 1.8.2...";
+                wget https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.2-linux-x86_64.tar.gz -P "$HOME";
+            fi
+
+            echo "Installing Julia 1.8.2..."
+            tar zxvf "$HOME/julia-1.8.2-linux-x86_64.tar.gz";
+        fi
+        updated_julia=1
+
+    fi
+
 fi
+
+# Set up the local Julia environment
+echo "Setting up the local Julia environment..."
+julia "$ABCE_DIR/$JULIA_MAKE_FILE"
+echo "Julia environment created successfully."
+
+echo "ABCE environment created successfully."
 
 
 #################################################################
@@ -113,67 +171,6 @@ if [[ $updated_julia ]]; then
     echo "export PATH=$HOME/julia-1.8.2/bin/:\$PATH" >> "${RC_FILE}";
 fi
 
-
-#################################################################
-# Set up the Python environment
-#################################################################
-
-# Determine whether the script is running in a conda environment
-# If conda is installed and available for environment management, use it
-if [[ -z "$use_pip" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
-    echo "conda environment detected; using conda to manage python packages";
-
-    # Check for an appropriate environment spec file, set in $CONDA_ENV_FILE
-    #   at the top of this script
-    if [[ ! -f "$CONDA_ENV_FILE" ]]; then
-        # The conda environment specification (environment.yml) file was not found
-        echo "$ABCE_DIR/$CONDA_ENV_FILE not found. Please ensure you have a conda environment specification file in the top level of your ABCE directory.";
-        echo "The default environment.yml file is available for download at https://github.com/biegelk/abce.";
-        echo "If you do not want to use conda to manage the ABCE environment, rerun this script with the force pip flag enabled:";
-        echo ">$ ./install.sh [other_args] -p 1";
-        exit 1;
-    else
-        # Retrieve the name of the desired conda environment from the yaml file
-        CONDA_ENV_NAME=$( grep "name: " "$ABCE_DIR/$CONDA_ENV_FILE" | sed "s|name: ||" );
-
-        # If a conda environment with the name specified in $CONDA_ENV_FILE
-        #   doesn't already exist, create it
-        if [[ -z $( conda info --envs | grep "$CONDA_ENV_NAME" ) ]]; then
-            echo "No conda environment named $CONDA_ENV_NAME found; creating new environment";
-            conda env create -f "$ABCE_DIR/$CONDA_ENV_FILE";
-        # If this environment already exists, update it
-        else
-            echo "Found preexisting conda environment named $CONDA_ENV_NAME; updating it"
-            conda env update --file "$ABCE_DIR/$CONDA_ENV_FILE" --prune;
-        fi
-    fi
-
-# If conda is not available for environment management, use pip to install
-#   packages directly
-else
-    echo "Using pip to manage python packages"
-    python3 -m pip install --upgrade pip;
-
-    # Check for a requirements.txt file in the top-level ABCE directory
-    if [[ ! -f "$ABCE_DIR/$REQ_FILE" ]]; then
-        echo "$ABCE_DIR/$REQ_FILE not found. Please ensure you have a requirements.txt file in the top level of your ABCE directory.";
-        echo "The default requirements.txt file is available for download at https://github.com/biegelk/abce.";
-        exit 1;
-    else
-        pip install -r "$ABCE_DIR/$REQ_FILE";
-    fi
-fi
-
-echo "Python environment created successfully."
-
-#################################################################
-# Set up the Julia environment
-#################################################################
-
-echo "Setting up the local Julia environment..."
-julia "$ABCE_DIR/$JULIA_MAKE_FILE"
-
-echo "Julia environment created successfully."
 
 #################################################################
 # Cleanup
