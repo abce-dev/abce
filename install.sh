@@ -18,12 +18,12 @@ updated_julia=0
 
 # Check for command-line arguments
 #   -a: pre-specify the ALEAF_DIR absolute path as a command-line argument
-#   -p: force use of pip rather than conda to manage packages (1=use pip)
+#   -n: ignore conda for package management (1=force ignore conda)
 while getopts a:p: flag
 do
     case "${flag}" in
         a) aleaf_dir=${OPTARG};;
-        p) use_pip=${OPTARG};;
+        n) no_conda=${OPTARG};;
     esac
 done
 
@@ -55,7 +55,7 @@ echo "\$ALEAF_DIR will be set to $aleaf_dir"
 
 # Determine whether the script is running in a conda environment
 # If conda is installed and available for environment management, use it
-if [[ -z "$use_pip" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
+if [[ -z "$no_conda" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
     echo "conda environment detected; using conda to manage python packages";
 
     # Check for an appropriate environment spec file, set in $CONDA_ENV_FILE
@@ -64,8 +64,8 @@ if [[ -z "$use_pip" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,
         # The conda environment specification (environment.yml) file was not found
         echo "$ABCE_DIR/$CONDA_ENV_FILE not found. Please ensure you have a conda environment specification file in the top level of your ABCE directory.";
         echo "The default environment.yml file is available for download at https://github.com/biegelk/abce.";
-        echo "If you do not want to use conda to manage the ABCE environment, rerun this script with the force pip flag enabled:";
-        echo ">$ ./install.sh [other_args] -p 1";
+        echo "If you do not want to use conda to manage the ABCE environment, rerun this script with the no-conda flag enabled:";
+        echo ">$ ./install.sh [other_args] -n 1";
         exit 1;
     else
         # Retrieve the name of the desired conda environment from the yaml file
