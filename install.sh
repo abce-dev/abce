@@ -16,7 +16,7 @@ JULIA_MAKE_FILE="make_julia_environment.jl"
 # Check for command-line arguments
 #   -a: pre-specify the ALEAF_DIR absolute path as a command-line argument
 #   -n: ignore conda for package management (1=force ignore conda)
-while getopts a:p: flag
+while getopts a:n: flag
 do
     case "${flag}" in
         a) aleaf_dir=${OPTARG};;
