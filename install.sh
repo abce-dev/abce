@@ -80,8 +80,8 @@ if [[ -z "$no_conda" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1
         fi
     fi
 
-# If conda is not available for environment management, use pip to install
-#   packages directly
+# If conda is not available for environment management, handle python packages
+#   with pip, and other packages via direct download
 else
     echo "Using pip to manage python packages"
     python3 -m pip install --upgrade pip;
@@ -93,6 +93,7 @@ else
         exit 1;
     else
         pip install -r "$ABCE_DIR/$REQ_FILE";
+        echo "All python packages installed with pip.";
     fi
 
     # If julia 1.8 is not the current version of julia, download and install
@@ -142,16 +143,11 @@ echo "Updating environment variables in ${RC_FILE}"
 for var_name in "${!env_vars[@]}";
 do
     if grep -q "${var_name}" "${RC_FILE}"; then
-    # If the form "export $var_name" is found at the start of a line,
-    #   replace the rest of the line with the appropriate value
-        echo "Found ${var_name}; updating its referenced path";
-        sed -i "s|^export $var_name=.*|export $var_name=${env_vars[$var_name]}|" "${RC_FILE}";
-    else
-    # If the form "export $var_name" does not start any lines in the rc file,
-    #   append a line at the end of the rc file to export this variable
-        echo "Did not find ${var_name}; adding a new line to .bashrc";
-        echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}"
+        # If the form "export $var_name" does not start any lines in the rc file,
+        #   append a line at the end of the rc file to export this variable
+        echo "Note: ${var_name} already appears in .bashrc. It may be advisable to delete outdated export statements for $var_name.";
     fi
+    echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}"
 done
 
 # If this script installed Julia 1.8.2, make sure it's added appropriately
