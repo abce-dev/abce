@@ -13,9 +13,6 @@ CONDA_ENV_FILE="environment.yml"
 REQ_FILE="requirements.txt"
 JULIA_MAKE_FILE="make_julia_environment.jl"
 
-# State variables
-updated_julia=0
-
 # Check for command-line arguments
 #   -a: pre-specify the ALEAF_DIR absolute path as a command-line argument
 #   -n: ignore conda for package management (1=force ignore conda)
@@ -112,7 +109,7 @@ else
             echo "Installing Julia 1.8.2..."
             tar zxvf "$HOME/julia-1.8.2-linux-x86_64.tar.gz";
         fi
-        updated_julia=1
+        updated_julia_noconda=1
 
     fi
 
@@ -159,7 +156,7 @@ done
 
 # If this script installed Julia 1.8.2, make sure it's added appropriately
 #   to the PATH
-if [[ $updated_julia ]]; then
+if [[ ! -z $updated_julia_noconda ]]; then
     echo "Ensuring Julia 1.8.2 is added to \$PATH in ${RC_FILE}";
     if grep -q "export PATH=.*julia.*" "${RC_FILE}"; then
         # If .bashrc already has a line adding julia to the path, let the user
