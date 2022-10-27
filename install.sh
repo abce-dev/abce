@@ -110,8 +110,6 @@ else
             echo "Installing Julia 1.8.2..."
             tar zxvf "$HOME/julia-1.8.2-linux-x86_64.tar.gz";
         fi
-        updated_julia_noconda=1
-
     fi
 
 fi
@@ -142,25 +140,49 @@ env_vars=( ["ABCE_DIR"]="$abce_dir" ["ALEAF_DIR"]="$aleaf_dir" )
 echo "Updating environment variables in ${RC_FILE}"
 for var_name in "${!env_vars[@]}";
 do
-    if grep -q "${var_name}" "${RC_FILE}"; then
-        # If the form "export $var_name" does not start any lines in the rc file,
-        #   append a line at the end of the rc file to export this variable
+    # Get a list of all occurrences of $var_name in the bashrc file
+    readarray -t var_lines < <(grep --null -n "${var_name}" "${RC_FILE}")
+
+    if [[ ${#var_lines[@]} != 0 ]]; then
+        # If $var_name is already referenced in the bashrc file, alert the
+        #   user that there may be outdated export statements that can be
+        #   optionally deleted
         echo "Note: ${var_name} already appears in .bashrc. It may be advisable to delete outdated export statements for $var_name.";
     fi
-    echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}"
+
+    if [[ $( echo "${var_lines[( ${#var_lines[@]} - 1 )]}" | sed -r "s|[0-9]{1,3}:||" ) == "export $var_name=${env_vars[$var_name]}" ]]; then
+        # If the last line referencing this variable already has the correct
+        #   form, don't update anything
+        echo "$var_name is already set to ${env_vars[$var_name]} in ${RC_FILE}.";
+    else
+        # If the last line referencing this variable sets it to some other
+        #   value, append a new export statement with the updated value to 
+        #   the end of $RC_FILE
+       echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}";
+    fi
+
 done
 
-# If this script installed Julia 1.8.2, make sure it's added appropriately
-#   to the PATH
-if [[ ! -z $updated_julia_noconda ]]; then
-    echo "Ensuring Julia 1.8.2 is added to \$PATH in ${RC_FILE}";
-    if grep -q "export PATH=.*julia.*" "${RC_FILE}"; then
-        # If .bashrc already has a line adding julia to the path, let the user
-        #    know that this will update which version of Julia is found
-        #    globally
-        echo "This operation will update the path in ${RC_FILE} where Julia is found globally (via the 'julia' command).";
-        echo "If you use Julia on this device for other applications which require a Julia version other than 1.8.2, issues may arise.";
-    fi
+# Ensure that julia-1.8.2 is added to the $PATH such that the `julia` command
+#   invokes julia-1.8.2 instead of any other version that may be present
+echo "Ensuring Julia 1.8.2 is added to \$PATH in ${RC_FILE}";
+
+# Get a list of all occurrences of 'julia' in the bashrc file
+readarray -t julia_lines < <(grep --null -E "export PATH=.*julia.*" "${RC_FILE}")
+
+if [[ ! -z $( echo "${julia_lines[( ${#julia_lines[@]} - 1 )]}" | grep -E "1\.8\.[0-9]{1,2}" ) ]]; then
+    # If the last line to add a julia-related value to $PATH already has the
+    #   correct form, don't update anything
+    echo "julia-1.8.2 is already correctly added to \$PATH in ${RC_FILE}.";
+else
+    # If .bashrc already has a line adding a different version of julia to the
+    #    path, let the user know that this will update which version of Julia
+    #    is found globally
+    echo "This operation will update the path in ${RC_FILE} where Julia is found globally: the 'julia' command will now invoke julia-1.8.2.";
+    echo "If you use Julia on this device for other applications which require a Julia version other than 1.8.2, issues may arise.";
+
+    # Append a new export statement with the updated value to 
+    #   the end of $RC_FILE
     echo "export PATH=$HOME/julia-1.8.2/bin/:\$PATH" >> "${RC_FILE}";
 fi
 
