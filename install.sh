@@ -141,7 +141,7 @@ echo "Updating environment variables in ${RC_FILE}"
 for var_name in "${!env_vars[@]}";
 do
     # Get a list of all occurrences of $var_name in the bashrc file
-    readarray -t var_lines < <(grep --null -n "${var_name}" "${RC_FILE}")
+    readarray -t var_lines < <(grep --null "${var_name}" "${RC_FILE}")
 
     if [[ ${#var_lines[@]} != 0 ]]; then
         # If $var_name is already referenced in the bashrc file, alert the
@@ -150,7 +150,7 @@ do
         echo "Note: ${var_name} already appears in .bashrc. It may be advisable to delete outdated export statements for $var_name.";
     fi
 
-    if [[ $( echo "${var_lines[( ${#var_lines[@]} - 1 )]}" | sed -r "s|[0-9]{1,3}:||" ) == "export $var_name=${env_vars[$var_name]}" ]]; then
+    if [[ "${var_lines[( ${#var_lines[@]} - 1 )]}" == "export $var_name=${env_vars[$var_name]}" ]]; then
         # If the last line referencing this variable already has the correct
         #   form, don't update anything
         echo "$var_name is already set to ${env_vars[$var_name]} in ${RC_FILE}.";
