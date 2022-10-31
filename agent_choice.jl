@@ -64,6 +64,9 @@ global_logger(ConsoleLogger(lvl))
 settings_file = CLI_args["settings_file"]
 settings = YAML.load_file(settings_file)
 
+settings_file = CLI_args["settings_file"]
+settings = YAML.load_file(settings_file)
+
 # Include local ABCE functions module
 julia_ABCE_module = "ABCEfunctions.jl"
 include(julia_ABCE_module)
@@ -79,7 +82,8 @@ using .ABCEfunctions, .Dispatch, .C2N
 @info "Initializing data..."
 
 settings = set_up_local_paths(settings)
-solver = lowercase(settings["solver"])
+
+solver = lowercase(settings["simulation"]["solver"])
 @debug string("Solver is `$solver`")
 if solver == "cplex"
     try
@@ -100,22 +104,20 @@ else
 end
 
 # File names
-db_file = joinpath(pwd(), settings["db_file"])
+db_file = joinpath(pwd(), settings["file_paths"]["db_file"])
 C2N_specs_file = joinpath(
                      @__DIR__,
                      "inputs",
                      "C2N_project_definitions.yml"
                  )
 # Constants
-hours_per_year = settings["hours_per_year"]
-consider_future_projects = settings["consider_future_projects"]
+hours_per_year = settings["constants"]["hours_per_year"]
+consider_future_projects = settings["agent_opt"]["consider_future_projects"]
 if consider_future_projects
-    num_lags = settings["num_future_periods_considered"]
+    num_lags = settings["agent_opt"]["num_future_periods_considered"]
 else
     num_lags = 0
 end
-MW2kW = 1000   # Converts MW to kW
-MMBTU2BTU = 1000   # Converts MMBTU to BTU
 
 # Load the inputs
 db = load_db(db_file)
@@ -169,7 +171,7 @@ long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, 
 @info "Dispatch projections complete."
 
 @info "Setting up project alternatives..."
-PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, pd, long_econ_results, settings["allowed_xtr_types"], C2N_specs)
+PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, pd, long_econ_results, C2N_specs)
 
 @info "Project alternatives set up."
 
@@ -180,9 +182,9 @@ PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_co
 @info "Setting up the agent's decision optimization model..."
 unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_portfolios, fc_pd, pd)
 
-agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios, settings)
+agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios)
 
-m = set_up_model(settings, solver, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
+m = set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
 @info "Solving agent's decision optimization problem..."

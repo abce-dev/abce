@@ -50,8 +50,7 @@ def execute_scenario_reduction(
         db,
         current_pd,
         settings,
-        unit_specs,
-        num_repdays):
+        unit_specs):
     # Get the number of wind and solar units to allow computation of net
     #   demand
     current_portfolio = pd.read_sql_query(
@@ -73,20 +72,20 @@ def execute_scenario_reduction(
 
     # Set up directory locations
     init_data_dir = os.path.join(
-        settings["ABCE_abs_path"],
+        settings["file_paths"]["ABCE_abs_path"],
         "inputs",
         "ALEAF_inputs"
     )
 
     temp_data_dir = os.path.join(
-        settings["ABCE_abs_path"],
+        settings["file_paths"]["ABCE_abs_path"],
         "inputs",
         "ALEAF_inputs",
         "scenario_reduction_tmp"
     )
 
     output_dir = os.path.join(
-        settings["ABCE_abs_path"],
+        settings["file_paths"]["ABCE_abs_path"],
         "inputs",
         "ALEAF_inputs"
     )
@@ -98,7 +97,7 @@ def execute_scenario_reduction(
 
     sr.run_scenario_reduction(
         time_resolution="hourly",
-        num_scenarios_list=[num_repdays],
+        num_scenarios_list=[settings["dispatch"]["num_repdays"]],
         generate_input_data_flag=True,
         data_location_timeseries=init_data_dir,
         data_input_path=temp_data_dir,
@@ -168,7 +167,7 @@ def process_outputs(settings, output_dir, unit_specs):
     """
 
     # Postprocessing settings
-    ALEAF_scenario_name = settings["ALEAF_scenario_name"]
+    ALEAF_scenario_name = settings["simulation"]["ALEAF_scenario_name"]
     file_types = [
         "dispatch_summary_OP",
         "expansion_result",

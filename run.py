@@ -35,17 +35,18 @@ def read_settings(settings_file):
     """
     with open(settings_file, "r") as setfile:
         settings = yaml.load(setfile, Loader=yaml.FullLoader)
+
     return settings
 
 
-def set_up_local_paths(args, settings):
+def set_up_local_paths(settings):
     # Set the path for ABCE files to the directory where run.py is saved
     # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
-    settings["ABCE_abs_path"] = Path(__file__).parent
-    if settings["run_ALEAF"]:
+    settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
+    if settings["simulation"]["run_ALEAF"]:
     # Try to locate an environment variable to specify where A-LEAF is located
         try:
-            settings["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
+            settings["ALEAF"]["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
         except KeyError:
             msg = ("The environment variable ALEAF_abs_path does not appear " +
                    "to be set. Please make sure it points to the correct " +
@@ -53,7 +54,7 @@ def set_up_local_paths(args, settings):
             logging.error(msg)
             raise
     else:
-        settings["ALEAF_abs_path"] = Path("NULL_PATH")
+        settings["ALEAF"]["ALEAF_abs_path"] = Path("NULL_PATH")
 
     return settings
 
@@ -158,26 +159,29 @@ def run_model():
 
     settings = read_settings(args.settings_file)
 
-    initialize_logging(args, settings["vis_lvl"])
+    initialize_logging(args, settings["constants"]["vis_lvl"])
 
-    settings = set_up_local_paths(args, settings)
+    settings = set_up_local_paths(settings)
 
-    check_julia_environment(settings["ABCE_abs_path"])
+    check_julia_environment(settings["file_paths"]["ABCE_abs_path"])
 
-    abce_model = GridModel(args.settings_file, settings, args)
-    for i in range(settings["num_steps"]):
+    # Run the simulation
+    abce_model = GridModel(settings, args)
+
+    for i in range(settings["simulation"]["num_steps"]):
         abce_model.step(demo=args.demo)
 
+    # Write the raw database to xlsx
     db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE " +
                                   "type='table';", abce_model.db)
-    with pd.ExcelWriter(settings["output_file"]) as writer:
+    with pd.ExcelWriter(settings["file_paths"]["output_file"]) as writer:
         for i in range(len(db_tables)):
             table = db_tables.loc[i, "name"]
             final_db = pd.read_sql_query(
                 f"SELECT * FROM {table}", abce_model.db)
             final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
 
-    if abce_model.settings["run_ALEAF"]:
+    if abce_model.settings["simulation"]["run_ALEAF"]:
         # Postprocess A-LEAF results
         ABCEfunctions.process_outputs(
             settings,
@@ -203,7 +207,7 @@ class ABCEFormatter(logging.Formatter):
         self.vis_lvl = vis_lvl
 
     def format(self, record):
-        # Save the original user-configured formatter settings for
+        # Save the original user-settingsured formatter settings for
         #   later retrieval
         format_orig = self._style._fmt
 
@@ -215,7 +219,7 @@ class ABCEFormatter(logging.Formatter):
         # Call the original Formatter class to do the grunt work
         result = logging.Formatter.format(self, record)
 
-        # Restore the original format configured by the user
+        # Restore the original format settingsured by the user
         self._style._fmt = format_orig
 
         return result

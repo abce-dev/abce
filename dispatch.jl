@@ -9,15 +9,15 @@ catch LoadError
 end
 
 function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
-    # @info string("Running the dispatch simulation for ", settings["num_dispatch_years"], " years...")
+    @info string("Running the dispatch simulation for ", settings["dispatch"]["num_dispatch_years"], " years...")
 
     # Set up all timeseries data
     ts_data = load_ts_data(
-                  joinpath(settings["ABCE_abs_path"],
+                  joinpath(settings["file_paths"]["ABCE_abs_path"],
                            "inputs",
                            "ALEAF_inputs"
                   ),
-                  settings["num_repdays"]
+                  settings["dispatch"]["num_repdays"]
               )
 
     # Set up dataframes to record all results
@@ -68,7 +68,7 @@ end
 
 function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
     # Run the annual dispatch for the user-specified number of dispatch years
-    for y = current_pd:current_pd+settings["num_dispatch_years"]
+    for y = current_pd:current_pd + settings["dispatch"]["num_dispatch_years"]
         # @info "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Select the current year's expected portfolio
@@ -85,7 +85,7 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
         # @info "DISPATCH SIMULATION: YEAR $y COMPLETE."
-        if y < current_pd + settings["num_dispatch_years"]
+        if y < current_pd + settings["dispatch"]["num_dispatch_years"]
             # @info "RUN NEXT YEAR: $run_next_year"
         end
 
@@ -104,11 +104,11 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
     all_gc_results, all_prices = propagate_all_results(fc_pd-1, all_gc_results, all_prices, current_pd)
 
     # Save the raw results
-    save_raw_results(settings, all_prices, all_gc_results)
+    save_raw_results(all_prices, all_gc_results)
 
     # Create the final results set for use by the agent decision algorithm
     # @info "Postprocessing all dispatch results..."
-    long_econ_results = postprocess_results(settings, all_year_system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
+    long_econ_results = postprocess_results(all_year_system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
 
     # Save a copy of the results to file
     savefile = joinpath(
@@ -493,7 +493,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
 end
 
 
-function save_raw_results(settings, all_prices, all_gc_results)
+function save_raw_results(all_prices, all_gc_results)
     pfile = joinpath(
                 pwd(),
                 "tmp",
@@ -664,7 +664,7 @@ function compute_final_gen(g_gen, system_portfolios, fc_pd, current_pd)
 end
 
 
-function postprocess_long_results(g_pivot, settings, system_portfolios, unit_specs, fc_pd, current_pd)
+function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
     # Organize data
     long_rev_results = deepcopy(g_pivot)
 
@@ -685,7 +685,7 @@ function postprocess_long_results(g_pivot, settings, system_portfolios, unit_spe
     long_rev_results = innerjoin(long_rev_results, all_year_portfolios, on = [:y, :unit_type])
 
     # Calculate revenues
-    transform!(long_rev_results, [:gen, :price, :Probability, :num_units] => ((gen, price, subs, prob, num_units) -> gen .* price .* subs .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
+    transform!(long_rev_results, [:gen, :price, :Probability, :num_units] => ((gen, price, prob, num_units) -> gen .* price .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
 
     # Calculate VOM
     transform!(long_rev_results, [:gen, :VOM, :Probability, :num_units] => ((gen, VOM, prob, num_units) -> gen .* VOM .* prob .* 365 ./ num_units) => :annualized_VOM_perunit)
@@ -701,11 +701,11 @@ function postprocess_long_results(g_pivot, settings, system_portfolios, unit_spe
 end 
 
 
-function postprocess_results(settings, system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
+function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
     # Pivot the generation and commitment results
     g_pivot, c_pivot = pivot_gc_results(all_gc_results, all_prices, ts_data[:repdays_data])
 
-    long_econ_results = postprocess_long_results(g_pivot, settings, system_portfolios, unit_specs, fc_pd, current_pd)
+    long_econ_results = postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
 
     return long_econ_results
 end
