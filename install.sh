@@ -143,22 +143,26 @@ do
     # Get a list of all occurrences of $var_name in the bashrc file
     readarray -t var_lines < <(grep --null "${var_name}" "${RC_FILE}")
 
-    if [[ ${#var_lines[@]} != 0 ]]; then
-        # If $var_name is already referenced in the bashrc file, alert the
-        #   user that there may be outdated export statements that can be
-        #   optionally deleted
-        echo "Note: ${var_name} already appears in .bashrc. It may be advisable to delete outdated export statements for $var_name.";
-    fi
-
-    if [[ "${var_lines[( ${#var_lines[@]} - 1 )]}" == "export $var_name=${env_vars[$var_name]}" ]]; then
-        # If the last line referencing this variable already has the correct
-        #   form, don't update anything
-        echo "$var_name is already set to ${env_vars[$var_name]} in ${RC_FILE}.";
+    if [[ ${#var_lines[@]} == 0 ]]; then
+        # If there are no occurrences of this variable in the bashrc file,
+        #   simply append a line exporting it to the end of the file
+        echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}";
     else
-        # If the last line referencing this variable sets it to some other
-        #   value, append a new export statement with the updated value to 
-        #   the end of $RC_FILE
-       echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}";
+        # If this variable does occur at least once in the bashrc file:
+        if [[ "${var_lines[( ${#var_lines[@]} - 1 )]}" == "export $var_name=${env_vars[$var_name]}" ]]; then
+            # If the last line referencing this variable already has the correct
+            #   form, don't update anything
+            echo "$var_name is already set to ${env_vars[$var_name]} in ${RC_FILE}.";
+        else
+            # If the last line referencing this variable sets it to some other
+            #   value, append a new export statement with the updated value to 
+            #   the end of $RC_FILE
+            echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}";
+
+            # Alert the user that there may be old settings for these variables
+            #   left over in the bashrc file
+            echo "Note: ${var_name} already appears in .bashrc. It may be advisable to delete outdated export statements for $var_name.";
+        fi
     fi
 
 done
