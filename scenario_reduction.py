@@ -22,7 +22,7 @@ import os
 
 def run_scenario_reduction(**kwargs):
 
-    logging.info("Running the scenario reduction algorithm...")
+    logging.debug("Running the scenario reduction algorithm...")
 
     # set default parameters and pars kwargs
     setting = {
@@ -69,39 +69,56 @@ def run_scenario_reduction(**kwargs):
 
     # Read input data for the scenario reduction algorithm
     load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh = read_input_data(
-        setting["data_input_path"], setting["time_resolution"])
+        setting["data_input_path"],
+        setting["time_resolution"]
+    )
 
     # Identify extreme points
     extreme_scenarios, extreme_datapoint = identify_extreme_points(
-        load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh)
+        load_shape,
+        wind_shape,
+        solar_shape,
+        load_MWh,
+        wind_MWh,
+        solar_MWh,
+        net_load_MWh
+    )
 
     # Aggregate data points
     num_timestep = np.shape(load_shape.iloc[:-1, 1:].to_numpy())[0]
     num_total_scenario = np.shape(load_shape.iloc[:-1, 1:].to_numpy())[1]
     data = np.zeros((num_timestep, num_total_scenario, setting["num_data_set"]))
 
-    flag_load_shape = flag_wind_shape = flag_solar_shape = flag_load_MWh = flag_wind_MWh = flag_solar_MWh = flag_net_load_MWh = False
+    flag_load_shape = flag_wind_shape = flag_solar_shape = False
+    flag_load_MWh = flag_wind_MWh = flag_solar_MWh = flag_net_load_MWh = False
+
     for idx in range(0, setting["num_data_set"]):
-        if ("load_shape" in setting["type_of_data_set"]) & (
-                flag_load_shape == False):
+        if (("load_shape" in setting["type_of_data_set"]) 
+            & (flag_load_shape == False)):
             data[:, :, idx] = load_shape.iloc[:-1, 1:].to_numpy()
             flag_load_shape = True
-        elif ("wind_shape" in setting["type_of_data_set"]) & (flag_wind_shape == False):
+        elif (("wind_shape" in setting["type_of_data_set"])
+              & (flag_wind_shape == False)):
             data[:, :, idx] = wind_shape.iloc[:-1, 1:].to_numpy()
             flag_wind_shape = True
-        elif ("solar_shape" in setting["type_of_data_set"]) & (flag_solar_shape == False):
+        elif (("solar_shape" in setting["type_of_data_set"]) 
+              & (flag_solar_shape == False)):
             data[:, :, idx] = solar_shape.iloc[:-1, 1:].to_numpy()
             flag_solar_shape = True
-        elif ("load_MWh" in setting["type_of_data_set"]) & (flag_load_MWh == False):
+        elif (("load_MWh" in setting["type_of_data_set"]) 
+              & (flag_load_MWh == False)):
             data[:, :, idx] = load_MWh.iloc[:-1, 1:].to_numpy()
             flag_load_MWh = True
-        elif ("wind_MWh" in setting["type_of_data_set"]) & (flag_wind_MWh == False):
+        elif (("wind_MWh" in setting["type_of_data_set"]) 
+              & (flag_wind_MWh == False)):
             data[:, :, idx] = wind_MWh.iloc[:-1, 1:].to_numpy()
             flag_wind_MWh = True
-        elif ("solar_MWh" in setting["type_of_data_set"]) & (flag_solar_MWh == False):
+        elif (("solar_MWh" in setting["type_of_data_set"]) 
+              & (flag_solar_MWh == False)):
             data[:, :, idx] = solar_MWh.iloc[:-1, 1:].to_numpy()
             flag_solar_MWh = True
-        elif ("net_load_MWh" in setting["type_of_data_set"]) & (flag_net_load_MWh == False):
+        elif (("net_load_MWh" in setting["type_of_data_set"]) 
+              & (flag_net_load_MWh == False)):
             data[:, :, idx] = net_load_MWh.iloc[:-1, 1:].to_numpy()
             flag_net_load_MWh = True
 
@@ -127,7 +144,8 @@ def run_scenario_reduction(**kwargs):
                 num_scenarios,
                 num_scenarios,
                 num_timestep,
-                dtype=int))
+                dtype=int)
+        )
 
         # Identify selected scenarios
         s_prob = selected_scenarios_prob[0, :]
@@ -226,7 +244,8 @@ def scenario_reduction_core(
         samples,
         **kwargs):
     '''
-    This revised code is based on the one in https://gitlab.com/supsi-dacd-isaac/scenred
+    This revised code is based on the one in
+       https://gitlab.com/supsi-dacd-isaac/scenred
     '''
 
     T = samples.shape[0]
@@ -247,8 +266,8 @@ def scenario_reduction_core(
     S = samples
     for i in np.arange(np.shape(S)[2]):
         V = S[:, :, i]
-        V_norm = (V - np.mean(V, 1).reshape(-1, 1)) / \
-            (np.std(V, 1) + 1e-6).reshape(-1, 1)
+        V_norm = ((V - np.mean(V, 1).reshape(-1, 1)) /
+                  (np.std(V, 1) + 1e-6).reshape(-1, 1))
         X.append(V_norm)
 
     X = np.vstack(X).T
@@ -262,9 +281,11 @@ def scenario_reduction_core(
 
     # generate the tolerance vector
     if all(pars['nodes'].ravel() == defaultNodes.ravel()):
-        #Tol = np.tile(pars['tol'], (1, T))[0]
         Tol = np.fliplr(
-            pars['tol'] / (1.5 ** (T - np.arange(T).reshape(1, -1) + 1))).ravel()
+                     (pars['tol'] 
+                      / (1.5 ** (T - np.arange(T).reshape(1, -1) + 1))
+                     )
+                 ).ravel()
         Tol[0] = infty
     else:
         Tol = infty * np.ones((1, T)).ravel()
@@ -281,7 +302,8 @@ def scenario_reduction_core(
         delta_p_2 = 0
 
         basic_idx = np.asanyarray(
-            np.hstack([np.ones((1, i + 1)), np.zeros((1, T - i - 1))]), bool)
+            np.hstack([np.ones((1, i + 1)), np.zeros((1, T - i - 1))]), bool
+        )
         sel_idx = np.tile(basic_idx, (1, samples.shape[2])).ravel()
         X_filt = X[J[i, :], :]
         X_filt = X_filt[:, sel_idx.ravel()]
@@ -298,8 +320,6 @@ def scenario_reduction_core(
             d_s = np.sort(D_i, 0)
             idx_s = np.argsort(D_i, 0)
             z = d_s[0, :] * P[i, :]  # vector of weighted probabilities
-            # z[z == 0] = infty  # set prob. of removed scenario to inf in order
-            # to ignore them
             # set prob. of removed scenario to inf in order to ignore them
             z[~J[i, :]] = infty
             if fixing_extreme_days:
@@ -325,8 +345,8 @@ def scenario_reduction_core(
             L[idx_aug, L[idx_rem, :] > 0] = 1
             # make the merged scenarios equal up to the root node
             S[0: i + 1, idx_rem, :] = S[0: i + 1, idx_aug, :]
-            # make all the scenario previously merged with the removed one equal
-            # to the one in idx_aug, up to the root node
+            # make all the scenario previously merged with the removed one
+            # equal to the one in idx_aug, up to the root node
             to_merge_idx = np.argwhere(L[[idx_rem], :])
             for j in np.arange(np.shape(to_merge_idx)[0]):
                 S[: i + 1, to_merge_idx[j, 1], :] = S[: i + 1, idx_aug, :]
@@ -354,34 +374,54 @@ def scenario_reduction_core(
 
 
 def read_input_data(data_input_path, mode):
-    load_shape = pd.read_csv(os.path.join(
-        data_input_path,
-        f"Input_Raw_Scenarios_{mode}_load_Shape.csv"
-    ))
-    wind_shape = pd.read_csv(os.path.join(
-        data_input_path,
-        f"Input_Raw_Scenarios_{mode}_wind_Shape.csv"
-    ))
-    solar_shape = pd.read_csv(os.path.join(
-        data_input_path,
-        f"Input_Raw_Scenarios_{mode}_solar_Shape.csv"
-    ))
-    load_MWh = pd.read_csv(os.path.join(
-        data_input_path,
-        f"Input_Raw_Scenarios_{mode}_load_MWh.csv"
-    ))
-    wind_MWh = pd.read_csv(os.path.join(
-        data_input_path,
-        f"Input_Raw_Scenarios_{mode}_wind_MWh.csv"
-    ))
-    solar_MWh = pd.read_csv(os.path.join(
-        data_input_path,
-        f"Input_Raw_Scenarios_{mode}_solar_MWh.csv"
-    ))
-    net_load_MWh = pd.read_csv(os.path.join(
-        data_input_path,
-        f"Input_Raw_Scenarios_{mode}_netload.csv"
-    ))
+    load_shape = pd.read_csv(
+        os.path.join(
+            data_input_path,
+            f"Input_Raw_Scenarios_{mode}_load_Shape.csv"
+        )
+    )
+
+    wind_shape = pd.read_csv(
+        os.path.join(
+            data_input_path,
+            f"Input_Raw_Scenarios_{mode}_wind_Shape.csv"
+        )
+    )
+
+    solar_shape = pd.read_csv(
+        os.path.join(
+            data_input_path,
+            f"Input_Raw_Scenarios_{mode}_solar_Shape.csv"
+        )
+    )
+
+    load_MWh = pd.read_csv(
+        os.path.join(
+            data_input_path,
+            f"Input_Raw_Scenarios_{mode}_load_MWh.csv"
+        )
+    )
+
+    wind_MWh = pd.read_csv(
+        os.path.join(
+            data_input_path,
+            f"Input_Raw_Scenarios_{mode}_wind_MWh.csv"
+        )
+    )
+
+    solar_MWh = pd.read_csv(
+        os.path.join(
+            data_input_path,
+            f"Input_Raw_Scenarios_{mode}_solar_MWh.csv"
+        )
+    )
+
+    net_load_MWh = pd.read_csv(
+        os.path.join(
+            data_input_path,
+            f"Input_Raw_Scenarios_{mode}_netload.csv"
+        )
+    )
 
     return load_shape, wind_shape, solar_shape, load_MWh, wind_MWh, solar_MWh, net_load_MWh
 
@@ -394,18 +434,24 @@ def generate_input_data(
         solarCapacity,
         peakDemand):
 
-    timeSeriesParams_load = pd.read_csv(os.path.join(
-        data_location_timeseries,
-        f"timeseries_load_{mode}.csv"
-    ))
-    timeSeriesParams_wind = pd.read_csv(os.path.join(
-        data_location_timeseries,
-        f"timeseries_wind_{mode}.csv"
-    ))
-    timeSeriesParams_solar = pd.read_csv(os.path.join(
-        data_location_timeseries,
-        f"timeseries_pv_{mode}.csv"
-    ))
+    timeSeriesParams_load = pd.read_csv(
+        os.path.join(
+            data_location_timeseries,
+            f"timeseries_load_{mode}.csv"
+        )
+    )
+    timeSeriesParams_wind = pd.read_csv(
+        os.path.join(
+            data_location_timeseries,
+            f"timeseries_wind_{mode}.csv"
+        )
+    )
+    timeSeriesParams_solar = pd.read_csv(
+        os.path.join(
+            data_location_timeseries,
+            f"timeseries_pv_{mode}.csv"
+        )
+    )
 
     # Default: hourly mode
     nrows = 24 + 1
@@ -424,25 +470,27 @@ def generate_input_data(
     k = 0
     for i in range(1, ncols + 1):
         k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1,
-                          i] = timeSeriesParams_load.iloc[j:k,
-                                                          1].values * peakDemand - timeSeriesParams_wind.iloc[j:k,
-                                                                                                              1].values * windCapacity - timeSeriesParams_solar.iloc[j:k,
-                                                                                                                                                                     1].values * solarCapacity
+        rawScenarios.iloc[0:nrows - 1, i] = (
+            (timeSeriesParams_load.iloc[j:k, 1].values * peakDemand)
+            - (timeSeriesParams_wind.iloc[j:k, 1].values * windCapacity)
+            - (timeSeriesParams_solar.iloc[j:k, 1].values * solarCapacity)
+        )
         j = k
 
-    rawScenarios.to_csv(os.path.join(
-        data_input_path,
-        f"Input_Raw_Scenarios_{mode}_netload.csv"
-    ), index=False)
+    rawScenarios.to_csv(
+        os.path.join(
+            data_input_path,
+            f"Input_Raw_Scenarios_{mode}_netload.csv"
+        ),
+        index=False
+    )
 
     j = 0
     k = 0
     for i in range(1, ncols + 1):
         k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1,
-                          i] = timeSeriesParams_load.iloc[j:k,
-                                                          1].values * peakDemand
+        rawScenarios.iloc[0:nrows - 1, i] = (timeSeriesParams_load.iloc[j:k, 1].values
+                                             * peakDemand)
         j = k
 
     rawScenarios.to_csv(os.path.join(
@@ -454,23 +502,24 @@ def generate_input_data(
     k = 0
     for i in range(1, ncols + 1):
         k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1,
-                          i] = timeSeriesParams_wind.iloc[j:k,
-                                                          1].values * windCapacity
+        rawScenarios.iloc[0:nrows - 1, i] = (timeSeriesParams_wind.iloc[j:k, 1].values 
+                                             * windCapacity)
         j = k
 
-    rawScenarios.to_csv(os.path.join(
-        data_input_path,
-        f"Input_Raw_Scenarios_{mode}_wind_MWh.csv"
-    ), index=False)
+    rawScenarios.to_csv(
+        os.path.join(
+            data_input_path,
+            f"Input_Raw_Scenarios_{mode}_wind_MWh.csv"
+        ),
+        index=False
+    )
 
     j = 0
     k = 0
     for i in range(1, ncols + 1):
         k = j + nrows - 1
-        rawScenarios.iloc[0:nrows - 1,
-                          i] = timeSeriesParams_solar.iloc[j:k,
-                                                           1].values * solarCapacity
+        rawScenarios.iloc[0:nrows - 1, i] = (timeSeriesParams_solar.iloc[j:k, 1].values
+                                             * solarCapacity)
         j = k
 
     rawScenarios.to_csv(os.path.join(
@@ -482,8 +531,7 @@ def generate_input_data(
     k = 0
     for i in range(1, ncols + 1):
         k = j + nrows - 1
-        rawScenarios.iloc[0:nrows -
-                          1, i] = timeSeriesParams_load.iloc[j:k, 1].values
+        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_load.iloc[j:k, 1].values
         j = k
 
     rawScenarios.to_csv(os.path.join(
@@ -495,8 +543,7 @@ def generate_input_data(
     k = 0
     for i in range(1, ncols + 1):
         k = j + nrows - 1
-        rawScenarios.iloc[0:nrows -
-                          1, i] = timeSeriesParams_wind.iloc[j:k, 1].values
+        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_wind.iloc[j:k, 1].values
         j = k
 
     rawScenarios.to_csv(os.path.join(
@@ -508,8 +555,7 @@ def generate_input_data(
     k = 0
     for i in range(1, ncols + 1):
         k = j + nrows - 1
-        rawScenarios.iloc[0:nrows -
-                          1, i] = timeSeriesParams_solar.iloc[j:k, 1].values
+        rawScenarios.iloc[0:nrows - 1, i] = timeSeriesParams_solar.iloc[j:k, 1].values
         j = k
 
     rawScenarios.to_csv(os.path.join(
@@ -551,59 +597,6 @@ def identify_extreme_points(
     extreme_datapoint[idx]["scenario"] = sce_id
     idx += 1
 
-    # # peak ramp (load, pos and neg)
-    # benchmark_df = load_MWh.copy(deep=True)
-    # load_benchmark = benchmark_df.iloc[:-1, 1:]
-    # ramp_benchmark = pd.DataFrame().reindex_like(load_benchmark)
-    # for idx in range(1, ramp_benchmark.shape[0]):
-    #     ramp_benchmark.iloc[idx, :] = load_benchmark.iloc[idx, :] - load_benchmark.iloc[idx - 1, :]
-    # for idx in range(1, ramp_benchmark.shape[1]):
-    #     ramp_benchmark.iloc[0, idx] = load_benchmark.iloc[0, idx] - load_benchmark.iloc[-1, idx - 1]
-    # ramp_benchmark.iloc[0, 0] = load_benchmark.iloc[0, 0] - load_benchmark.iloc[-1, -1]
-    # # ramp_benchmark = ramp_benchmark.abs()
-
-    # value = ramp_benchmark.iloc[:, 1:].max().max()
-    # sce_id = ramp_benchmark.iloc[:, 1:].max().idxmax()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[2] = {}
-    # extreme_datapoint[2]["type"] = "peak ramp (pos, load)"
-    # extreme_datapoint[2]["value"] = value
-    # extreme_datapoint[2]["scenario"] = sce_id
-
-    # value = ramp_benchmark.iloc[:, 1:].min().min()
-    # sce_id = ramp_benchmark.iloc[:, 1:].min().idxmin()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[3] = {}
-    # extreme_datapoint[3]["type"] = "peak ramp (neg, load)"
-    # extreme_datapoint[3]["value"] = value
-    # extreme_datapoint[3]["scenario"] = sce_id
-
-    # # peak net ramp (pos and neg)
-    # benchmark_df = net_load_MWh.copy(deep=True)
-    # load_benchmark = benchmark_df.iloc[:-1, 1:]
-    # ramp_benchmark = pd.DataFrame().reindex_like(load_benchmark)
-    # for idx in range(1, ramp_benchmark.shape[0]):
-    #     ramp_benchmark.iloc[idx, :] = load_benchmark.iloc[idx, :] - load_benchmark.iloc[idx - 1, :]
-    # for idx in range(1, ramp_benchmark.shape[1]):
-    #     ramp_benchmark.iloc[0, idx] = load_benchmark.iloc[0, idx] - load_benchmark.iloc[-1, idx - 1]
-    # ramp_benchmark.iloc[0, 0] = load_benchmark.iloc[0, 0] - load_benchmark.iloc[-1, -1]
-
-    # value = ramp_benchmark.iloc[:, 1:].max().max()
-    # sce_id = ramp_benchmark.iloc[:, 1:].max().idxmax()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[4] = {}
-    # extreme_datapoint[4]["type"] = "peak ramp (pos, netload)"
-    # extreme_datapoint[4]["value"] = value
-    # extreme_datapoint[4]["scenario"] = sce_id
-
-    # value = ramp_benchmark.iloc[:, 1:].min().min()
-    # sce_id = ramp_benchmark.iloc[:, 1:].min().idxmin()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[5] = {}
-    # extreme_datapoint[5]["type"] = "peak ramp (neg, netload)"
-    # extreme_datapoint[5]["value"] = value
-    # extreme_datapoint[5]["scenario"] = sce_id
-
     # peak wind shape
     value = wind.iloc[:-1, 1:].max().max()
     sce_id = wind.iloc[:-1, 1:].max().idxmax()
@@ -623,26 +616,6 @@ def identify_extreme_points(
     extreme_datapoint[idx]["value"] = value
     extreme_datapoint[idx]["scenario"] = sce_id
     idx += 1
-
-    # # peak wind shape (daily sum)
-    # value = wind.iloc[:-1, 1:].sum().max()
-    # sce_id = wind.iloc[:-1, 1:].sum().idxmax()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[idx] = {}
-    # extreme_datapoint[idx]["type"] = "peak daily wind shape"
-    # extreme_datapoint[idx]["value"] = value
-    # extreme_datapoint[idx]["scenario"] = sce_id
-    # idx += 1
-
-    # # peak solar shape (daily sum)
-    # value = solar.iloc[:-1, 1:].sum().max()
-    # sce_id = solar.iloc[:-1, 1:].sum().idxmax()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[idx] = {}
-    # extreme_datapoint[idx]["type"] = "peak daily solar shape"
-    # extreme_datapoint[idx]["value"] = value
-    # extreme_datapoint[idx]["scenario"] = sce_id
-    # idx += 1
 
     # lowest wind shape (daily sum)
     value = wind.iloc[:-1, 1:].sum().min()
@@ -664,58 +637,6 @@ def identify_extreme_points(
     extreme_datapoint[idx]["scenario"] = sce_id
     idx += 1
 
-    # # peak wind ramp (pos and neg)
-    # benchmark_df = wind.copy(deep=True)
-    # load_benchmark = benchmark_df.iloc[:-1, 1:]
-    # ramp_benchmark = pd.DataFrame().reindex_like(load_benchmark)
-    # for idx in range(1, ramp_benchmark.shape[0]):
-    #     ramp_benchmark.iloc[idx, :] = load_benchmark.iloc[idx, :] - load_benchmark.iloc[idx - 1, :]
-    # for idx in range(1, ramp_benchmark.shape[1]):
-    #     ramp_benchmark.iloc[0, idx] = load_benchmark.iloc[0, idx] - load_benchmark.iloc[-1, idx - 1]
-    # ramp_benchmark.iloc[0, 0] = load_benchmark.iloc[0, 0] - load_benchmark.iloc[-1, -1]
-
-    # value = ramp_benchmark.iloc[:, 1:].max().max()
-    # sce_id = ramp_benchmark.iloc[:, 1:].max().idxmax()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[12] = {}
-    # extreme_datapoint[12]["type"] = "peak wind ramp (pos, shape)"
-    # extreme_datapoint[12]["value"] = value
-    # extreme_datapoint[12]["scenario"] = sce_id
-
-    # value = ramp_benchmark.iloc[:, 1:].min().min()
-    # sce_id = ramp_benchmark.iloc[:, 1:].min().idxmin()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[13] = {}
-    # extreme_datapoint[13]["type"] = "peak wind ramp (neg, shape)"
-    # extreme_datapoint[13]["value"] = value
-    # extreme_datapoint[13]["scenario"] = sce_id
-
-    # # peak solar ramp (pos and neg)
-    # benchmark_df = solar.copy(deep=True)
-    # load_benchmark = benchmark_df.iloc[:-1, 1:]
-    # ramp_benchmark = pd.DataFrame().reindex_like(load_benchmark)
-    # for idx in range(1, ramp_benchmark.shape[0]):
-    #     ramp_benchmark.iloc[idx, :] = load_benchmark.iloc[idx, :] - load_benchmark.iloc[idx - 1, :]
-    # for idx in range(1, ramp_benchmark.shape[1]):
-    #     ramp_benchmark.iloc[0, idx] = load_benchmark.iloc[0, idx] - load_benchmark.iloc[-1, idx - 1]
-    # ramp_benchmark.iloc[0, 0] = load_benchmark.iloc[0, 0] - load_benchmark.iloc[-1, -1]
-
-    # value = ramp_benchmark.iloc[:, 1:].max().max()
-    # sce_id = ramp_benchmark.iloc[:, 1:].max().idxmax()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[14] = {}
-    # extreme_datapoint[14]["type"] = "peak solar ramp (pos, shape)"
-    # extreme_datapoint[14]["value"] = value
-    # extreme_datapoint[14]["scenario"] = sce_id
-
-    # value = ramp_benchmark.iloc[:, 1:].min().min()
-    # sce_id = ramp_benchmark.iloc[:, 1:].min().idxmin()
-    # extreme_scenarios.append(sce_id)
-    # extreme_datapoint[15] = {}
-    # extreme_datapoint[15]["type"] = "peak solar ramp (neg, shape)"
-    # extreme_datapoint[15]["value"] = value
-    # extreme_datapoint[15]["scenario"] = sce_id
-
     return extreme_scenarios, extreme_datapoint
 
 
@@ -732,20 +653,19 @@ def plot_ramp_duration_curve(
     netload_benchmark = benchmark_df.iloc[:-1, 1:]
     ramp_benchmark = pd.DataFrame().reindex_like(netload_benchmark)
     for idx in range(1, ramp_benchmark.shape[0]):
-        ramp_benchmark.iloc[idx,
-                            :] = netload_benchmark.iloc[idx,
-                                                        :] - netload_benchmark.iloc[idx - 1,
-                                                                                    :]
+        ramp_benchmark.iloc[idx, :] = (netload_benchmark.iloc[idx, :] 
+                                       - netload_benchmark.iloc[idx - 1, :])
     for idx in range(1, ramp_benchmark.shape[1]):
-        ramp_benchmark.iloc[0, idx] = netload_benchmark.iloc[0,
-                                                             idx] - netload_benchmark.iloc[-1, idx - 1]
-    ramp_benchmark.iloc[0, 0] = netload_benchmark.iloc[0,
-                                                       0] - netload_benchmark.iloc[-1, -1]
+        ramp_benchmark.iloc[0, idx] = (netload_benchmark.iloc[0, idx] 
+                                       - netload_benchmark.iloc[-1, idx - 1])
+    ramp_benchmark.iloc[0, 0] = (netload_benchmark.iloc[0, 0]
+                                 - netload_benchmark.iloc[-1, -1])
     ramp_benchmark = ramp_benchmark.abs()
 
     rdc_benchmark_np = ramp_benchmark.to_numpy()
     rdc_benchmark_data = np.concatenate(
-        [rdc_benchmark_np[c] for c in range(0, len(rdc_benchmark_np))])
+        [rdc_benchmark_np[c] for c in range(0, len(rdc_benchmark_np))]
+    )
     rdc_benchmark_data[::-1].sort()
     rx_benchmark = [5 + 5 * x for x in range(0, len(rdc_benchmark_data))]
 
@@ -757,10 +677,9 @@ def plot_ramp_duration_curve(
 
     for idx in range(0, len(selected_sce)):
         rdc_sce.append(ramp_benchmark.iloc[:, selected_sce[idx] - 1].to_numpy())
-        rx_sce.append([5 * adjusted_prob[idx]] *
-                      len(ramp_benchmark.iloc[:, idx]))
-        total_ramp_MWh += sum(ramp_benchmark.iloc[:,
-                                                  selected_sce[idx] - 1]) * adjusted_prob[idx]
+        rx_sce.append([5 * adjusted_prob[idx]] * len(ramp_benchmark.iloc[:, idx]))
+        total_ramp_MWh += (sum(ramp_benchmark.iloc[:, selected_sce[idx] - 1])
+                           * adjusted_prob[idx])
 
     rdc_sce_data = np.concatenate([rdc_sce[c] for c in range(0, len(rdc_sce))])
     rx_sce_data = np.concatenate([rx_sce[c] for c in range(0, len(rx_sce))])
@@ -776,15 +695,16 @@ def plot_ramp_duration_curve(
         time_step = rx_sce_final[idx - 1] + rx_sce_data[idx]
         rx_sce_final.append(time_step)
 
-    gap_percent = 100 * (sum(rdc_benchmark_data) -
-                         total_ramp_MWh) / sum(rdc_benchmark_data)
+    gap_percent = (100 * (sum(rdc_benchmark_data) - total_ramp_MWh) 
+                   / sum(rdc_benchmark_data))
     Total_ramp_gap_value = (sum(rdc_benchmark_data) / 12 - total_ramp_MWh / 12)
 
     NRMSD = calculate_NRMSD(
         rx_benchmark,
         rdc_benchmark_data,
         rx_sce_final,
-        rdc_sce_data)
+        rdc_sce_data
+    )
 
     textstr = '\n'.join((
         r'# of scenarios=%.0f' % (num_scenarios),
@@ -793,35 +713,37 @@ def plot_ramp_duration_curve(
     )
 
     fig, axes = plt.subplots(1, 1)
-    axes.plot(rx_benchmark, rdc_benchmark_data, color="blue", label="benchmark")
+    axes.plot(
+        rx_benchmark,
+        rdc_benchmark_data,
+        color="blue",
+        label="benchmark"
+    )
     axes.plot(
         rx_sce_final,
         rdc_sce_data,
         color="red",
-        label="scenario reduction")
+        label="scenario reduction"
+    )
     axes.legend()
     axes.set_title("Duration Curve Comparison:" + type)
     axes.set_xlabel("time steps")
     axes.set_ylabel(type)
 
-    # # these are matplotlib.patch.Patch properties
+    # these are matplotlib.patch.Patch properties
     props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    #
-    # # place a text box in upper left in axes coords
-    axes.text(0.55, 0.80, textstr, transform=axes.transAxes, fontsize=11,
-              verticalalignment='top', bbox=props)
+    
+    # place a text box in upper left in axes coords
+    axes.text(
+        0.55,
+        0.80,
+        textstr,
+        transform=axes.transAxes,
+        fontsize=11,
+        verticalalignment='top',
+        bbox=props
+    )
 
-    # plt.show()
-    plt.savefig(
-        output_path +
-        '/ramp_duration_curve_' +
-        type +
-        '_' +
-        str(num_scenarios) +
-        '.png',
-        transparent=True,
-        dpi=160,
-        bbox_inches="tight")
     plt.close()
 
 
@@ -837,7 +759,8 @@ def plot_duration_curve(
     benchmark_df = dataframe_raw.copy(deep=True)
     benchmark_raw = benchmark_df.iloc[:-1, 1:].to_numpy()
     benchmark_data = np.concatenate(
-        [benchmark_raw[c] for c in range(0, len(benchmark_raw))])
+        [benchmark_raw[c] for c in range(0, len(benchmark_raw))]
+    )
     benchmark_data[::-1].sort()
     benchmark_x = [5 + 5 * x for x in range(0, len(benchmark_data))]
 
@@ -849,15 +772,16 @@ def plot_duration_curve(
 
     for idx in range(0, len(selected_sce)):
         scenario.append(benchmark_df.iloc[:-1, selected_sce[idx]].to_numpy())
-        scenario_x.append([5 * adjusted_prob[idx]] *
-                          len(benchmark_df.iloc[:-1, idx]))
-        total_value += sum(benchmark_df.iloc[:-1,
-                                             selected_sce[idx]]) * adjusted_prob[idx]
+        scenario_x.append(
+            [5 * adjusted_prob[idx]] * len(benchmark_df.iloc[:-1, idx])
+        )
+        total_value += (sum(benchmark_df.iloc[:-1, selected_sce[idx]])
+                        * adjusted_prob[idx])
 
-    scenario_data = np.concatenate([scenario[c]
-                                   for c in range(0, len(scenario))])
+    scenario_data = np.concatenate(
+                        [scenario[c] for c in range(0, len(scenario))])
     scenario_x_raw = np.concatenate(
-        [scenario_x[c] for c in range(0, len(scenario_x))])
+                         [scenario_x[c] for c in range(0, len(scenario_x))])
 
     zipped_lists = zip(scenario_data, scenario_x_raw)
     sorted_pairs = sorted(zipped_lists, reverse=True)
@@ -870,15 +794,17 @@ def plot_duration_curve(
         time_step = scenario_x_final[idx - 1] + scenario_x_raw[idx]
         scenario_x_final.append(time_step)
 
-    gap_percent = 100 * (sum(benchmark_data) -
-                         total_value) / sum(benchmark_data)
+    gap_percent = (100 * (sum(benchmark_data) 
+                   - total_value) / sum(benchmark_data)
+                  )
     gap_value = (sum(benchmark_data) / 12 - total_value / 12)
 
     NRMSD = calculate_NRMSD(
         benchmark_x,
         benchmark_data,
         scenario_x_final,
-        scenario_data)
+        scenario_data
+    )
 
     textstr = '\n'.join((
         r'# of scenarios=%.0f' % (num_scenarios),
@@ -892,7 +818,8 @@ def plot_duration_curve(
         scenario_x_final,
         scenario_data,
         color="red",
-        label="scenario reduction")
+        label="scenario reduction"
+    )
     axes.legend()
     axes.set_title("Duration Curve Comparison:" + type)
     axes.set_xlabel("time steps")
@@ -900,22 +827,18 @@ def plot_duration_curve(
 
     # # these are matplotlib.patch.Patch properties
     props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    #
-    # # place a text box in upper left in axes coords
-    axes.text(0.55, 0.80, textstr, transform=axes.transAxes, fontsize=11,
-              verticalalignment='top', bbox=props)
 
-    # plt.show()
-    plt.savefig(
-        output_path +
-        '/duration_curve_' +
-        type +
-        '_' +
-        str(num_scenarios) +
-        '.png',
-        transparent=True,
-        dpi=160,
-        bbox_inches="tight")
+    # # place a text box in upper left in axes coords
+    axes.text(
+        0.55,
+        0.80,
+        textstr,
+        transform=axes.transAxes,
+        fontsize=11,
+        verticalalignment='top',
+        bbox=props
+    )
+
     plt.close()
 
 
@@ -944,12 +867,14 @@ def calculate_NRMSD(benchmark_x, benchmark_data, scenario_x, scenario_data):
     scenario_heights = interpolate.splev(width_vals, heights_smooth_scenario)
 
     # Normalized root mean square deviation
-    numer = math.sqrt((1.0 /
-                       len(benchmark_heights)) *
-                      sum(pow(scenario_heights[i] -
-                              benchmark_heights[i], 2) for i in range(0, len(benchmark_heights))))
-    denom = (1.0 / len(benchmark_heights)) * \
-        sum(benchmark_heights[i] for i in range(0, len(benchmark_heights)))
+    numer = math.sqrt(
+                (1.0 / len(benchmark_heights))
+                * sum(pow(scenario_heights[i] - benchmark_heights[i], 2)
+                      for i in range(0, len(benchmark_heights)))
+            )
+    denom = ((1.0 / len(benchmark_heights)) 
+             * sum(benchmark_heights[i] for i in range(0, len(benchmark_heights)))
+            )
     NRMSD = numer / denom
 
     return NRMSD
