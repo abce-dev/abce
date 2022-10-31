@@ -52,7 +52,7 @@ echo "\$ALEAF_DIR will be set to $aleaf_dir"
 
 # Determine whether the script is running in a conda environment
 # If conda is installed and available for environment management, use it
-if [[ "$no_conda" == 1 ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
+if [[ -z "$no_conda" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
     echo "conda environment detected; using conda to manage python packages";
 
     # Check for an appropriate environment spec file, set in $CONDA_ENV_FILE
