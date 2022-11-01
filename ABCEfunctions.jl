@@ -1146,24 +1146,32 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     shortage_protection_pd = 8
-    for i = 1:shortage_protection_pd
-        pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
-        total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
-        if (total_eff_cap > pd_total_demand)
-            margin = -0.3
-        else
-            margin = 0.0
+   
+    # Record which elements take effect immediately
+    PA_uids[!, :current] .= 0
+    for i = 1:size(PA_uids)[1]
+        if PA_uids[i, :project_type] == "retirement"
+            PA_uids[i, :current] = 1
+        elseif (PA_uids[i, :project_type] == "new_xtr") && (PA_uids[i, :lag] == 0)
+            PA_uids[i, :current] = 1
         end
-        @constraint(m, transpose(u) * marg_eff_cap[:, i] >= (total_eff_cap - pd_total_demand) * margin)
-
     end
 
-    filename = joinpath(
-                   pwd(),
-                   "tmp",
-                   "marg_eff_cap.csv"
-               )
-    CSV.write(filename, DataFrame(marg_eff_cap, :auto))
+    for i = 1:shortage_protection_pd
+        k = current_pd + i - 1
+        pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
+        total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
+        tec = round(total_eff_cap, digits=1)
+        if (total_eff_cap / pd_total_demand > 1.05)
+            margin = -0.2
+        elseif (total_eff_cap / pd_total_demand > 1)
+            margin = 0
+        else
+            margin = 0.02
+        end
+        @constraint(m, (transpose(u .* PA_uids[:, :current]) * marg_eff_cap[:, i]) >= (total_eff_cap - pd_total_demand) * margin)
+
+    end
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1573,10 +1581,10 @@ end
 
 function save_agent_decisions(db, agent_id, decision_df)
     decision_df[!, :agent_id] .= agent_id
-    cols_to_ignore = [:uid]
+    cols_to_ignore = [:uid, :current]
     select!(decision_df, :agent_id, Not(vcat([:agent_id], cols_to_ignore)))
     for row in Tuple.(eachrow(decision_df))
-        ins_cmd = "INSERT INTO agent_decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ins_cmd = "INSERT INTO agent_decisions VALUES (?, ?, ?, ?, ?, ?, ?)"
         DBInterface.execute(db, ins_cmd, row)
     end
 end
