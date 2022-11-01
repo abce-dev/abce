@@ -27,7 +27,7 @@ using .Dispatch
 include("./C2N_projects.jl")
 using .C2N
 
-export ProjectAlternative, load_db, get_current_period, set_up_local_paths, get_agent_id, get_agent_params,load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_capex_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV,set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives, update_agent_financial_statement
+export ProjectAlternative, load_db, get_current_period, set_up_local_paths, get_agent_id, get_agent_params,load_unit_type_data, set_forecast_period, extrapolate_demand, project_demand_flat, project_demand_exponential, allocate_fuel_costs, create_FS_dict, get_unit_specs, get_table, show_table, get_WIP_projects_list, get_demand_forecast, get_net_demand, get_next_asset_id, ensure_projects_not_empty, authorize_anpe, generate_capex_profile, set_initial_debt_principal_series, generate_prime_movers, forecast_unit_revenue_and_gen, forecast_unit_op_costs, propagate_accounting_line_items, compute_alternative_NPV,set_up_model, get_current_assets_list, convert_to_marginal_delta_FS, postprocess_agent_decisions, set_up_project_alternatives, update_agent_financial_statement, save_agent_decisions
 
 #####
 # Constants
@@ -1243,11 +1243,16 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     shortage_protection_pd = 8
+    @info "pd:  peak_demand  eff_capacity"
     for i = 1:shortage_protection_pd
+        k = current_pd + i
         pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
+        pdtd = round(pd_total_demand, digits=1)
         total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
+        tec = round(total_eff_cap, digits=1)
+        @info "$k:     $pdtd      $tec"
         if (total_eff_cap > pd_total_demand)
-            margin = -0.5
+            margin = -0.3
         else
             margin = 0.0
         end
@@ -1662,6 +1667,17 @@ function save_agent_fs!(fs, agent_id, db)
         throw(e)
     end
 
+end
+
+function save_agent_decisions(db, agent_id, decision_df)
+    decision_df[!, :agent_id] .= agent_id
+    select!(decision_df, :agent_id, Not([:agent_id]))
+    tup_rows = Tuple.(eachrow(decision_df))
+    for i=1:size(decision_df)[1]
+        values = tup_rows[i]
+        ins_cmd = "INSERT INTO agent_decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        DBInterface.execute(db, ins_cmd, values)
+    end
 end
 
 
