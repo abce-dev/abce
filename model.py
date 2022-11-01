@@ -854,7 +854,7 @@ class GridModel(Model):
         self.cur = self.db.cursor()
 
         # Show update tables in the terminal
-        self.show_round_updates()
+        #self.show_round_updates()
 
         # Transfer all decisions and updates from the 'asset_updates' and
         #   'WIP_updates' tables into their respective public-information
