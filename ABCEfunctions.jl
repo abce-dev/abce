@@ -1423,6 +1423,10 @@ function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, ag
 
     end
 
+    # Save the agent's decisions to the database
+    save_agent_decisions(db, agent_id, all_results)
+
+
 end
 
 

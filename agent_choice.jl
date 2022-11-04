@@ -211,8 +211,6 @@ elseif CLI_args["verbosity"] == 3
     @debug all_results
 end
 
-save_agent_decisions(db, agent_id, all_results)
-
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
 postprocess_agent_decisions(all_results, unit_specs, db, pd, agent_id)
 
