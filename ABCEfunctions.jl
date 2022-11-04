@@ -1671,11 +1671,12 @@ end
 
 function save_agent_decisions(db, agent_id, decision_df)
     decision_df[!, :agent_id] .= agent_id
-    select!(decision_df, :agent_id, Not([:agent_id]))
+    cols_to_ignore = [:uid]
+    select!(decision_df, :agent_id, Not(vcat([:agent_id], cols_to_ignore)))
     tup_rows = Tuple.(eachrow(decision_df))
     for i=1:size(decision_df)[1]
         values = tup_rows[i]
-        ins_cmd = "INSERT INTO agent_decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ins_cmd = "INSERT INTO agent_decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         DBInterface.execute(db, ins_cmd, values)
     end
 end

@@ -239,7 +239,6 @@ abce_tables = {"WIP_projects":
                 ("project_type", "text"),
                 ("lag", "integer"),
                 ("ret_pd", "integer"),
-                ("uid", "integer"),
                 ("NPV", "real"),
                 ("allowed", "text"),
                 ("units_to_execute", "integer")
