@@ -1,28 +1,31 @@
 simulation:
   ALEAF_scenario_name: "ABCE_IL"
-  solver: "HiGHS"
-  num_steps: 2
+  solver: "CPLEX"
+  num_steps: 1
   run_ALEAF: False
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 29000
-  conv_nuclear_FOM: 140
-  natural_gas_price: 3  # $/MWh
+  peak_demand: 34000
+  conv_nuclear_FOM: 80
+  natural_gas_price: 4  # $/MWh
   policies:
     CTAX:
-      enabled: False
-      qty: 30   # $/t CO2
-    PTC:
       enabled: True
+      qty: 60   # $/t CO2
+    PTC:
+      enabled: False
       eligible:
         - ConventionalNuclear
         - Wind
-      qty: 25.0   # $/MWh
+        - Solar
+      qty: 15.0   # $/MWh
   allowed_xtr_types:
     - Wind
     - Solar
     - NGCC
+    - NGCT
+    - AdvancedNuclear
 
 
 #######################################################
@@ -79,8 +82,8 @@ dispatch:
 agent_opt:
   consider_future_projects: True
   num_future_periods_considered: 4    # Number of periods for which to consider future projects
-  max_type_rets_per_pd: 5
-  max_type_newbuilds_per_pd: 3
+  max_type_rets_per_pd: 3
+  max_type_newbuilds_per_pd: 10
 
 # Filenames and settings for ALEAF
 ALEAF:
