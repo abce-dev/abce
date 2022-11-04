@@ -1273,7 +1273,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # Create the objective function 
 
     lamda_1 = 1.0 / 1e9
-    lamda_2 = 0.0
+    lamda_2 = 0.1
     lim = 6
     int_bound = 5.0
  
