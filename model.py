@@ -234,7 +234,6 @@ class GridModel(Model):
                                         self.ALEAF_model_settings_remote,
                                         self.db,
                                         self.settings,
-                                        self.settings,
                                         period=0)
 
         # Update the ALEAF_ERCOT.xlsx system portfolio data:
@@ -888,12 +887,7 @@ class GridModel(Model):
             ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
             aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.settings['ALEAF']['ALEAF_abs_path']}"
 
-            if self.args.quiet:
-                sp = subprocess.check_call(aleaf_cmd,
-                                           shell=True,
-                                           stdout=open(os.devnull, "wb"))
-            else:
-                sp = subprocess.check_call(aleaf_cmd, shell=True)
+            sp = subprocess.check_call(aleaf_cmd, shell=True)
 
             self.save_ALEAF_outputs()
 
