@@ -5,8 +5,6 @@ import logging
 # Constants
 ###############################################################################
 
-dsp_file = "./ABCE_IL__dispatch_summary_OP__step_0.csv"
-
 std_names = {
     "day": "day",
     "hour": "hour",
@@ -22,32 +20,6 @@ std_names = {
     "RMP_S_dht": "RMP_spin_dht",
     "RMP_NS_dht": "RMP_nspin_dht"
 }
-
-sys_pf = pd.DataFrame.from_dict(
-             {"Wind": [343],
-              "Solar": [26],
-              "NGCC": [300],
-              "NGCT": [500],
-              "AdvancedNuclear": [0],
-              "ConventionalNuclear": [11],
-              "Coal": [26]
-             },
-             orient="index",
-             columns=["num_units"]
-         )
-
-unit_specs = pd.DataFrame.from_dict(
-                 {"Wind": [0, 10, 0, 25, 100],
-                  "Solar": [0, 8, 0, 25, 100],
-                  "NGCC": [1.5, 3, 4, 0, 200],
-                  "NGCT": [3, 5, 4, 0, 50],
-                  "Coal": [4, 12, 10, 0, 500],
-                  "ConventionalNuclear": [2, 7, 1, 15, 1000],
-                  "AdvancedNuclear": [1, 5, 1, 15, 300]
-                 },
-                 orient="index",
-                 columns=["VOM", "FOM", "FC", "policy_adj", "capacity"]
-             )
 
 ###############################################################################
 # Housekeeping
@@ -107,9 +79,9 @@ def pivot_dispatch_results(df):
     return agg_dsp_pivot
 
 
-def join_unit_data(dsp_pivot, sys_pf, unit_specs):
-    dsp_ext_pivot = dsp_pivot.join(sys_pf, how="left")
-    dsp_ext_pivot = dsp_ext_pivot.join(unit_specs, how="left")
+def join_unit_data(dsp_pivot, system_portfolio, unit_specs):
+    dsp_ext_pivot = dsp_pivot.join(system_portfolio, how="inner")
+    dsp_ext_pivot = dsp_ext_pivot.join(unit_specs.set_index("unit_type"), how="inner")
 
     return dsp_ext_pivot
 
@@ -120,8 +92,8 @@ def compute_perunit_results(agg_dsp_pivot):
                         "num_units",
                         "VOM",
                         "FOM",
-                        "FC",
-                        "policy_adj",
+                        "FC_per_MWh",
+                        "policy_adj_per_MWh",
                         "capacity"
                     ]].copy(deep=True))
 
@@ -151,13 +123,14 @@ def compute_perunit_results(agg_dsp_pivot):
 
     # Get per-unit costs and policy incentive/penalty impacts
     dsp_pivot_PU["var_costs"] = (
-        dsp_pivot_PU["VOM"] + dsp_pivot_PU["capacity"] * dsp_pivot_PU["gen_total"]
+        (dsp_pivot_PU["VOM"] + dsp_pivot_PU["FC_per_MWh"]) * dsp_pivot_PU["gen_total"]
     )
     dsp_pivot_PU["fixed_costs"] = (
-        dsp_pivot_PU["FOM"] * dsp_pivot_PU["capacity"]
+        dsp_pivot_PU["FOM"] * dsp_pivot_PU["capacity"] * 1000 # convert kW to MW
     )
+
     dsp_pivot_PU["total_policy_adj"] = (
-        dsp_pivot_PU["policy_adj"] * dsp_pivot_PU["gen_total"]
+        dsp_pivot_PU["policy_adj_per_MWh"] * dsp_pivot_PU["gen_total"]
     )
 
     # Get total per-unit costs
@@ -176,11 +149,23 @@ def compute_perunit_results(agg_dsp_pivot):
     return dsp_pivot_PU
 
 
+def downselect_dispatch_econ_results(dsp_pivot_PU):
+    final_dsp_results = dsp_pivot_PU[[
+        "gen_total", "reg_total", "spin_total", "nspin_total",
+        "gen_rev", "reg_rev", "spin_rev", "nspin_rev",
+        "var_costs", "fixed_costs", "total_policy_adj",
+        "total_rev", "total_costs", "op_profit"
+    ]].copy(deep=True)
+
+    return final_dsp_results
+
+
+
 ###############################################################################
 # Running the script
 ###############################################################################
 
-def postprocess_dispatch(dispatch_file):
+def postprocess_dispatch(dispatch_file, system_portfolio, unit_specs):
     logging.info(f"Processing dispatch file at {dispatch_file}.")
 
     # Preprocess the file
@@ -190,12 +175,13 @@ def postprocess_dispatch(dispatch_file):
     # Process results
     df = compute_timeseries_revenues(df)
     agg_dsp_pivot = pivot_dispatch_results(df)
-    agg_dsp_pivot = join_unit_data(agg_dsp_pivot, sys_pf, unit_specs)
+    agg_dsp_pivot = join_unit_data(agg_dsp_pivot, system_portfolio, unit_specs)
     dsp_pivot_PU = compute_perunit_results(agg_dsp_pivot)
-
-    print(dsp_pivot_PU)
+    final_dsp_results = downselect_dispatch_econ_results(dsp_pivot_PU)
 
     logging.info("Dispatch file processed.")
+
+    return final_dsp_results
 
 
 if __name__ == "__main__":
