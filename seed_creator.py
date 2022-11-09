@@ -242,6 +242,25 @@ abce_tables = {"WIP_projects":
                 ("NPV", "real"),
                 ("allowed", "text"),
                 ("units_to_execute", "integer")
+               ],
+
+               "ALEAF_dispatch_results":
+               [("period", "integer"),
+                ("unit_type", "text"),
+                ("gen_total", "real"),
+                ("reg_total", "real"),
+                ("spin_total", "real"),
+                ("nspin_total", "real"),
+                ("gen_rev", "real"),
+                ("reg_rev", "real"),
+                ("spin_rev", "real"),
+                ("nspin_rev", "real"),
+                ("total_rev", "real"),
+                ("var_costs", "real"),
+                ("fixed_costs", "real"),
+                ("total_costs", "real"),
+                ("total_policy_adj", "real"),
+                ("op_profit", "real")
                ]
 
                }
