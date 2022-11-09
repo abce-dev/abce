@@ -190,6 +190,20 @@ else
     echo "export PATH=$HOME/julia-1.8.2/bin/:\$PATH" >> "${RC_FILE}";
 fi
 
+#################################################################
+# Check for CPLEX
+#################################################################
+if [[ -z $( which cplex ) ]]; then
+    echo "Command 'cplex' not found."
+    echo "Either CPLEX is not installed, or you haven't added the location of the 'cplex' binary to the path."
+    echo "If you can't install CPLEX, be sure to change the 'solver' setting in settings.yml to a different solver (recommended alternative: 'HiGHS')."
+elif [[ -z $( echo $( which cplex) | grep -E "201" ) ]]; then
+    echo "ABCE and A-LEAF require CPLEX 20.1, but it appears that you have a different version installed."
+    echo "If you can't install CPLEX 20.1, be sure to change the 'solver' setting in settings.yml to a different solver (recommended alternative: 'HiGHS')."
+else
+    echo "CPLEX 20.1 found on the path."
+fi
+
 
 #################################################################
 # Cleanup
