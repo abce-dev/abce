@@ -1243,14 +1243,12 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     shortage_protection_pd = 8
-    @debug "pd:  peak_demand  eff_capacity"
     for i = 1:shortage_protection_pd
         k = current_pd + i
         pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
         pdtd = round(pd_total_demand, digits=1)
         total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
         tec = round(total_eff_cap, digits=1)
-        @debug "$k:     $pdtd      $tec"
         if (total_eff_cap > pd_total_demand)
             margin = -0.3
         else
