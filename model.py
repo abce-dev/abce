@@ -1312,7 +1312,7 @@ class GridModel(Model):
         # Reorder ALEAF_dsp_results to match database
         ALEAF_dsp_results = ALEAF_dsp_results[col_names]
 
-        print(ALEAF_dsp_results)
+        logging.debug(ALEAF_dsp_results)
 
         ALEAF_dsp_results.to_sql("ALEAF_dispatch_results", self.db, if_exists="append", index=False)
 
