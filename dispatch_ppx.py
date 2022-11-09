@@ -97,25 +97,16 @@ def compute_perunit_results(agg_dsp_pivot):
                         "capacity"
                     ]].copy(deep=True))
 
-    # Get per-unit generation/AS quantities
-    dsp_pivot_PU["gen_total"] = agg_dsp_pivot["gen_idht"] / agg_dsp_pivot["num_units"]
-    dsp_pivot_PU["reg_total"] = agg_dsp_pivot["reg_idht"] / agg_dsp_pivot["num_units"]
-    dsp_pivot_PU["spin_total"] = agg_dsp_pivot["spin_idht"] / agg_dsp_pivot["num_units"]
-    dsp_pivot_PU["nspin_total"] = agg_dsp_pivot["nspin_idht"] / agg_dsp_pivot["num_units"]
+    # Compute per-unit generation/AS quantities and revenues
+    services = ["gen", "reg", "spin", "nspin"]
+    for service in services:
+        dsp_pivot_PU[f"{service}_total"] = (
+            agg_dsp_pivot[f"{service}_idht"] / agg_dsp_pivot["num_units"]
+        )
+        dsp_pivot_PU[f"{service}_rev"] = (
+            agg_dsp_pivot[f"{service}_rev"] / agg_dsp_pivot["num_units"]
+        )
 
-    # Get per-unit revenue quantities
-    dsp_pivot_PU["gen_rev"] = (
-        agg_dsp_pivot["gen_rev"] / agg_dsp_pivot["num_units"]
-    )
-    dsp_pivot_PU["reg_rev"] = (
-        agg_dsp_pivot["reg_rev"] / agg_dsp_pivot["num_units"]
-    )
-    dsp_pivot_PU["spin_rev"] = (
-        agg_dsp_pivot["spin_rev"] / agg_dsp_pivot["num_units"]
-    )
-    dsp_pivot_PU["nspin_rev"] = (
-        agg_dsp_pivot["nspin_rev"] / agg_dsp_pivot["num_units"]
-    )
     dsp_pivot_PU["total_rev"] = (
         dsp_pivot_PU["gen_rev"] + dsp_pivot_PU["reg_rev"] 
         + dsp_pivot_PU["spin_rev"] + dsp_pivot_PU["nspin_rev"]
@@ -128,7 +119,6 @@ def compute_perunit_results(agg_dsp_pivot):
     dsp_pivot_PU["fixed_costs"] = (
         dsp_pivot_PU["FOM"] * dsp_pivot_PU["capacity"] * 1000 # convert kW to MW
     )
-
     dsp_pivot_PU["total_policy_adj"] = (
         dsp_pivot_PU["policy_adj_per_MWh"] * dsp_pivot_PU["gen_total"]
     )
@@ -143,7 +133,7 @@ def compute_perunit_results(agg_dsp_pivot):
 
     # Get total operating profit
     dsp_pivot_PU["op_profit"] = (
-        dsp_pivot_PU["total_rev_w_policy"] - dsp_pivot_PU["total_costs"]
+        dsp_pivot_PU["total_rev"] - dsp_pivot_PU["total_costs"]
     )
 
     return dsp_pivot_PU
@@ -159,6 +149,11 @@ def downselect_dispatch_econ_results(dsp_pivot_PU):
 
     return final_dsp_results
 
+
+def resolve_nans(final_dsp_results):
+    final_dsp_results = final_dsp_results.fillna(0)
+
+    return final_dsp_results
 
 
 ###############################################################################
@@ -178,6 +173,7 @@ def postprocess_dispatch(dispatch_file, system_portfolio, unit_specs):
     agg_dsp_pivot = join_unit_data(agg_dsp_pivot, system_portfolio, unit_specs)
     dsp_pivot_PU = compute_perunit_results(agg_dsp_pivot)
     final_dsp_results = downselect_dispatch_econ_results(dsp_pivot_PU)
+    final_dsp_results = resolve_nans(final_dsp_results)
 
     logging.info("Dispatch file processed.")
 
