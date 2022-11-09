@@ -1,8 +1,8 @@
 simulation:
-  ALEAF_scenario_name: "test_scenario"
+  ALEAF_scenario_name: "ABCE_test"
   solver: "HiGHS"
   num_steps: 1
-  run_ALEAF: False
+  run_ALEAF: True
   C2N_assumption: baseline
 
 scenario:
@@ -40,7 +40,7 @@ constants:
 # File paths and filenames
 file_paths:
   ABCE_sysimage_file: "abceSysimage.so"
-  db_file: "testing_db.db"
+  db_file: "test_db.db"
   demand_data_file: "inputs/demand_data.csv"
   dispatch_sysimage_file: "dispatch.so"
   gc_params_file: "inputs/gc_params.yml"
