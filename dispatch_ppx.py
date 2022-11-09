@@ -152,9 +152,9 @@ def compute_perunit_results(agg_dsp_pivot):
 def downselect_dispatch_econ_results(dsp_pivot_PU):
     final_dsp_results = dsp_pivot_PU[[
         "gen_total", "reg_total", "spin_total", "nspin_total",
-        "gen_rev", "reg_rev", "spin_rev", "nspin_rev",
-        "var_costs", "fixed_costs", "total_policy_adj",
-        "total_rev", "total_costs", "op_profit"
+        "gen_rev", "reg_rev", "spin_rev", "nspin_rev", "total_rev",
+        "var_costs", "fixed_costs", "total_costs", "total_policy_adj",
+        "op_profit"
     ]].copy(deep=True)
 
     return final_dsp_results
