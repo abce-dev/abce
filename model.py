@@ -1302,10 +1302,19 @@ class GridModel(Model):
 
         # Postprocess ALEAF dispatch results
         ALEAF_dsp_results = dsp.postprocess_dispatch(ALEAF_dsp_file, num_units, self.unit_specs)
+        ALEAF_dsp_results["period"] = self.current_pd
+        ALEAF_dsp_results = ALEAF_dsp_results.reset_index().rename(columns={"index": "unit_type"})
+
+        # Get list of column names for ordering
+        cursor = self.db.cursor().execute("SELECT * FROM ALEAF_dispatch_results")
+        col_names = [description[0] for description in cursor.description]
+
+        # Reorder ALEAF_dsp_results to match database
+        ALEAF_dsp_results = ALEAF_dsp_results[col_names]
 
         print(ALEAF_dsp_results)
 
-        return ALEAF_dsp_results
+        ALEAF_dsp_results.to_sql("ALEAF_dispatch_results", self.db, if_exists="append", index=False)
 
 
     def update_WIP_projects(self):
