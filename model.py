@@ -1289,7 +1289,7 @@ class GridModel(Model):
         ALEAF_dsp_file = None
         for fname in os.listdir(Path(self.ABCE_output_data_path)):
             if "dispatch" in fname and "OP" in fname and f"{self.current_pd}" in fname:
-                ALEAF_dsp_file = fname
+                ALEAF_dsp_file = Path(self.ABCE_output_data_path) / fname
 
         # Get the number of units which are currently operational (needed for
         #   scaling dispatch results to a per-unit basis)
