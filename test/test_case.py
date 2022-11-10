@@ -15,7 +15,7 @@ check_db_file = Path(__file__).parent / "check_db.db"
 
 ABCE_run_cmd = [
     "python3",
-    run_file_path,
+    str(run_file_path),
     "-f",
     f"--settings_file={test_settings_file_path}"
 ]
