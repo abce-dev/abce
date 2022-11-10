@@ -27,7 +27,7 @@ def test_read_settings_no_loose_keys(settings):
     assert all(key in settings.keys() for key in all_keys)
 
 def test_read_settings_scenario_name(settings):
-    assert settings["simulation"]["ALEAF_scenario_name"] == "test_scenario"
+    assert settings["simulation"]["ALEAF_scenario_name"] == "ABCE_test"
 
 def test_read_settings_peak_demand(settings):
     assert settings["scenario"]["peak_demand"] == 29000
