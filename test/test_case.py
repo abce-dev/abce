@@ -10,6 +10,8 @@ from pathlib import Path
 test_settings_file_path = Path(__file__).parent / "settings_test.yml"
 run_file_path = Path(__file__).parent.parent / "run.py"
 
+test_db_file = Path(__file__).parent / "test_db.db"
+
 ABCE_run_cmd = [
     "python3",
     run_file_path,
@@ -29,14 +31,14 @@ def test_crash():
 # Set up the test run's output database as a pytest fixture
 @pytest.fixture
 def test_db():
-    return sqlite3.connect("./test_db.db")
+    return sqlite3.connect(test_db_file)
 
 # Set up the standard check database as a pytest fixture
 @pytest.fixture
 def check_db():
     return sqlite3.connect("./check_db.db")
 
-t_db = sqlite3.connect("./test_db.db")
+t_db = sqlite3.connect(test_db_file)
 c_db = sqlite3.connect("./check_db.db")
 
 tables_list = pd.read_sql_query("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'", c_db)["name"].tolist()
