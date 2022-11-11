@@ -717,14 +717,14 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, current_pd, 
 
     # Load past years' dispatch results from A-LEAF
     ALEAF_dispatch_results = DBInterface.execute(db, "SELECT * FROM ALEAF_dispatch_results") |> DataFrame
-    ALEAF_dispatch_results = average_historical_ALEAF_results(ALEAF_dispatch_results)
+    ALEAF_dispatch_results, wtd_hist_revs, wtd_hist_gens = average_historical_ALEAF_results(ALEAF_dispatch_results)
 
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, ALEAF_dispatch_results; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_generation(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, wtd_hist_gens; mode=mode, orig_ret_pd=orig_ret_pd)
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, ALEAF_dispatch_results; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, wtd_hist_revs; mode=mode, orig_ret_pd=orig_ret_pd)
 
 end
 
@@ -748,6 +748,9 @@ end
 
 
 function average_historical_ALEAF_results(ALEAF_dispatch_results)
+    wtd_hist_revs = nothing
+    wtd_hist_gens = nothing
+
     if size(ALEAF_dispatch_results)[1] != 0
         # Get a list of all unique years in the dataframe
         years = unique(ALEAF_dispatch_results, :period)[!, :period]
@@ -758,17 +761,31 @@ function average_historical_ALEAF_results(ALEAF_dispatch_results)
         c = 1 / sum(1/(1+wt)^k for k in years)
 
         # Add a column with the diminishing historical weighting factor
-        transform!(ALEAF_dispatch_results, [:period] => ((pd) -> (1/c) / (1 + wt) ^ pd) => :hist_wt)
+        transform!(ALEAF_dispatch_results, [:period] => ((pd) -> c ./ (1 + wt) .^ pd) => :hist_wt)
 
         # Get weighted total revenue and generation
-        transform!(ALEAF_dispatch_results, [:total_rev, :hist_wt] => ((rev, wt) -> rev * wt) => :wtd_total_rev)
-        transform!(ALEAF_dispatch_results, [:total_gen, :hist_wt] => ((gen, wt) -> gen * wt) => :wtd_total_gen)
+        transform!(ALEAF_dispatch_results, [:total_rev, :hist_wt] => ((rev, wt) -> rev .* wt) => :wtd_total_rev)
+        transform!(ALEAF_dispatch_results, [:gen_total, :hist_wt] => ((gen, wt) -> gen .* wt) => :wtd_total_gen)
+
+        wtd_hist_revs = unstack(
+            select(ALEAF_dispatch_results, [:unit_type, :wtd_total_rev]),
+            :unit_type,
+            :wtd_total_rev,
+            combine=sum
+        )
+
+        wtd_hist_gens = unstack(
+            select(ALEAF_dispatch_results, [:unit_type, :wtd_total_gen]),
+            :unit_type,
+            :wtd_total_gen,
+            combine=sum
+        )
+
     end
 
-    return ALEAF_dispatch_results
+    return ALEAF_dispatch_results, wtd_hist_revs, wtd_hist_gens
 
 end
-
 
 
 """
@@ -777,7 +794,7 @@ end
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, ALEAF_dispatch_results; mode, orig_ret_pd=9999)
+function compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, wtd_hist_revs; mode, orig_ret_pd=9999)
     check_valid_vector_mode(mode)
 
     # Helpful short variables
@@ -819,12 +836,30 @@ function compute_total_revenue(current_pd, unit_type_data, unit_fs, availability
 
     # Compute final projected revenue series
     agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), [:annualized_rev_perunit, :annualized_policy_adj_perunit] .=> sum, renamecols=false)
-    CSV.write("agg_rev_results.csv", agg_econ_results)
+
+    if wtd_hist_revs == nothing
+        hist_rev = 0
+        hist_wt = 0
+    else
+        try
+            hist_rev = wtd_hist_revs[1, type_filter]
+            hist_wt = 0.5
+        catch
+            hist_rev = 0
+            hist_wt = 0
+        end
+    end
+
     for y = rev_start:rev_end
         row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
 
         if size(row)[1] != 0
-            unit_fs[y, :Revenue] = row[1, :annualized_rev_perunit] + row[1, :annualized_policy_adj_perunit]
+            if hist_wt == 0
+                wt = 0
+            else
+                wt = hist_wt^(y - current_pd)
+            end
+            unit_fs[y, :Revenue] = (1 - hist_wt) * (row[1, :annualized_rev_perunit] + row[1, :annualized_policy_adj_perunit]) + hist_wt * hist_rev
         else
             unit_fs[y, :Revenue] = 0
         end
@@ -848,7 +883,7 @@ end
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, ALEAF_dispatch_results; mode, orig_ret_pd)
+function compute_total_generation(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, wtd_hist_gens; mode, orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
@@ -888,14 +923,30 @@ function compute_total_generation(current_pd, unit_type_data, unit_fs, availabil
 
     transform!(long_econ_results, [:gen, :Probability, :num_units] => ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) => :annualized_gen_perunit)
     agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_gen_perunit => sum, renamecols=false)
-    CSV.write("agg_econ_results.csv", agg_econ_results)
+
+    if wtd_hist_gens == nothing
+        hist_gen = 0
+        hist_wt = 0
+    else
+        try
+            hist_gen = wtd_hist_gens[1, type_filter]
+            hist_wt = 0.5
+        catch
+            hist_gen = 0
+            hist_wt = 0
+        end
+    end
 
     # Distribute generation values time series
     for y = gen_start:gen_end
         row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
-
         if size(row)[1] != 0
-            unit_fs[y, :gen] = row[1, :annualized_gen_perunit]
+            if hist_wt == 0
+                wt = 0
+            else
+                wt = hist_wt ^ (y - current_pd)
+            end
+            unit_fs[y, :gen] = (1 - hist_wt) * row[1, :annualized_gen_perunit] + hist_wt * hist_gen
         else
             unit_fs[y, :gen] = 0
         end
