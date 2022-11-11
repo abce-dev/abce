@@ -44,18 +44,18 @@ def test_set_up_local_paths_ABCE_abs_path(fsettings):
     # Then compare it to the directory one level up from this script
     assert Path(fsettings["file_paths"]["ABCE_abs_path"]).resolve() == Path(__file__).parent.parent
 
-def test_set_up_local_paths_ALEAF_abs_path_run_true(settings):
+#def test_set_up_local_paths_ALEAF_abs_path_run_true(settings):
     # Save the original run_ALEAF value to avoid contamination
-    orig_run_ALEAF_value = settings["simulation"]["run_ALEAF"]
+#    orig_run_ALEAF_value = settings["simulation"]["run_ALEAF"]
 
     # Set run_ALEAF value to True for testing
-    settings["simulation"]["run_ALEAF"] = True
-    settings = set_up_local_paths(settings)
+#    settings["simulation"]["run_ALEAF"] = True
+#    settings = set_up_local_paths(settings)
 
-    assert settings["ALEAF"]["ALEAF_abs_path"] == Path(os.environ["ALEAF_DIR"])
+#    assert settings["ALEAF"]["ALEAF_abs_path"] == Path(os.environ["ALEAF_DIR"])
 
     # Reset run_ALEAF to its original value
-    settings["simulation"]["run_ALEAF"] = orig_run_ALEAF_value
+#    settings["simulation"]["run_ALEAF"] = orig_run_ALEAF_value
 
 def test_set_up_local_paths_ALEAF_abs_path_run_false(settings):
     # Save the original run_ALEAF value to avoid contamination
