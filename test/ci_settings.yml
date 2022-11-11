@@ -69,13 +69,13 @@ demand:
 
 # Settings for the agents' internal dispatch simulator
 dispatch:
-  num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
-  num_repdays: 20
+  num_dispatch_years: 5  # Num. of years to explicitly simulate dispatch
+  num_repdays: 16
 
 # Settings for agent behavior optimization
 agent_opt:
   consider_future_projects: True
-  num_future_periods_considered: 4    # Number of periods for which to consider future projects
+  num_future_periods_considered: 3    # Number of periods for which to consider future projects
   max_type_rets_per_pd: 5
   max_type_newbuilds_per_pd: 3
 
