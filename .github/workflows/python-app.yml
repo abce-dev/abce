@@ -34,4 +34,4 @@ jobs:
         source install.sh -n -a ""
     - name: Test with pytest
       run: |
-        pytest
+        pytest --settings_file="./test/ci_settings.yml"

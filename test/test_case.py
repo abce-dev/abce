@@ -3,6 +3,7 @@ import sys
 import subprocess as sp
 import sqlite3
 import pandas as pd
+import argparse
 from pathlib import Path
 
 
@@ -10,34 +11,51 @@ from pathlib import Path
 test_settings_file_path = Path(__file__).parent / "settings_test.yml"
 run_file_path = Path(__file__).parent.parent / "run.py"
 
-test_db_file = Path(__file__).parent / "test_db.db"
-check_db_file = Path(__file__).parent / "check_db.db"
 
-ABCE_run_cmd = [
-    "python3",
-    str(run_file_path),
-    "-f",
-    f"--settings_file={test_settings_file_path}"
-]
 
 ###############################################################################
 # Tests
 ###############################################################################
 
-def test_crash():
+@pytest.fixture
+def settings_file(pytestconfig):
+    sfile = pytestconfig.getoption("settings_file")
+    sfile = str(Path(sfile).resolve())
+    return sfile
+
+@pytest.fixture
+def test_db_file(pytestconfig):
+    tfile = pytestconfig.getoption("test_db_file")
+    tfile = str(Path(tfile).resolve())
+    return tfile
+
+@pytest.fixture
+def check_db_file(pytestconfig):
+    cfile = pytestconfig.getoption("check_db_file")
+    cfile = str(Path(cfile).resolve())
+    return cfile
+
+def test_crash(settings_file):
     # Run ABCE and check whether the process crashes
+    ABCE_run_cmd = [
+        "python3",
+        str(Path(__file__).parent.parent / "run.py"),
+        "-f",
+        f"--settings_file={settings_file}"
+    ]
+
     proc = sp.check_call(ABCE_run_cmd)
     assert proc == 0
 
-## Set up the test run's output database as a pytest fixture
-#@pytest.fixture
-#def test_db():
-#    return sqlite3.connect(test_db_file)
+# Set up the test run's output database as a pytest fixture
+@pytest.fixture
+def test_db():
+    return sqlite3.connect(test_db_file)
 
 # Set up the standard check database as a pytest fixture
-#@pytest.fixture
-#def check_db():
-#    return sqlite3.connect("./check_db.db")
+@pytest.fixture
+def check_db():
+    return sqlite3.connect(check_db_file)
 
 #t_db = sqlite3.connect(test_db_file)
 #c_db = sqlite3.connect("./check_db.db")
