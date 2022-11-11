@@ -699,8 +699,6 @@ end
 Forecast the revenue which will be earned by the current unit type,
 and the total generation (in kWh) of the unit, per time period.
 
-This function assumes the unit will be a pure price-taker: it will generate
-  during all hours for which it is a marginal or submarginal unit.
 If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
@@ -727,108 +725,6 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, current_pd, 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
     compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, ALEAF_dispatch_results; mode=mode, orig_ret_pd=orig_ret_pd)
-
-end
-
-
-"""
-    compute_submarginal_hours_revenue(unit_type_data, price_curve)
-
-Compute revenue accrued to the unit during hours when it is a submarginal
-bidder into the wholesale market, assuming the unit is a pure price taker.
-"""
-function compute_submarginal_hours_revenue(unit_type_data, price_curve)
-    # Get a list of all hours and their prices during which the unit would 
-    #   be sub-marginal, from the price-duration curve
-    # Marginal cost unit conversion:
-    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
-    submarginal_hours = filter(row -> row.lamda > unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] - unit_type_data[:policy_adj_per_MWh], price_curve)
-
-    # Create a conversion factor from number of periods in the price curve
-    #   to hours (price curve may be in hours or five-minute periods)
-    convert_to_hours = hours_per_year / size(price_curve)[1]
-
-    # Compute total number of submarginal hours
-    num_submarg_hours = size(submarginal_hours)[1] * convert_to_hours
-
-    # Calculate total revenue from submarginal hours, adjusting for net penalty
-    #   or subsidy due to the effect of policies
-    submarginal_hours_revenue = sum((submarginal_hours[!, :lamda] .+ unit_type_data[:policy_adj_per_MWh]) * unit_type_data[:capacity]) * convert_to_hours
-
-    return num_submarg_hours, submarginal_hours_revenue
-end
-
-
-"""
-    compute_marginal_hours_revenue(unit_type_data, price_curve, db)
-
-Compute revenue accrued to the unit during hours when it is the marginal
-bidder into the wholesale market, assuming the unit is a pure price taker.
-The unit "takes credit" for a percentage of the marginal-hour revenue
-corresponding to the percentage of unit-type capacity it comprises.
-For example, a 200-MW NGCC unit in a system with 1000 MW of total NGCC capacity
-receives 200/1000 = 20% of the revenues during hours when NGCC is marginal.
-"""
-function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
-    # Get a list of all hours and their prices during which the unit would 
-    #   be marginal, from the price-duration curve
-    # Marginal cost unit convertion:
-    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
-    marginal_hours = filter(row -> row.lamda == unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] - unit_type_data[:policy_adj_per_MWh], price_curve)
-
-    # Compute the total capacity of this unit type in the current system
-    command = string("SELECT asset_id FROM assets WHERE unit_type == '", unit_type_data[:unit_type], "' AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd)
-    system_type_list = DBInterface.execute(db, command) |> DataFrame
-    system_type_capacity = size(system_type_list)[1]
-
-    # Create a conversion factor from number of periods in the price curve
-    #   to hours (price curve may be in hours or five-minute periods)
-    convert_to_hours = hours_per_year / size(price_curve)[1]
-
-    # Compute effective number of marginal hours
-    if system_type_capacity == 0
-        num_marg_hours = 0
-    else
-        num_marg_hours = size(marginal_hours)[1] / system_type_capacity * convert_to_hours
-    end
-
-    if size(marginal_hours)[1] == 0
-        marginal_hours_revenue = 0
-    else
-        marginal_hours_revenue = sum((marginal_hours[!, :lamda]) .+ unit_type_data[:policy_adj_per_MWh]) * unit_type_data[:capacity] / system_type_capacity * convert_to_hours
-    end
-
-    return num_marg_hours, marginal_hours_revenue
-end
-
-
-function compute_historical_unit_type_results(unit_specs, price_data, db, current_pd)
-    # Create dataframe to store results
-    unit_hist_results = DataFrame(
-                            unit_type = String[],
-                            total_gen = Float64[],
-                            total_rev = Float64[]
-                        )
-
-    for unit_type in unit_specs[!, :unit_type]
-        # Filter unit type data for convenience
-        unit_type_data = filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
-
-        # Get the unit type's number of hours generated and revenue while
-        #   submarginal
-        unit_submarg_hours, unit_submarg_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_data)
-
-        # Get the unit type's number of hours generated and revenue while
-        #   marginal
-        unit_marg_hours, unit_marg_hours_revenue = compute_marginal_hours_revenue(unit_type_data, price_data, db, current_pd)
-
-        unit_total_rev = unit_submarg_hours_revenue + unit_marg_hours_revenue
-        unit_total_gen = (unit_submarg_hours + unit_marg_hours) * unit_type_data[:capacity]
-
-        push!(unit_hist_results, [unit_type unit_total_gen unit_total_rev])
-    end
-
-    return unit_hist_results
 
 end
 
