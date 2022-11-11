@@ -34,4 +34,4 @@ jobs:
         bash install.sh -n -a ""
     - name: Test with pytest
       run: |
-        pytest --settings_file="./test/ci_settings.yml"
+        pytest --capture=tee-sys --settings_file="./test/ci_settings.yml"
