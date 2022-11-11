@@ -63,7 +63,7 @@ demand:
   total_forecast_horizon: 10   # Number of periods in the complete forecast horizon
   demand_visibility_horizon: 2
   demand_projection_mode: exp_termrate     # flat, exp_fitted, or exp_termrate
-  demand_projection_window: 5 # Total number of periods used to project demand
+  demand_projection_window: 4 # Total number of periods used to project demand
   historical_demand_growth_rate: 0.01
   terminal_demand_growth_rate: 0.01  # Exponential growth rate of demand
 
