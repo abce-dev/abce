@@ -231,7 +231,18 @@ abce_tables = {"WIP_projects":
                 ("Net_Income", "real"),
                 ("capex", "real"),
                 ("FCF", "real")
-                ]
+                ],
+
+               "agent_decisions":
+               [("agent_id", "integer", "PRIMARY KEY"),
+                ("unit_type", "text"),
+                ("project_type", "text"),
+                ("lag", "integer"),
+                ("ret_pd", "integer"),
+                ("NPV", "real"),
+                ("allowed", "text"),
+                ("units_to_execute", "integer")
+               ]
 
                }
 

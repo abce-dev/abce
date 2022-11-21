@@ -81,7 +81,7 @@ using .ABCEfunctions, .Dispatch, .C2N
 ###### Set up inputs
 @info "Initializing data..."
 
-settings = set_up_local_paths(settings)
+settings = ABCEfunctions.set_up_local_paths(settings)
 
 solver = lowercase(settings["simulation"]["solver"])
 @debug string("Solver is `$solver`")
@@ -120,7 +120,7 @@ else
 end
 
 # Load the inputs
-db = load_db(db_file)
+db = ABCEfunctions.load_db(db_file)
 pd = CLI_args["current_pd"]
 agent_id = CLI_args["agent_id"]
 
@@ -129,16 +129,16 @@ C2N_specs = YAML.load_file(C2N_specs_file)
 
 # Set up agent-specific data
 # Get a list of all ongoing construction projects for the current agent
-agent_projects = get_WIP_projects_list(db, pd, agent_id)
+agent_projects = ABCEfunctions.get_WIP_projects_list(db, pd, agent_id)
 # Get a list of all operating assets owned by the current agent
-agent_assets, asset_counts = get_current_assets_list(db, pd, agent_id)
+agent_assets, asset_counts = ABCEfunctions.get_current_assets_list(db, pd, agent_id)
 
 # Get agent financial parameters
-agent_params = get_agent_params(db, agent_id)
+agent_params = ABCEfunctions.get_agent_params(db, agent_id)
 
 # System parameters
 # Read unit operational data (unit_specs) and number of unit types (num_types)
-unit_specs, num_types = get_unit_specs(db)
+unit_specs, num_types = ABCEfunctions.get_unit_specs(db)
 if pd == 0
     # @info unit_specs
     
@@ -147,7 +147,7 @@ num_alternatives = num_types * (num_lags + 1)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
 #   for the most long-lived possible unit
-fc_pd = set_forecast_period(unit_specs, num_lags)
+fc_pd = ABCEfunctions.set_forecast_period(unit_specs, num_lags)
 
 # Add empty column for project NPVs in unit_specs
 unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
@@ -159,10 +159,10 @@ unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
 all_year_system_portfolios, all_year_agent_portfolios = Dispatch.set_up_dispatch_portfolios(db, pd, fc_pd, agent_id, unit_specs)
 
 # Load the demand data
-total_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
+total_demand = ABCEfunctions.get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 
 # Extend the unserved demand data to match the total forecast period (constant projection)
-total_demand = get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_system_portfolios, unit_specs)
+total_demand = ABCEfunctions.get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_system_portfolios, unit_specs)
 @debug "Demand data:"
 @debug total_demand[1:10, :]
 
@@ -171,7 +171,7 @@ long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, 
 @info "Dispatch projections complete."
 
 @info "Setting up project alternatives..."
-PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, pd, long_econ_results, C2N_specs)
+PA_uids, PA_fs_dict = ABCEfunctions.set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, pd, long_econ_results, C2N_specs)
 
 @info "Project alternatives set up."
 
@@ -182,9 +182,9 @@ PA_uids, PA_fs_dict = set_up_project_alternatives(settings, unit_specs, asset_co
 @info "Setting up the agent's decision optimization model..."
 unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_portfolios, fc_pd, pd)
 
-agent_fs = update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios)
+agent_fs = ABCEfunctions.update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios)
 
-m = set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
+m = ABCEfunctions.set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
 @info "Solving agent's decision optimization problem..."
@@ -211,9 +211,8 @@ elseif CLI_args["verbosity"] == 3
     @debug all_results
 end
 
-
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
-postprocess_agent_decisions(all_results, unit_specs, db, pd, agent_id)
+ABCEfunctions.postprocess_agent_decisions(all_results, unit_specs, db, pd, agent_id)
 
 ##### Authorize ANPE for all current WIP projects
 # Retrieve all WIP projects
