@@ -180,8 +180,3 @@ def postprocess_dispatch(dispatch_file, system_portfolio, unit_specs):
     return final_dsp_results
 
 
-if __name__ == "__main__":
-    set_up_logging()
-
-    # Process the dispatch file
-    postprocess_dispatch(dsp_file)
