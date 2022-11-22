@@ -12,15 +12,18 @@ RC_FILE="$HOME/.bashrc"
 CONDA_ENV_FILE="environment.yml"
 REQ_FILE="requirements.txt"
 JULIA_MAKE_FILE="make_julia_environment.jl"
+JULIA_URL="https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.2-linux-x86_64.tar.gz"
 
 # Check for command-line arguments
 #   -a: pre-specify the ALEAF_DIR absolute path as a command-line argument
 #   -n: ignore conda for package management (1=force ignore conda)
-while getopts a:n flag
+#   -f: auto-agree to any yes/no user prompts
+while getopts a:nf flag
 do
     case "${flag}" in
         a) aleaf_dir=${OPTARG};;
         n) no_conda=1;;
+        f) force=1;;
     esac
 done
 
@@ -96,23 +99,49 @@ else
         echo "All python packages installed with pip.";
     fi
 
-    # If julia 1.8 is not the current version of julia, download and install
-    #   julia-1.8.2
-    if [[ -z $( julia --version | grep "1.8" ) ]]; then
-        # If julia --version doesn't return something containing the value "1.8",
-        #   then julia 1.8 needs to be installed or set to the default local julia
-        if [[ ! -d "$HOME/julia-1.8.2" ]]; then
-            if [[ ! -f "$HOME/julia-1.8.2-linux-x86_64.tar.gz" ]]; then
-                echo "Downloading Julia 1.8.2...";
-                wget https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.2-linux-x86_64.tar.gz -P "$HOME";
-            fi
-
-            echo "Installing Julia 1.8.2..."
-            tar zxvf "$HOME/julia-1.8.2-linux-x86_64.tar.gz";
+    # Check whether Julia is installed
+    if [[ ! -z $( julia --version | grep -E "1\.8\.[0-9]{1,4}" ) ]]; then
+        echo "Julia 1.8 is already installed."
+    else
+        if [[ ! -z $( julia --version | grep "not found" ) ]]; then
+            echo "Julia doesn't appear to be installed on this machine."
+        elif [[ ! -z $( julia --version | grep -E "[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}" ) ]]; then
+            echo "Your version of Julia is older than 1.8."
         fi
+
+        echo "ABCE requires Julia 1.8."
+        user_resp=""
+        while [[ "${user_resp}" != "y" || "${user_resp}" != "n" ]]; do
+            echo "Can I install Julia 1.8, and set your default Julia version to 1.8? [y/n]"
+            read user_resp
+        done
+
+        if [[ $user_resp == "n" ]]; then
+            echo "Running ABCE requires Julia 1.8 to be the default, i.e. running 'julia --version' in the local environment returns julia 1.8."
+            echo "If you don't want to change the system-wide default, consider setting up a conda environment for ABCE."
+            echo "You can download Julia 1.8.2 from $JULIA_URL."
+            echo "Re-run this installation script once you have Julia 1.8 available as the local default."
+        elif [[ $user_resp == "y" ]] || [[ $force ]]; then
+            # Check for a directory called julia-1.8.2/ in $HOME
+            if [[ ! -d "$HOME/julia-1.8.2" ]]; then
+                # If there's no such directory, download and unpack the tarball
+                #   into $HOME
+                if [[ ! -f "$HOME/julia-1.8.2-linux-x86_64.tar.gz" ]]; then
+                    # Check whether the julia 1.8.2 tarball has already been
+                    #   downloaded into $HOME
+                    echo "Downloading Julia 1.8.2...";
+                    wget https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.2-linux-x86_64.tar.gz -P "$HOME";
+                fi
+
+                # Install Julia
+                echo "Installing Julia 1.8.2..."
+                tar zxvf "$HOME/julia-1.8.2-linux-x86_64.tar.gz";
+            fi
+           
+        fi
+
     fi
 
-fi
 
 # Set up the local Julia environment
 echo "Setting up the local Julia environment..."
