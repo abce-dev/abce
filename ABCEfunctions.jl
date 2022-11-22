@@ -706,9 +706,6 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
 function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
     check_valid_vector_mode(mode)
 
-    # If the unit is VRE, assign an appropriate availability derate factor
-    availability_derate_factor = compute_VRE_derate_factor(unit_type_data)
-
     # Compute the original retirement period
     # Minimum of ret_pd or size of the unit FS (i.e. the forecast period)
     if orig_ret_pd == nothing
@@ -720,30 +717,12 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, current_pd, 
     ALEAF_dispatch_results, wtd_hist_revs, wtd_hist_gens = average_historical_ALEAF_results(ALEAF_dispatch_results)
 
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, wtd_hist_gens; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_generation(current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_gens; mode=mode, orig_ret_pd=orig_ret_pd)
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, wtd_hist_revs; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_revenue(current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_revs; mode=mode, orig_ret_pd=orig_ret_pd)
 
-end
-
-
-"""
-    compute_VRE_derate_factor(unit_type_data)
-
-If the unit is declared as `is_VRE` in the A-LEAF inputs, return an
-availability derating factor equal to its capacity credit factor.
-"""
-function compute_VRE_derate_factor(unit_type_data)
-    availability_derate_factor = 1
-
-    # Julia reads booleans as UInt8, so have to convert to something sensible
-    if convert(Int64, unit_type_data[:is_VRE][1]) == 1
-        availability_derate_factor = unit_type_data[:CF]
-    end
-
-    return availability_derate_factor   
 end
 
 
@@ -789,12 +768,12 @@ end
 
 
 """
-    compute_total_revenue(unit_type_data, unit_fs, availability_derate_factor, lag; mode, orig_ret_pd)
+    compute_total_revenue(unit_type_data, unit_fs, lag; mode, orig_ret_pd)
 
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, wtd_hist_revs; mode, orig_ret_pd=9999)
+function compute_total_revenue(current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_revs; mode, orig_ret_pd=9999)
     check_valid_vector_mode(mode)
 
     # Helpful short variables
@@ -879,11 +858,11 @@ function compute_total_revenue(current_pd, unit_type_data, unit_fs, availability
 end
 
 """
-    compute_total_generation(unit_type_data, unit_fs, availability_derate_factor, lag; mode, orig_ret_pd)
+    compute_total_generation(unit_type_data, unit_fs, lag; mode, orig_ret_pd)
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results, wtd_hist_gens; mode, orig_ret_pd)
+function compute_total_generation(current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_gens; mode, orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
