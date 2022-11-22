@@ -314,7 +314,6 @@ function authorize_anpe(db, agent_id, current_period, project_list, unit_specs)
         unit = filter(row -> row[:unit_type] == asset_type[1, :unit_type], unit_specs)
         # Authorize a uniform expenditure over the life of the project
         anpe_val = unit[1, :uc_x] * unit[1, :capacity] * 1000 / unit[1, :d_x]
-#        anpe_val = 100000000   # $1B/period
         vals = (anpe_val, current_period, current_asset)
         DBInterface.execute(db, "UPDATE WIP_updates SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end
@@ -453,23 +452,6 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
         end
 
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
-
-        # save a representative example of each unit type to file (new_xtr only)
-        savelag = 2
-#        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
-#            ctype = current_PA[:unit_type]
-#            fspath = joinpath(
-#                         pwd(),
-#                         "tmp",
-#                         string(
-#                             ctype,
-#                             "_",
-#                             savelag,
-#                             "_fs.csv"
-#                         )
-#                     )
-#            CSV.write(fspath, PA_fs_dict[uid])
-#        end
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
