@@ -306,39 +306,6 @@ function get_unit_specs(db)
 end
 
 
-function ensure_projects_not_empty(db, agent_id, project_list, current_period)
-    # FAKE: only exists to ensure the Julia and Python scripts actually have something to do
-    try
-        if (size(project_list)[1] == 0) && (current_period <= 5)
-            # Current period restriction is a testing spoof only to allow
-            #    observation of post-completion model behavior
-
-            # Create a new project
-            new_asset_id = get_next_asset_id(db)
-
-            # Assign some dummy data to the project
-            xtr_vals = (new_asset_id, string(agent_id), 0, 1000, 10, 0)
-            asset_vals = (new_asset_id, string(agent_id), "gas", "no", "no", 9999, 0)
-            DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", xtr_vals)
-            DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)", asset_vals)
-            # @info string("Created project ", new_asset_id)
-
-            # Update the list of WIP construction projects and return it
-            project_list = get_WIP_projects_list(db, agent_id)
-            return project_list
-        else
-            # If at least one construction project already exists, there's no
-            #    need to do anything.
-            return project_list
-        end
-    catch e
-        @error "Could not insert a seed project into the agent's project list"
-        @error e
-        exit()
-    end
-end
-
-
 function authorize_anpe(db, agent_id, current_period, project_list, unit_specs)
     # Loop through each project and authorize $100 of ANPE by setting the anpe value in WIP_projects
     for i = 1:size(project_list[!, :asset_id])[1]
