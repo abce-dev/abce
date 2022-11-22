@@ -429,6 +429,7 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
 
         # Forecast unit revenue ($/period) and generation (kWh/period)
         forecast_unit_revenue_and_gen(
+            settings,
             unit_type_data,
             PA_fs_dict[uid],
             db,
@@ -643,7 +644,7 @@ end
 
 
 """
-    forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, pd, lag; mode, ret_pd)
+    forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode, ret_pd)
 
 Forecast the revenue which will be earned by the current unit type,
 and the total generation (in kWh) of the unit, per time period.
@@ -652,7 +653,7 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
+function forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Compute the original retirement period
@@ -663,19 +664,19 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, current_pd, 
 
     # Load past years' dispatch results from A-LEAF
     ALEAF_dispatch_results = DBInterface.execute(db, "SELECT * FROM ALEAF_dispatch_results") |> DataFrame
-    ALEAF_dispatch_results, wtd_hist_revs, wtd_hist_gens = average_historical_ALEAF_results(ALEAF_dispatch_results)
+    ALEAF_dispatch_results, wtd_hist_revs, wtd_hist_gens = average_historical_ALEAF_results(settings, ALEAF_dispatch_results)
 
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_gens; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_generation(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_gens; mode=mode, orig_ret_pd=orig_ret_pd)
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_revs; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_revs; mode=mode, orig_ret_pd=orig_ret_pd)
 
 end
 
 
-function average_historical_ALEAF_results(ALEAF_dispatch_results)
+function average_historical_ALEAF_results(settings, ALEAF_dispatch_results)
     wtd_hist_revs = nothing
     wtd_hist_gens = nothing
 
@@ -683,17 +684,17 @@ function average_historical_ALEAF_results(ALEAF_dispatch_results)
         # Get a list of all unique years in the dataframe
         years = unique(ALEAF_dispatch_results, :period)[!, :period]
 
-        wt = 0.5
+        hist_decay = settings["dispatch"]["hist_decay"]
 
         # Compute scaling factor to normalize to 1
-        c = 1 / sum(1/(1+wt)^k for k in years)
+        c = 1 / sum(1/(1+hist_decay)^k for k in years)
 
         # Add a column with the diminishing historical weighting factor
-        transform!(ALEAF_dispatch_results, [:period] => ((pd) -> c ./ (1 + wt) .^ pd) => :hist_wt)
+        transform!(ALEAF_dispatch_results, [:period] => ((pd) -> c ./ (1 + hist_decay) .^ pd) => :hist_wt)
 
         # Get weighted total revenue and generation
-        transform!(ALEAF_dispatch_results, [:total_rev, :hist_wt] => ((rev, wt) -> rev .* wt) => :wtd_total_rev)
-        transform!(ALEAF_dispatch_results, [:gen_total, :hist_wt] => ((gen, wt) -> gen .* wt) => :wtd_total_gen)
+        transform!(ALEAF_dispatch_results, [:total_rev, :hist_wt] => ((rev, wt) -> rev .* hist_decay) => :wtd_total_rev)
+        transform!(ALEAF_dispatch_results, [:gen_total, :hist_wt] => ((gen, wt) -> gen .* hist_decay) => :wtd_total_gen)
 
         wtd_hist_revs = unstack(
             select(ALEAF_dispatch_results, [:unit_type, :wtd_total_rev]),
@@ -722,7 +723,7 @@ end
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_revs; mode, orig_ret_pd=9999)
+function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_revs; mode, orig_ret_pd=9999)
     check_valid_vector_mode(mode)
 
     # Helpful short variables
@@ -811,7 +812,7 @@ end
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_gens; mode, orig_ret_pd)
+function compute_total_generation(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_gens; mode, orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
@@ -858,10 +859,10 @@ function compute_total_generation(current_pd, unit_type_data, unit_fs, lag, long
     else
         try
             hist_gen = wtd_hist_gens[1, type_filter]
-            hist_wt = 0.5
+            hist_wt = settings["dispatch"]["hist_wt"]
         catch
             hist_gen = 0
-            hist_wt = 0
+            hist_wt = settings["dispatch"]["hist_wt"]
         end
     end
 

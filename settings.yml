@@ -67,10 +67,13 @@ demand:
   historical_demand_growth_rate: 0.01
   terminal_demand_growth_rate: 0.01  # Exponential growth rate of demand
 
-# Settings for the agents' internal dispatch simulator
+# Settings for the agents' internal dispatch simulator and handling of
+#   dispatch data
 dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
   num_repdays: 20
+  hist_wt: 0.4  # Weighting of historical versus projected data
+  hist_decay: 0.5   # Decay factor for each historical data year
 
 # Settings for agent behavior optimization
 agent_opt:
