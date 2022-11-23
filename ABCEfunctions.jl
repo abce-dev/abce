@@ -772,7 +772,7 @@ function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, la
     else
         try
             hist_rev = wtd_hist_revs[1, type_filter]
-            hist_wt = 0.5
+            hist_wt = settings["dispatch"]["hist_wt"]
         catch
             hist_rev = 0
             hist_wt = 0
