@@ -1172,25 +1172,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    filename = joinpath(
-                   pwd(),
-                   "tmp",
-                   "marg_FCF.csv"
-               )
-    CSV.write(filename, DataFrame(marg_int, :auto))
-
-    agent_fs_path = joinpath(
-                        pwd(),
-                        "tmp",
-                        string(
-                            "agent_",
-                            agent_id,
-                            "_pd_",
-                            current_pd,
-                            ".csv"
-                        )
-                    )
-    CSV.write(agent_fs_path, agent_fs)
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
@@ -1239,13 +1220,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
             end
         end
     end
-
-    filename = joinpath(
-                   pwd(),
-                   "tmp",
-                   "ret_rum_mat_$agent_id.csv"
-               )
-    CSV.write(filename, DataFrame(ret_summation_matrix, :auto))
 
     # Specify constraint: the agent cannot plan to retire more units (during
     #   all lag periods) than exist of that unit type
