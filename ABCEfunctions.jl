@@ -1584,7 +1584,7 @@ function save_agent_decisions(db, agent_id, decision_df)
     cols_to_ignore = [:uid, :current]
     select!(decision_df, :agent_id, Not(vcat([:agent_id], cols_to_ignore)))
     for row in Tuple.(eachrow(decision_df))
-        ins_cmd = "INSERT INTO agent_decisions VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ins_cmd = "INSERT INTO agent_decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         DBInterface.execute(db, ins_cmd, row)
     end
 end
