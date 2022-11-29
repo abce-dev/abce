@@ -119,15 +119,6 @@ function get_table(db, table_name)
 end
 
 
-function show_table(db, table_name)
-    command = string("SELECT * FROM ", string(table_name))
-    df = DBInterface.execute(db, command) |> DataFrame
-    # @info string("\nTable \'", table_name, "\':")
-    # @info df
-    return df
-end
-
-
 function get_WIP_projects_list(db, pd, agent_id)
     # Get a list of all WIP (non-complete, non-cancelled) projects for the given agent
     # Time-period convention:
@@ -148,7 +139,6 @@ function get_current_assets_list(db, pd, agent_id)
 
     # Count the number of assets by type
     asset_counts = combine(groupby(asset_list, [:unit_type, :retirement_pd, :C2N_reserved]), nrow => :count)
-    # @info asset_counts
 
     return asset_list, asset_counts
 end
@@ -1103,7 +1093,7 @@ Returns:
 """
 function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
     # Create the model object
-    # @info "Setting up model..."
+    @debug "Setting up model..."
 
     # Initialize a model with the settings-specified optimizer
     m = create_model_with_optimizer(settings)
@@ -1293,7 +1283,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     )
 
 
-    # @info "Optimization model set up."
+    @debug "Optimization model set up."
 
     return m
 end
@@ -1435,7 +1425,6 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
 
         # Set the number of units to execute
         units_to_execute = unit_type_specs["num_cpp_rets"]
-        # @info "Units to execute: ", units_to_execute
 
     end
 
