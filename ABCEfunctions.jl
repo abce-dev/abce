@@ -1063,13 +1063,35 @@ function set_baseline_future_years(db, agent_id)
         owned_extant_units[i] = combine(oeudf, Symbol("COUNT(asset_id)") => sum)
     end
 
-    
-
-
 end
 
 
 ### JuMP optimization model initialization
+function create_model_with_optimizer(settings)
+    # Determine which solver to use, based on the settings file
+    solver = lowercase(settings["simulation"]["solver"])
+
+    if solver == "cplex"
+        m = Model(CPLEX.Optimizer)
+    elseif solver == "glpk"
+        m = Model(GLPK.Optimizer)
+    elseif solver == "cbc"
+        m = Model(Cbc.Optimizer)
+    elseif solver == "scip"
+        m = Model(SCIP.Optimizer)
+    elseif solver == "highs"
+        m = Model(HiGHS.Optimizer)
+    else
+        throw(error("Solver `$solver` not supported. Try `cplex` instead."))
+    end
+
+    set_silent(m)
+
+    return m
+
+end
+
+
 """
     set_up_model(unit_FS_dict, ret_fs_dict, fc_pd, available_demand, NPV_results, ret_NPV_results)
 
@@ -1083,22 +1105,8 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # Create the model object
     # @info "Setting up model..."
 
-    solver = lowercase(settings["simulation"]["solver"])
-    if solver == "cplex"
-        # using CPLEX
-        m = Model(CPLEX.Optimizer)
-    elseif solver == "glpk"
-        m = Model(GLPK.Optimizer)
-    elseif solver == "cbc"
-        m = Model(Cbc.Optimizer)
-    elseif solver == "scip"
-        m = Model(SCIP.Optimizer)
-    elseif solver == "highs"
-        m = Model(HiGHS.Optimizer)
-    else
-        throw(error("Solver `$solver` not supported. Try `cplex` instead."))
-    end
-    set_silent(m)
+    # Initialize a model with the settings-specified optimizer
+    m = create_model_with_optimizer(settings)
 
     # Parameter names
     num_alternatives = size(PA_uids)[1]
