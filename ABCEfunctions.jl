@@ -1228,23 +1228,22 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     end
 
     # Create the objective function 
-
-    lamda_1 = 1.0 / 1e9
-    lamda_2 = 0.1
-    lim = 6
-    int_bound = 5.0
+    profit_lamda = settings["agent_opt"]["profit_lamda"] / 1e9
+    credit_rating_lamda = settings["agent_opt"]["credit_rating_lamda"]
+    cr_horizon = settings["agent_opt"]["cr_horizon"]
+    int_bound = settings["agent_opt"]["int_bound"]
  
     @objective(
         m,
         Max,
         (
-            lamda_1 * (transpose(u) * PA_uids[!, :NPV])
-            + lamda_2 * (
-                sum(agent_fs[1:lim, :FCF]) / 1e9
-                + sum(transpose(u) * marg_FCF[:, 1:lim])
-                + sum(agent_fs[1:lim, :interest_payment]) / 1e9
-                + sum(transpose(u) * marg_int[:, 1:lim])
-                - (int_bound) * (sum(agent_fs[1:lim, :interest_payment]) / 1e9 + sum(transpose(u) * marg_int[:, 1:lim]))
+            profit_lamda * (transpose(u) * PA_uids[!, :NPV])
+            + credit_rating_lamda * (
+                sum(agent_fs[1:cr_horizon, :FCF]) / 1e9
+                + sum(transpose(u) * marg_FCF[:, 1:cr_horizon])
+                + sum(agent_fs[1:cr_horizon, :interest_payment]) / 1e9
+                + sum(transpose(u) * marg_int[:, 1:cr_horizon])
+                - (int_bound) * (sum(agent_fs[1:cr_horizon, :interest_payment]) / 1e9 + sum(transpose(u) * marg_int[:, 1:cr_horizon]))
             )
         )
     )
