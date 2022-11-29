@@ -1108,14 +1108,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # Number of units of each type to build: must be Integer
     @variable(m, u[1:num_alternatives] >= 0, Int)
 
-    transform!(total_demand, [:real_demand, :total_eff_cap] => ((dem, eff_cap) -> eff_cap - dem) => :excess_capacity)
-
-    for i = 1:size(total_demand)[1]
-        if total_demand[i, :excess_capacity] < 0
-            total_demand[i, :excess_capacity] = 0
-        end
-    end
-
     # Compute expected marginal generation and effective nameplate capacity
     #   contribution per alternative type
     marg_gen = zeros(num_alternatives, num_time_periods)
