@@ -854,7 +854,7 @@ class GridModel(Model):
         self.cur = self.db.cursor()
 
         # Show update tables in the terminal
-        #self.show_round_updates()
+        self.show_round_updates()
 
         # Transfer all decisions and updates from the 'asset_updates' and
         #   'WIP_updates' tables into their respective public-information
@@ -908,10 +908,10 @@ class GridModel(Model):
 
 
     def show_round_updates(self):
-        logging.info("Updates to assets:")
-        logging.info(pd.read_sql("SELECT * FROM asset_updates", self.db))
-        logging.info("\nConstruction project updates (last 10 entries):")
-        logging.info(pd.read_sql("SELECT * FROM WIP_updates", self.db).tail(n=10))
+        logging.debug("Updates to assets:")
+        logging.debug(pd.read_sql("SELECT * FROM asset_updates", self.db))
+        logging.debug("\nConstruction project updates (last 10 entries):")
+        logging.debug(pd.read_sql("SELECT * FROM WIP_updates", self.db).tail(n=10))
 
 
     def check_for_sysimage_files(self):
