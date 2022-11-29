@@ -1145,12 +1145,12 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
         total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
         tec = round(total_eff_cap, digits=1)
-        if (total_eff_cap / pd_total_demand > 1.05)
-            margin = -0.2
-        elseif (total_eff_cap / pd_total_demand > 1)
-            margin = 0
+        if (total_eff_cap / pd_total_demand > settings["agent_opt"]["cap_decrease_threshold"])
+            margin = settings["agent_opt"]["cap_decrease_margin"]
+        elseif (total_eff_cap / pd_total_demand > settings["agent_opt"]["cap_maintain_threshold"])
+            margin = settings["agent_opt"]["cap_maintain_margin"]
         else
-            margin = 0.02
+            margin = settings["agent_opt"]["cap_increase_margin"]
         end
         @constraint(m, (transpose(u .* PA_uids[:, :current]) * marg_eff_cap[:, i]) >= (total_eff_cap - pd_total_demand) * margin)
 
