@@ -1129,14 +1129,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    # Prevent excessive overbuild in the medium term
-#    for i = 3:10
-#        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= forecasted_demand[current_pd+i, :total_demand] * 1.1)   # settings["planning_reserve_margin"]
-#    end
-
-    # Prevent the agent from intentionally causing foreseeable energy shortages
-    shortage_protection_pd = 8
-   
     # Record which elements take effect immediately
     PA_uids[!, :current] .= 0
     for i = 1:size(PA_uids)[1]
@@ -1147,7 +1139,8 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    for i = 1:shortage_protection_pd
+    # Prevent the agent from intentionally causing foreseeable energy shortages
+    for i = 1:settings["agent_opt"]["shortage_protection_period"]
         k = current_pd + i - 1
         pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
         total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
