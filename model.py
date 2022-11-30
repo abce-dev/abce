@@ -54,10 +54,10 @@ class GridModel(Model):
 
         # If natural gas price or conventional nuclear FOM are set in
         #   settings.yml, retrieve those values
-        if 'natural_gas_price' in settings:
-            self.natgas_price = settings['natural_gas_price']
-        if 'conv_nuclear_FOM' in settings:
-            self.conv_nuclear_FOM = settings['conv_nuclear_FOM']
+        if 'natural_gas_price' in settings["scenario"]:
+            self.natgas_price = settings["scenario"]["natural_gas_price"]
+        if 'conv_nuclear_FOM' in settings["scenario"]:
+            self.conv_nuclear_FOM = settings["scenario"]["conv_nuclear_FOM"]
 
         if 'ATB_year' in settings:
             self.ATB_year = settings['ATB_year']
@@ -298,15 +298,16 @@ class GridModel(Model):
         us_df["emissions_rate"] = us_df["emissions_rate"] / 100
 
         try:
-            ng_fuel = us_df['fuel_type'] == 'Gas'
-            us_df.loc[ng_fuel, 'original_FC'] = self.natgas_price
+            ng_fuel = us_df["fuel_type"] == "Gas"
+            us_df.loc[ng_fuel, "original_FC"] = self.natgas_price
+            us_df.loc[ng_fuel, "original_FC_units"] = "$/MMBTU"
             ng_msg = f"Using user-specified natural gas price: {self.natgas_price}"
         except AttributeError:
             ng_msg = "Using standard value for natural gas price."
         try:
-            nuke_fuel = us_df['UNITGROUP'] == 'ConventionalNuclear'
-            us_df.loc[nuke_fuel, 'FOM'] = self.conv_nuclear_FOM
-            nfom_msg = f'Using user-specified conventional nuclear FOM value: {self.conv_nuclear_FOM}'
+            nuke_fuel = us_df["UNITGROUP"] == "ConventionalNuclear"
+            us_df.loc[nuke_fuel, "FOM"] = self.conv_nuclear_FOM
+            nfom_msg = f"Using user-specified conventional nuclear FOM value: {self.conv_nuclear_FOM}"
         except AttributeError:
             nfom_msg = "Using standard value for conventional nuclear FOM."
 
@@ -406,7 +407,7 @@ class GridModel(Model):
                             unit_specs_data.loc[unit_type,
                                                 "original_FC_units"] = ATB_data.loc[mask,
                                                                                     "units"].values[0]
-                elif (ALEAF_read_col == "original_FC") and (unit_specs_data.loc[unit_type, ALEAF_read_col] != "ATB"):
+                elif (ALEAF_read_col == "original_FC") and (unit_specs_data.loc[unit_type, ALEAF_read_col] != "ATB") and unit_specs_data.loc[unit_type, "original_FC_units"] == 0:
                     unit_specs_data.loc[unit_type,
                                         "original_FC_units"] = "$/MWh"
 
