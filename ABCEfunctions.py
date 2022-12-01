@@ -20,16 +20,24 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import glob
+import scenario_reduction as sr
+
 
 def get_next_asset_id(db, suggested_next_id):
     # Start a list of possible next ids
     next_id_candidates = [suggested_next_id]
 
     # Check all possible locations for max asset ids
-    tables_to_check = ["assets", "WIP_projects", "asset_updates", "WIP_updates"]
+    tables_to_check = [
+        "assets",
+        "WIP_projects",
+        "asset_updates",
+        "WIP_updates",
+        "depreciation_projections"]
 
     for table in tables_to_check:
-        id_val = pd.read_sql(f"SELECT MAX(asset_id) FROM {table}", db).iloc[0, 0]
+        id_val = pd.read_sql(
+            f"SELECT MAX(asset_id) FROM {table}", db).iloc[0, 0]
         next_id_candidates.append(id_val)
 
     # The largest of all non-None elements becomes the next asset id
@@ -38,11 +46,74 @@ def get_next_asset_id(db, suggested_next_id):
     return next_id
 
 
+def execute_scenario_reduction(
+        db,
+        current_pd,
+        settings,
+        unit_specs):
+    # Get the number of wind and solar units to allow computation of net
+    #   demand
+    current_portfolio = pd.read_sql_query(
+        f"SELECT unit_type FROM assets WHERE completion_pd <= {current_pd} AND retirement_pd > {current_pd}",
+        db)
+    num_wind = len(current_portfolio.loc[current_portfolio.unit_type == "Wind"])
+    num_solar = len(
+        current_portfolio.loc[current_portfolio.unit_type == "Solar"])
+
+    # Get the capacity of wind and solar units
+    wind_cap = unit_specs.loc[unit_specs.unit_type ==
+                              "Wind", "capacity"].values[0]
+    solar_cap = unit_specs.loc[unit_specs.unit_type ==
+                               "Solar", "capacity"].values[0]
+
+    # Get peak demand for this period
+    peak_demand = pd.read_sql_query(
+        f"SELECT demand FROM demand WHERE period = {current_pd}", db).iloc[0, 0]
+
+    # Set up directory locations
+    init_data_dir = os.path.join(
+        settings["file_paths"]["ABCE_abs_path"],
+        "inputs",
+        "ALEAF_inputs"
+    )
+
+    temp_data_dir = os.path.join(
+        settings["file_paths"]["ABCE_abs_path"],
+        "inputs",
+        "ALEAF_inputs",
+        "scenario_reduction_tmp"
+    )
+
+    output_dir = os.path.join(
+        settings["file_paths"]["ABCE_abs_path"],
+        "inputs",
+        "ALEAF_inputs"
+    )
+
+    plot_output_dir = os.path.join(
+        output_dir,
+        "sr_plots"
+    )
+
+    sr.run_scenario_reduction(
+        time_resolution="hourly",
+        num_scenarios_list=[settings["dispatch"]["num_repdays"]],
+        generate_input_data_flag=True,
+        data_location_timeseries=init_data_dir,
+        data_input_path=temp_data_dir,
+        data_output_path=output_dir,
+        plot_output_path=plot_output_dir,
+        windCapacity=num_wind * wind_cap,
+        solarCapacity=num_solar * solar_cap,
+        peakDemand=peak_demand
+    )
+
+
 def update_DB_table_inplace(db, cur, table, new_data, where):
     """
     A centralized function to update data in any DB table. The final form of
     the command constructed will be:
-        UPDATE table SET key1 = new_data[key1], key2 = new_data[key2], ..., 
+        UPDATE table SET key1 = new_data[key1], key2 = new_data[key2], ...,
             keyn = new_data[keyn] WHERE col1 = where[1] AND col2 = where[2]
             AND ... AND colk = where[k]
 
@@ -60,7 +131,7 @@ def update_DB_table_inplace(db, cur, table, new_data, where):
     # Add the list of data to update
     val_list = []
     for column, value in new_data.items():
-        if type(value) == str:
+        if isinstance(value, str):
             val_list.append(f"{column} = '{value}'")
         else:
             val_list.append(f"{column} = {value}")
@@ -71,7 +142,7 @@ def update_DB_table_inplace(db, cur, table, new_data, where):
     val_list = []
     for column, value in where.items():
         # Protect strings with single quotes
-        if type(value) == str:
+        if isinstance(value, str):
             val_list.append(f"{column} = '{value}'")
         else:
             val_list.append(f"{column} = {value}")
@@ -81,8 +152,7 @@ def update_DB_table_inplace(db, cur, table, new_data, where):
     cur.execute(update_cmd)
 
 
-
-def process_outputs(settings, output_dir):
+def process_outputs(settings, output_dir, unit_specs):
     """
     A handler function for postprocessing A-LEAF results stored from the
       individual time-steps of an ABCE simulation run.
@@ -97,8 +167,12 @@ def process_outputs(settings, output_dir):
     """
 
     # Postprocessing settings
-    ALEAF_scenario_name = settings["ALEAF_scenario_name"]
-    file_types = ["dispatch_summary_OP", "expansion_result", "system_summary_OP", "system_tech_summary_OP"]
+    ALEAF_scenario_name = settings["simulation"]["ALEAF_scenario_name"]
+    file_types = [
+        "dispatch_summary_OP",
+        "expansion_result",
+        "system_summary_OP",
+        "system_tech_summary_OP"]
 
     # Get a list of each type of file from the ABCE A-LEAF outputs dir
     # This will allow postprocessing to work even if some files are missing
@@ -107,28 +181,45 @@ def process_outputs(settings, output_dir):
         file_lists[ftype] = glob.glob(os.path.join(output_dir, f"*{ftype}*"))
 
     # Postprocess the expansion results
-    expansion_results, expansion_results_mw = process_expansion_results(file_lists["expansion_result"], output_dir, ALEAF_scenario_name)
+    expansion_results = process_expansion_results(
+        file_lists["expansion_result"],
+        output_dir,
+        ALEAF_scenario_name,
+        unit_specs)
 
     # Postprocess the system-level results
-    system_summary_results = process_system_summary(file_lists["system_summary_OP"], output_dir, ALEAF_scenario_name)
+    system_summary_results = process_system_summary(
+        file_lists["system_summary_OP"], output_dir, ALEAF_scenario_name)
 
     # Postprocess the generation unit type results
-    system_tech_results = process_tech_summary(file_lists["system_tech_summary_OP"], output_dir, ALEAF_scenario_name)
+    system_tech_results = process_tech_summary(
+        file_lists["system_tech_summary_OP"],
+        output_dir,
+        ALEAF_scenario_name,
+        unit_specs)
 
     # Postprocess the electricity price data
-    unsorted_lmp_data, sorted_lmp_data = process_dispatch_data(file_lists["dispatch_summary_OP"], output_dir, ALEAF_scenario_name)
+    unsorted_lmp_data, sorted_lmp_data = process_dispatch_data(
+        file_lists["dispatch_summary_OP"], output_dir, ALEAF_scenario_name)
 
     # Write results to xlsx
     writer = pd.ExcelWriter("abce_ppx_outputs.xlsx")
     expansion_results.to_excel(writer, sheet_name="exp_results", index=False)
-    expansion_results_mw.to_excel(writer, sheet_name="exp_results_mw", index=False)
-    system_summary_results.to_excel(writer, sheet_name="sys_summary_results", index=False)
-    system_tech_results["gen"].to_excel(writer, sheet_name="tech_generation", index=False)
-    system_tech_results["rr"].to_excel(writer, sheet_name="tech_reg", index=False)
-    system_tech_results["sr"].to_excel(writer, sheet_name="tech_spin", index=False)
-    system_tech_results["nsr"].to_excel(writer, sheet_name="tech_nonspin", index=False)
-    system_tech_results["rev"].to_excel(writer, sheet_name="tech_revenue", index=False)
-    system_tech_results["prof"].to_excel(writer, sheet_name="tech_profit", index=False)
+    #expansion_results_mw.to_excel(writer, sheet_name="exp_results_mw", index=False)
+    system_summary_results.to_excel(
+        writer, sheet_name="sys_summary_results", index=False)
+    system_tech_results["gen"].to_excel(
+        writer, sheet_name="tech_generation", index=False)
+    system_tech_results["rr"].to_excel(
+        writer, sheet_name="tech_reg", index=False)
+    system_tech_results["sr"].to_excel(
+        writer, sheet_name="tech_spin", index=False)
+    system_tech_results["nsr"].to_excel(
+        writer, sheet_name="tech_nonspin", index=False)
+    system_tech_results["rev"].to_excel(
+        writer, sheet_name="tech_revenue", index=False)
+    system_tech_results["prof"].to_excel(
+        writer, sheet_name="tech_profit", index=False)
     unsorted_lmp_data.to_excel(writer, sheet_name="unsorted_LMP", index=False)
     sorted_lmp_data.to_excel(writer, sheet_name="sorted_LMP", index=False)
     writer.save()
@@ -137,7 +228,11 @@ def process_outputs(settings, output_dir):
     plot_pdcs(sorted_lmp_data)
 
 
-def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name):
+def process_expansion_results(
+        exp_file_list,
+        output_dir,
+        ALEAF_scenario_name,
+        unit_specs):
     """
     Process the "capacity expansion" results output by A-LEAF. For ABCE,
       A-LEAF should never be able to actually build or retire new units, so
@@ -147,7 +242,9 @@ def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name):
     """
     num_files = len(exp_file_list)
     for i in range(num_files):
-        file_name = os.path.join(output_dir, f"{ALEAF_scenario_name}__expansion_result__step_{i}.csv")
+        file_name = os.path.join(
+            output_dir,
+            f"{ALEAF_scenario_name}__expansion_result__step_{i}.csv")
         df = pd.read_csv(file_name)
 
         # Use the first file as a seed
@@ -160,17 +257,21 @@ def process_expansion_results(exp_file_list, output_dir, ALEAF_scenario_name):
 
     # Delete unneeded columns and give unit id more helpful names
     exp_df = exp_df.drop(["u_new_i", "u_ret_i"], axis=1)
-    unit_types = ["Wind", "Solar", "NGCC", "NGCT", "Advanced Nuclear"]
-    exp_df["unit_id"] = unit_types
+
+    # Warning: this currently assumes the units in unit_specs are listed in the
+    #   same order as in the A-LEAF outputs
+    # unit_specs should inherit its ordering from the master A-LEAF unit specs
+    #   file, but this may be fragile.
+    exp_df["unit_id"] = unit_specs["unit_type"]
     exp_df = exp_df.rename(columns={"unit_id": "unit_type"})
 
     # Create separate dataframe in MW instead of # of units
-    caps = [100, 100, 200, 50, 300]
-    exp_df_mw = exp_df.copy()
-    exp_df_mw = exp_df_mw.mul(caps, axis=0)
-    exp_df_mw["unit_type"] = unit_types
- 
-    return exp_df, exp_df_mw
+    #caps = [100, 100, 200, 50, 300]
+    #exp_df_mw = exp_df.copy()
+    #exp_df_mw = exp_df_mw.mul(caps, axis=0)
+    #exp_df_mw["unit_type"] = unit_types
+
+    return exp_df
 
 
 def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
@@ -184,9 +285,12 @@ def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
     """
     num_files = len(ss_file_list)
     for i in range(num_files):
-        file_name = os.path.join(output_dir, f"{ALEAF_scenario_name}__system_summary_OP__step_{i}.csv")
+        file_name = os.path.join(
+            output_dir,
+            f"{ALEAF_scenario_name}__system_summary_OP__step_{i}.csv")
         df = pd.read_csv(file_name)
-        # For my workflow, df should only have one line. Alert the user if otherwise
+        # For my workflow, df should only have one line. Alert the user if
+        # otherwise
         if len(df) != 1:
             print("WARNING: It looks like you've run multiple ALEAF scenarios in the same run. Postprocessing outputs may be incorrectly translated.")
 
@@ -194,9 +298,10 @@ def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
         df = df.rename(columns={"Scenario": "step"})
         df.loc[0, "step"] = i
 
-        # Correctly calculate weighted average electricity and AS prices, and 
+        # Correctly calculate weighted average electricity and AS prices, and
         #   add them to the appropriate columns
-        ds_file_name = os.path.join(output_dir, f"{ALEAF_scenario_name}__dispatch_summary_OP__step_{i}.csv")
+        ds_file_name = os.path.join(
+            output_dir, f"{ALEAF_scenario_name}__dispatch_summary_OP__step_{i}.csv")
         dsdf = pd.read_csv(ds_file_name)
         # Set up weighted price columns
         dsdf["wtd_LMP"] = dsdf["g_idht"] * dsdf["LMP_dht"]
@@ -224,7 +329,11 @@ def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
     return ss_df
 
 
-def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name):
+def process_tech_summary(
+        sts_file_list,
+        output_dir,
+        ALEAF_scenario_name,
+        unit_specs):
     """
     Process all sets of A-LEAF unit-type summary statistics. Cleans up unit
       type names and then organizes results into a unified dataframe.
@@ -232,23 +341,33 @@ def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name):
     num_files = len(sts_file_list)
     for i in range(num_files):
         # Read in the system technology summary for time-step i
-        file_name = os.path.join(output_dir, f"{ALEAF_scenario_name}__system_tech_summary_OP__step_{i}.csv")
+        file_name = os.path.join(
+            output_dir,
+            f"{ALEAF_scenario_name}__system_tech_summary_OP__step_{i}.csv")
         df = pd.read_csv(file_name)
 
         # Clean up unit type representation
         df = df.rename(columns={"UnitGroup": "unit_type"})
-        unit_types = ["Wind", "Solar", "NGCC", "NGCT", "Advanced Nuclear"]
-        df["unit_type"] = unit_types
+
+        # Replace default numbers with unit names
+        # Same fragility warning as process_expansion_results()
+        df["unit_type"] = unit_specs["unit_type"]
 
         # If this is step 0, use the file to set up DataFrames for all tracked
         #   items
         if i == 0:
-            gen_df = df[["unit_type", "Generation"]].copy().rename(columns={"Generation": "step_0"})
-            rr_df = df[["unit_type", "Reserve_Reg"]].copy().rename(columns={"Reserve_Reg": "step_0"})
-            sr_df = df[["unit_type", "Reserve_Spin"]].copy().rename(columns={"Reserve_Spin": "step_0"})
-            nsr_df = df[["unit_type", "Reserve_Non"]].copy().rename(columns={"Reserve_Non": "step_0"})
-            rev_df = df[["unit_type", "UnitRevenue"]].copy().rename(columns={"UnitRevenue": "step_0"})
-            prof_df = df[["unit_type", "UnitProfit"]].copy().rename(columns={"UnitProfit": "step_0"})
+            gen_df = df[["unit_type", "Generation"]].copy().rename(
+                columns={"Generation": "step_0"})
+            rr_df = df[["unit_type", "Reserve_Reg"]].copy().rename(
+                columns={"Reserve_Reg": "step_0"})
+            sr_df = df[["unit_type", "Reserve_Spin"]].copy().rename(
+                columns={"Reserve_Spin": "step_0"})
+            nsr_df = df[["unit_type", "Reserve_Non"]].copy().rename(
+                columns={"Reserve_Non": "step_0"})
+            rev_df = df[["unit_type", "UnitRevenue"]].copy().rename(
+                columns={"UnitRevenue": "step_0"})
+            prof_df = df[["unit_type", "UnitProfit"]].copy().rename(
+                columns={"UnitProfit": "step_0"})
         else:
             gen_df[f"step_{i}"] = df["Generation"].copy()
             rr_df[f"step_{i}"] = df["Reserve_Reg"].copy()
@@ -257,7 +376,13 @@ def process_tech_summary(sts_file_list, output_dir, ALEAF_scenario_name):
             rev_df[f"step_{i}"] = df["UnitRevenue"].copy()
             prof_df[f"step_{i}"] = df["UnitProfit"].copy()
 
-    results = {"gen": gen_df, "rr": rr_df, "sr": sr_df, "nsr": nsr_df, "rev": rev_df, "prof": prof_df}
+    results = {
+        "gen": gen_df,
+        "rr": rr_df,
+        "sr": sr_df,
+        "nsr": nsr_df,
+        "rev": rev_df,
+        "prof": prof_df}
     return results
 
 
@@ -277,7 +402,9 @@ def process_dispatch_data(ds_file_list, output_dir, ALEAF_scenario_name):
     num_files = len(ds_file_list)
     for i in range(num_files):
         # Read in the ALEAF dispatch output data for time-step i
-        file_name = os.path.join(output_dir, f"{ALEAF_scenario_name}__dispatch_summary_OP__step_{i}.csv")
+        file_name = os.path.join(
+            output_dir,
+            f"{ALEAF_scenario_name}__dispatch_summary_OP__step_{i}.csv")
         df = pd.read_csv(file_name)
 
         # Filter out duplicate price entries: the dispatch data df has one
@@ -288,11 +415,13 @@ def process_dispatch_data(ds_file_list, output_dir, ALEAF_scenario_name):
 
         # Create dataframes to hold unsorted and sorted LMP data separately
         unsorted_lmp = pd.DataFrame(df["LMP_dht"].copy())
-        sorted_lmp = unsorted_lmp.copy().sort_values(by="LMP_dht", ascending=False, ignore_index=True)
+        sorted_lmp = unsorted_lmp.copy().sort_values(
+            by="LMP_dht", ascending=False, ignore_index=True)
 
         # Name the new column in each df appropriately
         if i == 0:
-            unsorted_lmp_data = unsorted_lmp.rename(columns={"LMP_dht": "step_0"})
+            unsorted_lmp_data = unsorted_lmp.rename(
+                columns={"LMP_dht": "step_0"})
             sorted_lmp_data = sorted_lmp.rename(columns={"LMP_dht": "step_0"})
         else:
             unsorted_lmp_data[f"step_{i}"] = unsorted_lmp
@@ -307,7 +436,7 @@ def plot_pdcs(sorted_lmp_data):
       step 0 results.
     """
     # Create log-log plots of the period-0 A-LEAF dispatch results
-    x = np.arange(len(sorted_lmp_data))+1
+    x = np.arange(len(sorted_lmp_data)) + 1
     fig, ax = plt.subplots()
     ax.set_title("Log-log plot of period-0 price duration curve")
     ax.set_xlabel("log(period of the year)")
@@ -316,5 +445,3 @@ def plot_pdcs(sorted_lmp_data):
     ax.set_yscale("log")
     ax.plot(x, sorted_lmp_data["step_0"])
     fig.savefig("./abce_pd0_pdc.png")
-
-

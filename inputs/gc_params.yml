@@ -1,8 +1,20 @@
 201:
-    discount_rate: 0.05
     terminal_growth_rate: 0.03
     debt_fraction: 0.5
     cost_of_debt: 0.03
-    cost_of_equity: 0.11
+    cost_of_equity: 0.1
     tax_rate: 0.21
-    interest_cap: 90000000
+    starting_fcf:  3647000000
+    starting_debt: 1000000000
+    starting_PPE:   222000000
+
+202:
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.05
+    cost_of_equity: 0.12
+    tax_rate: 0.21
+    starting_fcf:   551000000
+    starting_debt:  258000000
+    starting_PPE: 25200000000
+

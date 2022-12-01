@@ -15,7 +15,9 @@
 ##########################################################################
 
 import os
+import sys
 import subprocess
+import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 from agent import GenCo
@@ -24,13 +26,36 @@ import yaml
 import pandas as pd
 import argparse
 import ABCEfunctions
+from pathlib import Path
 
 
 def read_settings(settings_file):
     """
     Read in settings from the settings file.
     """
-    settings = yaml.load(settings_file, Loader=yaml.FullLoader)
+    with open(settings_file, "r") as setfile:
+        settings = yaml.load(setfile, Loader=yaml.FullLoader)
+
+    return settings
+
+
+def set_up_local_paths(settings):
+    # Set the path for ABCE files to the directory where run.py is saved
+    # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
+    settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
+    if settings["simulation"]["run_ALEAF"]:
+    # Try to locate an environment variable to specify where A-LEAF is located
+        try:
+            settings["ALEAF"]["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
+        except KeyError:
+            msg = ("The environment variable ALEAF_abs_path does not appear " +
+                   "to be set. Please make sure it points to the correct " +
+                   "directory.")
+            logging.error(msg)
+            raise
+    else:
+        settings["ALEAF"]["ALEAF_abs_path"] = Path("NULL_PATH")
+
     return settings
 
 
@@ -46,31 +71,63 @@ def cli_args():
          attributes. Retrieve values with args.<argument_name>.
     """
     parser = argparse.ArgumentParser(description='Run an ABCE simulation.')
-    parser.add_argument("--force", "-f",
-                          action="store_true",
-                          help="Agree to overwrite any existing DB files.")
-    parser.add_argument("--settings_file",
-                          type=argparse.FileType("r"),
-                          help="Simulation settings file name.",
-                          default="./settings.yml")
-    parser.add_argument("--quiet", "-q",
-                          action="store_true",
-                          help="Suppress all output except the turn and period counters.")
-    parser.add_argument("--demo", "-d",
-                          action="store_true",
-                          help="Pause the simulation after each step until user presses a key.")
+    parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Agree to overwrite any existing DB files."
+    )
+    parser.add_argument(
+        "--settings_file",
+        type=str,
+        help="Simulation settings file name.",
+        default=Path(Path.cwd()) / "settings.yml"
+    )
+    parser.add_argument(
+        "--verbosity",
+        choices=[0, 1, 2, 3],
+        type=int,
+        help="Verbosity of output during runtime. 0 = totally silent; 1 = minimal output; 2 = default output; 3 = full/debug output",
+        default=2
+    )
+    parser.add_argument(
+        "--demo",
+        "-d",
+        action="store_true",
+        help="Pause the simulation after each step until user presses a key."
+    )
     args = parser.parse_args()
     return args
 
 
-def wait_for_user(is_demo):
-    """
-    If the user specifies the --demo or -d command-line flag, then pause and
-      prompt the user to hit 'enter' after every time-step of the simulation.
-    """
-    if is_demo:
-        print("\n")
-        user_response = input("Press Enter to continue: ")
+def initialize_logging(args, vis_lvl):
+    # Python logging levels:
+    #   CRITICAL = 50
+    #   ERROR =    40
+    #   WARNING =  30
+    #   INFO =     20
+    #   DEBUG =    10
+    #   NOTSET =    0
+
+    # Default verbosity (CL setting 2) = INFO
+    lvl = 20
+    if args.verbosity == 0:
+        # Do not show logging messages (no messages are generated with
+        #   a level of 60 or above)
+        lvl = 60
+    elif args.verbosity == 1:
+        # Only show logging messages of severity ERROR (level = 40) and above
+        lvl = 40
+    elif args.verbosity == 3:
+        # Show all logging messages (level 0 and greater)
+        lvl = 0
+
+    fmt = ABCEFormatter(vis_lvl)
+    hdlr = logging.StreamHandler(sys.stdout)
+
+    hdlr.setFormatter(fmt)
+    logging.root.addHandler(hdlr)
+
+    logging.root.setLevel(lvl)
 
 
 def check_julia_environment(ABCE_abs_path):
@@ -80,14 +137,15 @@ def check_julia_environment(ABCE_abs_path):
     If either one is not found, run `make_julia_environment.jl` to
       automatically generate valid .toml files.
     """
-    if not (os.path.exists(os.path.join(ABCE_abs_path, "Manifest.toml"))
-            and os.path.exists(os.path.join(ABCE_abs_path, "Project.toml"))):
-        julia_cmd = (f"julia {os.path.join(ABCE_abs_path, 'make_julia_environment.jl')}")
+    if not ((Path(ABCE_abs_path) / "Manifest.toml").exists()
+            and (Path(ABCE_abs_path) / "Project.toml").exists()):
+        julia_cmd = (
+            f"julia {Path(ABCE_abs_path) / 'make_julia_environment.jl'}")
         try:
-            sp = subprocess.check_call([julia_cmd], shell = True)
-            print("Julia environment successfully created.\n\n")
-        except CalledProcessError:
-            print("Cannot proceed without a valid Julia environment. Terminating...")
+            sp = subprocess.check_call([julia_cmd], shell=True)
+            logging.info("Julia environment successfully created.\n\n")
+        except subprocess.CalledProcessError:
+            logging.error("Cannot proceed without a valid Julia environment. Terminating...")
             quit()
 
 
@@ -98,28 +156,75 @@ def run_model():
       - read in settings
       - run the model
       - pull the completed DB into a pandas DataFrame and save it to xlsx
-    """    
+    """
     args = cli_args()
 
     settings = read_settings(args.settings_file)
 
-    check_julia_environment(settings["ABCE_abs_path"])
+    initialize_logging(args, settings["constants"]["vis_lvl"])
 
-    abce_model = GridModel(args.settings_file, settings, args)
-    for i in range(settings["num_steps"]):
-        abce_model.step()
-        wait_for_user(args.demo)
+    settings = set_up_local_paths(settings)
 
+    check_julia_environment(settings["file_paths"]["ABCE_abs_path"])
+
+    # Run the simulation
+    abce_model = GridModel(settings, args)
+
+    for i in range(settings["simulation"]["num_steps"]):
+        abce_model.step(demo=args.demo)
+
+    # Write the raw database to xlsx
     db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE " +
                                   "type='table';", abce_model.db)
-    with pd.ExcelWriter(settings["output_file"]) as writer:
+    with pd.ExcelWriter(settings["file_paths"]["output_file"]) as writer:
         for i in range(len(db_tables)):
             table = db_tables.loc[i, "name"]
-            final_db = pd.read_sql_query(f"SELECT * FROM {table}", abce_model.db)
+            final_db = pd.read_sql_query(
+                f"SELECT * FROM {table}", abce_model.db)
             final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
 
-    # Postprocess A-LEAF results
-    ABCEfunctions.process_outputs(settings, abce_model.ABCE_output_data_path)
+    if abce_model.settings["simulation"]["run_ALEAF"]:
+        # Postprocess A-LEAF results
+        ABCEfunctions.process_outputs(
+            settings,
+            abce_model.ABCE_output_data_path,
+            abce_model.unit_specs)
+
+
+class ABCEFormatter(logging.Formatter):
+    """ A custom log formatter for non-standard logging levels.
+
+        This logger will handle graphical elements which should
+          be printed to the console on verbosity levels 1, 2, and 3,
+          but which shouldn't have any logger-style prefixes.
+
+        This replicates the behavior of print statements, with the
+          verbosity-aware handling of logging.
+    """
+
+    vis_fmt = "%(msg)s"
+
+    def __init__(self, vis_lvl):
+        super().__init__(fmt="%(levelname)s: %(msg)s", datefmt=None, style="%")
+        self.vis_lvl = vis_lvl
+
+    def format(self, record):
+        # Save the original user-settingsured formatter settings for
+        #   later retrieval
+        format_orig = self._style._fmt
+
+        # For records with a level of vis_lvl (visual element, specified in
+        #   the settings.yml file), use custom format
+        if record.levelno == self.vis_lvl:
+            self._style._fmt = ABCEFormatter.vis_fmt
+
+        # Call the original Formatter class to do the grunt work
+        result = logging.Formatter.format(self, record)
+
+        # Restore the original format settingsured by the user
+        self._style._fmt = format_orig
+
+        return result
 
 
 # Run the model

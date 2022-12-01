@@ -34,12 +34,13 @@
 using PackageCompiler, Pkg
 
 # Load all default Julia packages into the current environment
-Pkg.activate
+Pkg.activate(".")
 
 # Run the current version of unit_choice.jl, outputting function-compilation
 #   records to `./precompile.jl`
-run(`julia --trace-compile=precompile.jl agent_choice.jl ./settings.yml 20 201`)
+run(`julia --project=. --trace-compile=precompile.jl agent_choice.jl --settings_file=./settings.yml --current_pd=1 --agent_id=201`)
 
 # Create `abceSysimage.so` using the specified packages and the newly
 #   generated `precompile.jl` file.
-create_sysimage([:CSV, :JuMP, :GLPK, :DataFrames, :SQLite, :LinearAlgebra, :YAML]; sysimage_path="abceSysimage.so", precompile_statements_file="./precompile.jl")
+create_sysimage([:CPLEX, :CSV, :DataFrames, :GLPK, :JuMP, :SQLite, :XLSX, :YAML]; sysimage_path="abceSysimage.so", precompile_statements_file="./precompile.jl")
+

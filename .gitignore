@@ -16,3 +16,10 @@ precompile.jl
 outputs/*
 *.toml
 copies/
+inputs/deprecated
+inputs/ALEAF_inputs/backups
+inputs/ALEAF_inputs/scenario_reduction_tmp
+/*.csv
+repDays*.csv
+tmp/
+archive/

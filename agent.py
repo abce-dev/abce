@@ -13,6 +13,7 @@
 ##########################################################################
 
 import numpy as np
+import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 import yaml
@@ -21,17 +22,19 @@ import pandas as pd
 import subprocess
 import csv
 import os
+from pathlib import Path
 
 # import local modules
 import ABCEfunctions as ABCE
 import ALEAF_interface as ALI
 
+
 class GenCo(Agent):
-    """ 
+    """
     A utility company with a certain number of generation assets.
     """
 
-    def __init__(self, genco_id, model, settings, gc_params, cli_args):
+    def __init__(self, genco_id, model, gc_params):
         """
         Initialize a GenCo class object.
 
@@ -50,13 +53,10 @@ class GenCo(Agent):
              and passes data to all agents.
            settings (dict): Runtime/model parameters, loaded and passed
              in by run.py.
-           quiet (bool): Set from CLI; sets verbosity level.
         """
 
         super().__init__(genco_id, model)
         self.model = model
-        self.quiet = cli_args.quiet
-        self.settings = settings
         self.assign_parameters(gc_params)
 
 
@@ -69,45 +69,51 @@ class GenCo(Agent):
         self.db = self.model.db
         self.cur = self.db.cursor()
         self.cur.execute(f"""INSERT INTO agent_params VALUES ({self.unique_id},
-                        {self.discount_rate}, {self.tax_rate},
-                        {self.terminal_growth_rate}, {self.debt_fraction},
-                        {self.cost_of_debt}, {self.cost_of_equity},
-                        {self.interest_cap})""")
-
-        # Miscellaneous parameters
-        self.MW2kW = 1000   # Convert MW to kW
+                        {self.tax_rate}, {self.terminal_growth_rate},
+                        {self.debt_fraction}, {self.cost_of_debt},
+                        {self.cost_of_equity}, {self.starting_fcf},
+                        {self.starting_debt}, {self.starting_PPE})""")
+        self.model.db.commit()
 
 
     def step(self):
         """
         Controller function to activate all agent behaviors at each time step.
         """
-        # Set the current model step
-        self.current_step = self.model.current_step
-        print(f"Agent #{self.unique_id} is taking its turn...")
-
-        # Get lists of all assets, all WIP projects, and all operating assets
-        self.all_assets = self.get_current_asset_list()
-        self.op_assets = self.get_operating_asset_list()
+        logging.log(
+            self.model.settings["constants"]["vis_lvl"],
+            f"Agent #{self.unique_id} is taking its turn..."
+        )
 
         # Run the agent behavior choice algorithm
-        agent_choice_path = os.path.join(self.settings["ABCE_abs_path"],
-                                         "agent_choice.jl")
-        sysimage_path = os.path.join(self.settings["ABCE_abs_path"],
-                                     "abceSysimage.so")
-        julia_cmd = (f"julia -J{sysimage_path} {agent_choice_path} " +
-                     f"--settings_file={self.model.settings_file_name.name} " +
-                     f"--current_pd={self.current_step} " +
-                     f"--agent_id={self.unique_id}")
-        if self.quiet:
-            sp = subprocess.check_call([julia_cmd],
-                                       shell = True,
-                                       stdout=open(os.devnull, "wb"))
-        else:
-            sp = subprocess.check_call([julia_cmd], shell = True)
+        agent_choice_path = (
+            Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
+            "agent_choice.jl"
+        )
 
-        print(f"Agent #{self.unique_id}'s turn is complete.\n")
+        sysimage_cmd = ""
 
+        if self.model.has_ABCE_sysimage:
+            sysimage_path = (
+                Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
+                     self.model.settings["file_paths"]["ABCE_sysimage_file"])
+            sysimage_cmd = f"-J {sysimage_path}"
+
+        julia_cmd = (
+            f"julia --project={self.model.settings['file_paths']['ABCE_abs_path']} " + 
+            f"{sysimage_cmd} {agent_choice_path} " +
+            f"--current_pd={self.model.current_pd} " +
+            f"--agent_id={self.unique_id} " +
+            f"--verbosity={self.model.args.verbosity} " +
+            f"--settings_file={self.model.args.settings_file}"
+        )
+
+        sp = subprocess.check_call(julia_cmd, shell=True)
+
+        logging.log(
+            self.model.settings["constants"]["vis_lvl"],
+            f"Agent #{self.unique_id}'s turn is complete.\n"
+        )
 
     def get_current_asset_list(self):
         """
@@ -122,12 +128,12 @@ class GenCo(Agent):
 
         all_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
                                      f"agent_id = {self.unique_id} AND " +
-                                     f"cancellation_pd > {self.current_step} " +
-                                     f"AND retirement_pd > {self.current_step}",
-                                      self.model.db)
+                                     f"cancellation_pd > {self.model.current_pd} " +
+                                     f"AND retirement_pd > {self.model.current_pd}",
+                                     self.model.db)
         all_asset_list = list(all_asset_list["asset_id"])
+        self.model.db.commit()
         return all_asset_list
-
 
     def get_WIP_project_list(self):
         """
@@ -141,15 +147,15 @@ class GenCo(Agent):
              above criteria
         """
 
-        cur = self.model.db.cursor()
-        WIP_project_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
-                                       f"agent_id = {self.unique_id} AND " +
-                                       f"completion_pd >= {self.current_step} " +
-                                       f"AND cancellation_pd > {self.current_step}",
-                                       self.model.db)
+        WIP_project_list = pd.read_sql(
+            f"SELECT asset_id FROM assets WHERE " +
+            f"agent_id = {self.unique_id} AND " +
+            f"completion_pd >= {self.model.current_pd} " +
+            f"AND cancellation_pd > {self.model.current_pd}",
+            self.model.db)
         WIP_project_list = list(WIP_project_list["asset_id"])
+        self.model.db.commit()
         return WIP_project_list
-
 
     def get_operating_asset_list(self):
         """
@@ -163,15 +169,11 @@ class GenCo(Agent):
            op_asset_list (list of ints): all asset IDs meeting the above criteria
         """
 
-        cur = self.model.db.cursor()
         op_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
                                     f"agent_id = {self.unique_id} AND " +
-                                    f"completion_pd <= {self.current_step} " +
-                                    f"AND cancellation_pd > {self.current_step} "
-                                    f"AND retirement_pd > {self.current_step}",
+                                    f"completion_pd <= {self.model.current_pd} " +
+                                    f"AND cancellation_pd > {self.model.current_pd} "
+                                    f"AND retirement_pd > {self.model.current_pd}",
                                     self.model.db)
         op_asset_list = list(op_asset_list["asset_id"])
         return op_asset_list
-
-
-

@@ -16,17 +16,18 @@
 
 using Logging
 
-@info "-----------------------------------------------------------"
-@info "Julia agent choice algorithm: starting"
-@info "Loading packages..."
-using JuMP, GLPK, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
+# @info "-----------------------------------------------------------"
+# @info "Julia agent choice algorithm: starting"
+# @info "Loading packages..."
+using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
 
 # Set up command-line parser
 s = ArgParseSettings()
 @add_arg_table s begin
     "--settings_file"
         help = "absolute path to the settings file"
-        required = true
+        required = false
+        default = joinpath(pwd(), "settings.yml")
     "--agent_id"
         help = "unique ID number of the agent"
         arg_type = Int
@@ -35,271 +36,188 @@ s = ArgParseSettings()
         help = "current ABCE time period"
         arg_type = Int
         required = true
+    "--verbosity"
+        help = "level of output logged to the console"
+        arg_type = Int
+        required = false
+        default = 1
+        range_tester = x -> x in [0, 1, 2, 3]
 end
 
 # Retrieve parsed arguments from command line
 CLI_args = parse_args(s)
 
+lvl = 0
+if CLI_args["verbosity"] == 0
+    # Only show Logging messages of severity Error (level 2000) and above
+    lvl = 2000
+elseif CLI_args["verbosity"] == 1
+    # Only show Logging messages of severity Warning (level 1000) and above
+    lvl = 1000
+elseif CLI_args["verbosity"] == 3
+    # Show Logging messages of severity Debug (level -1000) and above
+    lvl = -1000
+end
+global_logger(ConsoleLogger(lvl))
+
 # Load settings and file locations from the settings file
 settings_file = CLI_args["settings_file"]
 settings = YAML.load_file(settings_file)
 
-# Include local ABCE functions module
-julia_ABCE_module = joinpath(settings["ABCE_abs_path"], "ABCEfunctions.jl")
-include(julia_ABCE_module)
-using .ABCEfunctions
+settings_file = CLI_args["settings_file"]
+settings = YAML.load_file(settings_file)
 
-@info "Packages loaded successfully."
+# Include local ABCE functions module
+julia_ABCE_module = "ABCEfunctions.jl"
+include(julia_ABCE_module)
+dispatch_module = "dispatch.jl"
+include(dispatch_module)
+C2N_module = "C2N_projects.jl"
+include(C2N_module)
+using .ABCEfunctions, .Dispatch, .C2N
+
+@debug "Julia modules loaded successfully."
 
 ###### Set up inputs
 @info "Initializing data..."
 
+settings = ABCEfunctions.set_up_local_paths(settings)
+
+solver = lowercase(settings["simulation"]["solver"])
+@debug string("Solver is `$solver`")
+if solver == "cplex"
+    try
+        using CPLEX
+    catch LoadError
+        throw(error("CPLEX is not available!"))
+    end
+elseif solver == "glpk"
+    using GLPK
+elseif solver == "cbc"
+    using Cbc
+elseif solver == "scip"
+    using SCIP
+elseif solver == "highs"
+    using HiGHS
+else
+    throw(error("Solver `$solver` not supported. Try `cplex` instead."))
+end
+
 # File names
-db_file = joinpath(settings["ABCE_abs_path"], settings["db_file"])
+db_file = joinpath(pwd(), settings["file_paths"]["db_file"])
+C2N_specs_file = joinpath(
+                     @__DIR__,
+                     "inputs",
+                     "C2N_project_definitions.yml"
+                 )
 # Constants
-hours_per_year = settings["hours_per_year"]
-consider_future_projects = settings["consider_future_projects"]
+hours_per_year = settings["constants"]["hours_per_year"]
+consider_future_projects = settings["agent_opt"]["consider_future_projects"]
 if consider_future_projects
-    num_lags = settings["num_future_periods_considered"]
+    num_lags = settings["agent_opt"]["num_future_periods_considered"]
 else
     num_lags = 0
 end
-MW2kW = 1000   # Converts MW to kW
-MMBTU2BTU = 1000   # Converts MMBTU to BTU
 
 # Load the inputs
-db = load_db(db_file)
-#pd = get_current_period()
+db = ABCEfunctions.load_db(db_file)
 pd = CLI_args["current_pd"]
 agent_id = CLI_args["agent_id"]
-#agent_id = get_agent_id()
+
+# Load C2N specs data
+C2N_specs = YAML.load_file(C2N_specs_file)
 
 # Set up agent-specific data
 # Get a list of all ongoing construction projects for the current agent
-agent_projects = get_WIP_projects_list(db, pd, agent_id)
+agent_projects = ABCEfunctions.get_WIP_projects_list(db, pd, agent_id)
 # Get a list of all operating assets owned by the current agent
-agent_assets, asset_counts = get_current_assets_list(db, pd, agent_id)
+agent_assets, asset_counts = ABCEfunctions.get_current_assets_list(db, pd, agent_id)
 
 # Get agent financial parameters
-agent_params = get_agent_params(db, agent_id)
-d = agent_params[1, :discount_rate]
+agent_params = ABCEfunctions.get_agent_params(db, agent_id)
 
 # System parameters
-# Read unit operational data (unit_data) and number of unit types (num_types)
-unit_data, num_types = get_unit_specs(db)
-@info unit_data
+# Read unit operational data (unit_specs) and number of unit types (num_types)
+unit_specs, num_types = ABCEfunctions.get_unit_specs(db)
+if pd == 0
+    # @info unit_specs
+    
+end
 num_alternatives = num_types * (num_lags + 1)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
 #   for the most long-lived possible unit
-fc_pd = set_forecast_period(unit_data, num_lags)
+fc_pd = ABCEfunctions.set_forecast_period(unit_specs, num_lags)
 
-# Load the demand data
-available_demand = get_demand_forecast(db, pd, agent_id, fc_pd, settings)
-
-# Extend the unserved demand data to match the total forecast period (constant projection)
-available_demand = get_net_demand(db, pd, agent_id, fc_pd, available_demand)
-@info "Available demand:"
-@info DataFrame(net_demand = available_demand)[1:10, :]
-
-# Load the price data
-price_curve = DBInterface.execute(db, "SELECT * FROM price_curve") |> DataFrame
-
-# Add empty column for project NPVs in unit_data
-unit_data[!, :FCF_NPV] = zeros(Float64, num_types)
-
-# NPV is the only decision criterion, so create a dataframe to hold the results
-#    for each alternative
-alternative_names, NPV_results = create_NPV_results_df(unit_data, num_lags)
-new_xtr_NPV_df = DataFrame(unit_type = String[], project_type = String[], retirement_pd = Any[], lag = Any[], NPV = Float64[])
-
-# Create per-unit financial statement tables
-@info "Creating and populating unit financial statements for NPV calculation"
-unit_FS_dict = create_FS_dict(unit_data, fc_pd, num_lags)
-
-# Populate financial statements with top-line data
-# This data is deterministic, and is on a per-unit basis (not per-kW or per-kWh)
-# Therefore, you can multiply each of these dataframes by its corresponding
-#    u[] value to determine the actual impact of the units chosen on the GC's
-#    final financial statement
-for i = 1:num_types
-    for lag = 0:num_lags
-        # Set up parameters for this alternative
-        unit_entry = unit_data[i, :]
-        project_type = "new_xtr"
-        original_ret_pd = 9999
-        name = string(unit_entry[:unit_type], "_0_lag-", lag)
-        fs = unit_FS_dict[name]
-        unit_type_data = filter(row -> row.unit_type == unit_entry[:unit_type], unit_data)
-
-        # Generate the alternative's construction expenditure profile and save
-        #   it to the FS
-        fs[!, :xtr_exp] = generate_xtr_exp_profile(unit_type_data, lag, fc_pd)
-
-        # Set up the time-series of outstanding debt principal based on this
-        #   expenditure profile: sets unit_fs[!, :remaining_debt_principal]
-        #   for all construction periods
-        set_initial_debt_principal_series(fs, unit_type_data, lag, agent_params)
-
-        # Generate "prime movers" (debt payments and depreciation)
-        generate_prime_movers(unit_type_data, fs, lag, agent_params[1, :cost_of_debt])
-
-        # Forecast unit revenue ($/period) and generation (kWh/period)
-        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, lag)
-
-        # Forecast unit costs: fuel cost, VOM, and FOM
-        forecast_unit_op_costs(unit_type_data, fs, lag)
-
-        # Propagate the accounting logic (EBITDA --> FCF)
-        propagate_accounting_line_items(fs, db)
-
-        # Compute this unit alternative's FCF NPV
-        FCF_NPV = compute_alternative_NPV(fs, agent_params)
-
-        # Save the NPV result
-        push!(new_xtr_NPV_df, [unit_entry[:unit_type] project_type original_ret_pd lag FCF_NPV])
-        unit_data[i, :FCF_NPV] = FCF_NPV
-    end
-end
-
-@info "xtr NPV results:"
-@info new_xtr_NPV_df
-
-
-# Create a dataframe to hold NPV results for each retirement alternative
-ret_alt_names, ret_NPV_results = create_NPV_results_df(asset_counts, num_lags; mode="retire")
-ret_NPV_df = DataFrame(unit_type = String[], project_type = String[], retirement_pd = Any[], lag = Any[], NPV = Float64[])
-
-# Create a dataframe to store results for retirement NPV calculations
-ret_FS_dict = create_FS_dict(asset_counts, fc_pd, num_lags; mode="retire")
-
-
-# Compute dataframes for retiring existing assets
-for i = 1:size(asset_counts)[1]
-    for lag = 0:num_lags
-        asset_entry = asset_counts[i, :]
-        name = string(asset_entry[:unit_type], "_", asset_entry[:retirement_pd], "_lag-", lag)
-        fs = ret_FS_dict[name]
-        unit_type_data = filter(row -> row.unit_type == asset_entry[:unit_type], unit_data)
-
-        # Implies any retiring unit is 100% paid off; need to implement tracking of debt repayments
-
-        # Forecast unit revenue ($/period) and generation (kWh/period)
-        forecast_unit_revenue_and_gen(unit_type_data, fs, price_curve, db, pd, lag; mode="retire", orig_ret_pd=asset_entry[:retirement_pd])
-
-        # Forecast unit costs: fuel cost, VOM, and FOM
-        forecast_unit_op_costs(unit_type_data, fs, lag; mode="retire", orig_ret_pd=asset_entry[:retirement_pd])
-
-        # Convert to marginal deltas
-        convert_to_marginal_delta_FS(fs, lag)
-
-        # Propagate the accounting logic (EBITDA --> FCF)
-        propagate_accounting_line_items(fs, db)
-
-        # Compute this unit alternative's FCF NPV
-        FCF_NPV = compute_alternative_NPV(fs, agent_params)
-
-        # Save the NPV result
-        push!(ret_NPV_df, [asset_entry[:unit_type] "retirement" asset_entry[:retirement_pd] lag FCF_NPV])
-    end
-end
-
-
-
-@info "ret NPV results:"
-@info ret_NPV_df
-
-if pd == 0
-    @info "Unit data loaded:"
-    @info unit_data
-end
+# Add empty column for project NPVs in unit_specs
+unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
 
 @info "Data initialized."
 
+@info "Setting up dispatch simulation..."
+
+all_year_system_portfolios, all_year_agent_portfolios = Dispatch.set_up_dispatch_portfolios(db, pd, fc_pd, agent_id, unit_specs)
+
+# Load the demand data
+total_demand = ABCEfunctions.get_demand_forecast(db, pd, agent_id, fc_pd, settings)
+
+# Extend the unserved demand data to match the total forecast period (constant projection)
+total_demand = ABCEfunctions.get_net_demand(db, pd, agent_id, fc_pd, total_demand, all_year_system_portfolios, unit_specs)
+@debug "Demand data:"
+@debug total_demand[1:10, :]
+
+@info "Running dispatch simulation..."
+long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
+@info "Dispatch projections complete."
+
+@info "Setting up project alternatives..."
+PA_uids, PA_fs_dict = ABCEfunctions.set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, pd, long_econ_results, C2N_specs)
+
+@info "Project alternatives set up."
+
+@debug "Project alternatives:"
+@debug PA_uids
+
 ###### Set up the model
-m = set_up_model(settings, unit_FS_dict, ret_FS_dict, available_demand, new_xtr_NPV_df, ret_NPV_df, asset_counts)
+@info "Setting up the agent's decision optimization model..."
+unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_portfolios, fc_pd, pd)
+
+agent_fs = ABCEfunctions.update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios)
+
+m = ABCEfunctions.set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, pd, all_year_system_portfolios, db, agent_id, agent_fs, fc_pd)
 
 ###### Solve the model
-@info "Solving optimization problem..."
+@info "Solving agent's decision optimization problem..."
 optimize!(m)
-status = termination_status.(m)
-# This MILP should always return integral solutions; convert the float values
-#   to integers to avoid some future TypeErrors
-unit_qty = Int.(value.(m[:u]))
-
+status = string(termination_status.(m))
+if status == "OPTIMAL"
+    # This MILP should always return integral solutions; convert the float values
+    #   to integers to avoid some future TypeErrors
+    unit_qty = Int.(round.(value.(m[:u])))
+else
+    # If the agent has no valid options, do nothing
+    unit_qty = zeros(Int64, size(PA_uids)[1])
+end
 
 ###### Display the results
-all_alternatives = vcat(NPV_results, ret_NPV_results)[!, :name]
-all_results = hcat(vcat(new_xtr_NPV_df, ret_NPV_df)[!, [:unit_type, :project_type, :retirement_pd, :lag]], DataFrame(units_to_execute = unit_qty))
+all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
+short_results = filter(:units_to_execute => u -> u > 0, all_results)
 @info status
-@info "Units to build:"
-@info all_results
-
+if CLI_args["verbosity"] == 2
+    @info "Alternatives to execute:"
+    @info short_results
+elseif CLI_args["verbosity"] == 3
+    @debug "Alternatives to execute:"
+    @debug all_results
+end
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
-for i = 1:size(all_results)[1]
-    result = all_results[i, :]
-
-    # Add all new construction projects
-    if result[:project_type] == "new_xtr"
-        unit_index = findall(unit_data.unit_type .== result[:unit_type])[1]
-        unit_type_data = unit_data[unit_index, :]
-
-        # Only record projects starting this period
-        if result[:lag] == 0 && result[:units_to_execute] != 0
-
-            # Retrieve or set values common to all units of this type
-            cum_occ = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW
-            rcec = cum_occ
-            cum_exp = 0
-            cum_d_x = unit_type_data[:d_x]
-            rtec = cum_d_x
-            start_pd = pd
-            completion_pd = pd + unit_type_data[:d_x]
-            cancellation_pd = 9999
-            retirement_pd = pd + unit_type_data[:d_x] + unit_type_data[:unit_life]
-            total_capex = 0    # Only updated once project is complete
-            cap_pmt = 0
-
-            # Add a number of project instances equal to the 'units_to_execute'
-            #   value from the solution vector
-            for j = 1:result[:units_to_execute]
-                next_id = get_next_asset_id(db)
-                # Update `WIP_projects` table
-                WIP_projects_vals = (next_id, agent_id, pd, cum_occ, rcec, cum_d_x, rtec, cum_exp, rcec / 10)
-                DBInterface.execute(db, "INSERT INTO WIP_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", WIP_projects_vals)
-
-                # Update `assets` table
-                assets_vals = (next_id, agent_id, result[:unit_type], start_pd, completion_pd, cancellation_pd, retirement_pd, total_capex, cap_pmt)
-                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", assets_vals)
-            end
-        end
-
-    # Record asset retirements slated to occur immediately
-    elseif result[:project_type] == "retirement"
-        # Only enforce retirements in the current period
-        if result[:lag] == 0 && result[:units_to_execute] != 0
-            # Select assets which match on type, agent owner, and mandatory retirement date
-            matching_assets = DBInterface.execute(db, "SELECT * FROM assets WHERE unit_type = ? AND retirement_pd = ? AND agent_id = ?", (result[:unit_type], result[:retirement_pd], agent_id)) |> DataFrame
-            # Retire as many existing assets as indicated by u
-            for j = 1:result[:units_to_execute]
-                ret = matching_assets[j, :]
-                asset_vals = (ret[:asset_id], ret[:agent_id], ret[:unit_type], ret[:start_pd], ret[:completion_pd], ret[:cancellation_pd], pd, ret[:total_capex], ret[:cap_pmt])
-                DBInterface.execute(db, "INSERT INTO asset_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", asset_vals)
-            end
-        end
-    end
-end
+ABCEfunctions.postprocess_agent_decisions(all_results, unit_specs, db, pd, agent_id)
 
 ##### Authorize ANPE for all current WIP projects
 # Retrieve all WIP projects
-WIP_projects = get_WIP_projects_list(db, pd, agent_id)
+#WIP_projects = get_WIP_projects_list(db, pd, agent_id)
 # Authorize ANPE for the upcoming period (default: $1B/year)
-authorize_anpe(db, agent_id, pd, WIP_projects, unit_data)
-
-# End
-@info "Julia: finishing"
-@info "-----------------------------------------------------------"
-
+#authorize_anpe(db, agent_id, pd, WIP_projects, unit_specs)
 
 
