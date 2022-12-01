@@ -119,15 +119,6 @@ function get_table(db, table_name)
 end
 
 
-function show_table(db, table_name)
-    command = string("SELECT * FROM ", string(table_name))
-    df = DBInterface.execute(db, command) |> DataFrame
-    # @info string("\nTable \'", table_name, "\':")
-    # @info df
-    return df
-end
-
-
 function get_WIP_projects_list(db, pd, agent_id)
     # Get a list of all WIP (non-complete, non-cancelled) projects for the given agent
     # Time-period convention:
@@ -148,7 +139,6 @@ function get_current_assets_list(db, pd, agent_id)
 
     # Count the number of assets by type
     asset_counts = combine(groupby(asset_list, [:unit_type, :retirement_pd, :C2N_reserved]), nrow => :count)
-    # @info asset_counts
 
     return asset_list, asset_counts
 end
@@ -1063,29 +1053,15 @@ function set_baseline_future_years(db, agent_id)
         owned_extant_units[i] = combine(oeudf, Symbol("COUNT(asset_id)") => sum)
     end
 
-    
-
-
 end
 
 
 ### JuMP optimization model initialization
-"""
-    set_up_model(unit_FS_dict, ret_fs_dict, fc_pd, available_demand, NPV_results, ret_NPV_results)
-
-Set up the JuMP optimization model, including variables, constraints, and the
-objective function.
-
-Returns:
-  m (JuMP model object)
-"""
-function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
-    # Create the model object
-    # @info "Setting up model..."
-
+function create_model_with_optimizer(settings)
+    # Determine which solver to use, based on the settings file
     solver = lowercase(settings["simulation"]["solver"])
+
     if solver == "cplex"
-        # using CPLEX
         m = Model(CPLEX.Optimizer)
     elseif solver == "glpk"
         m = Model(GLPK.Optimizer)
@@ -1098,7 +1074,29 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     else
         throw(error("Solver `$solver` not supported. Try `cplex` instead."))
     end
+
     set_silent(m)
+
+    return m
+
+end
+
+
+"""
+    set_up_model(unit_FS_dict, ret_fs_dict, fc_pd, available_demand, NPV_results, ret_NPV_results)
+
+Set up the JuMP optimization model, including variables, constraints, and the
+objective function.
+
+Returns:
+  m (JuMP model object)
+"""
+function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts, agent_params, unit_specs, current_pd, system_portfolios, db, agent_id, agent_fs, fc_pd)
+    # Create the model object
+    @debug "Setting up model..."
+
+    # Initialize a model with the settings-specified optimizer
+    m = create_model_with_optimizer(settings)
 
     # Parameter names
     num_alternatives = size(PA_uids)[1]
@@ -1107,14 +1105,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     # Set up variables
     # Number of units of each type to build: must be Integer
     @variable(m, u[1:num_alternatives] >= 0, Int)
-
-    transform!(total_demand, [:real_demand, :total_eff_cap] => ((dem, eff_cap) -> eff_cap - dem) => :excess_capacity)
-
-    for i = 1:size(total_demand)[1]
-        if total_demand[i, :excess_capacity] < 0
-            total_demand[i, :excess_capacity] = 0
-        end
-    end
 
     # Compute expected marginal generation and effective nameplate capacity
     #   contribution per alternative type
@@ -1139,31 +1129,32 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    # Prevent excessive overbuild in the medium term
-#    for i = 3:10
-#        @constraint(m, transpose(u) * marg_eff_cap[:, i] + sum(system_portfolios[i][!, :effective_capacity]) <= forecasted_demand[current_pd+i, :total_demand] * 1.1)   # settings["planning_reserve_margin"]
-#    end
-
-    # Prevent the agent from intentionally causing foreseeable energy shortages
-    shortage_protection_pd = 8
-    for i = 1:shortage_protection_pd
-        pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
-        total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
-        if (total_eff_cap > pd_total_demand)
-            margin = -0.3
-        else
-            margin = 0.0
+    # Record which elements take effect immediately
+    PA_uids[!, :current] .= 0
+    for i = 1:size(PA_uids)[1]
+        if PA_uids[i, :project_type] == "retirement"
+            PA_uids[i, :current] = 1
+        elseif (PA_uids[i, :project_type] == "new_xtr") && (PA_uids[i, :lag] == 0)
+            PA_uids[i, :current] = 1
         end
-        @constraint(m, transpose(u) * marg_eff_cap[:, i] >= (total_eff_cap - pd_total_demand) * margin)
-
     end
 
-    filename = joinpath(
-                   pwd(),
-                   "tmp",
-                   "marg_eff_cap.csv"
-               )
-    CSV.write(filename, DataFrame(marg_eff_cap, :auto))
+    # Prevent the agent from intentionally causing foreseeable energy shortages
+    for i = 1:settings["agent_opt"]["shortage_protection_period"]
+        k = current_pd + i - 1
+        pd_total_demand = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_demand]
+        total_eff_cap = filter(:period => x -> x == current_pd + i - 1, total_demand)[1, :total_eff_cap]
+        tec = round(total_eff_cap, digits=1)
+        if (total_eff_cap / pd_total_demand > settings["agent_opt"]["cap_decrease_threshold"])
+            margin = settings["agent_opt"]["cap_decrease_margin"]
+        elseif (total_eff_cap / pd_total_demand > settings["agent_opt"]["cap_maintain_threshold"])
+            margin = settings["agent_opt"]["cap_maintain_margin"]
+        else
+            margin = settings["agent_opt"]["cap_increase_margin"]
+        end
+        @constraint(m, (transpose(u .* PA_uids[:, :current]) * marg_eff_cap[:, i]) >= (total_eff_cap - pd_total_demand) * margin)
+
+    end
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1181,25 +1172,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    filename = joinpath(
-                   pwd(),
-                   "tmp",
-                   "marg_FCF.csv"
-               )
-    CSV.write(filename, DataFrame(marg_int, :auto))
-
-    agent_fs_path = joinpath(
-                        pwd(),
-                        "tmp",
-                        string(
-                            "agent_",
-                            agent_id,
-                            "_pd_",
-                            current_pd,
-                            ".csv"
-                        )
-                    )
-    CSV.write(agent_fs_path, agent_fs)
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
@@ -1249,13 +1221,6 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
         end
     end
 
-    filename = joinpath(
-                   pwd(),
-                   "tmp",
-                   "ret_rum_mat_$agent_id.csv"
-               )
-    CSV.write(filename, DataFrame(ret_summation_matrix, :auto))
-
     # Specify constraint: the agent cannot plan to retire more units (during
     #   all lag periods) than exist of that unit type
     for i = 1:size(retireable_asset_counts)[1]
@@ -1263,29 +1228,28 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     end
 
     # Create the objective function 
-
-    lamda_1 = 1.0 / 1e9
-    lamda_2 = 0.0
-    lim = 6
-    int_bound = 5.0
+    profit_lamda = settings["agent_opt"]["profit_lamda"] / 1e9
+    credit_rating_lamda = settings["agent_opt"]["credit_rating_lamda"]
+    cr_horizon = settings["agent_opt"]["cr_horizon"]
+    int_bound = settings["agent_opt"]["int_bound"]
  
     @objective(
         m,
         Max,
         (
-            lamda_1 * (transpose(u) * PA_uids[!, :NPV])
-            + lamda_2 * (
-                sum(agent_fs[1:lim, :FCF]) / 1e9
-                + sum(transpose(u) * marg_FCF[:, 1:lim])
-                + sum(agent_fs[1:lim, :interest_payment]) / 1e9
-                + sum(transpose(u) * marg_int[:, 1:lim])
-                - (int_bound) * (sum(agent_fs[1:lim, :interest_payment]) / 1e9 + sum(transpose(u) * marg_int[:, 1:lim]))
+            profit_lamda * (transpose(u) * PA_uids[!, :NPV])
+            + credit_rating_lamda * (
+                sum(agent_fs[1:cr_horizon, :FCF]) / 1e9
+                + sum(transpose(u) * marg_FCF[:, 1:cr_horizon])
+                + sum(agent_fs[1:cr_horizon, :interest_payment]) / 1e9
+                + sum(transpose(u) * marg_int[:, 1:cr_horizon])
+                - (int_bound) * (sum(agent_fs[1:cr_horizon, :interest_payment]) / 1e9 + sum(transpose(u) * marg_int[:, 1:cr_horizon]))
             )
         )
     )
 
 
-    # @info "Optimization model set up."
+    @debug "Optimization model set up."
 
     return m
 end
@@ -1427,7 +1391,6 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
 
         # Set the number of units to execute
         units_to_execute = unit_type_specs["num_cpp_rets"]
-        # @info "Units to execute: ", units_to_execute
 
     end
 
@@ -1573,7 +1536,7 @@ end
 
 function save_agent_decisions(db, agent_id, decision_df)
     decision_df[!, :agent_id] .= agent_id
-    cols_to_ignore = [:uid]
+    cols_to_ignore = [:uid, :current]
     select!(decision_df, :agent_id, Not(vcat([:agent_id], cols_to_ignore)))
     for row in Tuple.(eachrow(decision_df))
         ins_cmd = "INSERT INTO agent_decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
