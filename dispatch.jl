@@ -510,14 +510,23 @@ function save_raw_results(all_prices, all_gc_results)
 end
 
 
-function pivot_gc_results(all_gc_results, all_prices, repdays_data)
+function pivot_gc_results(all_gc_results, all_prices, repdays_data=nothing)
     # @info "Postprocessing results..."
     # Pivot generation data by unit type
     # Output format: y, d, h, Wind, Solar, ..., AdvancedNuclear
     g_pivot = select(all_gc_results, Not(:commit))
     g_pivot = unstack(g_pivot, :unit_type, :gen)
     g_pivot = innerjoin(g_pivot, all_prices, on = [:y, :d, :h])
-    g_pivot = innerjoin(g_pivot, select(repdays_data, [:index, :Probability]), on = [:d => :index])
+
+    # Incorporate repdays probability data, if provided
+    if repdays_data == nothing
+        # If no repdays data is provided, assume this is a full-year run
+        #   where all days have probability 1/365
+        g_pivot[!, :Probability] .= 1/365
+    else
+        # If repdays data is provided, inner join on the days column
+        g_pivot = innerjoin(g_pivot, select(repdays_data, [:index, :Probability]), on = [:d => :index])
+    end
 
     # Pivot commitment data by unit type
     # Output format: y, d, h, Wind, ..., AdvancedNuclear

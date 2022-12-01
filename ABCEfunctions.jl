@@ -306,39 +306,6 @@ function get_unit_specs(db)
 end
 
 
-function ensure_projects_not_empty(db, agent_id, project_list, current_period)
-    # FAKE: only exists to ensure the Julia and Python scripts actually have something to do
-    try
-        if (size(project_list)[1] == 0) && (current_period <= 5)
-            # Current period restriction is a testing spoof only to allow
-            #    observation of post-completion model behavior
-
-            # Create a new project
-            new_asset_id = get_next_asset_id(db)
-
-            # Assign some dummy data to the project
-            xtr_vals = (new_asset_id, string(agent_id), 0, 1000, 10, 0)
-            asset_vals = (new_asset_id, string(agent_id), "gas", "no", "no", 9999, 0)
-            DBInterface.execute(db, "INSERT INTO WIP_projects VALUES (?, ?, ?, ?, ?, ?)", xtr_vals)
-            DBInterface.execute(db, "INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, ?)", asset_vals)
-            # @info string("Created project ", new_asset_id)
-
-            # Update the list of WIP construction projects and return it
-            project_list = get_WIP_projects_list(db, agent_id)
-            return project_list
-        else
-            # If at least one construction project already exists, there's no
-            #    need to do anything.
-            return project_list
-        end
-    catch e
-        @error "Could not insert a seed project into the agent's project list"
-        @error e
-        exit()
-    end
-end
-
-
 function authorize_anpe(db, agent_id, current_period, project_list, unit_specs)
     # Loop through each project and authorize $100 of ANPE by setting the anpe value in WIP_projects
     for i = 1:size(project_list[!, :asset_id])[1]
@@ -347,7 +314,6 @@ function authorize_anpe(db, agent_id, current_period, project_list, unit_specs)
         unit = filter(row -> row[:unit_type] == asset_type[1, :unit_type], unit_specs)
         # Authorize a uniform expenditure over the life of the project
         anpe_val = unit[1, :uc_x] * unit[1, :capacity] * 1000 / unit[1, :d_x]
-#        anpe_val = 100000000   # $1B/period
         vals = (anpe_val, current_period, current_asset)
         DBInterface.execute(db, "UPDATE WIP_updates SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end
@@ -463,6 +429,7 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
 
         # Forecast unit revenue ($/period) and generation (kWh/period)
         forecast_unit_revenue_and_gen(
+            settings,
             unit_type_data,
             PA_fs_dict[uid],
             db,
@@ -486,23 +453,6 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
         end
 
         FCF_NPV, PA_fs_dict[uid] = compute_alternative_NPV(PA_fs_dict[uid], agent_params)
-
-        # save a representative example of each unit type to file (new_xtr only)
-        savelag = 2
-#        if (current_PA[:project_type] == "new_xtr") && (current_PA[:lag] == savelag)
-#            ctype = current_PA[:unit_type]
-#            fspath = joinpath(
-#                         pwd(),
-#                         "tmp",
-#                         string(
-#                             ctype,
-#                             "_",
-#                             savelag,
-#                             "_fs.csv"
-#                         )
-#                     )
-#            CSV.write(fspath, PA_fs_dict[uid])
-#        end
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view=true)[1, :NPV] = FCF_NPV
@@ -694,22 +644,17 @@ end
 
 
 """
-    forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, pd, lag; mode, ret_pd)
+    forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode, ret_pd)
 
 Forecast the revenue which will be earned by the current unit type,
 and the total generation (in kWh) of the unit, per time period.
 
-This function assumes the unit will be a pure price-taker: it will generate
-  during all hours for which it is a marginal or submarginal unit.
 If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   de-rating factor is applied to its availability during hours when it is
   eligible to generate.
 """
-function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
+function forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
     check_valid_vector_mode(mode)
-
-    # If the unit is VRE, assign an appropriate availability derate factor
-    availability_derate_factor = compute_VRE_derate_factor(unit_type_data)
 
     # Compute the original retirement period
     # Minimum of ret_pd or size of the unit FS (i.e. the forecast period)
@@ -717,144 +662,68 @@ function forecast_unit_revenue_and_gen(unit_type_data, unit_fs, db, current_pd, 
         orig_ret_pd = size(unit_fs)[1]
     end
 
+    # Load past years' dispatch results from A-LEAF
+    ALEAF_dispatch_results = DBInterface.execute(db, "SELECT * FROM ALEAF_dispatch_results") |> DataFrame
+    ALEAF_dispatch_results, wtd_hist_revs, wtd_hist_gens = average_historical_ALEAF_results(settings, ALEAF_dispatch_results)
+
     # Compute the unit's total generation for each period, in kWh
-    compute_total_generation(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_generation(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_gens; mode=mode, orig_ret_pd=orig_ret_pd)
 
     # Compute total projected revenue, with VRE adjustment if appropriate, and
     #   save to the unit financial statement
-    compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results; mode=mode, orig_ret_pd=orig_ret_pd)
+    compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_revs; mode=mode, orig_ret_pd=orig_ret_pd)
 
 end
 
 
-"""
-    compute_submarginal_hours_revenue(unit_type_data, price_curve)
+function average_historical_ALEAF_results(settings, ALEAF_dispatch_results)
+    wtd_hist_revs = nothing
+    wtd_hist_gens = nothing
 
-Compute revenue accrued to the unit during hours when it is a submarginal
-bidder into the wholesale market, assuming the unit is a pure price taker.
-"""
-function compute_submarginal_hours_revenue(unit_type_data, price_curve)
-    # Get a list of all hours and their prices during which the unit would 
-    #   be sub-marginal, from the price-duration curve
-    # Marginal cost unit conversion:
-    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
-    submarginal_hours = filter(row -> row.lamda > unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] - unit_type_data[:policy_adj_per_MWh], price_curve)
+    if size(ALEAF_dispatch_results)[1] != 0
+        # Get a list of all unique years in the dataframe
+        years = unique(ALEAF_dispatch_results, :period)[!, :period]
 
-    # Create a conversion factor from number of periods in the price curve
-    #   to hours (price curve may be in hours or five-minute periods)
-    convert_to_hours = hours_per_year / size(price_curve)[1]
+        hist_decay = settings["dispatch"]["hist_decay"]
 
-    # Compute total number of submarginal hours
-    num_submarg_hours = size(submarginal_hours)[1] * convert_to_hours
+        # Compute scaling factor to normalize to 1
+        c = 1 / sum(1/(1+hist_decay)^k for k in years)
 
-    # Calculate total revenue from submarginal hours, adjusting for net penalty
-    #   or subsidy due to the effect of policies
-    submarginal_hours_revenue = sum((submarginal_hours[!, :lamda] .+ unit_type_data[:policy_adj_per_MWh]) * unit_type_data[:capacity]) * convert_to_hours
+        # Add a column with the diminishing historical weighting factor
+        transform!(ALEAF_dispatch_results, [:period] => ((pd) -> c ./ (1 + hist_decay) .^ pd) => :hist_wt)
 
-    return num_submarg_hours, submarginal_hours_revenue
-end
+        # Get weighted total revenue and generation
+        transform!(ALEAF_dispatch_results, [:total_rev, :hist_wt] => ((rev, wt) -> rev .* hist_decay) => :wtd_total_rev)
+        transform!(ALEAF_dispatch_results, [:gen_total, :hist_wt] => ((gen, wt) -> gen .* hist_decay) => :wtd_total_gen)
 
+        wtd_hist_revs = unstack(
+            select(ALEAF_dispatch_results, [:unit_type, :wtd_total_rev]),
+            :unit_type,
+            :wtd_total_rev,
+            combine=sum
+        )
 
-"""
-    compute_marginal_hours_revenue(unit_type_data, price_curve, db)
+        wtd_hist_gens = unstack(
+            select(ALEAF_dispatch_results, [:unit_type, :wtd_total_gen]),
+            :unit_type,
+            :wtd_total_gen,
+            combine=sum
+        )
 
-Compute revenue accrued to the unit during hours when it is the marginal
-bidder into the wholesale market, assuming the unit is a pure price taker.
-The unit "takes credit" for a percentage of the marginal-hour revenue
-corresponding to the percentage of unit-type capacity it comprises.
-For example, a 200-MW NGCC unit in a system with 1000 MW of total NGCC capacity
-receives 200/1000 = 20% of the revenues during hours when NGCC is marginal.
-"""
-function compute_marginal_hours_revenue(unit_type_data, price_curve, db, pd)
-    # Get a list of all hours and their prices during which the unit would 
-    #   be marginal, from the price-duration curve
-    # Marginal cost unit convertion:
-    #   MC [$/MWh] = VOM [$/MWh] + FC_per_MWh [$/MWh]
-    marginal_hours = filter(row -> row.lamda == unit_type_data[:VOM] + unit_type_data[:FC_per_MWh] - unit_type_data[:policy_adj_per_MWh], price_curve)
-
-    # Compute the total capacity of this unit type in the current system
-    command = string("SELECT asset_id FROM assets WHERE unit_type == '", unit_type_data[:unit_type], "' AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd)
-    system_type_list = DBInterface.execute(db, command) |> DataFrame
-    system_type_capacity = size(system_type_list)[1]
-
-    # Create a conversion factor from number of periods in the price curve
-    #   to hours (price curve may be in hours or five-minute periods)
-    convert_to_hours = hours_per_year / size(price_curve)[1]
-
-    # Compute effective number of marginal hours
-    if system_type_capacity == 0
-        num_marg_hours = 0
-    else
-        num_marg_hours = size(marginal_hours)[1] / system_type_capacity * convert_to_hours
     end
 
-    if size(marginal_hours)[1] == 0
-        marginal_hours_revenue = 0
-    else
-        marginal_hours_revenue = sum((marginal_hours[!, :lamda]) .+ unit_type_data[:policy_adj_per_MWh]) * unit_type_data[:capacity] / system_type_capacity * convert_to_hours
-    end
-
-    return num_marg_hours, marginal_hours_revenue
-end
-
-
-function compute_historical_unit_type_results(unit_specs, price_data, db, current_pd)
-    # Create dataframe to store results
-    unit_hist_results = DataFrame(
-                            unit_type = String[],
-                            total_gen = Float64[],
-                            total_rev = Float64[]
-                        )
-
-    for unit_type in unit_specs[!, :unit_type]
-        # Filter unit type data for convenience
-        unit_type_data = filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
-
-        # Get the unit type's number of hours generated and revenue while
-        #   submarginal
-        unit_submarg_hours, unit_submarg_hours_revenue = compute_submarginal_hours_revenue(unit_type_data, price_data)
-
-        # Get the unit type's number of hours generated and revenue while
-        #   marginal
-        unit_marg_hours, unit_marg_hours_revenue = compute_marginal_hours_revenue(unit_type_data, price_data, db, current_pd)
-
-        unit_total_rev = unit_submarg_hours_revenue + unit_marg_hours_revenue
-        unit_total_gen = (unit_submarg_hours + unit_marg_hours) * unit_type_data[:capacity]
-
-        push!(unit_hist_results, [unit_type unit_total_gen unit_total_rev])
-    end
-
-    return unit_hist_results
+    return ALEAF_dispatch_results, wtd_hist_revs, wtd_hist_gens
 
 end
 
 
 """
-    compute_VRE_derate_factor(unit_type_data)
-
-If the unit is declared as `is_VRE` in the A-LEAF inputs, return an
-availability derating factor equal to its capacity credit factor.
-"""
-function compute_VRE_derate_factor(unit_type_data)
-    availability_derate_factor = 1
-
-    # Julia reads booleans as UInt8, so have to convert to something sensible
-    if convert(Int64, unit_type_data[:is_VRE][1]) == 1
-        availability_derate_factor = unit_type_data[:CF]
-    end
-
-    return availability_derate_factor   
-end
-
-
-
-"""
-    compute_total_revenue(unit_type_data, unit_fs, availability_derate_factor, lag; mode, orig_ret_pd)
+    compute_total_revenue(unit_type_data, unit_fs, lag; mode, orig_ret_pd)
 
 Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
-function compute_total_revenue(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd=9999)
+function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_revs; mode, orig_ret_pd=9999)
     check_valid_vector_mode(mode)
 
     # Helpful short variables
@@ -896,11 +765,30 @@ function compute_total_revenue(current_pd, unit_type_data, unit_fs, availability
 
     # Compute final projected revenue series
     agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), [:annualized_rev_perunit, :annualized_policy_adj_perunit] .=> sum, renamecols=false)
+
+    if wtd_hist_revs == nothing
+        hist_rev = 0
+        hist_wt = 0
+    else
+        try
+            hist_rev = wtd_hist_revs[1, type_filter]
+            hist_wt = settings["dispatch"]["hist_wt"]
+        catch
+            hist_rev = 0
+            hist_wt = 0
+        end
+    end
+
     for y = rev_start:rev_end
         row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
 
         if size(row)[1] != 0
-            unit_fs[y, :Revenue] = row[1, :annualized_rev_perunit] + row[1, :annualized_policy_adj_perunit]
+            if hist_wt == 0
+                wt = 0
+            else
+                wt = hist_wt^(y - current_pd)
+            end
+            unit_fs[y, :Revenue] = (1 - hist_wt) * (row[1, :annualized_rev_perunit] + row[1, :annualized_policy_adj_perunit]) + hist_wt * hist_rev
         else
             unit_fs[y, :Revenue] = 0
         end
@@ -920,11 +808,11 @@ function compute_total_revenue(current_pd, unit_type_data, unit_fs, availability
 end
 
 """
-    compute_total_generation(unit_type_data, unit_fs, availability_derate_factor, lag; mode, orig_ret_pd)
+    compute_total_generation(unit_type_data, unit_fs, lag; mode, orig_ret_pd)
 
 Calculate the unit's total generation for the period, in kWh.
 """
-function compute_total_generation(current_pd, unit_type_data, unit_fs, availability_derate_factor, lag, long_econ_results; mode, orig_ret_pd)
+function compute_total_generation(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_gens; mode, orig_ret_pd)
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
@@ -965,12 +853,29 @@ function compute_total_generation(current_pd, unit_type_data, unit_fs, availabil
     transform!(long_econ_results, [:gen, :Probability, :num_units] => ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) => :annualized_gen_perunit)
     agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_gen_perunit => sum, renamecols=false)
 
+    if wtd_hist_gens == nothing
+        hist_gen = 0
+        hist_wt = 0
+    else
+        try
+            hist_gen = wtd_hist_gens[1, type_filter]
+            hist_wt = settings["dispatch"]["hist_wt"]
+        catch
+            hist_gen = 0
+            hist_wt = settings["dispatch"]["hist_wt"]
+        end
+    end
+
     # Distribute generation values time series
     for y = gen_start:gen_end
         row = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == type_filter), agg_econ_results)
-
         if size(row)[1] != 0
-            unit_fs[y, :gen] = row[1, :annualized_gen_perunit]
+            if hist_wt == 0
+                wt = 0
+            else
+                wt = hist_wt ^ (y - current_pd)
+            end
+            unit_fs[y, :gen] = (1 - hist_wt) * row[1, :annualized_gen_perunit] + hist_wt * hist_gen
         else
             unit_fs[y, :gen] = 0
         end

@@ -31,6 +31,7 @@ from agent import GenCo
 import ABCEfunctions as ABCE
 import seed_creator as sc
 import ALEAF_interface as ALI
+import dispatch_ppx as dsp
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -887,9 +888,15 @@ class GridModel(Model):
             ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
             aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.settings['ALEAF']['ALEAF_abs_path']}"
 
-            sp = subprocess.check_call(aleaf_cmd, shell=True)
+            if self.args.verbosity < 2:
+                sp = subprocess.check_call(aleaf_cmd,
+                                           shell=True,
+                                           stdout=open(os.devnull, "wb"))
+            else:
+                sp = subprocess.check_call(aleaf_cmd, shell=True)
 
             self.save_ALEAF_outputs()
+            self.process_ALEAF_dispatch_results()
 
 
     def display_step_header(self):
@@ -1273,6 +1280,42 @@ class GridModel(Model):
             new_filename = f"{self.settings['simulation']['ALEAF_scenario_name']}__{outfile}__step_{self.current_pd}.csv"
             new_filepath = Path(self.ABCE_output_data_path) / new_filename
             shutil.copy2(old_filepath, new_filepath)
+
+
+    def process_ALEAF_dispatch_results(self):
+        # Find and load the ALEAF dispatch file corresponding to the current
+        #   simulation period
+        fname_pattern = f"dispatch_summary_OP__step_{self.current_pd}"
+        ALEAF_dsp_file = None
+        for fname in os.listdir(Path(self.ABCE_output_data_path)):
+            if "dispatch" in fname and "OP" in fname and f"{self.current_pd}" in fname:
+                ALEAF_dsp_file = Path(self.ABCE_output_data_path) / fname
+
+        # Get the number of units which are currently operational (needed for
+        #   scaling dispatch results to a per-unit basis)
+        sql_query = (f"SELECT unit_type, COUNT(unit_type) FROM assets " +
+                         f"WHERE completion_pd <= {self.current_pd} " +
+                         f"AND retirement_pd > {self.current_pd} " +
+                         f"AND cancellation_pd > {self.current_pd} " +
+                         f"GROUP BY unit_type")
+        num_units = pd.read_sql_query(sql_query, self.db, index_col="unit_type").rename(columns={"COUNT(unit_type)": "num_units"})
+
+        # Postprocess ALEAF dispatch results
+        ALEAF_dsp_results = dsp.postprocess_dispatch(ALEAF_dsp_file, num_units, self.unit_specs)
+        ALEAF_dsp_results["period"] = self.current_pd
+        ALEAF_dsp_results = ALEAF_dsp_results.reset_index().rename(columns={"index": "unit_type"})
+
+        # Get list of column names for ordering
+        cursor = self.db.cursor().execute("SELECT * FROM ALEAF_dispatch_results")
+        col_names = [description[0] for description in cursor.description]
+
+        # Reorder ALEAF_dsp_results to match database
+        ALEAF_dsp_results = ALEAF_dsp_results[col_names]
+
+        logging.debug(ALEAF_dsp_results)
+
+        ALEAF_dsp_results.to_sql("ALEAF_dispatch_results", self.db, if_exists="append", index=False)
+
 
     def update_WIP_projects(self):
         """

@@ -93,7 +93,8 @@ def cli_args():
         "--demo",
         "-d",
         action="store_true",
-        help="Pause the simulation after each step until user presses a key.")
+        help="Pause the simulation after each step until user presses a key."
+    )
     args = parser.parse_args()
     return args
 
@@ -107,7 +108,7 @@ def initialize_logging(args, vis_lvl):
     #   DEBUG =    10
     #   NOTSET =    0
 
-    # Default verbosity (CL setting 1) = INFO
+    # Default verbosity (CL setting 2) = INFO
     lvl = 20
     if args.verbosity == 0:
         # Do not show logging messages (no messages are generated with
@@ -127,6 +128,7 @@ def initialize_logging(args, vis_lvl):
     logging.root.addHandler(hdlr)
 
     logging.root.setLevel(lvl)
+
 
 def check_julia_environment(ABCE_abs_path):
     """
