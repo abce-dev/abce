@@ -141,7 +141,7 @@ else
         fi
 
     fi
-
+fi
 
 # Set up the local Julia environment
 echo "Setting up the local Julia environment..."
