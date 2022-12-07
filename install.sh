@@ -129,13 +129,13 @@ else
                 if [[ ! -f "$HOME/julia-1.8.2-linux-x86_64.tar.gz" ]]; then
                     # Check whether the julia 1.8.2 tarball has already been
                     #   downloaded into $HOME
-                    echo "Downloading Julia 1.8.2...";
-                    wget https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.2-linux-x86_64.tar.gz -P "$HOME";
+                    echo "Downloading Julia 1.8.2..."
+                    wget "${JULIA_URL}" -P "$HOME"
                 fi
 
                 # Install Julia
                 echo "Installing Julia 1.8.2..."
-                tar zxvf "$HOME/julia-1.8.2-linux-x86_64.tar.gz";
+                tar zxvf "$HOME/julia-1.8.2-linux-x86_64.tar.gz"
             fi
            
         fi
