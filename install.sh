@@ -116,12 +116,7 @@ else
             read user_resp
         done
 
-        if [[ $user_resp == "n" ]]; then
-            echo "Running ABCE requires Julia 1.8 to be the default, i.e. running 'julia --version' in the local environment returns julia 1.8."
-            echo "If you don't want to change the system-wide default, consider setting up a conda environment for ABCE."
-            echo "You can download Julia 1.8.2 from $JULIA_URL."
-            echo "Re-run this installation script once you have Julia 1.8 available as the local default."
-        elif [[ $user_resp == "y" ]] || [[ $force ]]; then
+        if [[ $user_resp == "y" ]] || [[ $force ]]; then
             # Check for a directory called julia-1.8.2/ in $HOME
             if [[ ! -d "$HOME/julia-1.8.2" ]]; then
                 # If there's no such directory, download and unpack the tarball
@@ -137,7 +132,13 @@ else
                 echo "Installing Julia 1.8.2..."
                 tar zxvf "$HOME/julia-1.8.2-linux-x86_64.tar.gz"
             fi
-           
+
+        elif [[ $user_resp == "n" ]]; then
+            echo "Running ABCE requires Julia 1.8 to be the default, i.e. running 'julia --version' in the local environment returns julia 1.8."
+            echo "If you don't want to change the system-wide default, consider setting up a conda environment for ABCE."
+            echo "You can download Julia 1.8.2 from $JULIA_URL."
+            echo "Re-run this installation script once you have Julia 1.8 available as the local default."
+   
         fi
 
     fi
