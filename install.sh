@@ -167,57 +167,39 @@ env_vars=( ["ABCE_DIR"]="$abce_dir" ["ALEAF_DIR"]="$aleaf_dir" )
 
 # Update or append values for each environment variable in the rc file
 echo "Updating environment variables in ${RC_FILE}"
+
+# Create the ABCE update block for bashrc
+echo "#==============================================================" >> "${RC_FILE}"
+echo "# ABCE configuration" >> "${RC_FILE}"
+echo "#   Delete this block to remove undesired side effects (e.g. Julia version update)" >> "${RC_FILE}"
+echo "#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - " >> "${RC_FILE}"
+
 for var_name in "${!env_vars[@]}";
 do
-    # Get a list of all occurrences of $var_name in the bashrc file
-    readarray -t var_lines < <(grep --null "${var_name}" "${RC_FILE}")
-
-    if [[ ${#var_lines[@]} == 0 ]]; then
-        # If there are no occurrences of this variable in the bashrc file,
-        #   simply append a line exporting it to the end of the file
-        echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}";
-    else
-        # If this variable does occur at least once in the bashrc file:
-        if [[ "${var_lines[( ${#var_lines[@]} - 1 )]}" == "export $var_name=${env_vars[$var_name]}" ]]; then
-            # If the last line referencing this variable already has the correct
-            #   form, don't update anything
-            echo "$var_name is already set to ${env_vars[$var_name]} in ${RC_FILE}.";
-        else
-            # If the last line referencing this variable sets it to some other
-            #   value, append a new export statement with the updated value to 
-            #   the end of $RC_FILE
-            echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}";
-
-            # Alert the user that there may be old settings for these variables
-            #   left over in the bashrc file
-            echo "Note: ${var_name} already appears in .bashrc. It may be advisable to delete outdated export statements for $var_name.";
-        fi
-    fi
-
+    echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}"
 done
 
 # Ensure that julia-1.8.2 is added to the $PATH such that the `julia` command
 #   invokes julia-1.8.2 instead of any other version that may be present
-echo "Ensuring Julia 1.8.2 is added to \$PATH in ${RC_FILE}";
+echo "Ensuring Julia 1.8.2 is added to \$PATH in ${RC_FILE}"
 
 # Get a list of all occurrences of 'julia' in the bashrc file
 readarray -t julia_lines < <(grep --null -E "export PATH=.*julia.*" "${RC_FILE}")
 
-if [[ ! -z $( echo "${julia_lines[( ${#julia_lines[@]} - 1 )]}" | grep -E "1\.8\.[0-9]{1,2}" ) ]]; then
-    # If the last line to add a julia-related value to $PATH already has the
-    #   correct form, don't update anything
-    echo "julia-1.8.2 is already correctly added to \$PATH in ${RC_FILE}.";
-else
+if [[ -z $( echo "${julia_lines[( ${#julia_lines[@]} - 1 )]}" | grep -E "1\.8\.[0-9]{1,2}" ) ]]; then
     # If .bashrc already has a line adding a different version of julia to the
     #    path, let the user know that this will update which version of Julia
     #    is found globally
-    echo "This operation will update the path in ${RC_FILE} where Julia is found globally: the 'julia' command will now invoke julia-1.8.2.";
-    echo "If you use Julia on this device for other applications which require a Julia version other than 1.8.2, issues may arise.";
-
-    # Append a new export statement with the updated value to 
-    #   the end of $RC_FILE
-    echo "export PATH=$HOME/julia-1.8.2/bin/:\$PATH" >> "${RC_FILE}";
+    echo "This operation will update the path in ${RC_FILE} where Julia is found globally: the 'julia' command will now invoke julia-1.8.2."
+    echo "If you use Julia on this device for other applications which require a Julia version other than 1.8.2, issues may arise."
+    echo "If you didn't want this to happen, open your ~/.bashrc file and delete the ABCE block at the end of the file."
 fi
+
+# Append a new export statement with the updated value to 
+#   the end of $RC_FILE
+echo "export PATH=$HOME/julia-1.8.2/bin/:\$PATH" >> "${RC_FILE}"
+
+echo "#==============================================================" >> "${RC_FILE}"
 
 #################################################################
 # Check for CPLEX
