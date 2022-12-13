@@ -1,0 +1,37 @@
+Wind:
+  capacity: 100   # MW
+  max_PL: 1.0
+  min_PL: 0.0
+  overnight_capital_cost: ATB
+  FCR: ATB
+  ret_cost: 0.0
+  FOM: ATB    # unit?
+  VOM: 0.0    # $/MWh
+  fuel_cost: 0.0
+  no_load_cost: 0.0
+  start_up_cost: 0.0
+  shut_down_cost: 0.0
+  heat_rate: 3.412    # MWh/MMBTU
+  ramp_up_limit: 1.0    # % PL/hr
+  ramp_down_limit: 1.0  # % PL/hr
+  max_reg: 0.0
+  max_spin: 0.0
+  max_nonspin: 0.0
+  capacity_credit: 0.37
+  emissions: 0.0   # unit?
+  VRE_flag: True
+  uses_fuel: False
+
+  occ_variance: 0
+  construction_duration: 3
+  unit_life: 30
+  
+
+  ALEAF_params:
+    UNITGROUP: Wind
+    UNIT_CATEGORY: Wind
+    UNIT_TYPE: Wind
+    FOR: 0.0
+    INVEST_FLAG: FALSE
+    RET_FLAG: FALSE
+    Outages: FALSE
