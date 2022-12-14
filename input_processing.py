@@ -44,9 +44,10 @@ def validate_input_specs(unit_specs_schema, unit_specs):
            provided
        * Checks whether any unknown/nonstandard data value names are given in
            the unit's specification block
+       * Checks whether input data values are of an allowed type
+       * Checks whether input data values adhere to all value range
+           restrictions (for values of allowed types only)
        * Checks whether fuel information is provided for non-VRE units
-       * Checks whether user-provided data values adhere to all value range
-           restrictions
        * Checks whether a final fuel cost value in $/MWh is computable based
            on values provided
 
@@ -75,9 +76,12 @@ def validate_input_specs(unit_specs_schema, unit_specs):
             )
             specs_ok = False
 
+
         # Check for provided data values whose names don't match anything in 
         #   the unit specs schema
-        unknown_data_values = [value_name for value_name in unit_type_specs.keys() if value_name not in unit_specs_schema.keys()]
+        unknown_data_values = [value_name for value_name in unit_type_specs.keys()
+                               if value_name not in unit_specs_schema.keys()
+                              ]
         if len(unknown_data_values) > 0:
              logging.error(
                  f"Unit type {unit_type} has the following data values in " +
@@ -88,27 +92,24 @@ def validate_input_specs(unit_specs_schema, unit_specs):
              logging.error("Check spelling and standard data value names. \n")
              specs_ok = False
 
-        # Check for missing fuel information for fuel-using generators
-        if unit_type_specs["uses_fuel"]:
-            fuel_missing_values = [value_name for value_name in unit_specs_schema.keys()
-                                   if "fuel_related" in unit_specs_schema[value_name].keys()
-                                   and unit_specs_schema[value_name]["fuel_related"]
-                                   and value_name not in unit_type_specs.keys()]
-            if len(fuel_missing_values) > 0:
-                logging.error(
-                    f"Unit type {unit_type} is marked as a fuel-using " +
-                    "generator, but it is missing the following fuel-related " +
-                    "specification(s):"
-                )
-                logging.error(fuel_missing_values)
-                logging.error(
-                    "Please add these data values to this unit's " +
-                    "specification. \n"
-                )
-                specs_ok = False
+
+        # Check whether provided data values are of an allowed type
+        wrong_type_values = [value_name for value_name in unit_type_specs.keys()
+                             if type(unit_type_specs[value_type]) not in unit_specs_schema[value_type]["types"]
+                            ]
+        if len(wrong_type_values) > 0:
+            logging.error(
+                f"Unit type {unit_type} has data of an incorrect type " +
+                "provided for the following values:"
+            )
+            for val in wrong_type_values:
+                logging.error(f"{val}: ")
+                logging.error(f"Types allowed: {unit_specs_schema[value_type]['types']}")
+                logging.error(f"Type provided: {type(unit_type_specs[value_type])} \n")
+
 
         # Check whether provided values meet the allowed value range
-        for value_type in unit_type_specs.keys():
+        for value_type in unit_type_specs.keys() if value_type not in wrong_type_values:
             if "allowed_values" in unit_specs_schema[value_type].keys():
                 if unit_type_specs[value_type] not in unit_specs_schema[value_type]["allowed_values"]:
                     logging.error(
@@ -152,6 +153,27 @@ def validate_input_specs(unit_specs_schema, unit_specs):
                     )
                     specs_ok = False
 
+
+        # Check for missing fuel information for fuel-using generators
+        if unit_type_specs["uses_fuel"]:
+            fuel_missing_values = [value_name for value_name in unit_specs_schema.keys()
+                                   if "fuel_related" in unit_specs_schema[value_name].keys()
+                                   and unit_specs_schema[value_name]["fuel_related"]
+                                   and value_name not in unit_type_specs.keys()]
+            if len(fuel_missing_values) > 0:
+                logging.error(
+                    f"Unit type {unit_type} is marked as a fuel-using " +
+                    "generator, but it is missing the following fuel-related " +
+                    "specification(s):"
+                )
+                logging.error(fuel_missing_values)
+                logging.error(
+                    "Please add these data values to this unit's " +
+                    "specification. \n"
+                )
+                specs_ok = False
+
+
         # Check for missing heat rate when fuel is given in $/MMBTU
         if (unit_type_specs["fuel_cost_units"] == "$/MMBTU" and
             "heat_rate" not in unit_type_specs.keys()):
@@ -160,6 +182,7 @@ def validate_input_specs(unit_specs_schema, unit_specs):
                 "but has no specified heat rate (MWh/MMBTU)."
             )
             specs_ok = False
+
 
     if not specs_ok:
         logging.info(
