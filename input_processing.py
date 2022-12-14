@@ -1,6 +1,7 @@
 import pandas as pd
 import openpyxl
 import yaml
+import logging
 
 unit_specs_schema_file = "./unit_specs_schema.yml"
 unit_sample_data_file = "./inputs/unit_specs.yml"
@@ -59,10 +60,10 @@ def validate_input_specs(unit_specs_schema, unit_specs):
     for unit_type, unit_type_specs in unit_specs.items():
         # Check whether any universally mandatory specification values
         #   are missing from the spec for this unit type
-        universal_missing_values = [value_name for value_name in unit_specs_schema.keys()
+        universal_missing_values = [value_type for value_type in unit_specs_schema.keys()
                                     if "required" in unit_specs_schema[value_type].keys()
                                     and unit_specs_schema[value_type]["required"]
-                                    and value_name not in unit_type_specs.keys()
+                                    and value_type not in unit_type_specs.keys()
                                    ]
         if len(universal_missing_values) > 0:
             logging.error(
@@ -79,8 +80,8 @@ def validate_input_specs(unit_specs_schema, unit_specs):
 
         # Check for provided data values whose names don't match anything in 
         #   the unit specs schema
-        unknown_data_values = [value_name for value_name in unit_type_specs.keys()
-                               if value_name not in unit_specs_schema.keys()
+        unknown_data_values = [value_type for value_type in unit_type_specs.keys()
+                               if value_type not in unit_specs_schema.keys()
                               ]
         if len(unknown_data_values) > 0:
              logging.error(
@@ -94,7 +95,7 @@ def validate_input_specs(unit_specs_schema, unit_specs):
 
 
         # Check whether provided data values are of an allowed type
-        wrong_type_values = [value_name for value_name in unit_type_specs.keys()
+        wrong_type_values = [value_type for value_type in unit_type_specs.keys()
                              if type(unit_type_specs[value_type]) not in unit_specs_schema[value_type]["types"]
                             ]
         if len(wrong_type_values) > 0:
@@ -109,57 +110,58 @@ def validate_input_specs(unit_specs_schema, unit_specs):
 
 
         # Check whether provided values meet the allowed value range
-        for value_type in unit_type_specs.keys() if value_type not in wrong_type_values:
-            if "allowed_values" in unit_specs_schema[value_type].keys():
-                if unit_type_specs[value_type] not in unit_specs_schema[value_type]["allowed_values"]:
-                    logging.error(
-                        f"Unit type {unit_type} has an invalid data value " +
-                        f"provided for {value_type}."
-                    )
-                    logging.error(
-                        f"Allowed values for this {value_type}: " +
-                        f"{unit_specs_schema[value_type]['allowed_values']}"
-                    )
-                    logging.error(
-                        f"User provided value: {unit_type_specs[value_type]}\n"
-                    )
-                    specs_ok = False
-            if "min_value" in unit_specs_schema[value_type].keys():
-                if unit_type_specs[value_type] < unit_specs_schema[value_type]["min_value"]:
-                    logging.error(
-                        f"Unit type {unit_type} has an invalid data value " +
-                        f"provided for {value_type}."
-                    )
-                    logging.error(
-                        f"Minimum allowed value for {value_type}: " +
-                        f"{unit_specs_schema[value_type]['min_value']}"
-                    )
-                    logging.error(
-                        f"User provided value: {unit_type_specs[value_type]}\n"
-                    )
-                    specs_ok = False
-            if "max_value" in unit_specs_schema[value_type].keys()
-                if unit_type_specs[value_type] > unit_specs_schema[value_type]["max_value"]:
-                    logging.error(
-                        f"Unit type {unit_type} has an invalid data value " +
-                        f"provided for {value_type}."
-                    )
-                    logging.error(
-                        f"Maximum allowed value for {value_type}: " +
-                        f"{unit_specs_schema[value_type]['max_value']}"
-                    )
-                    logging.error(
-                        f"User provided value: {unit_type_specs[value_type]}\n"
-                    )
-                    specs_ok = False
+        for value_type in unit_type_specs.keys():
+            if value_type not in wrong_type_values:
+                if "allowed_values" in unit_specs_schema[value_type].keys():
+                    if unit_type_specs[value_type] not in unit_specs_schema[value_type]["allowed_values"]:
+                        logging.error(
+                            f"Unit type {unit_type} has an invalid data value " +
+                            f"provided for {value_type}."
+                        )
+                        logging.error(
+                            f"Allowed values for this {value_type}: " +
+                            f"{unit_specs_schema[value_type]['allowed_values']}"
+                        )
+                        logging.error(
+                            f"User provided value: {unit_type_specs[value_type]}\n"
+                        )
+                        specs_ok = False
+                if "min_value" in unit_specs_schema[value_type].keys():
+                    if unit_type_specs[value_type] < unit_specs_schema[value_type]["min_value"]:
+                        logging.error(
+                            f"Unit type {unit_type} has an invalid data value " +
+                            f"provided for {value_type}."
+                        )
+                        logging.error(
+                            f"Minimum allowed value for {value_type}: " +
+                            f"{unit_specs_schema[value_type]['min_value']}"
+                        )
+                        logging.error(
+                            f"User provided value: {unit_type_specs[value_type]}\n"
+                        )
+                        specs_ok = False
+                if "max_value" in unit_specs_schema[value_type].keys():
+                    if unit_type_specs[value_type] > unit_specs_schema[value_type]["max_value"]:
+                        logging.error(
+                            f"Unit type {unit_type} has an invalid data value " +
+                            f"provided for {value_type}."
+                        )
+                        logging.error(
+                            f"Maximum allowed value for {value_type}: " +
+                            f"{unit_specs_schema[value_type]['max_value']}"
+                        )
+                        logging.error(
+                            f"User provided value: {unit_type_specs[value_type]}\n"
+                        )
+                        specs_ok = False
 
 
         # Check for missing fuel information for fuel-using generators
         if unit_type_specs["uses_fuel"]:
-            fuel_missing_values = [value_name for value_name in unit_specs_schema.keys()
-                                   if "fuel_related" in unit_specs_schema[value_name].keys()
-                                   and unit_specs_schema[value_name]["fuel_related"]
-                                   and value_name not in unit_type_specs.keys()]
+            fuel_missing_values = [value_type for value_type in unit_specs_schema.keys()
+                                   if "fuel_related" in unit_specs_schema[value_type].keys()
+                                   and unit_specs_schema[value_type]["fuel_related"]
+                                   and value_type not in unit_type_specs.keys()]
             if len(fuel_missing_values) > 0:
                 logging.error(
                     f"Unit type {unit_type} is marked as a fuel-using " +
@@ -189,7 +191,7 @@ def validate_input_specs(unit_specs_schema, unit_specs):
             "Please rectify these unit specification issues before " +
             "re-running ABCE."
         )
-        raise ValueError
+        raise Exception
 
 
 def fill_unit_spec_defaults(unit_specs_schema, unit_specs):
