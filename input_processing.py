@@ -220,6 +220,8 @@ def compute_fuel_costs_dpMWh(unit_specs):
         else:
             unit_type_specs["FC_per_MWh"] = unit_type_specs["fuel_cost"] * unit_type_specs["heat_rate"]
 
+    return unit_specs
+
 
 def initialize_unit_specifications(unit_specs_schema_file, unit_data_file):
     """
