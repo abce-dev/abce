@@ -8,7 +8,7 @@ capacity:
   min_value: 0
 max_PL:
   description: Maximum stable power level (in %)
-  units: %
+  units: "%"
   required: True
   types:
     - int
@@ -17,6 +17,7 @@ max_PL:
   max_value: 1.0
 min_PL:
   description: Minimum stable power level (in %)
+  units: "%"
   required: True
   types:
     - int
@@ -49,7 +50,7 @@ VOM:
   min_value: 0
 ramp_up_limit:
   description: Greatest allowable power level increase in one hour (%/hr)
-  units: %/hr
+  units: "% max. PL/hr"
   required: True
   types:
     - int
@@ -58,7 +59,7 @@ ramp_up_limit:
   max_value: 1
 ramp_down_limit:
   description: Greatest allowable power level decrease in one hour (%/hr)
-  units: %/hr
+  units: "% max. PL/hr"
   required: True
   types:
     - int
@@ -66,8 +67,8 @@ ramp_down_limit:
   min_value: 0
   max_value: 1
 capacity_credit:
-  description: % of unit capacity countable as firm capacity when computing supply availability at peak demand. Usually equal to capacity factor.
-  units: %
+  description: percentage of unit capacity countable as firm capacity when computing supply availability at peak demand. Usually equal to capacity factor.
+  units: "%"
   required: True
   types:
     - int
@@ -128,7 +129,7 @@ fuel_cost:
     - float
   min_value: 0
 fuel_cost_units:
-  description: Units for the specified fuel cost: $/MWh or $/MMBTU
+  description: Units for the specified fuel cost ($/MWh or $/MMBTU)
   fuel_related: True
   units: $/MWh or $/MMBTU
   required: False
