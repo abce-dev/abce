@@ -112,6 +112,7 @@ construction_duration:
   min_value: 1
 fuel_type:
   description: Type of fuel used by the unit
+  fuel_related: True
   required: False
   default_value: none
   types:
@@ -119,6 +120,7 @@ fuel_type:
 fuel_cost:
   description: Cost of fuel used by the unit, in $/MWh or $/MMBTU
   units: $/MWh or $/MMBTU
+  fuel_related: True
   required: False
   default_value: 0
   types:
@@ -127,6 +129,7 @@ fuel_cost:
   min_value: 0
 fuel_cost_units:
   description: Units for the specified fuel cost: $/MWh or $/MMBTU
+  fuel_related: True
   units: $/MWh or $/MMBTU
   required: False
   default_value: $/MWh

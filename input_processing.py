@@ -5,8 +5,6 @@ import yaml
 unit_specs_schema_file = "./unit_specs_schema.yml"
 unit_sample_data_file = "./inputs/unit_specs.yml"
 
-fuel_data_values = ["fuel_type", "fuel_cost", "fuel_cost_units"]
-
 def read_specification_schema(unit_specs_spec_file):
     # Read in the schema describing all allowable data values in the unit_spec
     #   and important validation information about each
@@ -92,8 +90,10 @@ def validate_input_specs(unit_specs_schema, unit_specs):
 
         # Check for missing fuel information for fuel-using generators
         if unit_type_specs["uses_fuel"]:
-            fuel_missing_values = [value_name for value_name in fuel_data_values
-                                   if value_name not in unit_type_specs.keys()]
+            fuel_missing_values = [value_name for value_name in unit_specs_schema.keys()
+                                   if "fuel_related" in unit_specs_schema[value_name].keys()
+                                   and unit_specs_schema[value_name]["fuel_related"]
+                                   and value_name not in unit_type_specs.keys()]
             if len(fuel_missing_values) > 0:
                 logging.error(
                     f"Unit type {unit_type} is marked as a fuel-using " +
