@@ -228,3 +228,31 @@ FOR:
     - int
     - float
   min_value: 0
+max_regulation:
+  description: Max. participation (% of max. PL) in the frequency regulation ancillary services market
+  units: "% max. PL"
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+  max_value: 1
+max_spinning_reserve:
+  description: Max. participation (% of max. PL) in the spinning reserve ancillary services market
+  units: "% max. PL"
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+  max_value: 1
+max_nonspinning_reserve:
+  description: Max. participation (% of max. PL) in the non-spinning reserve ancillary services market
+  units: "% max. PL"
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+  max_value: 1
