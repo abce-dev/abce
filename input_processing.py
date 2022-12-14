@@ -2,7 +2,9 @@ import pandas as pd
 import openpyxl
 import yaml
 
+unit_specs_specification_file = "./unit_specs_specification.yml"
 unit_sample_data_file = "./inputs/unit_specs.yml"
+
 optional_spec_defaults = {
     "fuel_type": "none",
     "fuel_cost": 0,
@@ -19,43 +21,50 @@ optional_spec_defaults = {
     "FOR": 0
 }
 
-universally_required_specs = [
-    "capacity",
-    "max_PL",
-    "min_PL",
-    "overnight_capital_cost",
-    "FOM",
-    "VOM",
-    "ramp_up_limit",
-    "ramp_down_limit",
-    "capacity_credit",
-    "emissions_rate",
-    "VRE_flag",
-    "uses_fuel",
-    "unit_life",
-    "construction_duration"
-]
-
 fuel_data_values = ["fuel_type", "fuel_cost", "fuel_cost_units"]
-valid_fuel_units = ["$/MWh", "$/MMBTU"]
+
+def read_specification_schema(unit_specs_spec_file):
+    # Read in the schema describing all allowable data values in the unit_spec
+    #   and important validation information about each
+    unit_specs_schema = yaml.load(
+                            open(unit_specs_spec_file, "r"),
+                            Loader=yaml.FullLoader
+                        )
+
+    # Convert all allowable data types into their Python data type instead
+    #   of strings
+    for value_type in unit_specs_schema.keys():
+        unit_specs_schema[value_type]["types"] = (
+            list(map(lambda x: getattr(__builtins__, x),
+                     unit_specs_schema[value_type]["types"]
+            ))
+        )
+
+    return unit_specs_schema
 
 
 def read_unit_data(unit_data_file):
     # Read in the unit specification data from the input file
-    unit_specs = yaml.load(open(unit_data_file, "r"), Loader=yaml.FullLoader)
+    unit_specs = yaml.load(
+                     open(unit_data_file, "r"),
+                     Loader=yaml.FullLoader
+                 )
 
     return unit_specs
 
 
-def validate_input_specs(unit_specs):
+def validate_input_specs(unit_specs_schema, unit_specs):
     """
     Validate the user's unit specification file. Currently includes the
       following checks:
 
        * Checks whether all mandatory unit specification data types are
            provided
+       * Checks whether any unknown/nonstandard data value names are given in
+           the unit's specification block
        * Checks whether fuel information is provided for non-VRE units
-       * Checks whether a valid fuel cost unit is provided
+       * Checks whether user-provided data values adhere to all value range
+           restrictions
        * Checks whether a final fuel cost value in $/MWh is computable based
            on values provided
 
@@ -63,11 +72,15 @@ def validate_input_specs(unit_specs):
       basis. If a nonzero number of issues are found, ends program execution.
     """
     specs_ok = True
+
     for unit_type, unit_type_specs in unit_specs:
         # Check whether any universally mandatory specification values
         #   are missing from the spec for this unit type
-        universal_missing_values = [value_name for value_name in universally_required_specs
-                                    if value_name not in unit_type_specs.keys()]
+        universal_missing_values = [value_name for value_name in unit_specs_schema.keys()
+                                    if "required" in unit_specs_schema[value_type].keys()
+                                    and unit_specs_schema[value_type]["required"]
+                                    and value_name not in unit_type_specs.keys()
+                                   ]
         if len(universal_missing_values) > 0:
             logging.error(
                 f"Unit type {unit_type} is missing the following unit " +
@@ -75,7 +88,23 @@ def validate_input_specs(unit_specs):
                 "unit types:"
             )
             logging.error(universal_missing_values)
+            logging.error(
+                "Please add these values to this unit's specification. \n"
+            )
             specs_ok = False
+
+        # Check for provided data values whose names don't match anything in 
+        #   the unit specs schema
+        unknown_data_values = [value_name for value_name in unit_type_specs.keys() if value_name not in unit_specs_schema.keys()]
+        if len(unknown_data_values) > 0:
+             logging.error(
+                 f"Unit type {unit_type} has the following data values in " +
+                 f"its unit specification which do not correspond to " +
+                 f"allowable data values:"
+             )
+             logging.error(unknown_data_values)
+             logging.error("Check spelling and standard data value names. \n")
+             specs_ok = False
 
         # Check for missing fuel information for fuel-using generators
         if unit_type_specs["uses_fuel"]:
@@ -88,16 +117,56 @@ def validate_input_specs(unit_specs):
                     "specification(s):"
                 )
                 logging.error(fuel_missing_values)
+                logging.error(
+                    "Please add these data values to this unit's " +
+                    "specification. \n"
+                )
                 specs_ok = False
 
-        # Check for unknown fuel cost unit type
-        if unit_type_specs["fuel_cost_units"] not in valid_fuel_units:
-            logging.error(
-                f"Unit type {unit_type} has an invalid fuel cost unit type: " +
-                f"{unit_type_specs['fuel_cost_units']}. Please use one of " +
-                f"the following: {valid_fuel_units}."
-            )
-            specs_ok = False
+        # Check whether provided values meet the allowed value range
+        for value_type in unit_type_specs.keys():
+            if "allowed_values" in unit_specs_schema[value_type].keys():
+                if unit_type_specs[value_type] not in unit_specs_schema[value_type]["allowed_values"]:
+                    logging.error(
+                        f"Unit type {unit_type} has an invalid data value " +
+                        f"provided for {value_type}."
+                    )
+                    logging.error(
+                        f"Allowed values for this {value_type}: " +
+                        f"{unit_specs_schema[value_type]['allowed_values']}"
+                    )
+                    logging.error(
+                        f"User provided value: {unit_type_specs[value_type]}\n"
+                    )
+                    specs_ok = False
+            if "min_value" in unit_specs_schema[value_type].keys():
+                if unit_type_specs[value_type] < unit_specs_schema[value_type]["min_value"]:
+                    logging.error(
+                        f"Unit type {unit_type} has an invalid data value " +
+                        f"provided for {value_type}."
+                    )
+                    logging.error(
+                        f"Minimum allowed value for {value_type}: " +
+                        f"{unit_specs_schema[value_type]['min_value']}"
+                    )
+                    logging.error(
+                        f"User provided value: {unit_type_specs[value_type]}\n"
+                    )
+                    specs_ok = False
+            if "max_value" in unit_specs_schema[value_type].keys()
+                if unit_type_specs[value_type] > unit_specs_schema[value_type]["max_value"]:
+                    logging.error(
+                        f"Unit type {unit_type} has an invalid data value " +
+                        f"provided for {value_type}."
+                    )
+                    logging.error(
+                        f"Maximum allowed value for {value_type}: " +
+                        f"{unit_specs_schema[value_type]['max_value']}"
+                    )
+                    logging.error(
+                        f"User provided value: {unit_type_specs[value_type]}\n"
+                    )
+                    specs_ok = False
 
         # Check for missing heat rate when fuel is given in $/MMBTU
         if (unit_type_specs["fuel_cost_units"] == "$/MMBTU" and
@@ -110,16 +179,21 @@ def validate_input_specs(unit_specs):
 
     if not specs_ok:
         logging.info(
-            "Please rectify the issues listed before re-running ABCE."
+            "Please rectify these unit specification issues before " +
+            "re-running ABCE."
         )
         raise ValueError
 
 
-def fill_unit_spec_defaults(unit_specs):
+def fill_unit_spec_defaults(unit_specs_schema, unit_specs):
+    # For any data value not given in the specification: if that value type has
+    #   an available default value in the schema, fill in the default value
     for unit_type, unit_type_specs in unit_specs:
-        for data_value in optional_spec_defaults.keys():
-            if data_value not in unit_type_specs.keys():
-                unit_type_specs[data_value] = optional_spec_defaults[data_value]
+        for value_type in unit_specs_schema.keys():
+            if value_type not in unit_type_specs.keys() and "default_value" in unit_specs_schema[value_type].keys():
+                unit_type_specs[value_type] = unit_specs_schema[value_type]["default_value"]
+
+    return unit_specs
 
 
 def finalize_unit_spec_data(unit_specs):
@@ -140,18 +214,23 @@ def compute_fuel_costs_dpMWh(unit_specs):
             unit_type_specs["FC_per_MWh"] = unit_type_specs["fuel_cost"] * unit_type_specs["heat_rate"]
 
 
-def create_simulation_specification_file(unit_data_file):
-    # Creates A-LEAF "LC_GEP" style input file
+def initialize_unit_specifications(unit_specs_spec_file, unit_data_file):
+    """
+    
+    """
+
+    # Read in specification schema for all unit specs
+    unit_specs_schema = read_specification_schema(unit_specs_spec_file)
 
     # Read in yaml data from input file
     unit_specs = read_unit_data(unit_data_file)
 
     # Check to ensure that required unit specification values are all provided
-    validate_input_specs(unit_specs)
+    validate_input_specs(unit_specs_schema, unit_specs)
 
     # Fill in unspecified values with appropriate defaults
-    unit_specs = fill_unit_spec_defaults(unit_specs)
+    unit_specs = fill_unit_spec_defaults(unit_specs_schema, unit_specs)
 
 
 if __name__ == "__main__":
-    create_simulation_specification_file(unit_sample_data_file)
+    initialize_unit_specifications(unit_specs_spec_file, unit_sample_data_file)
