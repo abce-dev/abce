@@ -56,7 +56,7 @@ def validate_input_specs(unit_specs_schema, unit_specs):
     """
     specs_ok = True
 
-    for unit_type, unit_type_specs in unit_specs:
+    for unit_type, unit_type_specs in unit_specs.items():
         # Check whether any universally mandatory specification values
         #   are missing from the spec for this unit type
         universal_missing_values = [value_name for value_name in unit_specs_schema.keys()
@@ -195,7 +195,7 @@ def validate_input_specs(unit_specs_schema, unit_specs):
 def fill_unit_spec_defaults(unit_specs_schema, unit_specs):
     # For any data value not given in the specification: if that value type has
     #   an available default value in the schema, fill in the default value
-    for unit_type, unit_type_specs in unit_specs:
+    for unit_type, unit_type_specs in unit_specs.items():
         for value_type in unit_specs_schema.keys():
             if value_type not in unit_type_specs.keys() and "default_value" in unit_specs_schema[value_type].keys():
                 unit_type_specs[value_type] = unit_specs_schema[value_type]["default_value"]
@@ -214,7 +214,7 @@ def finalize_unit_spec_data(unit_specs):
 
 def compute_fuel_costs_dpMWh(unit_specs):
     # Ensure that all units have a valid fuel cost value in $/MWh
-    for unit_type, unit_type_specs in unit_specs:
+    for unit_type, unit_type_specs in unit_specs.items():
         if unit_type_specs["fuel_cost_units"] == "$/MWh":
             unit_type_specs["FC_per_MWh"] = unit_type_specs["fuel_cost"]
         else:
