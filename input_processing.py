@@ -2,7 +2,7 @@ import pandas as pd
 import openpyxl
 import yaml
 
-unit_specs_specification_file = "./unit_specs_specification.yml"
+unit_specs_schema_file = "./unit_specs_schema.yml"
 unit_sample_data_file = "./inputs/unit_specs.yml"
 
 fuel_data_values = ["fuel_type", "fuel_cost", "fuel_cost_units"]
@@ -198,13 +198,14 @@ def compute_fuel_costs_dpMWh(unit_specs):
             unit_type_specs["FC_per_MWh"] = unit_type_specs["fuel_cost"] * unit_type_specs["heat_rate"]
 
 
-def initialize_unit_specifications(unit_specs_spec_file, unit_data_file):
+def initialize_unit_specifications(unit_specs_schema_file, unit_data_file):
     """
-    
+    Load the unit specifications from the input file, validate all input
+      values, and finalize all specification values.
     """
 
     # Read in specification schema for all unit specs
-    unit_specs_schema = read_specification_schema(unit_specs_spec_file)
+    unit_specs_schema = read_specification_schema(unit_specs_schema_file)
 
     # Read in yaml data from input file
     unit_specs = read_unit_data(unit_data_file)
@@ -217,4 +218,4 @@ def initialize_unit_specifications(unit_specs_spec_file, unit_data_file):
 
 
 if __name__ == "__main__":
-    initialize_unit_specifications(unit_specs_spec_file, unit_sample_data_file)
+    initialize_unit_specifications(unit_specs_schema_file, unit_sample_data_file)
