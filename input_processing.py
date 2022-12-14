@@ -96,22 +96,23 @@ def validate_input_specs(unit_specs_schema, unit_specs):
 
         # Check whether provided data values are of an allowed type
         wrong_type_values = [value_type for value_type in unit_type_specs.keys()
-                             if type(unit_type_specs[value_type]) not in unit_specs_schema[value_type]["types"]
+                             if value_type not in unknown_data_values
+                             and type(unit_type_specs[value_type]) not in unit_specs_schema[value_type]["types"]
                             ]
         if len(wrong_type_values) > 0:
             logging.error(
                 f"Unit type {unit_type} has data of an incorrect type " +
                 "provided for the following values:"
             )
-            for val in wrong_type_values:
-                logging.error(f"{val}: ")
+            for value_type in wrong_type_values:
+                logging.error(f"{value_type}: ")
                 logging.error(f"Types allowed: {unit_specs_schema[value_type]['types']}")
                 logging.error(f"Type provided: {type(unit_type_specs[value_type])} \n")
 
 
         # Check whether provided values meet the allowed value range
         for value_type in unit_type_specs.keys():
-            if value_type not in wrong_type_values:
+            if value_type not in wrong_type_values and value_type not in unknown_data_values:
                 if "allowed_values" in unit_specs_schema[value_type].keys():
                     if unit_type_specs[value_type] not in unit_specs_schema[value_type]["allowed_values"]:
                         logging.error(
@@ -177,8 +178,9 @@ def validate_input_specs(unit_specs_schema, unit_specs):
 
 
         # Check for missing heat rate when fuel is given in $/MMBTU
-        if (unit_type_specs["fuel_cost_units"] == "$/MMBTU" and
-            "heat_rate" not in unit_type_specs.keys()):
+        if ("fuel_cost_units" in unit_type_specs.keys()
+            and unit_type_specs["fuel_cost_units"] == "$/MMBTU"
+            and "heat_rate" not in unit_type_specs.keys()):
             logging.error(
                 f"Unit type {unit_type} has fuel cost specified in $/MMBTU, " +
                 "but has no specified heat rate (MWh/MMBTU)."
@@ -187,11 +189,11 @@ def validate_input_specs(unit_specs_schema, unit_specs):
 
 
     if not specs_ok:
-        logging.info(
+        logging.error(
             "Please rectify these unit specification issues before " +
             "re-running ABCE."
         )
-        raise Exception
+        raise SystemExit
 
 
 def fill_unit_spec_defaults(unit_specs_schema, unit_specs):
@@ -245,4 +247,5 @@ def initialize_unit_specifications(unit_specs_schema_file, unit_data_file):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     initialize_unit_specifications(unit_specs_schema_file, unit_sample_data_file)
