@@ -47,7 +47,7 @@ def read_unit_data(unit_data_file):
     return unit_specs
 
 
-def check_input_specs(unit_specs):
+def validate_input_specs(unit_specs):
     """
     Validate the user's unit specification file. Currently includes the
       following checks:
@@ -123,6 +123,10 @@ def fill_unit_spec_defaults(unit_specs):
 
 
 def finalize_unit_spec_data(unit_specs):
+    # If any unit specification values are given as "ATB", fill those values
+    #   from the ATB data file
+
+
     # Compute all final fuel costs in units of $/MWh
     unit_specs = compute_fuel_costs_dpMWh(unit_specs)
 
@@ -143,7 +147,7 @@ def create_simulation_specification_file(unit_data_file):
     unit_specs = read_unit_data(unit_data_file)
 
     # Check to ensure that required unit specification values are all provided
-    check_input_specs(unit_specs)
+    validate_input_specs(unit_specs)
 
     # Fill in unspecified values with appropriate defaults
     unit_specs = fill_unit_spec_defaults(unit_specs)
