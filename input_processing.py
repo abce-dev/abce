@@ -5,22 +5,6 @@ import yaml
 unit_specs_specification_file = "./unit_specs_specification.yml"
 unit_sample_data_file = "./inputs/unit_specs.yml"
 
-optional_spec_defaults = {
-    "fuel_type": "none",
-    "fuel_cost": 0,
-    "fuel_cost_units": "$/MWh",
-    "heat_rate": 0,
-    "Charge_CAP": 0,
-    "STOCAP": 0,
-    "STOMIN": 0,
-    "retirement_cost": 0
-    "no_load_cost": 0,
-    "start_up_cost": 0,
-    "shut_down_cost": 0
-    "occ_variance": 0,
-    "FOR": 0
-}
-
 fuel_data_values = ["fuel_type", "fuel_cost", "fuel_cost_units"]
 
 def read_specification_schema(unit_specs_spec_file):
