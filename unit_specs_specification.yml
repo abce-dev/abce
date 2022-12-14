@@ -1,0 +1,226 @@
+capacity:
+  description: Capacity (in MW) for a single generator of this type
+  units: MW
+  required: True
+  types:
+    - int
+    - float
+  min_value: 0
+max_PL:
+  description: Maximum stable power level (in %)
+  units: %
+  required: True
+  types:
+    - int
+    - float
+  min_value: 0.0
+  max_value: 1.0
+min_PL:
+  description: Minimum stable power level (in %)
+  required: True
+  types:
+    - int
+    - float
+  min_value: 0.0
+  max_value: 1.0
+overnight_capital_cost:
+  description: Construction cost (in $/kW) not including financing costs
+  units: $/kW
+  required: True
+  types:
+    - int
+    - float
+  min_value: 0.0
+FOM:
+  description: Fixed operations and maintenance costs ($/kW-yr)
+  units: $/kW-yr
+  required: True
+  types:
+    - int
+    - float
+  min_value: 0
+VOM:
+  description: Variable operations and maintenance costs ($/MWh)
+  units: $/MWh
+  required: True
+  types:
+    - int
+    - float
+  min_value: 0
+ramp_up_limit:
+  description: Greatest allowable power level increase in one hour (%/hr)
+  units: %/hr
+  required: True
+  types:
+    - int
+    - float
+  min_value: 0
+  max_value: 1
+ramp_down_limit:
+  description: Greatest allowable power level decrease in one hour (%/hr)
+  units: %/hr
+  required: True
+  types:
+    - int
+    - float
+  min_value: 0
+  max_value: 1
+capacity_credit:
+  description: % of unit capacity countable as firm capacity when computing supply availability at peak demand. Usually equal to capacity factor.
+  units: %
+  required: True
+  types:
+    - int
+    - float
+  min_value: 0
+  max_value: 1
+is_VRE:
+  description: Indicates whether unit is a nondispatchable variable renewable resource
+  required: True
+  types:
+    - bool
+  allowed_values:
+    - 0
+    - 1
+    - True
+    - False
+uses_fuel:
+  description: Indicates whether unit uses fuel (e.g. coal, uranium, gas)
+  required: True
+  types:
+    - bool
+  allowed_values:
+    - 0
+    - 1
+    - True
+    - False
+unit_life:
+  description: Total useful life of the unit (yrs)
+  units: years
+  required: True
+  types:
+    - int
+    - float
+  min_value: 1
+construction_duration:
+  description: Time required to build a new instance of the given unit (yrs)
+  units: years
+  required: True
+  types:
+    - int
+    - float
+  min_value: 1
+fuel_type:
+  description: Type of fuel used by the unit
+  required: False
+  default_value: none
+  types:
+    - str
+fuel_cost:
+  description: Cost of fuel used by the unit, in $/MWh or $/MMBTU
+  units: $/MWh or $/MMBTU
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+fuel_cost_units:
+  description: Units for the specified fuel cost: $/MWh or $/MMBTU
+  units: $/MWh or $/MMBTU
+  required: False
+  default_value: $/MWh
+  types:
+    - str
+  allowed_values:
+    - $/MWh
+    - $/MMBTU
+heat_rate:
+  description: Unit's thermal conversion rate, in MWh/MMBTU
+  units: MWh/MMBTU
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+charging_capacity:
+  description: Charging capacity for a battery unit
+  units:
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+storage_capacity:
+  description: Storage capacity for a battery unit
+  units:
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+storage_min_level:
+  description: Minimum allowed stored energy for a battery unit
+  units:
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+no_load_cost:
+  description:
+  units:
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+start_up_cost:
+  description: Cost of taking an offline unit into the committed state
+  units:
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+shut_down_cost:
+  description: Cost of de-committing a unit
+  units:
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+occ_stdev:
+  description: Standard deviation of the unit's construction cost ($/kW)
+  units: $/kW
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+const_dur_stdev:
+  description: Standard deviation of the unit's construction duration (years)  
+  units: years
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+FOR:
+  description:
+  units:
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
