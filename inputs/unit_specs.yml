@@ -3,7 +3,6 @@ Wind:
   max_PL: 1.0
   min_PL: 0.0
   overnight_capital_cost: ATB
-  FCR: ATB
   retirement_cost: 0.0
   FOM: ATB    # $/kW-yr
   VOM: 0.0    # $/MWh
@@ -14,14 +13,13 @@ Wind:
   heat_rate: 3.412    # MWh/MMBTU
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
-  max_reg: 0.0
-  max_spin: 0.0
-  max_nonspin: 0.0
+  max_regulation: 0.0
+  max_spinning_reserve: 0.0
+  max_nonspinning_reserve: 0.0
   capacity_credit: 0.37
-  emissions: 0.0   # unit?
+  emissions_rate: 0.0   # t CO2 / MWh
   is_VRE: True
   uses_fuel: False
-
   occ_stdev: 0
   construction_duration: 3
   const_dur_stdev: 0
