@@ -207,7 +207,7 @@ def fill_unit_spec_defaults(unit_specs_schema, unit_specs):
     return unit_specs
 
 
-def finalize_unit_specs_data(unit_specs):
+def finalize_unit_specs_data(unit_specs_schema, unit_specs):
     # If any unit specification values are given as "ATB", fill those values
     #   from the ATB data file
 
@@ -246,9 +246,9 @@ def set_propagated_values(unit_specs_schema, unit_specs):
     """
     for unit_type, unit_type_specs in unit_specs.items():
         if "unit_group" not in unit_type_specs.keys():
-            unit_type_specs["unit_group"] = unit_type_specs["unit_type"]
+            unit_type_specs["unit_group"] = unit_type
         if "unit_category" not in unit_type_specs.keys():
-            unit_type_specs["unit_category"] = unit_type_specs["unit_type"]
+            unit_type_specs["unit_category"] = unit_type
         if "dispatchable" not in unit_type_specs.keys():
             if unit_type_specs["is_VRE"]:
                 unit_type_specs["dispatchable"] = "FALSE"
@@ -304,7 +304,7 @@ def initialize_unit_specifications(unit_specs_schema_file, unit_data_file):
     unit_specs = fill_unit_spec_defaults(unit_specs_schema, unit_specs)
 
     # Finalize unit_specs data
-    unit_specs = finalize_unit_specs_data(unit_specs)
+    unit_specs = finalize_unit_specs_data(unit_specs_schema, unit_specs)
 
 
 if __name__ == "__main__":
