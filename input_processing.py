@@ -207,13 +207,21 @@ def fill_unit_spec_defaults(unit_specs_schema, unit_specs):
     return unit_specs
 
 
-def finalize_unit_spec_data(unit_specs):
+def finalize_unit_specs_data(unit_specs):
     # If any unit specification values are given as "ATB", fill those values
     #   from the ATB data file
 
 
     # Compute all final fuel costs in units of $/MWh
     unit_specs = compute_fuel_costs_dpMWh(unit_specs)
+
+    # Set up any data values which are propagated from other values
+    unit_specs = set_propagated_values(unit_specs_schema, unit_specs)
+
+    # Set up any A-LEAF-only data values with only one valid value
+    unit_specs = set_immutable_ALEAF_values(unit_specs)
+
+    return unit_specs
 
 
 def compute_fuel_costs_dpMWh(unit_specs):
@@ -225,6 +233,56 @@ def compute_fuel_costs_dpMWh(unit_specs):
             unit_type_specs["FC_per_MWh"] = unit_type_specs["fuel_cost"] * unit_type_specs["heat_rate"]
 
     return unit_specs
+
+
+def set_propagated_values(unit_specs_schema, unit_specs):
+    """
+    Certain A-LEAF-specific data values should be propagated from other input
+      values, if they are not set directly by the user, including:
+        - unit_group (UNITGROUP)
+        - unit_category (UNIT_CATEGORY)
+        - dispatchable (Commitment)
+        - emissions_per_MWh (Emission)
+    """
+    for unit_type, unit_type_specs in unit_specs.items():
+        if "unit_group" not in unit_type_specs.keys():
+            unit_type_specs["unit_group"] = unit_type_specs["unit_type"]
+        if "unit_category" not in unit_type_specs.keys():
+            unit_type_specs["unit_category"] = unit_type_specs["unit_type"]
+        if "dispatchable" not in unit_type_specs.keys():
+            if unit_type_specs["is_VRE"]:
+                unit_type_specs["dispatchable"] = "FALSE"
+            else:
+                unit_type_specs["dispatchable"] = "TRUE"
+        if "emissions_per_MWh" not in unit_type_specs.keys():
+            unit_type_specs["emissions_per_MWh"] = unit_type_specs["emissions_per_MMBTU"] * unit_type_specs["heat_rate"]
+
+    return unit_specs
+
+
+def set_immutable_ALEAF_values(unit_specs):
+    """
+    Certain A-LEAF-specific data values must always take on the same values:
+        - INVEST_FLAG: FALSE
+        - RET_FLAG: FALSE
+        - Integrality: TRUE
+        - Outages: FALSE
+
+    These data values are not settable by the user, because they have only one
+      valid value in the ABCE context.
+    """
+
+    for unit_type, unit_type_specs in unit_specs.items():
+        unit_type_specs["INVEST_FLAG"] = "FALSE"
+        unit_type_specs["RET_FLAG"] = "FALSE"
+        unit_type_specs["Integrality"] = "TRUE"
+        unit_type_specs["Outages"] = "FALSE"
+
+    return unit_specs
+
+
+
+
 
 
 def initialize_unit_specifications(unit_specs_schema_file, unit_data_file):
@@ -244,6 +302,9 @@ def initialize_unit_specifications(unit_specs_schema_file, unit_data_file):
 
     # Fill in unspecified values with appropriate defaults
     unit_specs = fill_unit_spec_defaults(unit_specs_schema, unit_specs)
+
+    # Finalize unit_specs data
+    unit_specs = finalize_unit_specs_data(unit_specs)
 
 
 if __name__ == "__main__":
