@@ -281,9 +281,9 @@ max_nonspinning_reserve:
   min_value: 0
   max_value: 1
   ALEAF_name: MAXNSR
-emissions_rate:
-  description: Rate of CO2 emissions (t CO2 / MWh)
-  units: t CO2 / MWh
+emissions_per_MMBTU:
+  description: Rate of CO2 emissions (t CO2 / MMBTU)
+  units: t CO2 / MMBTU
   required: False
   default_value: 0
   types:
