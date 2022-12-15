@@ -355,7 +355,7 @@ retirement_allowed_ALEAF:
     - "FALSE"
   ALEAF_name: RET_FLAG
 battery_roundtrip_efficiency_penalty:
-  description: Roundtrip efficiency penalty for battery units (0: no penalty)
+  description: Roundtrip efficiency penalty for battery units (0 = no penalty)
   units: "%"
   required: False
   default_value: 0
