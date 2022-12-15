@@ -241,6 +241,7 @@ max_regulation:
 max_spinning_reserve:
   description: Max. participation (% of max. PL) in the spinning reserve ancillary services market
   units: "% max. PL"
+  required: False
   default_value: 0
   types:
     - int
@@ -250,9 +251,28 @@ max_spinning_reserve:
 max_nonspinning_reserve:
   description: Max. participation (% of max. PL) in the non-spinning reserve ancillary services market
   units: "% max. PL"
+  required: False
   default_value: 0
   types:
     - int
     - float
   min_value: 0
   max_value: 1
+emissions_rate:
+  description: Rate of CO2 emissions (t CO2 / MWh)
+  units: t CO2 / MWh
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
+retirement_cost:
+  description: Cost to retire/decommission an existing unit of this type
+  units: $/kW
+  required: False
+  default_value: 0
+  types:
+    - int
+    - float
+  min_value: 0
