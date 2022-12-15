@@ -17,20 +17,11 @@ Wind:
   max_spinning_reserve: 0.0
   max_nonspinning_reserve: 0.0
   capacity_credit: 0.37
-  emissions_rate: 0.0   # t CO2 / MWh
+  emissions_per_MMBTU: 0.0   # t CO2 / MMBTU
   is_VRE: True
   uses_fuel: False
   occ_stdev: 0
   construction_duration: 3
   const_dur_stdev: 0
   unit_life: 30
-  
 
-  ALEAF_params:
-    UNITGROUP: Wind
-    UNIT_CATEGORY: Wind
-    UNIT_TYPE: Wind
-    FOR: 0.0
-    INVEST_FLAG: FALSE
-    RET_FLAG: FALSE
-    Outages: FALSE
