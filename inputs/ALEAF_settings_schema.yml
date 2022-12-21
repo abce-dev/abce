@@ -1,0 +1,397 @@
+# This file gives the complete specification for all A-LEAF input files.
+
+ALEAF_Master:
+  default_filename: "ALEAF_Master.xlsx"
+  ALEAF_Master_setup:
+    tab_name: ALEAF Master Setup
+    field_order:
+      - model_type
+      - Master_data_file_name
+      - solver
+    field_orientation: vertical
+    model_type:
+      description: A-LEAF model type to run.
+      required: False
+      default_value: LC_GEP
+      types:
+        - str
+      allowed_values:
+        - LC_GEP # Only mode currently implemented in ABCE
+        - LC_GTEP
+        - SCIM
+    Master_data_file_name:
+      description: File name containing the A-LEAF simulation and scenario settings.
+      required: False
+      default_value: ALEAF_Master_LC_GEP.xlsx
+      types:
+        - str
+    solver:
+      description: Solver to use for A-LEAF.
+      required: True
+      ALEAF_name: solver_name
+      types:
+        - str
+      allowed_values:
+        - CPLEX
+        - HiGHS
+        - Gurobi
+  CPLEX_settings:
+    tab_name: CPLEX Setting
+    field_order:
+      - solver_direct_mode_flag
+      - num_solver_setting
+      - solver_setting_list
+      - CPX_PARAM_PARAMDISPLAY
+      - CPX_PARAM_EPGAP
+      - CPX_PARAM_MIPDISPLAY
+      - CPX_PARAM_SCRIND
+      - CPXPARAM_TimeLimit
+      - CPX_PARAM_EPRHS
+      - CPX_PARAM_THREADS
+      - CPX_PARAM_NUMERICALEMPHASIS
+      - CPX_PREIND
+      - CPX_PARAM_SCAIND
+      - CPXPARAM_Simplex_Limits_Singularity
+      - CPXPARAM_MIP_Tolerances_Integrality
+      - CPX_PARAM_AGGIND
+      - CPXPARAM_Simplex_Tolerances_Markowitz
+      - CPX_PARAM_LPMETHOD
+      - CPX_PARAM_MIPEMPHASIS
+      - CPX_PARAM_QTOLININD
+      - CPXPARAM_MIP_Strategy_VariableSelect
+      - CPXPARAM_MIP_Strategy_StartAlgorithm
+      - CPXPARAM_MIP_Strategy_NodeSelect
+      - CPXPARAM_WorkMem
+      - CPXPARAM_MIP_Strategy_File
+      - CPXPARAM_Optimality_Target
+      - CPXPARAM_QPMethod
+    field_orientation: vertical
+    solver_direct_mode_flag:
+      description:
+      required: False
+      default_value: True
+      types:
+        - str
+      allowed_values:
+        - "True"
+    num_solver_setting:
+      description: Number of solver parameters provided. Computed dynamically, should never be user-specified.
+      required: False
+    solver_setting_list:
+      description: List of all active solver settings. Assembled dynamically, should never be user-specified.
+      required: False
+    CPX_PARAM_PARAMDISPLAY:
+      description: "Toggles display of non-default solver parameters before optimization. 0: no display; 1 (CPLEX default): display"
+      required: False
+      default_value: 1
+      allowed_values:
+        - 0
+        - 1
+    CPX_PARAM_EPGAP:
+      description: Relative MIP gap tolerance
+      required: False
+      default_value: 0.0001
+      types:
+        - int
+        - float
+      min_value: 0.0
+      max_value: 1.0
+    CPX_PARAM_MIPDISPLAY:
+      description: MIP node log display information. Higher number = more info
+      required: False
+      default_value: 2
+      min_value: 0
+      max_value: 5
+    CPX_PARAM_SCRIND:
+      description: "Set CPLEX's verbosity during daily dispatch solves. 0: no output, 1: display output"
+      required: False
+      default_value: 0
+      allowed_values:
+        - 0
+        - 1
+    CPXPARAM_TimeLimit:
+      description: Overall CPLEX time limit (seconds)
+      required: False
+      default_value: 3000
+      types:
+        - int
+      min_value: 0
+    CPX_PARAM_EPRHS:
+      description: Feasibility tolerance
+      required: False
+      default_value: 1.00e-6
+      types:
+        - float
+      min_value: 1.0e-9
+      max_value: 1.0e-1
+    CPX_PARAM_THREADS:
+      description: Number of threads CPLEX can use
+      required: False
+      default_value: 4
+      types:
+        - int
+      min_value: 1
+    CPX_PARAM_NUMERICALEMPHASIS:
+      description: "Numerical precision emphasis. 0: normal, 1: exercise extreme caution in computation"
+      required: False
+      default_value: 0
+      allowed_values:
+        - 0
+        - 1
+    CPX_PARAM_PREIND:
+      description: Flag enabling/disabling presolve.
+      required: False
+      default_value: 1
+      allowed_values:
+        - 0
+        - 1
+    CPX_PARAM_SCAIND:
+      description: "-1: no scaling; 0: equilibration scaling; 1 (CPLEX default): more aggressive scaling"
+      required: False
+      default_value: 1
+      allowed_values:
+        - -1
+        - 0
+        - 1
+    CPXPARAM_Simplex_Limits_Singularity:
+      description: Restricts the number of times CPLEX attempts to repair the basis when singularities are encountered during the simplex algorithm
+      required: False
+      default_value: 10
+      types:
+        - int
+    CPXPARAM_MIP_Tolerances_Integrality:
+      description: Tolerance for integral constraints in a mixed-integer problem
+      required: False
+      default_value: 1.0e-05
+      types:
+        - int
+        - float
+      min_value: 0.0
+      max_value: 0.5
+    CPX_PARAM_AGGIND:
+      description: (-1) = Automatic (1 for LP, infinite for MIP), default; 0 = do not use any aggregator; any positive integer = number of times to apply aggregator
+      required: False
+      default_value: -1
+      types:
+        - int
+      min_value: -1
+    CPXPARAM_Simplex_Tolerances_Markowitz:
+      description: 
+      required: False
+      default_value: 0.01
+      types:
+        - float
+      min_value:
+        - 0.0001
+        - 0.99999
+    CPX_PARAM_LPMETHOD:
+      description: "0: Automatic (default); 1: primal simplex; 2: dual simplex; 3: network simplex; 4: barrier; 5: sifting; 6: concurrent (dual, barrier, and primal)"
+      required: False
+      default_value: 6
+      types:
+        - int
+      min_value: 0
+      max_value: 6
+    CPX_PARAM_MIPEMPHASIS:
+      description: "Controls trade-offs between speed, feasibility, optimality, and moving bounds in MIP. 0 (default): balance feasibility and optimality; 1: feasibility > optimality; 2: optimality > feasibility; 3: emphasize moving best bound; 4: emphasize finding hidden feasible solutions; 5: emphasize finding high-quality feasible solutions earlier"
+      required: False
+      default_value: 0
+      types:
+        - int
+      min_value: 0
+      max_value: 5
+    CPX_PARAM_QTOLININD:
+      description: "Controls linearization of quadratic terms. -1 (CPLEX default): CPLEX decides; 0: no linearization; 1: linearization enabled"
+      required: False
+      default_value: 1
+      types:
+        - int
+      allowed_values:
+        - -1
+        - 0
+        - 1
+    CPXPARAM_MIP_Strategy_VariableSelect:
+      description: "Sets the rule for selecting the branching variable at the node selected for branching. -1: branch on variable with minimum infeasibility; 0 (CPLEX default): automatic, let CPLEX choose; 1: branch on variable with maximum infeasibility; 2: branch based on pseudo-costs; 3: strong branching; 4: branch based on pseudo reduced costs"
+      required: False
+      default_value: 4
+      types:
+        - int
+      min_value: -1
+      max_value: 4
+    CPXPARAM_MIP_Strategy_StartAlgorithm:
+      description: "Sets which continuous optimizer will be used to solve the initial relaxation of a MIP. 0 (CPLEX default): automatic, let CPLEX choose; 1: primal simplex; 2: dual simplex; 3: network simplex; 4: barrier; 5: sifting; 6: concurrent (dual, barrier, and primal)"
+      required: False
+      default_value: 4
+      types:
+        - int
+      min_value: 0
+      max_value: 6
+    CPXPARAM_MIP_Strategy_NodeSelect:
+      description: "Sets the rule for selecting the next node to process when backtracking. 0: depth-first search; 1 (CPLEX default): best-bound search; 2: best-estimate search; 3: alternative best-estimate search"
+      required: False
+      default_value: 1
+      types:
+        - int
+      allowed_values:
+        - 0
+        - 1
+        - 2
+        - 3
+    CPXPARAM_WorkMem:
+      description: CPLEX working memory limit. Beyond this limit, it will swap to disk, compress memory, etc.
+      required: False
+      default_value: 2048
+      types:
+        - int
+      min_value: 1
+    CPXPARAM_MIP_Strategy_File:
+      description: "Sets CPLEX behavior when search tree size exceeds allowed working memory (CPXPARAM_WorkMem). 0: no node file (optimization terminates if allowed memory is exceeded); 1 (CPLEX default): node file in memory and compressed; 2: node file on disk; 3: node file on disk and compressed"
+      required: False
+      default_value: 1
+      types:
+        - int
+      allowed_values:
+        - 0
+        - 1
+        - 2
+        - 3
+  HiGHS_settings:
+    tab_name: HiGHS Setting
+    field_order:
+      - solver_direct_mode_flag
+      - num_solver_setting
+      - solver_setting_list
+      - time_limit
+      - presolve
+    field_orientation: vertical
+    solver_direct_mode_flag:
+      description:
+      required: False
+      default_value: "FALSE"
+      types:
+        - str
+      allowed_values:
+        - "FALSE"
+    time_limit:
+      description: HiGHS total allowed solve time, in seconds
+      required: False
+      default_value: 6000
+      types:
+        - int
+        - float
+      min_value: 0
+    presolve:
+      description:
+      required: False
+      default_value: on
+      types:
+        - str
+      allowed_values:
+        - on
+        - off
+  Gurobi_settings:
+    tab_name: Gurobi Setting
+    field_order:
+      - solver_direct_mode_flag
+      - num_solver_setting
+      - solver_setting_list
+      - TimeLimit
+      - MIPGap
+      - OutputFlag
+      - IntFeasTol
+      - FeasibilityTol
+      - DualReductions
+      - Presolve
+      - Aggregate
+      - Threads
+      - MIPFocus
+      - NumericFocus
+      - Cuts
+    field_orientation: vertical
+    solver_direct_mode_flag:
+      description:
+      required: False
+      default_value: "FALSE"
+      types:
+        - str
+      allowed_values:
+        - "FALSE"
+    TimeLimit:
+      description: Gurobi's total solve time limit, in seconds
+      required: False
+      default_value: 6000
+      types:
+        - int
+        - float
+      min_value: 1
+    MIPGap:
+      description: 
+      required: False
+      default_value: 0.001
+      types:
+        - float
+      min_value: 0
+      max_value: 1
+    OutputFlag:
+      description: 
+      required: False
+      default_value: 1
+      types:
+        - int
+    IntFeasTol:
+      description: Integer feasibility tolerance
+      required: False
+      default_value: 1.00e-5
+      types:
+        - float
+      min_value: 0
+      max_value: 1
+    FeasibilityTol:
+      description: Primal feasibility tolerance
+      required: False
+      default_value: 1.00e-6
+      types:
+        - float
+      min_value: 0
+      max_value: 1
+    DualReductions:
+      description: 
+      required: False
+      default_value: 0
+      types:
+        - int
+    Presolve:
+      description: 
+      required: False
+      default_value: -1
+      types:
+        - int
+    Aggregate:
+      description: Enables (1, CPLEX default) or disables (0) aggregation in presolve
+      required: False
+      default_value: 1
+      types:
+        - int
+    Threads:
+      description: Number of threads Gurobi can use. 0 = auto; any other positive integer = that number of threads.
+      required: False
+      default_value: 4
+      types:
+        - int
+      min_value: 1
+    MIPFocus:
+      description:
+      required: False
+      default_value: 0
+      types:
+        - int
+      min_value: 0
+      max_value: 3
+    NumericFocus:
+      description:
+      required: False
+      default_value: 0
+    Cuts:
+      description:
+      required: False
+      default_value: 3
