@@ -94,10 +94,31 @@ def validate_input_specs(unit_specs_schema, unit_specs):
              specs_ok = False
 
 
+        # Check whether values specified as "ATB" are ATB-allowed values
+        invalid_ATB_search = [value_type for value_type in unit_type_specs.keys()
+                              if unit_type_specs[value_type] == "ATB"
+                              and "ATB_name" not in unit_specs_schema[value_type].keys()
+                             ]
+        if len(invalid_ATB_search) > 0:
+            logging.error(
+                f"Unit type {unit_type} has the following data values " +
+                "specified to be retrieved from the ATB data sheet, but no " +
+                "such data values are available from ATB:"
+            )
+            logging.error(invalid_ATB_search)
+            logging.error(
+                "Please specify numeric values for these data values.\n"
+            )
+            specs_ok = False
+
+
         # Check whether provided data values are of an allowed type
+        # Values given as "ATB" have already been checked, so any "ATB" entries
+        #   are not checked here for type validity
         wrong_type_values = [value_type for value_type in unit_type_specs.keys()
                              if value_type not in unknown_data_values
                              and type(unit_type_specs[value_type]) not in unit_specs_schema[value_type]["types"]
+                             and not unit_type_specs[value_type] == "ATB"
                             ]
         if len(wrong_type_values) > 0:
             logging.error(
@@ -112,7 +133,7 @@ def validate_input_specs(unit_specs_schema, unit_specs):
 
         # Check whether provided values meet the allowed value range
         for value_type in unit_type_specs.keys():
-            if value_type not in wrong_type_values and value_type not in unknown_data_values:
+            if value_type not in wrong_type_values and value_type not in unknown_data_values and unit_type_specs[value_type] != "ATB":
                 if "allowed_values" in unit_specs_schema[value_type].keys():
                     if unit_type_specs[value_type] not in unit_specs_schema[value_type]["allowed_values"]:
                         logging.error(

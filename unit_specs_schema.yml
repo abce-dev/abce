@@ -36,6 +36,7 @@ overnight_capital_cost:
     - float
   min_value: 0.0
   ALEAF_name: CAPEX
+  ATB_name: CAPEX
 FOM:
   description: Fixed operations and maintenance costs ($/kW-yr)
   units: $/kW-yr
@@ -45,6 +46,7 @@ FOM:
     - float
   min_value: 0
   ALEAF_name: FOM
+  ATB_name: "Fixed O&M"
 VOM:
   description: Variable operations and maintenance costs ($/MWh)
   units: $/MWh
@@ -54,6 +56,7 @@ VOM:
     - float
   min_value: 0
   ALEAF_name: VOM
+  ATB_name: "Variable O&M"
 ramp_up_limit:
   description: Greatest allowable power level increase in one hour (%/hr)
   units: "% max. PL/hr"
@@ -84,6 +87,7 @@ capacity_credit:
   min_value: 0
   max_value: 1
   ALEAF_name: CAPCRED
+  ATB_name: CF
 is_VRE:
   description: Indicates whether unit is a nondispatchable variable renewable resource
   required: True
@@ -140,6 +144,7 @@ fuel_cost:
     - float
   min_value: 0
   ALEAF_name: FC
+  ATB_name: Fuel
 fuel_cost_units:
   description: Units for the specified fuel cost ($/MWh or $/MMBTU)
   fuel_related: True
@@ -151,6 +156,7 @@ fuel_cost_units:
   allowed_values:
     - $/MWh
     - $/MMBTU
+  ATB_name: Fuel
 heat_rate:
   description: Unit's thermal conversion rate, in MWh/MMBTU
   units: MWh/MMBTU
