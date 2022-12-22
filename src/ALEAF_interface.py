@@ -4,6 +4,8 @@ import os
 import pandas as pd
 import openpyxl
 import sqlite3
+import yaml
+from pathlib import Path
 
 # import local modules
 from . import seed_creator as sc
@@ -138,5 +140,120 @@ def update_ALEAF_policy_settings(ALEAF_model_settings_ref, ALEAF_model_settings_
     sim_settings.to_excel(writer, sheet_name = "Simulation Configuration", header=True, index=False)
     writer.save()
 
+
+# New functions start here
+
+
+def read_ALEAF_schema():
+    ALEAF_schema = yaml.load(
+                       open("./inputs/ALEAF_settings_schema.yml", "r"),
+                       Loader=yaml.FullLoader
+                   )
+
+    return ALEAF_schema
+
+
+
+def read_ABCE_data():
+    # To replace with ABCE data setup integration
+    unit_specs = yaml.load(
+                     open("./inputs/unit_specs.yml", "r"),
+                     Loader=yaml.FullLoader
+                 )
+    settings = yaml.load(open("./settings.yml", "r"), Loader=yaml.FullLoader)
+
+    # Package all ABCE data into a dictionary
+    ABCE_data = {
+        "settings": settings,
+        "unit_specs": unit_specs
+    }
+
+    return ABCE_data
+
+
+def initialize_ALEAF_data(ALEAF_schema, ABCE_data):
+    # Set up the top-level container dictionary for ALEAF data
+    ALEAF_data_dict = {}
+
+    # Iterate through all files
+    for file_name, file_data in ALEAF_schema.items():
+        # Set up the file data dictionary
+        file_data_dict = {}
+
+        # Iterate through each file's tabs
+        # Filter out metadata (non-tab-name) keys
+        tab_types = [
+            key for key in file_data.keys() if key != "default_filename"
+        ]
+
+        for tab_type in tab_types:
+            # Get all tab data
+            tab_data = file_data[tab_type]
+
+            # Set up the final tab data dictionary
+            tab_data_dict = {}
+
+            # Save the tab metadata to the dictionary
+            tab_data_dict["ALEAF_name"] = tab_data["tab_name"]
+            tab_data_dict["field_order"] = tab_data["field_order"]
+            tab_data_dict["field_orientation"] = tab_data["field_orientation"]
+
+            # Filter out metadata (non-field-name) keys
+            field_names = [
+                key for key in tab_data.keys() 
+                if key not in [
+                    "tab_name",
+                    "field_order",
+                    "field_orientation"
+                ]
+            ]
+
+            for field in field_names:
+                field_data = tab_data[field]
+                print(field_data["description"])
+
+            # Save the tab data to the file data dictionary
+            file_data_dict[tab_type] = tab_data_dict
+
+        # Save the file data dictionary to the ALEAF data dictionary
+        ALEAF_data_dict[file_name] = file_data_dict
+
+    return ALEAF_data_dict
+
+
+def finalize_dynamic_ALEAF_fields(ABCE_data, ALEAF_settings_data):
+
+    return ALEAF_settings_data
+
+
+def write_ALEAF_settings_file(ALEAF_settings_data, ALEAF_target_dir, file_name):
+    if file_name in ["ALEAF_Master", "ALEAF_Master_LC_GEP"]:
+        file_path = Path(ALEAF_target_dir) / "setting" / f"{file_name}.xlsx"
+        data = ALEAF_settings_data[file_name]
+
+        logging.info(f"ALEAF input file {file_name} written to {file_path}.")
+    elif file_name == "ALEAF_portfolio":
+        file_path = Path(ALEAF_target_dir) / "data" / ALEAF_region / f"ALEAF_{ALEAF_region}.xlsx"
+        data = ALEAF_settings_data[file_name]
+
+        logging.info("ALEAF input file {file_name} written to {file_path}.")
+    else:
+        logging.error(f"Unknown ALEAF input file type specified: {file_name}")
+        logging.error(f"Please provide either ALEAF_Master, ALEAF_Master_LC_GEP, or ALEAF_portfolio")
+        raise ValueError
+    
+
+
+
+
+
+
+if __name__ == "__main__":
+    ALEAF_schema = read_ALEAF_schema()
+    ABCE_data = read_ABCE_data()
+    ALEAF_data_dict = initialize_ALEAF_data(ALEAF_schema, ABCE_data)
+    print(ALEAF_data_dict)
+    #ALEAF_settings_data = finalize_ALEAF_data(ABCE_data, ALEAF_schemas)
+    #write_ALEAF_input_files(ALEAF_settings_data)
 
 
