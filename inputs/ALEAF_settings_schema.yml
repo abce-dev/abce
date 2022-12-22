@@ -583,7 +583,6 @@ ALEAF_Master_LC_GEP:
         - int
         - float
       min_value: 0
-      ALEAF_name: FC
       ATB_name: Fuel
     fuel_cost_units:
       description: Units for the specified fuel cost ($/MWh or $/MMBTU)
@@ -607,6 +606,16 @@ ALEAF_Master_LC_GEP:
         - float
       min_value: 0
       ALEAF_name: HR
+    fuel_cost_per_MMBTU:
+      description: Fuel cost in $/MMBTU, required by A-LEAF fixed formatting
+      units: $/MMBTU
+      fuel_related: True
+      required: False
+      types:
+        - int
+        - float
+      min_value: 0
+      ALEAF_name: FC
     charging_capacity:
       description: Charging capacity for a battery unit
       units:
