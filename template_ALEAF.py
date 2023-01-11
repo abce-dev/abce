@@ -39,6 +39,17 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
 
         tabs_to_create[ALEAF_tab_name]["data"] = df
 
+    # Finalize the CPLEX Setting tab data
+    solver_setting_list = [parameter for parameter in tabs_to_create["CPLEX Setting"]["data"].iloc[:, 0]]
+    CPLEX_extra_rows = {
+        "solver_direct_mode_flag": "TRUE",
+        "num_solver_setting": len(solver_setting_list),
+        "solver_setting_list": solver_setting_list
+    }
+
+    for setting, value in CPLEX_extra_rows.items():
+        tabs_to_create["CPLEX Setting"]["data"].loc[len(tabs_to_create["CPLEX Setting"]["data"])] = [setting, value]
+
     # Write all tabs to file
     for ALEAF_tab_name, tab_data in tabs_to_create.items():
         tab_data["data"].to_excel(
