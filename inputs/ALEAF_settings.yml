@@ -89,7 +89,7 @@ ALEAF_Master:
   ALEAF_Master_setup:
     model_type: LC_GEP
     Master_data_file_name: ALEAF_Master_LC_GEP.xlsx
-    solver: CPLEX
+    solver_name: CPLEX
   CPLEX_settings:
     CPX_PARAM_PARAMDISPLAY: 1
     CPX_PARAM_EPGAP: 0.0001
