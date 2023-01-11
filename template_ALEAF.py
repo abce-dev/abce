@@ -27,8 +27,29 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
             "ABCE_tab_name": "ALEAF_Master_setup",
             "data": None
         },
+
         "CPLEX Setting": {
             "ABCE_tab_name": "CPLEX_settings",
+            "data": None
+        },
+
+        "GLPK Setting": {
+            "ABCE_tab_name": "GLPK_settings",
+            "data": None
+        },
+
+        "CBC Setting": {
+            "ABCE_tab_name": "CBC_settings",
+            "data": None
+        },
+
+        "Gurobi Setting": {
+            "ABCE_tab_name": "Gurobi_settings",
+            "data": None
+        },
+
+        "HiGHS Setting": {
+            "ABCE_tab_name": "HiGHS_settings",
             "data": None
         }
     }
@@ -43,16 +64,26 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
 
         tabs_to_create[ALEAF_tab_name]["data"] = df
 
-    # Finalize the CPLEX Setting tab data
-    solver_setting_list = ", ".join([parameter for parameter in tabs_to_create["CPLEX Setting"]["data"].iloc[:, 0]])
-    CPLEX_extra_rows = {
-        "solver_direct_mode_flag": "TRUE",
-        "num_solver_setting": len(solver_setting_list),
-        "solver_setting_list": solver_setting_list
-    }
+    # Finalize the <solver> Setting tab data
+    for solver_tab, tab_data in tabs_to_create.items():
+        if solver_tab != "ALEAF Master Setup":
+            solver_setting_list = ", ".join([parameter for parameter in tabs_to_create[solver_tab]["data"].iloc[:, 0]])
 
-    for setting, value in CPLEX_extra_rows.items():
-        tabs_to_create["CPLEX Setting"]["data"].loc[len(tabs_to_create["CPLEX Setting"]["data"])] = [setting, value]
+            # Set up solver_direct_mode_flag: TRUE if CPLEX, FALSE otherwise
+            mode_flag = "FALSE"
+            if "CPLEX" in solver_tab:
+                mode_flag = "TRUE"
+
+            # Create the dictionary of extra rows for all solver tabs
+            solver_extra_rows = {
+                "solver_direct_mode_flag": mode_flag,
+                "num_solver_setting": len(solver_setting_list),
+                "solver_setting_list": solver_setting_list
+            }
+
+            # Add extra rows to all solver tabs
+            for setting, value in solver_extra_rows.items():
+                tabs_to_create[solver_tab]["data"].loc[len(tabs_to_create[solver_tab]["data"])] = [setting, value]
 
     # Write all tabs to file
     for ALEAF_tab_name, tab_data in tabs_to_create.items():
