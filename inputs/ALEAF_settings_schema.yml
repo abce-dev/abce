@@ -11,7 +11,7 @@ ALEAF_Master:
     field_orientation: vertical
     model_type:
       description: A-LEAF model type to run.
-      required: False
+      input_type: optional
       default_value: LC_GEP
       types:
         - str
@@ -21,13 +21,13 @@ ALEAF_Master:
         - SCIM
     Master_data_file_name:
       description: File name containing the A-LEAF simulation and scenario settings.
-      required: False
+      input_type: optional
       default_value: ALEAF_Master_LC_GEP.xlsx
       types:
         - str
     solver:
       description: Solver to use for A-LEAF.
-      required: True
+      input_type: user
       ALEAF_name: solver_name
       types:
         - str
@@ -68,7 +68,7 @@ ALEAF_Master:
     field_orientation: vertical
     solver_direct_mode_flag:
       description:
-      required: False
+      input_type: immutable
       default_value: True
       types:
         - str
@@ -76,20 +76,20 @@ ALEAF_Master:
         - "True"
     num_solver_setting:
       description: Number of solver parameters provided. Computed dynamically, should never be user-specified.
-      required: False
+      input_type: dynamic
     solver_setting_list:
       description: List of all active solver settings. Assembled dynamically, should never be user-specified.
-      required: False
+      input_type: dynamic
     CPX_PARAM_PARAMDISPLAY:
       description: "Toggles display of non-default solver parameters before optimization. 0: no display; 1 (CPLEX default): display"
-      required: False
+      input_type: optional
       default_value: 1
       allowed_values:
         - 0
         - 1
     CPX_PARAM_EPGAP:
       description: Relative MIP gap tolerance
-      required: False
+      input_type: optional
       default_value: 0.0001
       types:
         - int
@@ -98,27 +98,27 @@ ALEAF_Master:
       max_value: 1.0
     CPX_PARAM_MIPDISPLAY:
       description: MIP node log display information. Higher number = more info
-      required: False
+      input_type: optional
       default_value: 2
       min_value: 0
       max_value: 5
     CPX_PARAM_SCRIND:
       description: "Set CPLEX's verbosity during daily dispatch solves. 0: no output, 1: display output"
-      required: False
+      input_type: optional
       default_value: 0
       allowed_values:
         - 0
         - 1
     CPXPARAM_TimeLimit:
       description: Overall CPLEX time limit (seconds)
-      required: False
+      input_type: optional
       default_value: 3000
       types:
         - int
       min_value: 0
     CPX_PARAM_EPRHS:
       description: Feasibility tolerance
-      required: False
+      input_type: optional
       default_value: 1.00e-6
       types:
         - float
@@ -126,28 +126,28 @@ ALEAF_Master:
       max_value: 1.0e-1
     CPX_PARAM_THREADS:
       description: Number of threads CPLEX can use
-      required: False
+      input_type: optional
       default_value: 4
       types:
         - int
       min_value: 1
     CPX_PARAM_NUMERICALEMPHASIS:
       description: "Numerical precision emphasis. 0: normal, 1: exercise extreme caution in computation"
-      required: False
+      input_type: optional
       default_value: 0
       allowed_values:
         - 0
         - 1
     CPX_PARAM_PREIND:
       description: Flag enabling/disabling presolve.
-      required: False
+      input_type: optional
       default_value: 1
       allowed_values:
         - 0
         - 1
     CPX_PARAM_SCAIND:
       description: "-1: no scaling; 0: equilibration scaling; 1 (CPLEX default): more aggressive scaling"
-      required: False
+      input_type: optional
       default_value: 1
       allowed_values:
         - -1
@@ -155,13 +155,13 @@ ALEAF_Master:
         - 1
     CPXPARAM_Simplex_Limits_Singularity:
       description: Restricts the number of times CPLEX attempts to repair the basis when singularities are encountered during the simplex algorithm
-      required: False
+      input_type: optional
       default_value: 10
       types:
         - int
     CPXPARAM_MIP_Tolerances_Integrality:
       description: Tolerance for integral constraints in a mixed-integer problem
-      required: False
+      input_type: optional
       default_value: 1.0e-05
       types:
         - int
@@ -170,14 +170,14 @@ ALEAF_Master:
       max_value: 0.5
     CPX_PARAM_AGGIND:
       description: (-1) = Automatic (1 for LP, infinite for MIP), default; 0 = do not use any aggregator; any positive integer = number of times to apply aggregator
-      required: False
+      input_type: optional
       default_value: -1
       types:
         - int
       min_value: -1
     CPXPARAM_Simplex_Tolerances_Markowitz:
       description: 
-      required: False
+      input_type: optional
       default_value: 0.01
       types:
         - float
@@ -186,7 +186,7 @@ ALEAF_Master:
         - 0.99999
     CPX_PARAM_LPMETHOD:
       description: "0: Automatic (default); 1: primal simplex; 2: dual simplex; 3: network simplex; 4: barrier; 5: sifting; 6: concurrent (dual, barrier, and primal)"
-      required: False
+      input_type: optional
       default_value: 6
       types:
         - int
@@ -194,7 +194,7 @@ ALEAF_Master:
       max_value: 6
     CPX_PARAM_MIPEMPHASIS:
       description: "Controls trade-offs between speed, feasibility, optimality, and moving bounds in MIP. 0 (default): balance feasibility and optimality; 1: feasibility > optimality; 2: optimality > feasibility; 3: emphasize moving best bound; 4: emphasize finding hidden feasible solutions; 5: emphasize finding high-quality feasible solutions earlier"
-      required: False
+      input_type: optional
       default_value: 0
       types:
         - int
@@ -202,7 +202,7 @@ ALEAF_Master:
       max_value: 5
     CPX_PARAM_QTOLININD:
       description: "Controls linearization of quadratic terms. -1 (CPLEX default): CPLEX decides; 0: no linearization; 1: linearization enabled"
-      required: False
+      input_type: optional
       default_value: 1
       types:
         - int
@@ -212,7 +212,7 @@ ALEAF_Master:
         - 1
     CPXPARAM_MIP_Strategy_VariableSelect:
       description: "Sets the rule for selecting the branching variable at the node selected for branching. -1: branch on variable with minimum infeasibility; 0 (CPLEX default): automatic, let CPLEX choose; 1: branch on variable with maximum infeasibility; 2: branch based on pseudo-costs; 3: strong branching; 4: branch based on pseudo reduced costs"
-      required: False
+      input_type: optional
       default_value: 4
       types:
         - int
@@ -220,7 +220,7 @@ ALEAF_Master:
       max_value: 4
     CPXPARAM_MIP_Strategy_StartAlgorithm:
       description: "Sets which continuous optimizer will be used to solve the initial relaxation of a MIP. 0 (CPLEX default): automatic, let CPLEX choose; 1: primal simplex; 2: dual simplex; 3: network simplex; 4: barrier; 5: sifting; 6: concurrent (dual, barrier, and primal)"
-      required: False
+      input_type: optional
       default_value: 4
       types:
         - int
@@ -228,7 +228,7 @@ ALEAF_Master:
       max_value: 6
     CPXPARAM_MIP_Strategy_NodeSelect:
       description: "Sets the rule for selecting the next node to process when backtracking. 0: depth-first search; 1 (CPLEX default): best-bound search; 2: best-estimate search; 3: alternative best-estimate search"
-      required: False
+      input_type: optional
       default_value: 1
       types:
         - int
@@ -239,22 +239,19 @@ ALEAF_Master:
         - 3
     CPXPARAM_WorkMem:
       description: CPLEX working memory limit. Beyond this limit, it will swap to disk, compress memory, etc.
-      required: False
+      input_type: optional
       default_value: 2048
       types:
         - int
       min_value: 1
     CPXPARAM_MIP_Strategy_File:
       description: "Sets CPLEX behavior when search tree size exceeds allowed working memory (CPXPARAM_WorkMem). 0: no node file (optimization terminates if allowed memory is exceeded); 1 (CPLEX default): node file in memory and compressed; 2: node file on disk; 3: node file on disk and compressed"
-      required: False
+      input_type: optional
       default_value: 1
       types:
         - int
-      allowed_values:
-        - 0
-        - 1
-        - 2
-        - 3
+      min_value: 0
+      max_value: 3
   HiGHS_settings:
     tab_name: HiGHS Setting
     field_order:
@@ -266,7 +263,7 @@ ALEAF_Master:
     field_orientation: vertical
     solver_direct_mode_flag:
       description:
-      required: False
+      input_type: immutable
       default_value: "FALSE"
       types:
         - str
@@ -274,7 +271,7 @@ ALEAF_Master:
         - "FALSE"
     time_limit:
       description: HiGHS total allowed solve time, in seconds
-      required: False
+      input_type: optional
       default_value: 6000
       types:
         - int
@@ -282,7 +279,7 @@ ALEAF_Master:
       min_value: 0
     presolve:
       description:
-      required: False
+      input_type: optional
       default_value: on
       types:
         - str
@@ -310,7 +307,7 @@ ALEAF_Master:
     field_orientation: vertical
     solver_direct_mode_flag:
       description:
-      required: False
+      input_type: immutable
       default_value: "FALSE"
       types:
         - str
@@ -318,7 +315,7 @@ ALEAF_Master:
         - "FALSE"
     TimeLimit:
       description: Gurobi's total solve time limit, in seconds
-      required: False
+      input_type: optional
       default_value: 6000
       types:
         - int
@@ -326,7 +323,7 @@ ALEAF_Master:
       min_value: 1
     MIPGap:
       description: 
-      required: False
+      input_type: optional
       default_value: 0.001
       types:
         - float
@@ -334,13 +331,13 @@ ALEAF_Master:
       max_value: 1
     OutputFlag:
       description: 
-      required: False
+      input_type: optional
       default_value: 1
       types:
         - int
     IntFeasTol:
       description: Integer feasibility tolerance
-      required: False
+      input_type: optional
       default_value: 1.00e-5
       types:
         - float
@@ -348,7 +345,7 @@ ALEAF_Master:
       max_value: 1
     FeasibilityTol:
       description: Primal feasibility tolerance
-      required: False
+      input_type: optional
       default_value: 1.00e-6
       types:
         - float
@@ -356,32 +353,32 @@ ALEAF_Master:
       max_value: 1
     DualReductions:
       description: 
-      required: False
+      input_type: optional
       default_value: 0
       types:
         - int
     Presolve:
       description: 
-      required: False
+      input_type: optional
       default_value: -1
       types:
         - int
     Aggregate:
       description: Enables (1, CPLEX default) or disables (0) aggregation in presolve
-      required: False
+      input_type: optional
       default_value: 1
       types:
         - int
     Threads:
       description: Number of threads Gurobi can use. 0 = auto; any other positive integer = that number of threads.
-      required: False
+      input_type: optional
       default_value: 4
       types:
         - int
       min_value: 1
     MIPFocus:
       description:
-      required: False
+      input_type: optional
       default_value: 0
       types:
         - int
@@ -389,11 +386,11 @@ ALEAF_Master:
       max_value: 3
     NumericFocus:
       description:
-      required: False
+      input_type: optional
       default_value: 0
     Cuts:
       description:
-      required: False
+      input_type: optional
       default_value: 3
 ALEAF_Master_LC_GEP:
   default_filename: ALEAF_Master_LC_GEP.xlsx
@@ -533,6 +530,7 @@ ALEAF_Master_LC_GEP:
       required: True
       types:
         - bool
+        - str
       allowed_values:
         - 0
         - 1
@@ -544,6 +542,7 @@ ALEAF_Master_LC_GEP:
       required: True
       types:
         - bool
+        - str
       allowed_values:
         - 0
         - 1
@@ -610,7 +609,7 @@ ALEAF_Master_LC_GEP:
       description: Fuel cost in $/MMBTU, required by A-LEAF fixed formatting
       units: $/MMBTU
       fuel_related: True
-      required: False
+      input_type: dynamic
       types:
         - int
         - float
@@ -758,7 +757,7 @@ ALEAF_Master_LC_GEP:
       ALEAF_name: RETC
     tech_ID:
       description: A unique ID used to identify this generator across multiple A-LEAF sheets
-      required: False
+      input_type: dynamic
       types:
         - str
         - int
@@ -766,7 +765,7 @@ ALEAF_Master_LC_GEP:
       ALEAF_name: Tech_ID
     unit_group:
       description: Unit group identifier for A-LEAF
-      required: False
+      input_type: dynamic
       types:
         - str
         - int
@@ -774,7 +773,7 @@ ALEAF_Master_LC_GEP:
       ALEAF_name: UNITGROUP
     unit_category:
       description: Unit category identifier for A-LEAF
-      required: False
+      input_type: dynamic
       types:
         - str
         - int
@@ -791,23 +790,17 @@ ALEAF_Master_LC_GEP:
       ALEAF_name: FCR
     investment_allowed_ALEAF:
       description: Boolean setting whether A-LEAF may build more of these units in its capacity expansion simulation
-      required: False
+      input_type: immutable
       default_value: "FALSE"
       types:
         - str
-      allowed_values:
-        - "TRUE"
-        - "FALSE"
       ALEAF_name: INVEST_FLAG
     retirement_allowed_ALEAF:
       description: Boolean setting whether A-LEAF may retire extant units of this type in its capacity expansion simulation
-      required: False
+      input_type: immutable
       default_value: "FALSE"
       types:
         - str
-      allowed_values:
-        - "TRUE"
-        - "FALSE"
       ALEAF_name: RET_FLAG
     battery_roundtrip_efficiency_penalty:
       description: Roundtrip efficiency penalty for battery units (0 = no penalty)
