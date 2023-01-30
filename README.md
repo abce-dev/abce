@@ -19,31 +19,35 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 Below are roughly the steps required to install and run `abce`. Since `abce` is still in active development, your mileage may vary.
 
-### Linux / Windows Subsystem for Linux
+### Unix / Windows Subsystem for Linux
 
-1. Clone this repository.
+1. Clone this repository to your local machine:
+
+    `git clone https://github.com/biegelk/abce`
 
 2. (optional) Clone the [dedicated A-LEAF repository](https://git-out.gss.anl.gov/kbiegel/kb-aleaf) for `abce`
 
-3. Inside your local `abce` directory, run:
+3. (optional) Download [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing) and install, following the installer's instructions
+
+4. Inside your local `abce` directory, run the installation script with:
 
    `bash ./install.sh`
 
-4. When prompted for the A-LEAF repository, do one of the following:
+5. When prompted for the A-LEAF repository, do one of the following:
 
    * Enter the absolute path to the directory where you cloned A-LEAF, or
 
    * Press Enter without entering any text, if not using A-LEAF
 
-5. Wait for the installation script to run to completion. Review any errors/issues printed for your reference at the end of execution.
+6. Wait for the installation script to run to completion. Review any errors/issues printed for your reference at the end of execution.
 
-6. Restart your terminal session, or re-source your `.bashrc` file.
+7. Restart your terminal session, or re-source your `.bashrc` file.
 
-7. If using Conda to manage environments, activate the `abce` conda environment with:
+8. If using Conda to manage environments, activate the `abce` conda environment with:
 
    `conda activate abce_env`
 
-8. Rerun the installation script to complete the environment setup:
+9. Rerun the installation script to complete the environment setup:
 
    `bash ./install.sh`
 
@@ -51,17 +55,30 @@ Below are roughly the steps required to install and run `abce`. Since `abce` is 
 
 
 Windows
-1. Download and Install [julia](https://julialang.org/downloads/)
+1. Download and install [julia](https://julialang.org/downloads/)
 
-2. Download and Install [Anaconda](https://www.anaconda.com/products/distribution)
+2. Download and install [Anaconda](https://www.anaconda.com/products/distribution)
 
-3. Install [Java Virtual Machine](https://linuxhint.com/install-java-ubuntu-22-04/)  with `sudo apt install -y openjdk-18-jre`
+3. Install [Java Virtual Machine](https://linuxhint.com/install-java-ubuntu-22-04/)  with `sudo apt install -y openjdk-18-jre`\*\*
 
 4. Download [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing)
 
 5. Install CPLEX, following instructions in the CPLEX installer
 
-6. Check that `CPLEX` is installed properly by running `$ cplex`
+6. Check that `CPLEX` is installed properly: open the Windows Command Prompt and run the command `$ cplex`. The output should resemble:
+
+```bash
+(base) sdotson@research:~$ cplex
+
+Welcome to IBM(R) ILOG(R) CPLEX(R) Interactive Optimizer 20.1.0.0
+  with Simplex, Mixed Integer & Barrier Optimizers
+5725-A06 5725-A29 5724-Y48 5724-Y49 5724-Y54 5724-Y55 5655-Y21
+Copyright IBM Corp. 1988, 2020.  All Rights Reserved.
+
+Type 'help' for a list of available commands.
+Type 'help' followed by a command name for more
+information on commands.
+```
 
 7. Clone the `abce` repository
 
@@ -71,7 +88,7 @@ Windows
 
 10. Run `julia make_sysimage.jl`
 
-(Optional if using `A-LEAF`)|(Optional if using `A-LEAF`)|
+Optional steps if using `A-LEAF`:
 
 11. Clone [this fork](https://git-out.gss.anl.gov/kbiegel/kb-aleaf) of `A-LEAF`
 
@@ -89,21 +106,7 @@ Windows
 
 Then try: `$ sudo bash ./ILOG_COS_20.10_LINUX_X86_64.bin LAX_VM /usr/bin/java`
 
-\*\*\* The output should be
-```bash
-(base) sdotson@research:~$ cplex
-
-Welcome to IBM(R) ILOG(R) CPLEX(R) Interactive Optimizer 20.1.0.0
-  with Simplex, Mixed Integer & Barrier Optimizers
-5725-A06 5725-A29 5724-Y48 5724-Y49 5724-Y54 5724-Y55 5655-Y21
-Copyright IBM Corp. 1988, 2020.  All Rights Reserved.
-
-Type 'help' for a list of available commands.
-Type 'help' followed by a command name for more
-information on commands.
-```
-
-\*\*\*\* If the cplex command is not found, try adding the absolute path of your cplex executable to the `$PATH` environment variable with
+\*\*\* If the cplex command is not found, try adding the absolute path of your cplex executable to the `$PATH` environment variable with
 
 `$ export CPLEX_STUDIO_BINARIES=/opt/ibm/ILOG/CPLEX_Studio201/cplex/bin/x86-64_linux/`
 
