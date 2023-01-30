@@ -19,6 +19,37 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 Below are roughly the steps required to install and run `abce`. Since `abce` is still in active development, your mileage may vary.
 
+### Linux / Windows Subsystem for Linux
+
+1. Clone this repository.
+
+2. (optional) Clone the [dedicated A-LEAF repository](https://git-out.gss.anl.gov/kbiegel/kb-aleaf) for `abce`
+
+3. Inside your local `abce` directory, run:
+
+`bash ./install.sh`
+
+4. When prompted for the A-LEAF repository, do one of the following:
+
+  * Enter the absolute path to the directory where you cloned A-LEAF, or
+
+  * Press Enter without entering any text, if not using A-LEAF
+
+5. Wait for the installation script to run to completion. Review any errors/issues printed for your reference at the end of execution.
+
+6. Restart your terminal session, or re-source your `.bashrc` file.
+
+7. If using Conda to manage environments, activate the `abce` conda environment with:
+
+`conda activate abce_env`
+
+8. Rerun the installation script to complete the environment setup:
+
+`bash ./install.sh
+
+### Windows`
+
+
 |Windows|Unix|
 |:----------|:----------|
 |Download and Install [julia](https://julialang.org/downloads/)|Download and Install [julia](https://julialang.org/downloads/)|
