@@ -47,29 +47,41 @@ Below are roughly the steps required to install and run `abce`. Since `abce` is 
 
    `bash ./install.sh`
 
-### Windows`
+### Windows
 
 
-|Windows|Unix|
-|:----------|:----------|
-|Download and Install [julia](https://julialang.org/downloads/)|Download and Install [julia](https://julialang.org/downloads/)|
-|Download and Install [Anaconda](https://www.anaconda.com/products/distribution)|Download and Install [Anaconda](https://www.anaconda.com/products/distribution)\*|
-||Install [Java Virtual Machine](https://linuxhint.com/install-java-ubuntu-22-04/)  with `sudo apt install -y openjdk-18-jre  `  |
-|Download CPLEX (IBM ILOG STUDIO 20.10) Binaries||
-|Install CPLEX|Install CPLEX with `sudo bash ./ILOG_COS_20.10_LINUX_X86_64.bin`\*\*|
-|Check that `CPLEX` is installed properly by running `$ cplex`\*\*\*|Same as Windows.\*\*\*\*|
-|Clone the `abce` repository||
-|Run `julia make_julia_environment.jl` from top-level of `abce`||
-|Run `python run.py -f`||
-|Run `julia make_sysimage.jl`||
-|(Optional if using `A-LEAF`)|(Optional if using `A-LEAF`)|
-|Install [Gurobi 9.1.2](https://www.gurobi.com/downloads/gurobi-software/)||
-|Add the Gurobi executable to `PATH`||
-|Clone [this fork](https://git-out.gss.anl.gov/kbiegel/kb-aleaf) of `A-LEAF`||
-|Run `julia make_aleaf_environment.jl` from the `kb-aleaf` directory||
-|Run `julia execute_ALEAF.jl`||
-|Run `julia make_sysimage.jl`||
-|Add an `ALEAF_DIR` environment variable||
+Windows
+1. Download and Install [julia](https://julialang.org/downloads/)
+
+2. Download and Install [Anaconda](https://www.anaconda.com/products/distribution)
+
+3. Install [Java Virtual Machine](https://linuxhint.com/install-java-ubuntu-22-04/)  with `sudo apt install -y openjdk-18-jre`
+
+4. Download [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing)
+
+5. Install CPLEX, following instructions in the CPLEX installer
+
+6. Check that `CPLEX` is installed properly by running `$ cplex`
+
+7. Clone the `abce` repository
+
+8. Run `julia make_julia_environment.jl` from your top-level `abce` directory
+
+9. Run `python run.py -f` in the top-level `abce` directory
+
+10. Run `julia make_sysimage.jl`
+
+(Optional if using `A-LEAF`)|(Optional if using `A-LEAF`)|
+
+11. Clone [this fork](https://git-out.gss.anl.gov/kbiegel/kb-aleaf) of `A-LEAF`
+
+12. Run `julia make_aleaf_environment.jl` from the `kb-aleaf` directory
+
+13. Run `julia execute_ALEAF.jl`
+
+14. Run `julia make_sysimage.jl`
+
+15. Add an `ALEAF_DIR` environment variable
 
 \* Do **not** use `sudo`. Only `bash ./Anaconda_VERSION_xARCH.sh`
 
