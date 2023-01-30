@@ -27,13 +27,13 @@ Below are roughly the steps required to install and run `abce`. Since `abce` is 
 
 3. Inside your local `abce` directory, run:
 
-`bash ./install.sh`
+   `bash ./install.sh`
 
 4. When prompted for the A-LEAF repository, do one of the following:
 
-  * Enter the absolute path to the directory where you cloned A-LEAF, or
+   * Enter the absolute path to the directory where you cloned A-LEAF, or
 
-  * Press Enter without entering any text, if not using A-LEAF
+   * Press Enter without entering any text, if not using A-LEAF
 
 5. Wait for the installation script to run to completion. Review any errors/issues printed for your reference at the end of execution.
 
@@ -41,11 +41,11 @@ Below are roughly the steps required to install and run `abce`. Since `abce` is 
 
 7. If using Conda to manage environments, activate the `abce` conda environment with:
 
-`conda activate abce_env`
+   `conda activate abce_env`
 
 8. Rerun the installation script to complete the environment setup:
 
-`bash ./install.sh
+   `bash ./install.sh
 
 ### Windows`
 
