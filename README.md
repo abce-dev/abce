@@ -45,7 +45,7 @@ Below are roughly the steps required to install and run `abce`. Since `abce` is 
 
 8. Rerun the installation script to complete the environment setup:
 
-   `bash ./install.sh
+   `bash ./install.sh`
 
 ### Windows`
 
