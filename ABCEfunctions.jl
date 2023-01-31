@@ -14,7 +14,7 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, SCIP, HiGHS
+using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS
 
 try
     using CPLEX
@@ -1067,8 +1067,6 @@ function create_model_with_optimizer(settings)
         m = Model(GLPK.Optimizer)
     elseif solver == "cbc"
         m = Model(Cbc.Optimizer)
-    elseif solver == "scip"
-        m = Model(SCIP.Optimizer)
     elseif solver == "highs"
         m = Model(HiGHS.Optimizer)
     else
