@@ -19,9 +19,9 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
     `git clone https://github.com/biegelk/abce`
 
-2. If using A-LEAF, see the optional [Installing with A-LEAF](#optional-argonne-only-installing-with-a-leaf) section below
+2. If using A-LEAF, see the optional [Installing with A-LEAF](optional--argonne-only-installing-with-a-leaf) section below
 
-3. (optional) Download [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing) and install, following the installer's instructions
+3. If using CPLEX, see the optional [Installing with CPLEX](optional-installing-with-cplex) section below
 
 4. Inside your local `abce` directory, run the installation script with:
 
