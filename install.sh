@@ -52,19 +52,29 @@ echo "\$ALEAF_DIR will be set to $aleaf_dir"
 # Set up the environment
 #################################################################
 
-# Determine whether the script is running in a conda environment
-# If conda is installed and available for environment management, use it
-if [[ -z "$no_conda" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
-    echo "conda environment detected; using conda to manage python packages";
+# Determine whether conda is available; if so, ask the user for permission to 
+#   create a dedicated conda environment for ABCE
+use_conda=false
+if [[ -z "$no_conda" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]] && [[ ! $force ]]; then
+    user_resp=""
+    while [[ "${user_resp}" != "y" || "${user_resp}" != "n" ]]; do
+        echo "I've detected that conda is available on this machine. Can I use conda to create a dedicated environment for abce? (recommended) [y/n]"
+        read user_resp
+    done
+fi
 
+if [[ $user_resp == "y" ]]; then
+    use_conda=true
+fi
+
+# If the user allows use of conda:
+if [[ $use_conda ]]; then
     # Check for an appropriate environment spec file, set in $CONDA_ENV_FILE
     #   at the top of this script
     if [[ ! -f "$CONDA_ENV_FILE" ]]; then
         # The conda environment specification (environment.yml) file was not found
         echo "$ABCE_DIR/$CONDA_ENV_FILE not found. Please ensure you have a conda environment specification file in the top level of your ABCE directory.";
-        echo "The default environment.yml file is available for download at https://github.com/biegelk/abce.";
-        echo "If you do not want to use conda to manage the ABCE environment, rerun this script with the no-conda flag enabled:";
-        echo ">$ ./install.sh [other_args] -n 1";
+        echo "The default environment_unix.yml file is available for download at https://github.com/biegelk/abce.";
         exit 1;
     else
         # Retrieve the name of the desired conda environment from the yaml file
