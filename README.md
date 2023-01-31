@@ -49,20 +49,70 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
    `bash ./install.sh`
 
+10. Test it out by running the following within your `abce` directory:
+
+   `python run.py -f`
+
+11. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
+
+   `julia make_sysimage.jl`
+
 
 ### Windows
 
-1. Download and install [julia](https://julialang.org/downloads/)
+1. Download and install [Miniconda](https://docs.conda.io/en/main/miniconda.html)
 
-2. Download and install [Anaconda](https://www.anaconda.com/products/distribution)
+2. Download and install [Julia 1.8](https://julialang.org/downloads/). Check the box in the installer to add Julia to the PATH.
 
-3. Install [Java Virtual Machine](https://linuxhint.com/install-java-ubuntu-22-04/)  with `sudo apt install -y openjdk-18-jre`\*
+3. Using the Anaconda Powershell, clone this repo to your local machine:
 
-4. Download [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing)
+   `git clone https://github.com/biegelk/abce`
 
-5. Install CPLEX, following instructions in the CPLEX installer
+4. Create the local conda environment:
 
-6. Check that `CPLEX` is installed properly: open the Windows Command Prompt and run the command `$ cplex`.\*\* The output should resemble:
+   `conda env create -v .\environment_win.yml`
+
+5. Activate the `abce_anv` conda environment:
+
+   `conda activate abce_env`
+
+6. Set the `ABCE_DIR` environment variable to the absolute path to your `abce` repo (e.g. `C:\Users\myname\abce`)
+
+7. Test it out by running the following within your `abce` directory:
+
+   `python run.py -f`
+
+8. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
+
+   `julia make_sysimage.jl`
+
+#### Optional / Argonne only: installing with A-LEAF
+
+1. Clone the ABCE A-LEAF repo:
+
+   `git clone git-out.gss.anl.gov/kbiegel/kb_aleaf`
+
+2. Inside the A-LEAF directory, run the A-LEAF environment setup script:
+
+   `julia make_julia_environment.jl`
+
+3. Test the A-LEAF install by running the following within your A-LEAF directory:
+
+   `julia execute_ALEAF.jl`
+
+4. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
+
+   `julia make_sysimage.jl`
+
+5. Set the `ALEAF_DIR` environment variable to the absolute path to your A-LEAF repo
+
+#### Optional: installing with CPLEX
+
+1. Download the [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing)
+
+2. Run the CPLEX installer, following all instructions.
+
+3. Check that `CPLEX` is installed properly: open the Windows Command Prompt and run the command `$ cplex`. The output should resemble:
 
 ```bash
 (base) sdotson@research:~$ cplex
@@ -76,30 +126,6 @@ Type 'help' for a list of available commands.
 Type 'help' followed by a command name for more
 information on commands.
 ```
-
-7. Clone the `abce` repository
-
-8. Run `julia make_julia_environment.jl` from your top-level `abce` directory
-
-9. Run `python run.py -f` in the top-level `abce` directory
-
-10. Run `julia make_sysimage.jl`
-
-Optional steps if using `A-LEAF`:
-
-11. Clone [this fork](https://git-out.gss.anl.gov/kbiegel/kb-aleaf) of `A-LEAF`
-
-12. Run `julia make_aleaf_environment.jl` from the `kb-aleaf` directory
-
-13. Run `julia execute_ALEAF.jl`
-
-14. Run `julia make_sysimage.jl`
-
-15. Add an `ALEAF_DIR` environment variable
-
-\* If you run into an error where it cannot find the java virtual machine execute: `$ which java`, which should output something like `usr/bin/java`.
-
-Then try: `$ sudo bash ./ILOG_COS_20.10_LINUX_X86_64.bin LAX_VM /usr/bin/java`
 
 \*\* If the cplex command is not found, try adding the absolute path of your cplex executable to the `$PATH` environment variable with
 
