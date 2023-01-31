@@ -60,25 +60,29 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 2. Download and install [Julia 1.8](https://julialang.org/downloads/). Check the box in the installer to add Julia to the PATH.
 
-3. Using the Anaconda Powershell, clone this repo to your local machine:
+3. If using A-LEAF, see the optional [Installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf) section below. Currently, only users with Argonne gitlab credentials can use A-LEAF, but a public release is coming soon!
+
+4. If using CPLEX, see the optional [Installing with CPLEX](#optional-installing-with-cplex) section below
+
+5. Using the Anaconda Powershell, clone this repo to your local machine:
 
    `git clone https://github.com/biegelk/abce`
 
-4. Create the local conda environment:
+6. Create the local conda environment:
 
-   `conda env create -v .\environment_win.yml`
+   `conda env create -f .\environment_win.yml`
 
-5. Activate the `abce_anv` conda environment:
+7. Activate the `abce_anv` conda environment:
 
    `conda activate abce_env`
 
-6. Set the `ABCE_DIR` environment variable to the absolute path to your `abce` repo (e.g. `C:\Users\myname\abce`)
+8. Set the `ABCE_DIR` environment variable to the absolute path to your `abce` repo (e.g. `C:\Users\myname\abce`)
 
-7. Test it out by running the following within your `abce` directory:
+9. Test it out by running the following within your `abce` directory:
 
    `python run.py -f`
 
-8. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
+10. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
 
    `julia make_sysimage.jl`
 
