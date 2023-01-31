@@ -19,7 +19,7 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
     `git clone https://github.com/biegelk/abce`
 
-2. If using A-LEAF, see the optional [Installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf) section below
+2. If using A-LEAF, see the optional [Installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf) section below. Currently, only users with Argonne gitlab credentials can use A-LEAF, but a public release is coming soon!
 
 3. If using CPLEX, see the optional [Installing with CPLEX](#optional-installing-with-cplex) section below
 
