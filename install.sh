@@ -135,10 +135,10 @@ else
 
         elif [[ $user_resp == "n" ]]; then
             echo "Running ABCE requires Julia 1.8 to be the default, i.e. running 'julia --version' in the local environment returns julia 1.8."
-            echo "If you don't want to change the system-wide default, consider setting up a conda environment for ABCE."
+            echo "If you don't want to change the system-wide default, consider installing conda to enable management of multiple package environments."
             echo "You can download Julia 1.8.2 from $JULIA_URL."
-            echo "Re-run this installation script once you have Julia 1.8 available as the local default."
-   
+            echo "Re-run this installation script once you have Julia 1.8 available as the local default, or once you've installed conda."
+            exit 1   
         fi
 
     fi
