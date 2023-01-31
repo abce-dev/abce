@@ -17,7 +17,7 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 ## Installation
 
-### Unix / Windows Subsystem for Linux
+### Linux/ MacOS / Windows Subsystem for Linux
 
 1. Clone this repository to your local machine:
 
