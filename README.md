@@ -6,6 +6,10 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 #### Contents
 * [Installation](#installation)
+  - [Linux / MacOS / Windows Subsystem for Linux](#linux--macos--windows-subsystem-for-linux)
+  - [Windows 10](#windows-10)
+  - [Optional, Argonne only: installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf)
+  - [Optional: installing with CPLEX](#optional-installing-with-cplex)
 * [Usage](#usage)
 * [Contributing](#contributing)
 * [Testing](#testing)
@@ -13,7 +17,7 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 ## Installation
 
-### Linux/ MacOS / Windows Subsystem for Linux
+### Linux / MacOS / Windows Subsystem for Linux
 
 1. Clone this repository to your local machine:
 
