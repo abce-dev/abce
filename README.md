@@ -159,32 +159,14 @@ run from the top level of the local `abce` directory. This command can accept se
   * `-d`: "demo" mode, pauses execution at the end of each time step to allow the user to review printed outputs
 
 
-### Input Files
-
-Here is a description of all the input files that one needs to successfully develop their own `abce` simulation.
-
-### Settings File Parameters
-
-Here is a description of each parameter in the settings file.
-
-### Agent Settings
-
-Here is a description of each parameter in the `gc_params.yml` file that describes agent characteristics.
-
 ### Use ABCE with `watts`
 The[ Workflow and Template Toolkit for Simulations (`watts`)](https://github.com/watts-dev/watts) has an `abce` plugin. Please see the `watts` documentation for usage. This workflow tool is useful for conducting sensitivity analyses and other experiments with `abce`.
 
-## Contributing
-
 ## Testing
-`abce` is written in both Julia and Python, there is no unified testing framework at this time. The Python and Julia code may be tested separately.
 
 ### Python Unit Tests
+
 Python tests may be run with `pytest` in the top-level directory.
-
-### Julia Unit Tests
-
-**NOTE: Tests are still being added `abce`.**
 
 ### Integration Tests
 
