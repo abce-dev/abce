@@ -49,10 +49,9 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
    `bash ./install.sh`
 
+
 ### Windows
 
-
-Windows
 1. Download and install [julia](https://julialang.org/downloads/)
 
 2. Download and install [Anaconda](https://www.anaconda.com/products/distribution)
