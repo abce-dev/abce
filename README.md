@@ -128,7 +128,7 @@ run from the top level of the local `abce` directory. This command can accept se
 
     * 3: maximally verbose, showing results of many calculations and all DEBUG-level messages
 
-  * `--settings_file=<file_name>`: `<file_name>` is the relative path to the desired settings file. Default: `./settings.yml`
+  * `--settings_file=<user_file>`: specify the desired settings file with relative path `<user_file>`. Default: `./settings.yml`
 
   * `-d`: "demo" mode, pauses execution at the end of each time step to allow the user to review printed outputs
 
