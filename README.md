@@ -56,13 +56,13 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 2. Download and install [Anaconda](https://www.anaconda.com/products/distribution)
 
-3. Install [Java Virtual Machine](https://linuxhint.com/install-java-ubuntu-22-04/)  with `sudo apt install -y openjdk-18-jre`\*\*
+3. Install [Java Virtual Machine](https://linuxhint.com/install-java-ubuntu-22-04/)  with `sudo apt install -y openjdk-18-jre`\*
 
 4. Download [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing)
 
 5. Install CPLEX, following instructions in the CPLEX installer
 
-6. Check that `CPLEX` is installed properly: open the Windows Command Prompt and run the command `$ cplex`. The output should resemble:
+6. Check that `CPLEX` is installed properly: open the Windows Command Prompt and run the command `$ cplex`.\*\* The output should resemble:
 
 ```bash
 (base) sdotson@research:~$ cplex
@@ -97,13 +97,11 @@ Optional steps if using `A-LEAF`:
 
 15. Add an `ALEAF_DIR` environment variable
 
-\* Do **not** use `sudo`. Only `bash ./Anaconda_VERSION_xARCH.sh`
-
-\*\* If you run into an error where it cannot find the java virtual machine execute: `$ which java`, which should output something like `usr/bin/java`.
+\* If you run into an error where it cannot find the java virtual machine execute: `$ which java`, which should output something like `usr/bin/java`.
 
 Then try: `$ sudo bash ./ILOG_COS_20.10_LINUX_X86_64.bin LAX_VM /usr/bin/java`
 
-\*\*\* If the cplex command is not found, try adding the absolute path of your cplex executable to the `$PATH` environment variable with
+\*\* If the cplex command is not found, try adding the absolute path of your cplex executable to the `$PATH` environment variable with
 
 `$ export CPLEX_STUDIO_BINARIES=/opt/ibm/ILOG/CPLEX_Studio201/cplex/bin/x86-64_linux/`
 
@@ -112,9 +110,28 @@ Then try: `$ sudo bash ./ILOG_COS_20.10_LINUX_X86_64.bin LAX_VM /usr/bin/java`
 
 ## Usage
 
-The simplest way to run `abce` is with `python run.py -f`. Where the `-f` flag overwrites pre-existing results. `abce` will ask for permission to overwrite if the flag is left out. This method defaults to a `settings.yml` file in the `abce` directory. However, users may create their own file and specify where the settings are with:
+`abce` is invoked by the command:
 
-`python run.py -f --settings_file /path/to/your/settings_file.yml`
+  `python run.py`
+
+run from the top level of the local `abce` directory. This command can accept several optional arguments:
+
+  * `-f`: automatically agree to overwrite any existing database and output files.
+
+  * `--verbosity=k`, where k takes one of the following values:
+
+    * 0: completely silent execution
+
+    * 1: minimal output to mark progression through timesteps and agent turns only
+
+    * 2 (default): basic output showing sub-steps within agent turns
+
+    * 3: maximally verbose, showing results of many calculations and all DEBUG-level messages
+
+  * `--settings_file=<file_name>`: `<file_name>` is the relative path to the desired settings file. Default: `./settings.yml`
+
+  * `-d`: "demo" mode, pauses execution at the end of each time step to allow the user to review printed outputs
+
 
 ### Input Files
 
