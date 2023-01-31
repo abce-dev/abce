@@ -71,9 +71,9 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
             solver_setting_list = ", ".join([parameter for parameter in tabs_to_create[solver_tab]["data"].iloc[:, 0]])
 
             # Set up solver_direct_mode_flag: TRUE if CPLEX, FALSE otherwise
-            mode_flag = "FALSE"
+            mode_flag = "false"
             if "CPLEX" in solver_tab:
-                mode_flag = "TRUE"
+                mode_flag = "true"
 
             # Create the dictionary of extra rows for all solver tabs
             solver_extra_rows = {
