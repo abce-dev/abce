@@ -8,7 +8,6 @@
 set -o errexit
 
 # Constants
-#RC_FILE="$HOME/.bashrc"
 CONDA_ENV_FILE="environment.yml"
 REQ_FILE="requirements.txt"
 JULIA_MAKE_FILE="make_julia_environment.jl"
