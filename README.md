@@ -19,7 +19,7 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
     `git clone https://github.com/biegelk/abce`
 
-2. (optional) Clone the [dedicated A-LEAF repository](https://git-out.gss.anl.gov/kbiegel/kb-aleaf) for `abce`
+2. If using A-LEAF, see the optional [Installing with A-LEAF](#optional-argonne-only-installing-with-a-leaf) section below
 
 3. (optional) Download [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing) and install, following the installer's instructions
 
@@ -82,7 +82,7 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
    `julia make_sysimage.jl`
 
-#### Optional / Argonne only: installing with A-LEAF
+### Optional / Argonne only: installing with A-LEAF
 
 1. Clone the ABCE A-LEAF repo:
 
@@ -102,7 +102,7 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 5. Set the `ALEAF_DIR` environment variable to the absolute path to your A-LEAF repo
 
-#### Optional: installing with CPLEX
+### Optional: installing with CPLEX
 
 1. Download the [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing)
 
@@ -123,7 +123,7 @@ Type 'help' followed by a command name for more
 information on commands.
 ```
 
-\*\* If the cplex command is not found, try adding the absolute path of your cplex executable to the `$PATH` environment variable with
+If the cplex command is not found, try adding the absolute path of your cplex executable to the `$PATH` environment variable with
 
 `$ export CPLEX_STUDIO_BINARIES=/opt/ibm/ILOG/CPLEX_Studio201/cplex/bin/x86-64_linux/`
 
