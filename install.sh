@@ -8,7 +8,7 @@
 set -o errexit
 
 # Constants
-RC_FILE="$HOME/.bashrc"
+#RC_FILE="$HOME/.bashrc"
 CONDA_ENV_FILE="environment.yml"
 REQ_FILE="requirements.txt"
 JULIA_MAKE_FILE="make_julia_environment.jl"
@@ -156,7 +156,17 @@ echo "ABCE environment created successfully."
 # Update the .bashrc file
 #################################################################
 
-# If the .bashrc file doesn't already exist: create it
+# Determine the system default shell, in order to search for the correct
+#   terminal session configuration file
+if [[ $( ps -p $$ | grep bash ) ]]; then
+    shell="bash"
+elif [[ $( ps -p $$ | grep zsh ) ]]; then
+    shell="zsh"
+fi
+
+RC_FILE="$HOME/.${shell}rc"
+
+# If the shell configuration file doesn't already exist: create it
 if [[ ! -f "${RC_FILE}" ]]; then
     echo "No .bashrc file found; creating a new one at ${RC_FILE}";
     touch "${RC_FILE}";
