@@ -1,8 +1,8 @@
 simulation:
   ALEAF_scenario_name: "ABCE_IL"
-  solver: "CPLEX"
+  solver: "HiGHS"
   num_steps: 2
-  run_ALEAF: True
+  run_ALEAF: False
   C2N_assumption: baseline
 
 scenario:
@@ -12,7 +12,7 @@ scenario:
   policies:
     CTAX:
       enabled: True
-      qty: 60   # $/t CO2
+      qty: 60  # $/t CO2
     PTC:
       enabled: False
       eligible:
