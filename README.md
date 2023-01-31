@@ -7,10 +7,6 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 #### Contents
 * [Installation](#installation)
 * [Usage](#usage)
-    - [Input Files](#input-files)
-    - [Settings File Parameters](#settings-file-parameters)
-    - [Agent Settings](#agent-settings)
-    - [Using `abce` with `watts`](#use-abce-with-watts)
 * [Contributing](#contributing)
 * [Testing](#testing)
 * [License](#license)
