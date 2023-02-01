@@ -206,13 +206,13 @@ echo "Ensuring Julia 1.8.2 is added to \$PATH in ${RC_FILE}"
 # Get a list of all occurrences of 'julia' in the bashrc file
 readarray -t julia_lines < <(grep --null -E "export PATH=.*julia.*" "${RC_FILE}")
 
-if [[ -z $( echo "${julia_lines[( ${#julia_lines[@]} - 1 )]}" | grep -E "1\.8\.[0-9]{1,2}" ) ]]; then
+if [[ ! -z $julia_lines ]]; then
     # If .bashrc already has a line adding a different version of julia to the
     #    path, let the user know that this will update which version of Julia
     #    is found globally
     echo "This operation will update the path in ${RC_FILE} where Julia is found globally: the 'julia' command will now invoke julia-1.8.2."
     echo "If you use Julia on this device for other applications which require a Julia version other than 1.8.2, issues may arise."
-    echo "If you didn't want this to happen, open your ~/.bashrc file and delete the ABCE block at the end of the file."
+    echo "If you didn't want this to happen, open your ${RC_FILE} file and delete the ABCE block at the end of the file."
 fi
 
 # Append a new export statement with the updated value to 
