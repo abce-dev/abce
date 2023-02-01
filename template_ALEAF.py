@@ -138,7 +138,7 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings):
     # Finalize "Simulation Setting" tab
     # Add extra items
     ss_extra_items = {
-        "scenario_name": f"ALEAF_{tabs_to_create['Simulation Setting']['data']['test_system_name']}"
+        "test_system_file_name": f"ALEAF_{tabs_to_create['Simulation Setting']['data']['test_system_name']}"
     }
     tabs_to_create["Simulation Setting"]["data"].update(ss_extra_items)
 
