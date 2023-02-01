@@ -100,6 +100,16 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings):
             "data": None,
             "orient": "horizontal"
         },
+
+        "File Path": {
+            "ABCE_tab_name": "ALEAF_relative_file_paths",
+            "data": None
+        },
+
+        "Scenario Reduction Setting": {
+            "ABCE_tab_name": "scenario_reduction_settings",
+            "data": None
+        },
     }
 
 
@@ -163,7 +173,23 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings):
     }
     for key, value in items_to_rename.items():
         tabs_to_create["Simulation Configuration"]["data"][value] = tabs_to_create["Simulation Configuration"]["data"].pop(key)
-   
+
+
+    # Finalize "Scenario Reduction Setting" tab
+    srs_data = tabs_to_create["Scenario Reduction Setting"]["data"]
+    data_sets = [srs_data["input_type_load_shape_flag"],
+                 srs_data["input_type_load_MWh_flag"],
+                 srs_data["input_type_wind_shape_flag"],
+                 srs_data["input_type_wind_MWh_flag"],
+                 srs_data["input_type_solar_shape_flag"],
+                 srs_data["input_type_solar_MWh_flag"],
+                 srs_data["input_type_net_load_MWh_flag"]
+                ]
+    num_data_sets = sum(1 for item in data_sets if item == "TRUE")
+    srs_extra_items = {
+        "num_data_set": num_data_sets
+    }
+    tabs_to_create["Scenario Reduction Setting"]["data"].update(srs_extra_items)
 
     write_workbook_and_close("ALEAF_Master_LC_GEP", tabs_to_create)
 
