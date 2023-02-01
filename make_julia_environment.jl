@@ -20,13 +20,11 @@ julia_pkg_list = [
     "PackageCompiler",
     "PowerModels",
     "PyCall",
-    "SCIP",
     "SQLite",
     "Tables",
     "XLSX",
     "YAML",
     "Cbc",
-    "SCIP",
     "HiGHS"
 ]
 

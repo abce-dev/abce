@@ -6,47 +6,118 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 #### Contents
 * [Installation](#installation)
+  - [Linux / MacOS / Windows Subsystem for Linux](#linux--macos--windows-subsystem-for-linux)
+  - [Windows 10](#windows-10)
+  - [Optional, Argonne only: installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf)
+  - [Optional: installing with CPLEX](#optional-installing-with-cplex)
 * [Usage](#usage)
-    - [Input Files](#input-files)
-    - [Settings File Parameters](#settings-file-parameters)
-    - [Agent Settings](#agent-settings)
-    - [Using `abce` with `watts`](#use-abce-with-watts)
 * [Contributing](#contributing)
 * [Testing](#testing)
 * [License](#license)
 
 ## Installation
 
-Below are roughly the steps required to install and run `abce`. Since `abce` is still in active development, your mileage may vary.
+### Linux / MacOS / Windows Subsystem for Linux
 
-|Windows|Unix|
-|:----------|:----------|
-|Download and Install [julia](https://julialang.org/downloads/)|Download and Install [julia](https://julialang.org/downloads/)|
-|Download and Install [Anaconda](https://www.anaconda.com/products/distribution)|Download and Install [Anaconda](https://www.anaconda.com/products/distribution)\*|
-||Install [Java Virtual Machine](https://linuxhint.com/install-java-ubuntu-22-04/)  with `sudo apt install -y openjdk-18-jre  `  |
-|Download CPLEX (IBM ILOG STUDIO 20.10) Binaries||
-|Install CPLEX|Install CPLEX with `sudo bash ./ILOG_COS_20.10_LINUX_X86_64.bin`\*\*|
-|Check that `CPLEX` is installed properly by running `$ cplex`\*\*\*|Same as Windows.\*\*\*\*|
-|Clone the `abce` repository||
-|Run `julia make_julia_environment.jl` from top-level of `abce`||
-|Run `python run.py -f`||
-|Run `julia make_sysimage.jl`||
-|(Optional if using `A-LEAF`)|(Optional if using `A-LEAF`)|
-|Install [Gurobi 9.1.2](https://www.gurobi.com/downloads/gurobi-software/)||
-|Add the Gurobi executable to `PATH`||
-|Clone [this fork](https://git-out.gss.anl.gov/kbiegel/kb-aleaf) of `A-LEAF`||
-|Run `julia make_aleaf_environment.jl` from the `kb-aleaf` directory||
-|Run `julia execute_ALEAF.jl`||
-|Run `julia make_sysimage.jl`||
-|Add an `ALEAF_DIR` environment variable||
+1. Clone this repository to your local machine:
 
-\* Do **not** use `sudo`. Only `bash ./Anaconda_VERSION_xARCH.sh`
+    `git clone https://github.com/biegelk/abce`
 
-\*\* If you run into an error where it cannot find the java virtual machine execute: `$ which java`, which should output something like `usr/bin/java`.
+2. If using A-LEAF, see the optional [Installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf) section below. Currently, only users with Argonne gitlab credentials can use A-LEAF, but a public release is coming soon!
 
-Then try: `$ sudo bash ./ILOG_COS_20.10_LINUX_X86_64.bin LAX_VM /usr/bin/java`
+3. If using CPLEX, see the optional [Installing with CPLEX](#optional-installing-with-cplex) section below
 
-\*\*\* The output should be
+4. Inside your local `abce` directory, run the installation script with:
+
+   `bash ./install.sh`
+
+5. When prompted for the A-LEAF repository, do one of the following:
+
+   * Enter the absolute path to the directory where you cloned A-LEAF, or
+
+   * Press Enter without entering any text, if not using A-LEAF
+
+6. Wait for the installation script to run to completion. Review any errors/issues printed for your reference at the end of execution.
+
+7. Restart your terminal session, or re-source your `.bashrc` file.
+
+8. If using Conda to manage environments, activate the `abce` conda environment with:
+
+   `conda activate abce_env`
+
+9. Rerun the installation script to complete the environment setup:
+
+   `bash ./install.sh`
+
+10. Test it out by running the following within your `abce` directory:
+
+   `python run.py -f`
+
+11. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
+
+   `julia make_sysimage.jl`
+
+
+### Windows
+
+1. Download and install [Miniconda](https://docs.conda.io/en/main/miniconda.html)
+
+2. Download and install [Julia 1.8](https://julialang.org/downloads/). Check the box in the installer to add Julia to the PATH.
+
+3. If using A-LEAF, see the optional [Installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf) section below. Currently, only users with Argonne gitlab credentials can use A-LEAF, but a public release is coming soon!
+
+4. If using CPLEX, see the optional [Installing with CPLEX](#optional-installing-with-cplex) section below
+
+5. Using the Anaconda Powershell, clone this repo to your local machine:
+
+   `git clone https://github.com/biegelk/abce`
+
+6. Create the local conda environment:
+
+   `conda env create -f .\environment_win.yml`
+
+7. Activate the `abce_anv` conda environment:
+
+   `conda activate abce_env`
+
+8. Set the `ABCE_DIR` environment variable to the absolute path to your `abce` repo (e.g. `C:\Users\myname\abce`)
+
+9. Test it out by running the following within your `abce` directory:
+
+   `python run.py -f`
+
+10. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
+
+   `julia make_sysimage.jl`
+
+### Optional / Argonne only: installing with A-LEAF
+
+1. Clone the ABCE A-LEAF repo:
+
+   `git clone git-out.gss.anl.gov/kbiegel/kb_aleaf`
+
+2. Inside the A-LEAF directory, run the A-LEAF environment setup script:
+
+   `julia make_julia_environment.jl`
+
+3. Test the A-LEAF install by running the following within your A-LEAF directory:
+
+   `julia execute_ALEAF.jl`
+
+4. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
+
+   `julia make_sysimage.jl`
+
+5. Set the `ALEAF_DIR` environment variable to the absolute path to your A-LEAF repo
+
+### Optional: installing with CPLEX
+
+1. Download the [CPLEX (IBM ILOG STUDIO 20.10) binaries](https://www.ibm.com/docs/en/icos/20.1.0?topic=cplex-installing)
+
+2. Run the CPLEX installer, following all instructions.
+
+3. Check that `CPLEX` is installed properly: open the Windows Command Prompt and run the command `$ cplex`. The output should resemble:
+
 ```bash
 (base) sdotson@research:~$ cplex
 
@@ -60,7 +131,7 @@ Type 'help' followed by a command name for more
 information on commands.
 ```
 
-\*\*\*\* If the cplex command is not found, try adding the absolute path of your cplex executable to the `$PATH` environment variable with
+If the cplex command is not found, try adding the absolute path of your cplex executable to the `$PATH` environment variable with
 
 `$ export CPLEX_STUDIO_BINARIES=/opt/ibm/ILOG/CPLEX_Studio201/cplex/bin/x86-64_linux/`
 
@@ -69,36 +140,37 @@ information on commands.
 
 ## Usage
 
-The simplest way to run `abce` is with `python run.py -f`. Where the `-f` flag overwrites pre-existing results. `abce` will ask for permission to overwrite if the flag is left out. This method defaults to a `settings.yml` file in the `abce` directory. However, users may create their own file and specify where the settings are with:
+`abce` is invoked by the command:
 
-`python run.py -f --settings_file /path/to/your/settings_file.yml`
+  `python run.py`
 
-### Input Files
+run from the top level of the local `abce` directory. This command can accept several optional arguments:
 
-Here is a description of all the input files that one needs to successfully develop their own `abce` simulation.
+  * `-f`: automatically agree to overwrite any existing database and output files.
 
-### Settings File Parameters
+  * `--verbosity=k`, where k takes one of the following values:
 
-Here is a description of each parameter in the settings file.
+    * 0: completely silent execution
 
-### Agent Settings
+    * 1: minimal output to mark progression through timesteps and agent turns only
 
-Here is a description of each parameter in the `gc_params.yml` file that describes agent characteristics.
+    * 2 (default): basic output showing sub-steps within agent turns
+
+    * 3: maximally verbose, showing results of many calculations and all DEBUG-level messages
+
+  * `--settings_file=<user_file>`: specify the desired settings file with relative path `<user_file>`. Default: `./settings.yml`
+
+  * `-d`: "demo" mode, pauses execution at the end of each time step to allow the user to review printed outputs
+
 
 ### Use ABCE with `watts`
 The[ Workflow and Template Toolkit for Simulations (`watts`)](https://github.com/watts-dev/watts) has an `abce` plugin. Please see the `watts` documentation for usage. This workflow tool is useful for conducting sensitivity analyses and other experiments with `abce`.
 
-## Contributing
-
 ## Testing
-`abce` is written in both Julia and Python, there is no unified testing framework at this time. The Python and Julia code may be tested separately.
 
 ### Python Unit Tests
+
 Python tests may be run with `pytest` in the top-level directory.
-
-### Julia Unit Tests
-
-**NOTE: Tests are still being added `abce`.**
 
 ### Integration Tests
 

@@ -1,6 +1,6 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, SCIP, HiGHS
+using Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS
 
 try
     using CPLEX
@@ -248,8 +248,6 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
         m = Model(GLPK.Optimizer)
     elseif solver == "cbc"
         m = Model(Cbc.Optimizer)
-    elseif solver == "scip"
-        m = Model(SCIP.Optimizer)
     elseif solver == "highs"
         m = Model(HiGHS.Optimizer)
     else
@@ -448,8 +446,6 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
         set_optimizer(m_copy, GLPK.Optimizer)
     elseif solver == "cbc"
         set_optimizer(m_copy, Cbc.Optimizer)
-    elseif solver == "scip"
-        set_optimizer(m_copy, SCIP.Optimizer)
     elseif solver == "highs"
         set_optimizer(m_copy, HiGHS.Optimizer)
     end

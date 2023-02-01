@@ -95,8 +95,6 @@ elseif solver == "glpk"
     using GLPK
 elseif solver == "cbc"
     using Cbc
-elseif solver == "scip"
-    using SCIP
 elseif solver == "highs"
     using HiGHS
 else

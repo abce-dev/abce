@@ -8,8 +8,7 @@
 set -o errexit
 
 # Constants
-RC_FILE="$HOME/.bashrc"
-CONDA_ENV_FILE="environment.yml"
+CONDA_ENV_FILE="environment_unix.yml"
 REQ_FILE="requirements.txt"
 JULIA_MAKE_FILE="make_julia_environment.jl"
 JULIA_URL="https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.2-linux-x86_64.tar.gz"
@@ -53,19 +52,27 @@ echo "\$ALEAF_DIR will be set to $aleaf_dir"
 # Set up the environment
 #################################################################
 
-# Determine whether the script is running in a conda environment
-# If conda is installed and available for environment management, use it
-if [[ -z "$no_conda" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]]; then
-    echo "conda environment detected; using conda to manage python packages";
+# Determine whether conda is available; if so, ask the user for permission to 
+#   create a dedicated conda environment for ABCE
+if [[ -z "$no_conda" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]] && [[ ! $force ]]; then
+    user_resp=""
+    while [[ "${user_resp}" != "y" && "${user_resp}" != "n" ]]; do
+        echo "I've detected that conda is available on this machine. Can I use conda to create a dedicated environment for abce? (recommended) [y/n]"
+        read user_resp
+        if [[ $user_resp == "y" ]]; then
+            use_conda=true
+        fi
+    done
+fi
 
+# If the user allows use of conda:
+if [[ ! -z $use_conda ]]; then
     # Check for an appropriate environment spec file, set in $CONDA_ENV_FILE
     #   at the top of this script
     if [[ ! -f "$CONDA_ENV_FILE" ]]; then
         # The conda environment specification (environment.yml) file was not found
         echo "$ABCE_DIR/$CONDA_ENV_FILE not found. Please ensure you have a conda environment specification file in the top level of your ABCE directory.";
-        echo "The default environment.yml file is available for download at https://github.com/biegelk/abce.";
-        echo "If you do not want to use conda to manage the ABCE environment, rerun this script with the no-conda flag enabled:";
-        echo ">$ ./install.sh [other_args] -n 1";
+        echo "The default environment_unix.yml file is available for download at https://github.com/biegelk/abce.";
         exit 1;
     else
         # Retrieve the name of the desired conda environment from the yaml file
@@ -135,10 +142,10 @@ else
 
         elif [[ $user_resp == "n" ]]; then
             echo "Running ABCE requires Julia 1.8 to be the default, i.e. running 'julia --version' in the local environment returns julia 1.8."
-            echo "If you don't want to change the system-wide default, consider setting up a conda environment for ABCE."
+            echo "If you don't want to change the system-wide default, consider installing conda to enable management of multiple package environments."
             echo "You can download Julia 1.8.2 from $JULIA_URL."
-            echo "Re-run this installation script once you have Julia 1.8 available as the local default."
-   
+            echo "Re-run this installation script once you have Julia 1.8 available as the local default, or once you've installed conda."
+            exit 1   
         fi
 
     fi
@@ -156,7 +163,17 @@ echo "ABCE environment created successfully."
 # Update the .bashrc file
 #################################################################
 
-# If the .bashrc file doesn't already exist: create it
+# Determine the system default shell, in order to search for the correct
+#   terminal session configuration file
+if [[ $( ps -p $$ | grep bash ) ]]; then
+    shell="bash"
+elif [[ $( ps -p $$ | grep zsh ) ]]; then
+    shell="zsh"
+fi
+
+RC_FILE="$HOME/.${shell}rc"
+
+# If the shell configuration file doesn't already exist: create it
 if [[ ! -f "${RC_FILE}" ]]; then
     echo "No .bashrc file found; creating a new one at ${RC_FILE}";
     touch "${RC_FILE}";
@@ -187,13 +204,13 @@ echo "Ensuring Julia 1.8.2 is added to \$PATH in ${RC_FILE}"
 # Get a list of all occurrences of 'julia' in the bashrc file
 readarray -t julia_lines < <(grep --null -E "export PATH=.*julia.*" "${RC_FILE}")
 
-if [[ -z $( echo "${julia_lines[( ${#julia_lines[@]} - 1 )]}" | grep -E "1\.8\.[0-9]{1,2}" ) ]]; then
+if [[ ! -z $julia_lines ]]; then
     # If .bashrc already has a line adding a different version of julia to the
     #    path, let the user know that this will update which version of Julia
     #    is found globally
     echo "This operation will update the path in ${RC_FILE} where Julia is found globally: the 'julia' command will now invoke julia-1.8.2."
     echo "If you use Julia on this device for other applications which require a Julia version other than 1.8.2, issues may arise."
-    echo "If you didn't want this to happen, open your ~/.bashrc file and delete the ABCE block at the end of the file."
+    echo "If you didn't want this to happen, open your ${RC_FILE} file and delete the ABCE block at the end of the file."
 fi
 
 # Append a new export statement with the updated value to 
