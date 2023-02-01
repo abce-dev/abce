@@ -16,9 +16,6 @@ def load_data(file_name):
 
 
 def create_ALEAF_Master_file(ALEAF_data, settings):
-    # Create an ExcelWriter object to contain all tabs and save file
-    writer = pd.ExcelWriter("testALEAF_Master.xlsx", engine="openpyxl")
-
     # Dictionary of all tabs and their metadata
     # In final implementation, will be replaced by the ALEAF standard
     #   data schema
@@ -86,16 +83,23 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
             for setting, value in solver_extra_rows.items():
                 tabs_to_create[solver_tab]["data"].loc[len(tabs_to_create[solver_tab]["data"])] = [setting, value]
 
+    write_workbook_and_close("ALEAF_Master", tabs_to_create)
+
+
+def write_workbook_and_close(base_filename, tabs_to_create):
+    # Create an ExcelWriter object to contain all tabs and save file
+    writer_object = pd.ExcelWriter(f"test{base_filename}.xlsx", engine="openpyxl")
+
     # Write all tabs to file
     for ALEAF_tab_name, tab_data in tabs_to_create.items():
         tab_data["data"].to_excel(
-            writer,
+            writer_object,
             sheet_name = ALEAF_tab_name,
             index=False
         )
 
     # Write all changes and close the file writer
-    writer.close()
+    writer_object.close()
 
 
 def create_ALEAF_files():
