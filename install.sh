@@ -67,6 +67,9 @@ if [[ $user_resp == "y" ]]; then
     use_conda=true
 fi
 
+echo "use_conda = $use_conda"
+echo "force = $force"
+
 # If the user allows use of conda:
 if [[ $use_conda ]]; then
     # Check for an appropriate environment spec file, set in $CONDA_ENV_FILE
