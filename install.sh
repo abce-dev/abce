@@ -54,24 +54,19 @@ echo "\$ALEAF_DIR will be set to $aleaf_dir"
 
 # Determine whether conda is available; if so, ask the user for permission to 
 #   create a dedicated conda environment for ABCE
-use_conda=false
 if [[ -z "$no_conda" ]] && [[ ! -z $( conda --version | grep -Eo "conda.*[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}" ) && ! -z $( conda info --envs | grep "\*" ) ]] && [[ ! $force ]]; then
     user_resp=""
-    while [[ "${user_resp}" != "y" || "${user_resp}" != "n" ]]; do
+    while [[ "${user_resp}" != "y" && "${user_resp}" != "n" ]]; do
         echo "I've detected that conda is available on this machine. Can I use conda to create a dedicated environment for abce? (recommended) [y/n]"
         read user_resp
+        if [[ $user_resp == "y" ]]; then
+            use_conda=true
+        fi
     done
 fi
 
-if [[ $user_resp == "y" ]]; then
-    use_conda=true
-fi
-
-echo "use_conda = $use_conda"
-echo "force = $force"
-
 # If the user allows use of conda:
-if [[ $use_conda ]]; then
+if [[ ! -z $use_conda ]]; then
     # Check for an appropriate environment spec file, set in $CONDA_ENV_FILE
     #   at the top of this script
     if [[ ! -f "$CONDA_ENV_FILE" ]]; then
