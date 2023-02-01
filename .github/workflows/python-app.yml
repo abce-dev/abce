@@ -31,7 +31,7 @@ jobs:
         arch: x86
     - name: Install and configure ABCE
       run: |
-        bash install.sh -n -a ""
+        bash install.sh -n 1 -a ""
     - name: Test with pytest
       run: |
         pytest
