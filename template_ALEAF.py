@@ -145,6 +145,7 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings):
     # Rename items
     items_to_rename = {
         "capex_projection_flag": "capax_projection_flag",
+        "network_reduction_flag": "Network_reduction_flag"
     }
     for key, value in items_to_rename.items():
         tabs_to_create["Simulation Setting"]["data"][value] = tabs_to_create["Simulation Setting"]["data"].pop(key)
