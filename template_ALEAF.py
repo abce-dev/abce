@@ -80,7 +80,7 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
 
 def create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings):
     tabs_to_create = {
-        "LC GEP Setting": {
+        "LC_GEP Setting": {
             "ABCE_tab_name": "LC_GEP_settings",
             "data": None
         },
