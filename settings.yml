@@ -45,7 +45,7 @@ file_paths:
   ABCE_sysimage_file: "abceSysimage.so"
   db_file: "abce_db.db"
   demand_data_file: "inputs/demand_data.csv"
-  dispatch_sysimage_file: "dispatch.so"
+  dispatch_sysimage_file: "./env/dispatch.so"
   gc_params_file: "inputs/gc_params.yml"
   output_file: "outputs.xlsx"
   portfolios_file: "inputs/IL_portfolios.csv"
