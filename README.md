@@ -1,6 +1,8 @@
 [![GitHub Actions build status (Linux)](https://github.com/biegelk/abce/workflows/CI/badge.svg?branch=dev)](https://github.com/biegelk/abce/actions/workflows/python-app.yml)
 
-![](misc/abce_rectangle.PNG)
+<p align="center">
+  <img width="500" height="300" src="misc/abce_rectangle.PNG">
+</p>
 
 # abce: agent-based capacity expansion modeling
 
