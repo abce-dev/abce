@@ -23,7 +23,7 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 1. Clone this repository to your local machine:
 
-    `git clone https://github.com/biegelk/abce`
+    `git clone https://github.com/abce-dev/abce`
 
 2. If using A-LEAF, see the optional [Installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf) section below. Currently, only users with Argonne gitlab credentials can use A-LEAF, but a public release is coming soon!
 
@@ -72,7 +72,7 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 5. Using the Anaconda Powershell, clone this repo to your local machine:
 
-   `git clone https://github.com/biegelk/abce`
+   `git clone https://github.com/abce-dev/abce`
 
 6. Create the local conda environment:
 
