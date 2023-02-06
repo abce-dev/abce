@@ -16,9 +16,9 @@
 
 using Logging
 
-# @info "-----------------------------------------------------------"
-# @info "Julia agent choice algorithm: starting"
-# @info "Loading packages..."
+@debug "-----------------------------------------------------------"
+@debug "Julia agent choice algorithm: starting"
+@debug "Loading packages..."
 using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
 
 # Set up command-line parser
@@ -137,10 +137,6 @@ agent_params = ABCEfunctions.get_agent_params(db, agent_id)
 # System parameters
 # Read unit operational data (unit_specs) and number of unit types (num_types)
 unit_specs, num_types = ABCEfunctions.get_unit_specs(db)
-if pd == 0
-    # @info unit_specs
-    
-end
 num_alternatives = num_types * (num_lags + 1)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
