@@ -8,9 +8,9 @@
 set -o errexit
 
 # Constants
-CONDA_ENV_FILE="environment_unix.yml"
-REQ_FILE="requirements.txt"
-JULIA_MAKE_FILE="make_julia_environment.jl"
+CONDA_ENV_FILE="./env/environment_unix.yml"
+REQ_FILE="./env/requirements.txt"
+JULIA_MAKE_FILE="./env/make_julia_environment.jl"
 JULIA_URL="https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.2-linux-x86_64.tar.gz"
 
 # Check for command-line arguments
