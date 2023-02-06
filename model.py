@@ -46,6 +46,10 @@ class GridModel(Model):
 
         self.settings = settings
 
+        # If verbosity is 2 or 3, show the ABCE splash header
+        if self.args.verbosity >= 2:
+            self.show_abce_header()
+
         # Set the solver to be used for the agent optimizations
         self.solver = settings["simulation"]["solver"].lower()
 
@@ -164,6 +168,17 @@ class GridModel(Model):
             for existing_file in Path(self.ABCE_output_data_path).iterdir():
                 logging.debug(f"Deleting file {existing_file} from the output directory")
                 (Path(self.ABCE_output_data_path) / existing_file).unlink()
+
+
+    def show_abce_header(self):
+        logo_file = Path(
+                        self.settings["file_paths"]["ABCE_abs_path"] /
+                        "misc" /
+                        self.settings["file_paths"]["logo"]
+                    )
+        with open(logo_file, "r") as logo:
+            for line in logo.read().splitlines():
+                logging.log(self.settings["constants"]["vis_lvl"], line)
 
 
     def set_ALEAF_file_paths(self):
