@@ -203,7 +203,14 @@ def process_outputs(settings, output_dir, unit_specs):
         file_lists["dispatch_summary_OP"], output_dir, ALEAF_scenario_name)
 
     # Write results to xlsx
-    writer = pd.ExcelWriter("abce_ppx_outputs.xlsx")
+    writer = pd.ExcelWriter(
+                 Path(
+                     self.settings["file_paths"]["ABCE_abs_path"] /
+                     "outputs" /
+                     self.settings["simulation"]["ALEAF_scenario_name"] /
+                     "abce_ppx_outputs.xlsx"
+                 )
+             )
     expansion_results.to_excel(writer, sheet_name="exp_results", index=False)
     #expansion_results_mw.to_excel(writer, sheet_name="exp_results_mw", index=False)
     system_summary_results.to_excel(

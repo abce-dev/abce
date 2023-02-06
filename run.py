@@ -177,7 +177,14 @@ def run_model():
     # Write the raw database to xlsx
     db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE " +
                                   "type='table';", abce_model.db)
-    with pd.ExcelWriter(settings["file_paths"]["output_file"]) as writer:
+    with pd.ExcelWriter(
+             Path(
+                 settings["file_paths"]["ABCE_abs_path"] /
+                 "outputs" /
+                 settings["simulation"]["ALEAF_scenario_name"] /
+                 settings["file_paths"]["output_file"]
+             )
+        ) as writer:
         for i in range(len(db_tables)):
             table = db_tables.loc[i, "name"]
             final_db = pd.read_sql_query(
