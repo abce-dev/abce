@@ -27,11 +27,11 @@ from mesa.time import RandomActivation
 # import nrelpy.atb as ATB
 
 # import local modules
-from agent import GenCo
-import ABCEfunctions as ABCE
-import seed_creator as sc
-import ALEAF_interface as ALI
-import dispatch_ppx as dsp
+from .agent import GenCo
+from . import ABCEfunctions as ABCE
+from . import seed_creator as sc
+from . import ALEAF_interface as ALI
+from . import dispatch_ppx as dsp
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -933,11 +933,13 @@ class GridModel(Model):
     def check_for_sysimage_files(self):
         ABCE_sysimage_path = (Path(
             self.settings["file_paths"]["ABCE_abs_path"]) /
+            "env" /
             self.settings["file_paths"]["ABCE_sysimage_file"]
         )
 
         dispatch_sysimage_path = (Path(
             self.settings["file_paths"]["ABCE_abs_path"]) /
+            "env" /
             self.settings["file_paths"]["dispatch_sysimage_file"]
         )
 

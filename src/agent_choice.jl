@@ -104,7 +104,7 @@ end
 # File names
 db_file = joinpath(pwd(), settings["file_paths"]["db_file"])
 C2N_specs_file = joinpath(
-                     @__DIR__,
+                     pwd(),
                      "inputs",
                      "C2N_project_definitions.yml"
                  )

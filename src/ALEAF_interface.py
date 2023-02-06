@@ -6,7 +6,7 @@ import openpyxl
 import sqlite3
 
 # import local modules
-import seed_creator as sc
+from . import seed_creator as sc
 
 
 def prepare_xlsx_data(ref_data_file, destination_file):

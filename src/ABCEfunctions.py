@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import glob
-import scenario_reduction as sr
+from . import scenario_reduction as sr
 
 
 def get_next_asset_id(db, suggested_next_id):

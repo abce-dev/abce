@@ -65,7 +65,7 @@ end
 
 
 function set_up_local_paths(settings)
-    settings["file_paths"]["ABCE_abs_path"] = @__DIR__
+    settings["file_paths"]["ABCE_abs_path"] = pwd()
     if settings["simulation"]["run_ALEAF"] == true
         try
             settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            

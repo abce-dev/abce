@@ -20,12 +20,12 @@ import subprocess
 import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
-from agent import GenCo
-from model import GridModel
+from src.agent import GenCo
+from src.model import GridModel
 import yaml
 import pandas as pd
 import argparse
-import ABCEfunctions
+import src.ABCEfunctions
 from pathlib import Path
 
 
@@ -43,6 +43,7 @@ def set_up_local_paths(settings):
     # Set the path for ABCE files to the directory where run.py is saved
     # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
     settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
+    print(settings["file_paths"]["ABCE_abs_path"])
     if settings["simulation"]["run_ALEAF"]:
     # Try to locate an environment variable to specify where A-LEAF is located
         try:
@@ -137,10 +138,10 @@ def check_julia_environment(ABCE_abs_path):
     If either one is not found, run `make_julia_environment.jl` to
       automatically generate valid .toml files.
     """
-    if not ((Path(ABCE_abs_path) / "Manifest.toml").exists()
-            and (Path(ABCE_abs_path) / "Project.toml").exists()):
+    if not ((Path(ABCE_abs_path) / "env" / "Manifest.toml").exists()
+            and (Path(ABCE_abs_path) / "env" / "Project.toml").exists()):
         julia_cmd = (
-            f"julia {Path(ABCE_abs_path) / 'make_julia_environment.jl'}")
+            f"julia {Path(ABCE_abs_path) / 'env' / 'make_julia_environment.jl'}")
         try:
             sp = subprocess.check_call([julia_cmd], shell=True)
             logging.info("Julia environment successfully created.\n\n")
