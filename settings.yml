@@ -53,6 +53,7 @@ file_paths:
   seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_IL_C2N__dispatch_summary_OP__step_0.csv"
   time_series_data_file: "inputs/timeseriesParams.xlsx"
   unit_specs_abce_supp_file: "inputs/unit_specs_abce_supplemental.csv"
+  logo: "abce.txt"
 
 # Modeled grid system settings which are unlikely to change frequently
 system:
