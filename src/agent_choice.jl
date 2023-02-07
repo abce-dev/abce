@@ -106,7 +106,7 @@ else
 end
 
 # File names
-db_file = joinpath(pwd(), settings["file_paths"]["db_file"])
+db_file = joinpath(pwd(), "outputs", settings["simulation"]["ALEAF_scenario_name"], settings["file_paths"]["db_file"])
 C2N_specs_file = joinpath(
                      settings["file_paths"]["ABCE_abs_path"],
                      "inputs",
