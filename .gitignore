@@ -3,7 +3,6 @@ __pycache__
 *.png
 deprecated/*
 data/*.csv
-run.py
 simplified_*
 market.yml
 *.so

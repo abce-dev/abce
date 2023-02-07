@@ -336,4 +336,3 @@ def create_database(db_file_name, replace=False):
 # Set name and path for ABCE database file
 if __name__ == "__main__":
     create_database(sys.argv[1])
-    # TODO: add argparse here

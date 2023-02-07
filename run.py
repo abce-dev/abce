@@ -20,12 +20,12 @@ import subprocess
 import logging
 from mesa import Agent, Model
 from mesa.time import RandomActivation
-from agent import GenCo
-from model import GridModel
+from src.agent import GenCo
+from src.model import GridModel
 import yaml
 import pandas as pd
 import argparse
-import ABCEfunctions
+import src.ABCEfunctions
 from pathlib import Path
 
 
@@ -41,8 +41,8 @@ def read_settings(settings_file):
 
 def set_up_local_paths(settings):
     # Set the path for ABCE files to the directory where run.py is saved
-    # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
     settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
+
     if settings["simulation"]["run_ALEAF"]:
     # Try to locate an environment variable to specify where A-LEAF is located
         try:
@@ -79,8 +79,8 @@ def cli_args():
     parser.add_argument(
         "--settings_file",
         type=str,
-        help="Simulation settings file name.",
-        default=Path(Path.cwd()) / "settings.yml"
+        help="Absolute path to simulation settings file.",
+        default=Path(Path.cwd() / "settings.yml")
     )
     parser.add_argument(
         "--verbosity",
@@ -137,10 +137,10 @@ def check_julia_environment(ABCE_abs_path):
     If either one is not found, run `make_julia_environment.jl` to
       automatically generate valid .toml files.
     """
-    if not ((Path(ABCE_abs_path) / "Manifest.toml").exists()
-            and (Path(ABCE_abs_path) / "Project.toml").exists()):
+    if not ((Path(ABCE_abs_path) / "env" / "Manifest.toml").exists()
+            and (Path(ABCE_abs_path) / "env" / "Project.toml").exists()):
         julia_cmd = (
-            f"julia {Path(ABCE_abs_path) / 'make_julia_environment.jl'}")
+            f"julia {Path(ABCE_abs_path) / 'env' / 'make_julia_environment.jl'}")
         try:
             sp = subprocess.check_call([julia_cmd], shell=True)
             logging.info("Julia environment successfully created.\n\n")
@@ -176,7 +176,14 @@ def run_model():
     # Write the raw database to xlsx
     db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE " +
                                   "type='table';", abce_model.db)
-    with pd.ExcelWriter(settings["file_paths"]["output_file"]) as writer:
+    with pd.ExcelWriter(
+             Path(
+                 settings["file_paths"]["ABCE_abs_path"] /
+                 "outputs" /
+                 settings["simulation"]["ALEAF_scenario_name"] /
+                 settings["file_paths"]["output_file"]
+             )
+        ) as writer:
         for i in range(len(db_tables)):
             table = db_tables.loc[i, "name"]
             final_db = pd.read_sql_query(

@@ -25,8 +25,8 @@ import os
 from pathlib import Path
 
 # import local modules
-import ABCEfunctions as ABCE
-import ALEAF_interface as ALI
+from . import ABCEfunctions as ABCE
+from . import ALEAF_interface as ALI
 
 
 class GenCo(Agent):
@@ -88,6 +88,7 @@ class GenCo(Agent):
         # Run the agent behavior choice algorithm
         agent_choice_path = (
             Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
+            "src" /
             "agent_choice.jl"
         )
 
@@ -96,16 +97,20 @@ class GenCo(Agent):
         if self.model.has_ABCE_sysimage:
             sysimage_path = (
                 Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
+                     "env" /
                      self.model.settings["file_paths"]["ABCE_sysimage_file"])
             sysimage_cmd = f"-J {sysimage_path}"
 
+        local_project = Path(self.model.settings["file_paths"]["ABCE_abs_path"], "env")
+
         julia_cmd = (
-            f"julia --project={self.model.settings['file_paths']['ABCE_abs_path']} " + 
+            f"julia --project={local_project} " + 
             f"{sysimage_cmd} {agent_choice_path} " +
             f"--current_pd={self.model.current_pd} " +
             f"--agent_id={self.unique_id} " +
             f"--verbosity={self.model.args.verbosity} " +
-            f"--settings_file={self.model.args.settings_file}"
+            f"--settings_file={self.model.args.settings_file} " +
+            f"--abce_abs_path={self.model.settings['file_paths']['ABCE_abs_path']}"
         )
 
         sp = subprocess.check_call(julia_cmd, shell=True)
