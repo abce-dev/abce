@@ -41,9 +41,8 @@ def read_settings(settings_file):
 
 def set_up_local_paths(settings):
     # Set the path for ABCE files to the directory where run.py is saved
-    # settings["ABCE_abs_path"] = os.path.realpath(os.path.dirname(__file__))
     settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
-    print(settings["file_paths"]["ABCE_abs_path"])
+
     if settings["simulation"]["run_ALEAF"]:
     # Try to locate an environment variable to specify where A-LEAF is located
         try:
@@ -80,8 +79,8 @@ def cli_args():
     parser.add_argument(
         "--settings_file",
         type=str,
-        help="Simulation settings file name.",
-        default=Path(Path.cwd()) / "settings.yml"
+        help="Absolute path to simulation settings file.",
+        default=Path(Path.cwd() / "settings.yml")
     )
     parser.add_argument(
         "--verbosity",
