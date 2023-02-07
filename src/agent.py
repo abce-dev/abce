@@ -109,7 +109,8 @@ class GenCo(Agent):
             f"--current_pd={self.model.current_pd} " +
             f"--agent_id={self.unique_id} " +
             f"--verbosity={self.model.args.verbosity} " +
-            f"--settings_file={self.model.args.settings_file}"
+            f"--settings_file={self.model.args.settings_file} " +
+            f"--abce_abs_path={self.model.settings['file_paths']['ABCE_abs_path']}"
         )
 
         sp = subprocess.check_call(julia_cmd, shell=True)

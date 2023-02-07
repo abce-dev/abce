@@ -64,8 +64,8 @@ function get_agent_params(db, agent_id)
 end
 
 
-function set_up_local_paths(settings)
-    settings["file_paths"]["ABCE_abs_path"] = pwd()
+function set_up_local_paths(settings, abce_abs_path)
+    settings["file_paths"]["ABCE_abs_path"] = abce_abs_path
     if settings["simulation"]["run_ALEAF"] == true
         try
             settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            

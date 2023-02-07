@@ -42,6 +42,10 @@ s = ArgParseSettings()
         required = false
         default = 1
         range_tester = x -> x in [0, 1, 2, 3]
+    "--abce_abs_path"
+        help = "absolute path to the top-level ABCE directory"
+        arg_type = String
+        required = true
 end
 
 # Retrieve parsed arguments from command line
@@ -81,7 +85,7 @@ using .ABCEfunctions, .Dispatch, .C2N
 ###### Set up inputs
 @info "Initializing data..."
 
-settings = ABCEfunctions.set_up_local_paths(settings)
+settings = ABCEfunctions.set_up_local_paths(settings, CLI_args["abce_abs_path"])
 
 solver = lowercase(settings["simulation"]["solver"])
 @debug string("Solver is `$solver`")
@@ -104,7 +108,7 @@ end
 # File names
 db_file = joinpath(pwd(), settings["file_paths"]["db_file"])
 C2N_specs_file = joinpath(
-                     pwd(),
+                     settings["file_paths"]["ABCE_abs_path"],
                      "inputs",
                      "C2N_project_definitions.yml"
                  )
