@@ -172,23 +172,23 @@ The input files required to run ABCE are as follows:
 
  * `inputs/`:
 
-   * `<region>_portfolios.csv`: ownership breakdown by generator type and by agent. Totals MUST match totals in `ALEAF_<region>.xlsx`
-
-   * `gc_params.yml`: financial parameters which define the agents (GenCos)
-
-   * `unit_specs_abce_supplemental.csv`: some unit specification data not accounted for in the A-LEAF input format, like unit life
+   * `C2N_project_definitions.yml`: contains project activity cost and schedule information for coal-to-nuclear projects
 
    * `demand_data.csv`: normalized peak demand levels per simulated year (used to scale the `peak_demand` parameter)
 
+   * `gc_params.yml`: financial parameters which define the agents (GenCos)
+
    * `portfolio_retirement_specification.csv`: user-defined mandatory retirement dates for generation units. Any unit without an entry in this file is never forced to retire (though they can be voluntarily retired).
 
-   * `C2N_project_definitions.yml`: contains project activity cost and schedule information for coal-to-nuclear projects
+   * `<region>_portfolios.csv`: ownership breakdown by generator type and by agent. Totals MUST match totals in `ALEAF_<region>.xlsx`
+
+   * `unit_specs_abce_supplemental.csv`: some unit specification data not accounted for in the A-LEAF input format, like unit life
 
    * `inputs/ALEAF_inputs/`:
 
-     * `ALEAF_<region>.xlsx`: djfkjs
-
      * `ALEAF_Master_LC_GEP.xlsx`:
+
+     * `ALEAF_<region>.xlsx`: djfkjs
 
      * `ATBe.csv`:
 
