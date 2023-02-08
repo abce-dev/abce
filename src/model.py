@@ -32,6 +32,7 @@ from . import ABCEfunctions as ABCE
 from . import seed_creator as sc
 from . import ALEAF_interface as ALI
 from . import dispatch_ppx as dsp
+from . import ALEAF_templater as alt
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -104,8 +105,25 @@ class GridModel(Model):
         self.add_unit_specs_to_db()
 
         if self.settings["simulation"]["run_ALEAF"]:
-            # Copy the reference copy of ALEAF_Master.xlsx over to the ALEAF/setting directory
-            shutil.copy2(self.ALEAF_master_settings_ref, self.ALEAF_master_settings_remote)
+            # Load in the ALEAF data
+            ALEAF_data = alt.load_data(
+                             Path(
+                                  Path.cwd(),
+                                  self.settings["file_paths"]["ALEAF_settings_file"]
+                             )
+                         )
+
+            # Set the local save output path
+            output_path = Path(
+                              Path.cwd() /
+                              "outputs" /
+                              self.settings["simulation"]["ALEAF_scenario_name"]
+                          )
+
+            # Create the ALEAF_Master.xlsx file
+            alt.create_ALEAF_Master_file(ALEAF_data, settings, output_path)
+            shutil.copy2(Path(output_path / "ALEAF_Master.xlsx"), self.ALEAF_master_settings_remote)
+
             # Initialize the ALEAF model settings and generation technologies
             self.reinitialize_ALEAF_input_data()
             # Initialize the correct policy adjustments by unit type
