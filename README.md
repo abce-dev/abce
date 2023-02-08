@@ -186,6 +186,8 @@ The input files required to run ABCE are as follows:
 
    * `inputs/ALEAF_inputs/`:
 
+     * `ALEAF_Master.xlsx`: contains basic solver settings for A-LEAF. Should never need to be updated by the average user.
+
      * `ALEAF_Master_LC_GEP.xlsx`: The most important tab is the `Gen Technology` tab, which contains the base operational and cost specifications for all generation units. Users should make certain to update this tab according to their desired parameters. The other tabs can either be left as-is, or are better updated by setting values in `settings.yml`.
 
      * `ALEAF_<region>.xlsx`: The only important tab is the `gen` tab. Users should update this to reflect the desired total portfolio composition, as set previously in `<region>_portfolios.csv`.
