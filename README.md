@@ -168,7 +168,7 @@ run from the top level of the local `abce` directory. This command can accept se
 
   * `-d`: "demo" mode, pauses execution at the end of each time step to allow the user to review printed outputs
 
-If you'd like to forcefully halt execution of `abce`, press `Ctrl+C` in the terminal session. All data and results generated up to this point will be preserved in the database file (see [Outputs](#outputs)).
+If you'd like to halt execution of `abce` while it is running, press `Ctrl+C` in the terminal session. All data and results generated up to this point will be preserved in the database file (see [Outputs](#outputs)).
 
 
 ### Input files
