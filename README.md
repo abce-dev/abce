@@ -165,6 +165,42 @@ run from the top level of the local `abce` directory. This command can accept se
   * `-d`: "demo" mode, pauses execution at the end of each time step to allow the user to review printed outputs
 
 
+### Input files
+The input files required to run ABCE are as follows:
+
+ * `settings.yml`: contains all run-specific settings for each simulation. Data specified here supersedes data specified anywhere else.
+
+ * `inputs/`:
+
+   * `<region>_portfolios.csv`: ownership breakdown by generator type and by agent. Totals MUST match totals in `ALEAF_<region>.xlsx`
+
+   * `gc_params.yml`: financial parameters which define the agents (GenCos)
+
+   * `unit_specs_abce_supplemental.csv`: some unit specification data not accounted for in the A-LEAF input format, like unit life
+
+   * `demand_data.csv`: normalized peak demand levels per simulated year (used to scale the `peak_demand` parameter)
+
+   * `portfolio_retirement_specification.csv`: user-defined mandatory retirement dates for generation units. Any unit without an entry in this file is never forced to retire (though they can be voluntarily retired).
+
+   * `C2N_project_definitions.yml`: contains project activity cost and schedule information for coal-to-nuclear projects
+
+   * `inputs/ALEAF_inputs/`:
+
+     * `ALEAF_<region>.xlsx`: djfkjs
+
+     * `ALEAF_Master_LC_GEP.xlsx`:
+
+     * `ATBe.csv`:
+
+     * `timeseries_<quantity>_hourly.csv`: hourly timeseries data for each of the following quantities in the system:
+
+       * `load`: normalized to `peak_demand`
+
+       * `wind` and `solar`: wind and solar availability, normalized to the start-of-year installed capacity of each technology, respectively
+
+       * `reg`, `spin`, and `nspin`: ancillary service procurement requirements, in absolute terms (not scaled)
+
+
 ### Use ABCE with `watts`
 The[ Workflow and Template Toolkit for Simulations (`watts`)](https://github.com/watts-dev/watts) has an `abce` plugin. Please see the `watts` documentation for usage. This workflow tool is useful for conducting sensitivity analyses and other experiments with `abce`.
 
