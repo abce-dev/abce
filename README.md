@@ -13,6 +13,8 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
   - [Optional, Argonne only: installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf)
   - [Optional: installing with CPLEX](#optional-installing-with-cplex)
 * [Usage](#usage)
+  - [Running ABCE](#running-abce)
+  - [Input files](#input-files)
 * [Contributing](#contributing)
 * [Testing](#testing)
 * [License](#license)
@@ -142,6 +144,7 @@ If the cplex command is not found, try adding the absolute path of your cplex ex
 
 ## Usage
 
+### Running ABCE
 `abce` is invoked by the command:
 
   `python run.py`
