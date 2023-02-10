@@ -77,7 +77,7 @@ def initialize_tab(tab_data, ALEAF_settings, ABCE_settings):
         #   with a current value of None (these are either already broken,
         #   or awaiting actual values with dynamic fill routines, to be applied
         #   later)
-        field_problems = validate_field_value(field_data)
+        field_problems = validate_field_value(field_name, field_data)
         if len(field_problems) > 0:
             problems[field_name] = field_problems
 
@@ -133,7 +133,7 @@ def set_field_value(field_name, field_data, ALEAF_settings, ABCE_settings, probl
     return field_value
 
 
-def validate_field_value(field_data):
+def validate_field_value(field_name, field_data):
     problems = []
     field_value = field_data["field_value"]  # for ease of reference
 
@@ -148,8 +148,25 @@ def validate_field_value(field_data):
             # Make a list of type objects, converted from the strs specified
             valid_types = [getattr(__builtins__, type_name) for type_name in field_data["types"]]
             if type(field_value) not in valid_types:
-                problems.append("type")
-                skip = True
+                # If int is an allowed type and the value is convertible to
+                #   int, overwrite field_value with an int of itself
+                if getattr(__builtins__, "int") in valid_types:
+                    try:
+                        field_value = int(field_value)
+                    except ValueError:
+                        problems.append("type")
+                        skip = True
+                elif getattr(__builtins__, "float") in valid_types:
+                    # If float is an allowed type and the value is convertible
+                    #   to float, overwrite field_value with a float of itself
+                    try:
+                        field_value = float(field_value)
+                    except ValueError:
+                        problems.append("type")
+                        skip = True
+                else:
+                    problems.append("type")
+                    skip = True
 
         # Check for a list of allowed values
         if "allowed_values" in field_data.keys() and not skip:
@@ -182,11 +199,6 @@ def initialize_ALEAF_schema():
     ALEAF_files = {}
     for file_type, file_data in ALEAF_schema.items():
         ALEAF_files[file_type] = initialize_file(file_data, ALEAF_settings, ABCE_settings)
-
-    for key, val in ALEAF_files["ALEAF_Master"]["tabs"]["CPLEX_settings"]["tab_data"].items():
-        print(val["field_value"])
-
-    print(ALEAF_files["ALEAF_Master"]["tabs"]["CPLEX_settings"]["problems"])
 
 
 if __name__ == "__main__":
