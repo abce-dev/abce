@@ -70,10 +70,9 @@ ALEAF_Master:
       description:
       input_type: immutable
       default_value: True
-      types:
-        - str
       allowed_values:
         - "True"
+        - True
     num_solver_setting:
       description: Number of solver parameters provided. Computed dynamically, should never be user-specified.
       input_type: dynamic
@@ -181,9 +180,8 @@ ALEAF_Master:
       default_value: 0.01
       types:
         - float
-      min_value:
-        - 0.0001
-        - 0.99999
+      min_value: 0.00001
+      max_value: 0.99999
     CPX_PARAM_LPMETHOD:
       description: "0: Automatic (default); 1: primal simplex; 2: dual simplex; 3: network simplex; 4: barrier; 5: sifting; 6: concurrent (dual, barrier, and primal)"
       input_type: optional
@@ -528,9 +526,6 @@ ALEAF_Master_LC_GEP:
     is_VRE:
       description: Indicates whether unit is a nondispatchable variable renewable resource
       required: True
-      types:
-        - bool
-        - str
       allowed_values:
         - 0
         - 1
@@ -540,9 +535,6 @@ ALEAF_Master_LC_GEP:
     uses_fuel:
       description: Indicates whether unit uses fuel (e.g. coal, uranium, gas)
       required: True
-      types:
-        - bool
-        - str
       allowed_values:
         - 0
         - 1
