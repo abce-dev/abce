@@ -145,7 +145,9 @@ def validate_field_value(field_data):
     if field_value is not None:
         # Check the value's type
         if "types" in field_data.keys():
-            if type(field_value) not in field_data["types"]:
+            # Make a list of type objects, converted from the strs specified
+            valid_types = [getattr(__builtins__, type_name) for type_name in field_data["types"]]
+            if type(field_value) not in valid_types:
                 problems.append("type")
                 skip = True
 
