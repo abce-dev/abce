@@ -150,13 +150,13 @@ def validate_field_value(field_name, field_data):
             if type(field_value) not in valid_types:
                 # If int is an allowed type and the value is convertible to
                 #   int, overwrite field_value with an int of itself
-                if getattr(__builtins__, "int") in valid_types:
+                if int in valid_types:
                     try:
                         field_value = int(field_value)
                     except ValueError:
                         problems.append("type")
                         skip = True
-                elif getattr(__builtins__, "float") in valid_types:
+                elif float in valid_types:
                     # If float is an allowed type and the value is convertible
                     #   to float, overwrite field_value with a float of itself
                     try:
