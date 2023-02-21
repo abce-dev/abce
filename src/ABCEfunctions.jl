@@ -1488,8 +1488,14 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     # EBT
     transform!(fs, [:EBIT, :interest_payment] => ((EBIT, interest) -> EBIT - interest) => :EBT)
 
-    # Tax owed
-    tax_rate = 0.21
+    # Retrieve the system corporate tax rate from the database
+    command = string("SELECT value FROM model_params WHERE parameter == 'tax_rate'")
+    # Extract the value into a temporary dataframe
+    tax_rate = DBInterface.execute(db, command) |> DataFrame
+    # Pull out the bare value
+    tax_rate = tax_rate[1, :value]
+
+    # Compute actual tax paid
     transform!(fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_paid)
 
     # Net Income
