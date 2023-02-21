@@ -69,7 +69,6 @@ class GenCo(Agent):
         self.db = self.model.db
         self.cur = self.db.cursor()
         self.cur.execute(f"""INSERT INTO agent_params VALUES ({self.unique_id},
-                        {self.terminal_growth_rate},
                         {self.debt_fraction}, {self.cost_of_debt},
                         {self.cost_of_equity}, {self.starting_fcf},
                         {self.starting_debt}, {self.starting_PPE})""")
