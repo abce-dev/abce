@@ -14,7 +14,7 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, SCIP, HiGHS
+using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS
 
 try
     using CPLEX
@@ -64,8 +64,8 @@ function get_agent_params(db, agent_id)
 end
 
 
-function set_up_local_paths(settings)
-    settings["file_paths"]["ABCE_abs_path"] = @__DIR__
+function set_up_local_paths(settings, abce_abs_path)
+    settings["file_paths"]["ABCE_abs_path"] = abce_abs_path
     if settings["simulation"]["run_ALEAF"] == true
         try
             settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
@@ -1067,8 +1067,6 @@ function create_model_with_optimizer(settings)
         m = Model(GLPK.Optimizer)
     elseif solver == "cbc"
         m = Model(Cbc.Optimizer)
-    elseif solver == "scip"
-        m = Model(SCIP.Optimizer)
     elseif solver == "highs"
         m = Model(HiGHS.Optimizer)
     else
@@ -1490,8 +1488,14 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     # EBT
     transform!(fs, [:EBIT, :interest_payment] => ((EBIT, interest) -> EBIT - interest) => :EBT)
 
-    # Tax owed
-    tax_rate = 0.21
+    # Retrieve the system corporate tax rate from the database
+    command = string("SELECT value FROM model_params WHERE parameter == 'tax_rate'")
+    # Extract the value into a temporary dataframe
+    tax_rate = DBInterface.execute(db, command) |> DataFrame
+    # Pull out the bare value
+    tax_rate = tax_rate[1, :value]
+
+    # Compute actual tax paid
     transform!(fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_paid)
 
     # Net Income

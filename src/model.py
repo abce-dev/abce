@@ -27,11 +27,11 @@ from mesa.time import RandomActivation
 # import nrelpy.atb as ATB
 
 # import local modules
-from agent import GenCo
-import ABCEfunctions as ABCE
-import seed_creator as sc
-import ALEAF_interface as ALI
-import dispatch_ppx as dsp
+from .agent import GenCo
+from . import ABCEfunctions as ABCE
+from . import seed_creator as sc
+from . import ALEAF_interface as ALI
+from . import dispatch_ppx as dsp
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -45,6 +45,13 @@ class GridModel(Model):
         self.args = args
 
         self.settings = settings
+
+        # Check ./outputs/ dir and clear out old files
+        self.prepare_outputs_directory()
+
+        # If verbosity is 2 or 3, show the ABCE splash header
+        if self.args.verbosity >= 2:
+            self.show_abce_header()
 
         # Set the solver to be used for the agent optimizations
         self.solver = settings["simulation"]["solver"].lower()
@@ -71,8 +78,8 @@ class GridModel(Model):
 
         # Initialize database for managing asset and WIP construction project
         # data
-        db_file = (Path.cwd() / settings["file_paths"]["db_file"])
-        self.db, self.cur = sc.create_database(db_file, self.args.force)
+        self.db_file = (Path.cwd() / "outputs" / settings["simulation"]["ALEAF_scenario_name"] / settings["file_paths"]["db_file"])
+        self.db, self.cur = sc.create_database(self.db_file, self.args.force)
 
         # Load all-period demand data into the database
         self.load_demand_data_to_db()
@@ -150,12 +157,15 @@ class GridModel(Model):
 
         self.db.commit()
 
-        # Check ./outputs/ dir and clear out old files
+
+    def prepare_outputs_directory(self):
+        # Set up the output data path
         self.ABCE_output_data_path = (
             Path(os.getcwd()) /
             "outputs" /
             self.settings["simulation"]["ALEAF_scenario_name"]
         )
+
         if not Path(self.ABCE_output_data_path).is_dir():
             # If the desired output directory doesn't already exist, create it
             Path(self.ABCE_output_data_path).mkdir(exist_ok=True, parents=True)
@@ -164,6 +174,17 @@ class GridModel(Model):
             for existing_file in Path(self.ABCE_output_data_path).iterdir():
                 logging.debug(f"Deleting file {existing_file} from the output directory")
                 (Path(self.ABCE_output_data_path) / existing_file).unlink()
+
+
+    def show_abce_header(self):
+        logo_file = Path(
+                        self.settings["file_paths"]["ABCE_abs_path"] /
+                        "misc" /
+                        self.settings["file_paths"]["logo"]
+                    )
+        with open(logo_file, "r") as logo:
+            for line in logo.read().splitlines():
+                logging.log(self.settings["constants"]["vis_lvl"], line)
 
 
     def set_ALEAF_file_paths(self):
@@ -851,7 +872,7 @@ class GridModel(Model):
             "\nAll agent turns are complete.\n"
         )
 
-        self.db = sqlite3.connect(str(Path.cwd() / self.settings["file_paths"]["db_file"]))
+        self.db = sqlite3.connect(self.db_file, timeout=10)
         self.cur = self.db.cursor()
 
         # Show update tables in the terminal
@@ -918,11 +939,13 @@ class GridModel(Model):
     def check_for_sysimage_files(self):
         ABCE_sysimage_path = (Path(
             self.settings["file_paths"]["ABCE_abs_path"]) /
+            "env" /
             self.settings["file_paths"]["ABCE_sysimage_file"]
         )
 
         dispatch_sysimage_path = (Path(
             self.settings["file_paths"]["ABCE_abs_path"]) /
+            "env" /
             self.settings["file_paths"]["dispatch_sysimage_file"]
         )
 
@@ -1051,6 +1074,8 @@ class GridModel(Model):
         fin_insts_updates = pd.read_sql_query(
             f"SELECT * FROM financial_instrument_manifest WHERE pd_issued < {self.current_pd - 1}",
             self.db)
+
+        self.db.commit()
 
         # Delete all other contents of this table
         self.db.cursor().execute("DELETE FROM financial_instrument_manifest")

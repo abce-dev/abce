@@ -20,13 +20,11 @@ julia_pkg_list = [
     "PackageCompiler",
     "PowerModels",
     "PyCall",
-    "SCIP",
     "SQLite",
     "Tables",
     "XLSX",
     "YAML",
     "Cbc",
-    "SCIP",
     "HiGHS"
 ]
 
@@ -66,7 +64,7 @@ end
 Pkg.build("Conda")
 using Conda
 
-req_file = "requirements.txt"
+req_file = joinpath(@__DIR__, "requirements.txt")
 open(req_file, "r") do filehandle
     conda_list = readlines(filehandle)
     for i=1:size(conda_list)[1]

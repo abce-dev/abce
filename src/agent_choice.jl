@@ -16,9 +16,9 @@
 
 using Logging
 
-# @info "-----------------------------------------------------------"
-# @info "Julia agent choice algorithm: starting"
-# @info "Loading packages..."
+@debug "-----------------------------------------------------------"
+@debug "Julia agent choice algorithm: starting"
+@debug "Loading packages..."
 using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
 
 # Set up command-line parser
@@ -42,6 +42,10 @@ s = ArgParseSettings()
         required = false
         default = 1
         range_tester = x -> x in [0, 1, 2, 3]
+    "--abce_abs_path"
+        help = "absolute path to the top-level ABCE directory"
+        arg_type = String
+        required = true
 end
 
 # Retrieve parsed arguments from command line
@@ -81,7 +85,7 @@ using .ABCEfunctions, .Dispatch, .C2N
 ###### Set up inputs
 @info "Initializing data..."
 
-settings = ABCEfunctions.set_up_local_paths(settings)
+settings = ABCEfunctions.set_up_local_paths(settings, CLI_args["abce_abs_path"])
 
 solver = lowercase(settings["simulation"]["solver"])
 @debug string("Solver is `$solver`")
@@ -95,8 +99,6 @@ elseif solver == "glpk"
     using GLPK
 elseif solver == "cbc"
     using Cbc
-elseif solver == "scip"
-    using SCIP
 elseif solver == "highs"
     using HiGHS
 else
@@ -104,9 +106,9 @@ else
 end
 
 # File names
-db_file = joinpath(pwd(), settings["file_paths"]["db_file"])
+db_file = joinpath(pwd(), "outputs", settings["simulation"]["ALEAF_scenario_name"], settings["file_paths"]["db_file"])
 C2N_specs_file = joinpath(
-                     @__DIR__,
+                     settings["file_paths"]["ABCE_abs_path"],
                      "inputs",
                      "C2N_project_definitions.yml"
                  )
@@ -139,10 +141,6 @@ agent_params = ABCEfunctions.get_agent_params(db, agent_id)
 # System parameters
 # Read unit operational data (unit_specs) and number of unit types (num_types)
 unit_specs, num_types = ABCEfunctions.get_unit_specs(db)
-if pd == 0
-    # @info unit_specs
-    
-end
 num_alternatives = num_types * (num_lags + 1)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life

@@ -1,0 +1,14 @@
+name: abce_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - scipy
+  - pandas
+  - mesa
+  - openpyxl
+  - pytest
+  - matplotlib
+  - julia=1.8

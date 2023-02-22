@@ -85,12 +85,9 @@ abce_tables = {"WIP_projects":
 
                "agent_params":
                [("agent_id", "text", "PRIMARY KEY"),
-                ("tax_rate", "real"),
-                ("term_growth_rate", "real"),
                 ("debt_fraction", "real"),
                 ("cost_of_debt", "real"),
                 ("cost_of_equity", "real"),
-                ("starting_fcf", "real"),
                 ("starting_debt", "real"),
                 ("starting_PPE", "real")
                 ],
@@ -336,4 +333,3 @@ def create_database(db_file_name, replace=False):
 # Set name and path for ABCE database file
 if __name__ == "__main__":
     create_database(sys.argv[1])
-    # TODO: add argparse here

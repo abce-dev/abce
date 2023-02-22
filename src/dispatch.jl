@@ -1,6 +1,6 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, SCIP, HiGHS
+using Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS
 
 try
     using CPLEX
@@ -69,25 +69,20 @@ end
 function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:current_pd + settings["dispatch"]["num_dispatch_years"]
-        # @info "\n\nDISPATCH SIMULATION: YEAR $y"
+        @debug "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Select the current year's expected portfolio
         year_portfolio = all_year_system_portfolios[y]
-        # @info year_portfolio
 
         # Determine appropriate total demand for this year
         year_demand = filter(:period => ((pd) -> pd == y), total_demand)[1, :real_demand]
-        # @info year_demand
 
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
         run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
-        # @info "DISPATCH SIMULATION: YEAR $y COMPLETE."
-        if y < current_pd + settings["dispatch"]["num_dispatch_years"]
-            # @info "RUN NEXT YEAR: $run_next_year"
-        end
+        @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
         if !run_next_year
             break
@@ -104,19 +99,11 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
     all_gc_results, all_prices = propagate_all_results(fc_pd-1, all_gc_results, all_prices, current_pd)
 
     # Save the raw results
-    save_raw_results(all_prices, all_gc_results)
+    #save_raw_results(all_prices, all_gc_results)
 
     # Create the final results set for use by the agent decision algorithm
-    # @info "Postprocessing all dispatch results..."
+    @debug "Postprocessing all dispatch results..."
     long_econ_results = postprocess_results(all_year_system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
-
-    # Save a copy of the results to file
-    savefile = joinpath(
-                   pwd(),
-                   "tmp",
-                   "long_econ_results_$current_pd.csv"
-               )
-    # CSV.write(savefile, long_econ_results)
 
     return long_econ_results    
 
@@ -248,8 +235,6 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
         m = Model(GLPK.Optimizer)
     elseif solver == "cbc"
         m = Model(Cbc.Optimizer)
-    elseif solver == "scip"
-        m = Model(SCIP.Optimizer)
     elseif solver == "highs"
         m = Model(HiGHS.Optimizer)
     else
@@ -327,7 +312,7 @@ function solve_model(model; model_type="integral")
         # Optimize!
         optimize!(model)
         status = string(termination_status.(model))
-        # @info "$model_type model status: $status"
+        @debug "$model_type model status: $status"
         gen_qty = nothing
         c = nothing
         if status == "OPTIMAL"
@@ -340,8 +325,7 @@ function solve_model(model; model_type="integral")
     elseif model_type == "relaxed_integrality"
         optimize!(model)
         status = string(termination_status.(model))
-        # @info "$model_type model status: $status"
-        
+        @debug "$model_type model status: $status"
 
         returns = model
 
@@ -433,11 +417,11 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     # Set up representative days for wind and solar
     ts_data = set_up_wind_solar_repdays(ts_data)
 
-    # @info "Setting up optimization model..."
+    @debug "Setting up optimization model..."
     m, portfolio_specs = set_up_model(ts_data, year_portfolio, unit_specs, solver)
 
-    # @info "Optimization model set up."
-    # @info string("Solving repday dispatch for year ", y, "...")
+    @debug "Optimization model set up."
+    @debug string("Solving repday dispatch for year ", y, "...")
 
     # Create a copy of the model, to use later for the relaxed-integrality
     #   solution
@@ -448,8 +432,6 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
         set_optimizer(m_copy, GLPK.Optimizer)
     elseif solver == "cbc"
         set_optimizer(m_copy, Cbc.Optimizer)
-    elseif solver == "scip"
-        set_optimizer(m_copy, SCIP.Optimizer)
     elseif solver == "highs"
         set_optimizer(m_copy, HiGHS.Optimizer)
     end
@@ -464,7 +446,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
 
         # Set up a relaxed-integrality version of this model, to allow retrieval
         #   of dual values for the mkt_equil constraint
-        # @info "Solving relaxed-integrality problem to get shadow prices..."
+        @debug "Solving relaxed-integrality problem to get shadow prices..."
         undo = relax_integrality(m_copy)
 
         # Solve the relaxed-integrality model to compute the shadow prices
@@ -478,7 +460,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
                          all_prices
                      )
 
-        # @info "Year $y dispatch run complete."
+        @debug "Year $y dispatch run complete."
         run_next_year = true
 
     else
@@ -499,19 +481,19 @@ function save_raw_results(all_prices, all_gc_results)
                 "tmp",
                 "price_results.csv"
             )
-    # CSV.write(pfile, all_prices)
+    CSV.write(pfile, all_prices)
 
     gcfile = joinpath(
                  pwd(),
                  "tmp",
                  "./gc_results.csv"
              )
-    # CSV.write(gcfile, all_gc_results)
+    CSV.write(gcfile, all_gc_results)
 end
 
 
 function pivot_gc_results(all_gc_results, all_prices, repdays_data=nothing)
-    # @info "Postprocessing results..."
+    @debug "Postprocessing results..."
     # Pivot generation data by unit type
     # Output format: y, d, h, Wind, Solar, ..., AdvancedNuclear
     g_pivot = select(all_gc_results, Not(:commit))
