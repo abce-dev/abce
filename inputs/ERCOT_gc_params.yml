@@ -56,8 +56,8 @@
     debt_fraction: 0.1
     cost_of_debt: 0.1
     cost_of_equity: 0.15
-    starting_debt:  258000000
-    starting_PPE: 25200000000
+    starting_debt:  0
+    starting_PPE: 500000000
 
 # Balance of System
 208:
