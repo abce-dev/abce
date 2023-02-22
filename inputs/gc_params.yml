@@ -21,67 +21,49 @@
 
 # City of San Antonio
 203:
-    terminal_growth_rate: 0.03
     debt_fraction: 0.5
     cost_of_debt: 0.05
     cost_of_equity: 0.12
-    tax_rate: 0.21
-    starting_fcf:   551000000
     starting_debt:  258000000
     starting_PPE: 25200000000
 
 # Renewables, Inc.
 204:
-    terminal_growth_rate: 0.03
     debt_fraction: 0.5
     cost_of_debt: 0.05
     cost_of_equity: 0.12
-    tax_rate: 0.21
-    starting_fcf:   551000000
     starting_debt:  258000000
     starting_PPE: 25200000000
 
 # Lean Gas Ops, Inc.
 205:
-    terminal_growth_rate: 0.03
     debt_fraction: 0.5
     cost_of_debt: 0.05
     cost_of_equity: 0.12
-    tax_rate: 0.21
-    starting_fcf:   551000000
     starting_debt:  258000000
     starting_PPE: 25200000000
 
 # Legacy Fossil Operator, Inc.
 206:
-    terminal_growth_rate: 0.03
     debt_fraction: 0.5
     cost_of_debt: 0.05
     cost_of_equity: 0.12
-    tax_rate: 0.21
-    starting_fcf:   551000000
     starting_debt:  258000000
     starting_PPE: 25200000000
 
 # TinySolar
 207:
-    terminal_growth_rate: 0.03
     debt_fraction: 0.5
     cost_of_debt: 0.05
     cost_of_equity: 0.12
-    tax_rate: 0.21
-    starting_fcf:   551000000
     starting_debt:  258000000
     starting_PPE: 25200000000
 
 # Balance of System
 208:
-    terminal_growth_rate: 0.03
     debt_fraction: 0.5
     cost_of_debt: 0.05
     cost_of_equity: 0.12
-    tax_rate: 0.21
-    starting_fcf:   551000000
     starting_debt:  258000000
     starting_PPE: 25200000000
 
