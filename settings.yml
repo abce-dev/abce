@@ -47,7 +47,7 @@ file_paths:
   db_file: "abce_db.db"
   demand_data_file: "inputs/demand_data.csv"
   dispatch_sysimage_file: "dispatch.so"
-  gc_params_file: "inputs/gc_params.yml"
+  gc_params_file: "inputs/ERCOT_gc_params.yml"
   output_file: "outputs.xlsx"
   portfolios_file: "inputs/ERCOT_portfolios.csv"
   retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
