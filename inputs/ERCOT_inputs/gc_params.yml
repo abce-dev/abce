@@ -3,7 +3,7 @@
 # Financial parameters are rough estimates for the GenCos which approximate
 #   real firms, and are representative values for the non-real GenCos.
 
-# Luminant
+# NRG
 201:
     terminal_growth_rate: 0.03
     debt_fraction: 0.5
@@ -14,7 +14,7 @@
     starting_debt: 1000000000
     starting_PPE:   222000000
 
-# NRG
+# Luminant
 202:
     terminal_growth_rate: 0.03
     debt_fraction: 0.5
