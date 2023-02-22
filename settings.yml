@@ -1,12 +1,12 @@
 simulation:
-  ALEAF_scenario_name: "ABCE_IL"
+  ALEAF_scenario_name: "ABCE_ERCOT"
   solver: "HiGHS"
-  num_steps: 2
+  num_steps: 4
   run_ALEAF: False
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 34000
+  peak_demand: 80000
   conv_nuclear_FOM: 80
   natural_gas_price: 4  # $/MWh
   policies:
@@ -25,6 +25,7 @@ scenario:
     - Solar
     - NGCC
     - NGCT
+    - ConventionalNuclear
     - AdvancedNuclear
 
 
@@ -48,7 +49,7 @@ file_paths:
   dispatch_sysimage_file: "dispatch.so"
   gc_params_file: "inputs/gc_params.yml"
   output_file: "outputs.xlsx"
-  portfolios_file: "inputs/IL_portfolios.csv"
+  portfolios_file: "inputs/ERCOT_portfolios.csv"
   retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
   seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_IL_C2N__dispatch_summary_OP__step_0.csv"
   time_series_data_file: "inputs/timeseriesParams.xlsx"
@@ -101,7 +102,7 @@ agent_opt:
 ALEAF:
   ALEAF_master_settings_file: "ALEAF_Master.xlsx"
   ALEAF_model_type: "LC_GEP"
-  ALEAF_region: "IL"
+  ALEAF_region: "ERCOT"
   ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
-  ALEAF_portfolio_file: "ALEAF_IL.xlsx"
+  ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
 
