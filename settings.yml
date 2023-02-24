@@ -1,18 +1,17 @@
 simulation:
   ALEAF_scenario_name: "ABCE_ERCOT"
   solver: "HiGHS"
-  num_steps: 4
+  num_steps: 1 
   run_ALEAF: False
   C2N_assumption: baseline
 
 scenario:
   peak_demand: 80000
-  conv_nuclear_FOM: 80
   natural_gas_price: 4  # $/MWh
   policies:
     CTAX:
       enabled: True
-      qty: 60  # $/t CO2
+      qty: 150  # $/t CO2
     PTC:
       enabled: False
       eligible:
@@ -77,7 +76,7 @@ demand:
 #   dispatch data
 dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
-  num_repdays: 20
+  num_repdays: 35
   hist_wt: 0.4  # Weighting of historical versus projected data
   hist_decay: 0.5   # Decay factor for each historical data year
 
@@ -89,7 +88,7 @@ agent_opt:
   max_type_newbuilds_per_pd: 5
   shortage_protection_period: 8
   cap_decrease_threshold: 1.05
-  cap_decrease_margin: -0.2
+  cap_decrease_margin: -0.05
   cap_maintain_threshold: 1.0
   cap_maintain_margin: 0.0
   cap_increase_margin: 0.02
