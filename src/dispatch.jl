@@ -248,8 +248,11 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     # c: number of units of each type committed in each hour
     @variable(m, c[1:num_units, 1:num_days, 1:num_hours] >= 0, Int)
 
+    # s: penalty variable for energy not served in each hour
+    @variable(m, s[1:num_days, 1:num_hours] >= 0)
+
     # Total generation per hour must be greater than or equal to the demand
-    @constraint(m, mkt_equil[k=1:num_days, j=1:num_hours], sum(g[i, k, j] for i = 1:num_units) >= load_repdays[j, k])
+    @constraint(m, mkt_equil[k=1:num_days, j=1:num_hours], sum(g[i, k, j] for i = 1:num_units) + s[k, j] >= load_repdays[j, k])
 
     # Number of committed units per hour must be less than or equal to the total
     #   number of units of that type in the system
@@ -301,7 +304,9 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
         end
     end
 
-    @objective(m, Min, sum(sum(sum(g[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] - portfolio_specs[i, :policy_adj_per_MWh]) for i = 1:num_units))
+    ENS_penalty = 99999
+
+    @objective(m, Min, sum(sum(sum(g[i, k, j] + ENS_penalty * s[k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] - portfolio_specs[i, :policy_adj_per_MWh]) for i = 1:num_units))
 
     return m, portfolio_specs
 end
@@ -362,8 +367,13 @@ function reshape_shadow_price(model, ts_data, y, num_hours, num_days, all_prices
     prices = zeros(1, num_hours*num_days)
     for j = 1:num_hours
         for k = 1:num_days
+            # Ensure the shadow price is no greater than the system cap
+            price = (-1) * market_prices[k, j]
+            if price > 9000
+                price = 9000
+            end
             line = (y = y, d = k, h = j,
-                    price = (-1) * market_prices[k, j])
+                    price = price)
             push!(all_prices, line)
         end
     end
