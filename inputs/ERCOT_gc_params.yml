@@ -7,56 +7,56 @@
 201:
     debt_fraction: 0.5
     cost_of_debt: 0.03
-    cost_of_equity: 0
-    starting_debt: 1000000000
-    starting_PPE:  1000000000
+    cost_of_equity: 0.08
+    starting_debt: 2000000000
+    starting_PPE:   800000000
 
 # Luminant
 202:
     debt_fraction: 0.5
     cost_of_debt: 0.03
-    cost_of_equity: 0
-    starting_debt: 1000000000
-    starting_PPE:  1500000000
+    cost_of_equity: 0.09
+    starting_debt: 2000000000
+    starting_PPE:  1000000000
 
 # City of San Antonio
 203:
     debt_fraction: 0.9
     cost_of_debt: 0.02
-    cost_of_equity: 0
-    starting_debt: 1500000000
-    starting_PPE:  1250000000
+    cost_of_equity: 0.05
+    starting_debt: 3000000000
+    starting_PPE:  1000000000
 
 # Renewables, Inc.
 204:
     debt_fraction: 0.5
     cost_of_debt: 0.06
-    cost_of_equity: 0
-    starting_debt: 100000000
-    starting_PPE:  200000000
+    cost_of_equity: 0.11
+    starting_debt: 200000000
+    starting_PPE:   90000000
 
 # Lean Gas Ops, Inc.
 205:
     debt_fraction: 0.5
     cost_of_debt: 0.04
-    cost_of_equity: 0
-    starting_debt: 300000000
-    starting_PPE:  900000000
+    cost_of_equity: 0.07
+    starting_debt: 500000000
+    starting_PPE:  200000000
 
 # Legacy Fossil Operator, Inc.
 206:
     debt_fraction: 0.5
     cost_of_debt: 0.04
-    cost_of_equity: 0
-    starting_debt:  1500000000
-    starting_PPE:    900000000
+    cost_of_equity: 0.1
+    starting_debt:  4000000000
+    starting_PPE:    600000000
 
 # TinySolar
 207:
     debt_fraction: 0.1
     cost_of_debt: 0.1
-    cost_of_equity: 0
-    starting_debt:  0
+    cost_of_equity: 0.11
+    starting_debt:  10000000
     starting_PPE: 90000000
 
 # Balance of System
@@ -64,6 +64,6 @@
     debt_fraction: 0.5
     cost_of_debt: 0.99
     cost_of_equity: 0.99
-    starting_debt:  258000000000
-    starting_PPE: 25200000000
+    starting_debt:  9000000000000
+    starting_PPE: 1000000
 
