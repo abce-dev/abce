@@ -80,13 +80,18 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
-        run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
+        run_next_year, total_ENS = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
         if !run_next_year
             break
         end
+
+        if total_ENS > settings["system"]["max_total_ENS"] && y == current_pd
+            throw(ErrorException("In the upcoming dispatch year, the system is projected to experience a total energy shortage which exceeds the maximum allowed level of energy not served (ENS). The system portfolio is likely in an unsalvageable state of supply insufficiency in the immediate term. The run will now terminate."))
+        end
+
     end
 
     # If no years ran correctly, throw an error and exit
@@ -320,12 +325,14 @@ function solve_model(model; model_type="integral")
         @debug "$model_type model status: $status"
         gen_qty = nothing
         c = nothing
+        s = nothing
         if status == "OPTIMAL"
             gen_qty = value.(model[:g])
             c = value.(model[:c])
+            s = value.(model[:s])
         end
 
-        returns = model, status, gen_qty, c
+        returns = model, status, gen_qty, c, s
 
     elseif model_type == "relaxed_integrality"
         optimize!(model)
@@ -448,7 +455,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     set_silent(m_copy)
 
     # Solve the integral optimization problem
-    m, status, gen_qty, c = solve_model(m, model_type = "integral")
+    m, status, gen_qty, c, s = solve_model(m, model_type = "integral")
 
     if status == "OPTIMAL"
         # Save the generation and commitment results from the integral problem
@@ -470,6 +477,10 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
                          all_prices
                      )
 
+        # Determine the total level of energy not served (ENS) for this
+        #   dispatch result
+        total_ENS = sum(sum(s[k, j] for k=1:size(s)[1]) for j = 1:size(s)[2])
+
         @debug "Year $y dispatch run complete."
         run_next_year = true
 
@@ -478,9 +489,10 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
         #   not had a chance to address conditions in this year yet
         # Break the loop
         run_next_year = false
+        total_ENS = nothing
     end
 
-    return run_next_year
+    return run_next_year, total_ENS
 
 end
 
