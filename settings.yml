@@ -1,18 +1,17 @@
 simulation:
-  ALEAF_scenario_name: "ABCE_IL"
+  ALEAF_scenario_name: "ABCE_ERCOT"
   solver: "HiGHS"
-  num_steps: 2
+  num_steps: 1 
   run_ALEAF: False
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 34000
-  conv_nuclear_FOM: 80
+  peak_demand: 80000
   natural_gas_price: 4  # $/MWh
   policies:
     CTAX:
       enabled: True
-      qty: 60  # $/t CO2
+      qty: 150  # $/t CO2
     PTC:
       enabled: False
       eligible:
@@ -25,6 +24,7 @@ scenario:
     - Solar
     - NGCC
     - NGCT
+    - ConventionalNuclear
     - AdvancedNuclear
 
 
@@ -46,9 +46,9 @@ file_paths:
   db_file: "abce_db.db"
   demand_data_file: "inputs/demand_data.csv"
   dispatch_sysimage_file: "dispatch.so"
-  gc_params_file: "inputs/gc_params.yml"
+  gc_params_file: "inputs/ERCOT_gc_params.yml"
   output_file: "outputs.xlsx"
-  portfolios_file: "inputs/IL_portfolios.csv"
+  portfolios_file: "inputs/ERCOT_portfolios.csv"
   retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
   seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_IL_C2N__dispatch_summary_OP__step_0.csv"
   time_series_data_file: "inputs/timeseriesParams.xlsx"
@@ -76,7 +76,7 @@ demand:
 #   dispatch data
 dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
-  num_repdays: 20
+  num_repdays: 35
   hist_wt: 0.4  # Weighting of historical versus projected data
   hist_decay: 0.5   # Decay factor for each historical data year
 
@@ -88,7 +88,7 @@ agent_opt:
   max_type_newbuilds_per_pd: 5
   shortage_protection_period: 8
   cap_decrease_threshold: 1.05
-  cap_decrease_margin: -0.2
+  cap_decrease_margin: -0.05
   cap_maintain_threshold: 1.0
   cap_maintain_margin: 0.0
   cap_increase_margin: 0.02
@@ -101,7 +101,7 @@ agent_opt:
 ALEAF:
   ALEAF_master_settings_file: "ALEAF_Master.xlsx"
   ALEAF_model_type: "LC_GEP"
-  ALEAF_region: "IL"
+  ALEAF_region: "ERCOT"
   ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
-  ALEAF_portfolio_file: "ALEAF_IL.xlsx"
+  ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
 
