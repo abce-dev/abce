@@ -80,13 +80,18 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
-        run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
+        run_next_year, total_ENS = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
         if !run_next_year
             break
         end
+
+        if total_ENS > settings["system"]["max_total_ENS"] && y == current_pd
+            throw(ErrorException("In the upcoming dispatch year, the system is projected to experience a total energy shortage which exceeds the maximum allowed level of energy not served (ENS). The system portfolio is likely in an unsalvageable state of supply insufficiency in the immediate term. The run will now terminate."))
+        end
+
     end
 
     # If no years ran correctly, throw an error and exit
@@ -248,8 +253,11 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     # c: number of units of each type committed in each hour
     @variable(m, c[1:num_units, 1:num_days, 1:num_hours] >= 0, Int)
 
+    # s: penalty variable for energy not served in each hour
+    @variable(m, s[1:num_days, 1:num_hours] >= 0)
+
     # Total generation per hour must be greater than or equal to the demand
-    @constraint(m, mkt_equil[k=1:num_days, j=1:num_hours], sum(g[i, k, j] for i = 1:num_units) >= load_repdays[j, k])
+    @constraint(m, mkt_equil[k=1:num_days, j=1:num_hours], sum(g[i, k, j] for i = 1:num_units) + s[k, j] >= load_repdays[j, k])
 
     # Number of committed units per hour must be less than or equal to the total
     #   number of units of that type in the system
@@ -301,7 +309,9 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
         end
     end
 
-    @objective(m, Min, sum(sum(sum(g[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] - portfolio_specs[i, :policy_adj_per_MWh]) for i = 1:num_units))
+    ENS_penalty = 99999
+
+    @objective(m, Min, sum(sum(sum(g[i, k, j] + ENS_penalty * s[k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] - portfolio_specs[i, :policy_adj_per_MWh]) for i = 1:num_units))
 
     return m, portfolio_specs
 end
@@ -315,12 +325,14 @@ function solve_model(model; model_type="integral")
         @debug "$model_type model status: $status"
         gen_qty = nothing
         c = nothing
+        s = nothing
         if status == "OPTIMAL"
             gen_qty = value.(model[:g])
             c = value.(model[:c])
+            s = value.(model[:s])
         end
 
-        returns = model, status, gen_qty, c
+        returns = model, status, gen_qty, c, s
 
     elseif model_type == "relaxed_integrality"
         optimize!(model)
@@ -362,8 +374,13 @@ function reshape_shadow_price(model, ts_data, y, num_hours, num_days, all_prices
     prices = zeros(1, num_hours*num_days)
     for j = 1:num_hours
         for k = 1:num_days
+            # Ensure the shadow price is no greater than the system cap
+            price = (-1) * market_prices[k, j]
+            if price > 9000
+                price = 9000
+            end
             line = (y = y, d = k, h = j,
-                    price = (-1) * market_prices[k, j])
+                    price = price)
             push!(all_prices, line)
         end
     end
@@ -438,7 +455,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     set_silent(m_copy)
 
     # Solve the integral optimization problem
-    m, status, gen_qty, c = solve_model(m, model_type = "integral")
+    m, status, gen_qty, c, s = solve_model(m, model_type = "integral")
 
     if status == "OPTIMAL"
         # Save the generation and commitment results from the integral problem
@@ -460,6 +477,10 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
                          all_prices
                      )
 
+        # Determine the total level of energy not served (ENS) for this
+        #   dispatch result
+        total_ENS = sum(sum(s[k, j] for k=1:size(s)[1]) for j = 1:size(s)[2])
+
         @debug "Year $y dispatch run complete."
         run_next_year = true
 
@@ -468,9 +489,10 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
         #   not had a chance to address conditions in this year yet
         # Break the loop
         run_next_year = false
+        total_ENS = nothing
     end
 
-    return run_next_year
+    return run_next_year, total_ENS
 
 end
 
