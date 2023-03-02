@@ -5,9 +5,10 @@ agent_id,unit_type,num_units
 201,ConventionalNuclear,4
 201,Wind,1
 202,Coal,8
-202,NGCC,13
-202,NGCT,27
+202,NGCC,39
+202,NGCT,69
 202,ConventionalNuclear,6
+202,Solar,6
 203,Coal,5
 203,NGCC,17
 203,NGCT,9
@@ -22,6 +23,6 @@ agent_id,unit_type,num_units
 206,NGCT,40
 207,Solar,6
 208,Wind,238
-208,Solar,67
-208,NGCC,147
-208,NGCT,46
+208,Solar,61
+208,NGCC,121
+208,NGCT,4
