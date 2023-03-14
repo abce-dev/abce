@@ -163,25 +163,23 @@ echo "ABCE environment created successfully."
 # Update the .bashrc file
 #################################################################
 
-# Determine the system default shell, in order to search for the correct
-#   terminal session configuration file
-if [[ $( ps -p $$ | grep bash ) ]]; then
-    shell="bash"
-elif [[ $( ps -p $$ | grep zsh ) ]]; then
-    shell="zsh"
-fi
+# Determine the system default shell
+shell="${SHELL##*/}"
 
+# Set the configuration file path
 RC_FILE="$HOME/.${shell}rc"
 
 # If the shell configuration file doesn't already exist: create it
 if [[ ! -f "${RC_FILE}" ]]; then
-    echo "No .bashrc file found; creating a new one at ${RC_FILE}";
-    touch "${RC_FILE}";
+    echo "No .${shell}rc file found; creating a new one at ${RC_FILE}"
+    touch "${RC_FILE}"
 fi
 
 # Create an associative array to allow looping over ABCE environment variables
-declare -A env_vars
-env_vars=( ["ABCE_DIR"]="$abce_dir" ["ALEAF_DIR"]="$aleaf_dir" )
+env_vars=( "ABCE_DIR=$abce_dir" "ALEAF_DIR=$aleaf_dir" )
+for var in "${env_vars[@]}"; do
+    echo "export $var" >> "${RC_FILE}"
+done
 
 # Update or append values for each environment variable in the rc file
 echo "Updating environment variables in ${RC_FILE}"
@@ -202,9 +200,9 @@ done
 echo "Ensuring Julia 1.8.2 is added to \$PATH in ${RC_FILE}"
 
 # Get a list of all occurrences of 'julia' in the bashrc file
-readarray -t julia_lines < <(grep --null -E "export PATH=.*julia.*" "${RC_FILE}")
+IFS=$'\n' julia_lines=($(grep --null -E "export PATH=.*julia.*" "${RC_FILE}" | sed 's/.*=//' | sed 's/".*//'))
 
-if [[ ! -z $julia_lines ]]; then
+if [[ ${#julia_lines[@]} -ne 0 ]]; then
     # If .bashrc already has a line adding a different version of julia to the
     #    path, let the user know that this will update which version of Julia
     #    is found globally
@@ -251,3 +249,4 @@ if [[ ! -z $CONDA_ENV_NAME ]]; then
     echo ">$ conda activate $CONDA_ENV_NAME"
 fi
 echo
+
