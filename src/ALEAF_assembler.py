@@ -154,17 +154,29 @@ def validate_field_value(field_name, field_data):
                     try:
                         field_value = int(field_value)
                     except ValueError:
-                        problems.append("type")
-                        skip = True
-                elif float in valid_types:
+                        pass
+                elif float in valid_types and type(field_value) not in valid_types:
                     # If float is an allowed type and the value is convertible
                     #   to float, overwrite field_value with a float of itself
                     try:
                         field_value = float(field_value)
                     except ValueError:
-                        problems.append("type")
-                        skip = True
+                        pass
+                elif str in valid_types and type(field_value) not in valid_types:
+                    # Try str, if allowed
+                    try:
+                        field_value = str(field_value)
+                    except ValueError:
+                        pass
+                elif bool in valid_types and type(field_value) not in valid_types:
+                    # Try bool, if allowed
+                    try:
+                        field_value = bool(field_value)
+                    except:
+                        pass
                 else:
+                    # If the type can't be automatically fixed, mark it as a 
+                    #   problem and continue to the next field_value
                     problems.append("type")
                     skip = True
 
