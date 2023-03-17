@@ -5,8 +5,8 @@ ALEAF_Master_LC_GEP:
     export_model_lp_operation_flag: "FALSE"
     model_lp_file_name_value: ALEAF_LC_GEP_model_instance.lp
   planning_design:
-    current_year_value:  2020
-    final_year_value: 2021
+    current_year_value:  2022
+    final_year_value: 2022
     numstages_value: 1
     loadincreaserate_base_value: 0
     WACC_value: 0.058
@@ -16,7 +16,7 @@ ALEAF_Master_LC_GEP:
     regulation_cost_scale_value: 0.2
     CTAX_in_MC_calculation_flag: "FALSE"
   simulation_settings:
-    test_system_name: IL
+    test_system_name: ERCOT
     fuel_price_projection_flag: "FALSE"
     capex_projection_flag: "FALSE"
     generate_networkdata_flag: "TRUE"
@@ -24,7 +24,7 @@ ALEAF_Master_LC_GEP:
     power_flow_mode_flag: "None"
     bus_mapping_flag: "FALSE"
     network_reduction_flag: "FALSE"
-    conduct_scenario_reduction_flag: "FALSE"
+    conduct_scenario_reduction_flag: "TRUE"
     big_M_value: 1.00e-5
     run_expansion_flag: "TRUE"
     run_operation_flag: "TRUE"
@@ -32,7 +32,7 @@ ALEAF_Master_LC_GEP:
     per_unit_base_value: 1
     generation_outage_flag: "FALSE"
   scenario_settings:
-    scenario_name: ALEAF_IL
+    scenario_name: ALEAF_ERCOT
     ATB_Setting: ATB_ID_1
     NDAYS: 7
     NDAYS_OP: 365
