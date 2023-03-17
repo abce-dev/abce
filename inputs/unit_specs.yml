@@ -2,11 +2,11 @@ wind:
   capacity: 100   # MW
   max_PL: 1.0
   min_PL: 0.0
-  overnight_capital_cost: ATB
+  overnight_capital_cost: 1381
   retirement_cost: 0.0
-  FOM: ATB    # $/kW-yr
+  FOM: 40.72    # $/kW-yr
   VOM: 0.0    # $/MWh
-  fuel_cost: 0.0
+  fuel_cost_per_MMBTU: 0.0
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
@@ -24,15 +24,23 @@ wind:
   construction_duration: 3
   const_dur_stdev: 0
   unit_life: 30
+  ATB_search_settings:
+    Tech: LandBasedWind
+    TechDetail: LTRG3
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    "ATB Year": 2020
 solar:
   capacity: 100   # MW
   max_PL: 1.0
   min_PL: 0.0
-  overnight_capital_cost: ATB
+  overnight_capital_cost: 1095
   retirement_cost: 0.0
-  FOM: ATB    # $/kW-yr
+  FOM: 12.82    # $/kW-yr
   VOM: 0.0    # $/MWh
-  fuel_cost: 0.0
+  fuel_cost_per_MMBTU: 0.0
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
@@ -50,16 +58,24 @@ solar:
   construction_duration: 3
   const_dur_stdev: 0
   unit_life: 30
+  ATB_search_settings:
+    Tech: UtilityPV
+    TechDetail: KansasCity
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    "ATB Year": 2020
 coal:
   capacity: 500   # MW
   max_PL: 0.84
   min_PL: 0.4
-  overnight_capital_cost: ATB
+  overnight_capital_cost: 4099
   retirement_cost: 0.0
-  FOM: ATB    # $/kW-yr
-  VOM: ATB    # $/MWh
+  FOM: 39.70    # $/kW-yr
+  VOM: 4.4    # $/MWh
   fuel_type: coal
-  fuel_cost: ATB
+  fuel_cost_per_MMBTU: 16.56
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
@@ -77,16 +93,24 @@ coal:
   construction_duration: 5
   const_dur_stdev: 0
   unit_life: 40
+  ATB_search_settings:
+    Tech: Coal
+    TechDetail: newAvgCF
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    "ATB Year": 2020
 ngcc:
   capacity: 200   # MW
   max_PL: 0.9
   min_PL: 0.5
-  overnight_capital_cost: ATB
+  overnight_capital_cost: 1008
   retirement_cost: 0.0
-  FOM: ATB    # $/kW-yr
-  VOM: ATB    # $/MWh
+  FOM: 12.86    # $/kW-yr
+  VOM: 2.16    # $/MWh
   fuel_type: natural_gas
-  fuel_cost: ATB
+  fuel_cost_per_MMBTU: 3.25
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
@@ -104,16 +128,24 @@ ngcc:
   construction_duration: 3
   const_dur_stdev: 0
   unit_life: 30
+  ATB_search_settings:
+    Tech: NaturalGas
+    TechDetail: CCAvgCF
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    "ATB Year": 2020
 ngct:
   capacity: 50   # MW
   max_PL: 0.92
   min_PL: 0.0
-  overnight_capital_cost: ATB
+  overnight_capital_cost: 925
   retirement_cost: 0.0
-  FOM: ATB    # $/kW-yr
-  VOM: ATB    # $/MWh
+  FOM: 11.39    # $/kW-yr
+  VOM: 4.50    # $/MWh
   fuel_type: natural_gas
-  fuel_cost: ATB
+  fuel_cost_per_MMBTU: 3.25
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
@@ -131,16 +163,24 @@ ngct:
   construction_duration: 3
   const_dur_stdev: 0
   unit_life: 30
+  ATB_search_settings:
+    Tech: NaturalGas
+    TechDetail: CTAvgCF
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    "ATB Year": 2020
 conventional_nuclear:
   capacity: 400   # MW
   max_PL: 0.93
   min_PL: 0.93
   overnight_capital_cost: 6000
   retirement_cost: 0.0
-  FOM: ATB    # $/kW-yr
-  VOM: ATB    # $/MWh
+  FOM: 118.99    # $/kW-yr
+  VOM: 2.32    # $/MWh
   fuel_type: nuclear
-  fuel_cost: ATB
+  fuel_cost_per_MMBTU: 0.665
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
@@ -158,6 +198,14 @@ conventional_nuclear:
   construction_duration: 6
   const_dur_stdev: 0
   unit_life: 60
+  ATB_search_settings:
+    Tech: Nuclear
+    TechDetail: "*"
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    "ATB Year": 2020
 advanced_nuclear:
   capacity: 300   # MW
   max_PL: 1.0
@@ -167,7 +215,7 @@ advanced_nuclear:
   FOM: 80    # $/kW-yr
   VOM: 2.0    # $/MWh
   fuel_type: nuclear
-  fuel_cost: ATB
+  fuel_cost_per_MMBTU: 0.665
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
@@ -185,4 +233,12 @@ advanced_nuclear:
   construction_duration: 4
   const_dur_stdev: 0
   unit_life: 60
+  ATB_search_settings:
+    Tech: Nuclear
+    TechDetail: "*"
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    "ATB Year": 2020
 
