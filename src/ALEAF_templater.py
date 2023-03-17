@@ -3,9 +3,9 @@ import yaml
 import openpyxl
 from pathlib import Path
 
-ALEAF_data_file = "./inputs/ALEAF_settings.yml"
-unit_specs_data_file = "./inputs/unit_specs.yml"
-settings_file = "./settings.yml"
+ALEAF_data_file = "/home/biegelk/abce/inputs/ALEAF_settings.yml"
+unit_specs_data_file = "/home/biegelk/abce/inputs/unit_specs.yml"
+settings_file = "/home/biegelk/abce/settings.yml"
 
 
 def load_data(file_name):
@@ -79,7 +79,7 @@ def create_ALEAF_Master_file(ALEAF_data, settings, output_path):
     write_workbook_and_close("ALEAF_Master", tabs_to_create, output_path)
 
 
-def create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings):
+def create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings, output_path):
     tabs_to_create = {
         "LC_GEP Setting": {
             "ABCE_tab_name": "LC_GEP_settings",
@@ -193,7 +193,52 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings):
     }
     tabs_to_create["Scenario Reduction Setting"]["data"].update(srs_extra_items)
 
-    write_workbook_and_close("ALEAF_Master_LC_GEP", tabs_to_create)
+    write_workbook_and_close("ALEAF_Master_LC_GEP", tabs_to_create, output_path)
+
+
+def create_ALEAF_portfolio_file(ALEAF_data, settings, output_path):
+    tabs_to_create = {
+        "case_setting": {
+            "ABCE_tab_name": "grid_settings",
+            "data": None
+        },
+
+        "gen": {
+            "ABCE_tab_name": "system_portfolio",
+            "data": None,
+            "orient": "multiline_horizontal"
+        },
+
+        "bus": {
+            "ABCE_tab_name": "buses",
+            "data": None
+        },
+
+        "branch": {
+            "ABCE_tab_name": "branch",
+            "data": None
+        },
+
+        "sub_area": {
+            "ABCE_tab_name": "sub_area",
+            "data": None
+        },
+
+        "sub_area_mapping": {
+            "ABCE_tab_name": "sub_area_mapping",
+            "data": None
+        }
+    }
+
+    for ALEAF_tab_name, tab_data in tabs_to_create.items():
+        # Load all non-portfolio tabs, which only contain dummy data
+        #   disabling the transmission model for GEP
+        if ALEAF_tab_name != "gen":
+            tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data["ALEAF_portfolio"][tab_data["ABCE_tab_name"]]
+        else:
+            tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data["ALEAF_portfolio"][tab_data["ABCE_tab_name"]]
+
+    write_workbook_and_close("ALEAF_ERCOT", tabs_to_create, output_path)
 
 
 def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
@@ -202,9 +247,14 @@ def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
         orient = "index"
         if "orient" in tab_data.keys():
             if tab_data["orient"] == "horizontal":
-                df = (pd.DataFrame.from_dict(
+                df = pd.DataFrame.from_dict(
                          [tab_data["data"]]
-                     ))
+                     )
+            elif tab_data["orient"] == "multiline_horizontal":
+                df = pd.DataFrame.from_dict(
+                         tab_data["data"],
+                         orient="index"
+                     )
         else:
             df = (pd.DataFrame.from_dict(
                       tab_data["data"],
@@ -233,13 +283,17 @@ def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
 def create_ALEAF_files():
     ALEAF_data = load_data(ALEAF_data_file)
     unit_specs_data = load_data(unit_specs_data_file)
+    print(unit_specs_data)
     settings = load_data(settings_file)
 
     # Create the ALEAF_Master.xlsx file
-    create_ALEAF_Master_file(ALEAF_data, settings)
+    create_ALEAF_Master_file(ALEAF_data, settings, Path(Path.cwd()))
 
     # Create the ALEAF_Master_LC_GEP.xlsx file
-    create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings)
+    create_ALEAF_Master_LC_GEP_file(ALEAF_data, settings, Path(Path.cwd()))
+
+    # Create the ALEAF_portfolio.xlsx file
+    create_ALEAF_portfolio_file(ALEAF_data, settings, Path(Path.cwd()))
 
 if __name__ == "__main__":
     create_ALEAF_files()
