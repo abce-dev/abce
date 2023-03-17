@@ -180,23 +180,103 @@ ALEAF_portfolio:
   sub_area_mapping:
     bus_i: 1
     sub_area: 1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  system_portfolio:
+    wind:
+        "GEN UID": 1_wind_1
+        bus_i: 1
+        Tech_ID: Tech1
+        "GenCo ID": 1
+        UNITGROUP: WIND
+        UNIT_CATEGORY: Wind
+        UNIT_TYPE: Wind
+        FUEL: Wind
+        EXUNITS: 279
+        CAP: 100
+        MAXINVEST: 0
+        MININVEST: 0
+        MINRET: 0
+    solar:
+        "GEN UID": 1_solar_1
+        bus_i: 1
+        Tech_ID: Tech2
+        "GenCo ID": 1
+        UNITGROUP: PV
+        UNIT_CATEGORY: "Solar PV"
+        UNIT_TYPE: Solar
+        FUEL: Solar
+        EXUNITS: 83
+        CAP: 100
+        MAXINVEST: 0
+        MININVEST: 0
+        MINRET: 0
+    coal:
+        "GEN UID": 1_coal_1
+        bus_i: 1
+        Tech_ID: Tech3
+        "GenCo ID": 1
+        UNITGROUP: COAL
+        UNIT_CATEGORY: Coal
+        UNIT_TYPE: Coal
+        FUEL: Coal
+        EXUNITS: 31
+        CAP: 500
+        MAXINVEST: 0
+        MININVEST: 0
+        MINRET: 0
+    ngcc:
+        "GEN UID": 1_ngcc_1
+        bus_i: 1
+        Tech_ID: Tech4
+        "GenCo ID": 1
+        UNITGROUP: NGCC
+        UNIT_CATEGORY: NGCC
+        UNIT_TYPE: NGCC
+        FUEL: Gas
+        EXUNITS: 226
+        CAP: 200
+        MAXINVEST: 0
+        MININVEST: 0
+        MINRET: 0
+    ngct:
+        "GEN UID": 1_ngct_1
+        bus_i: 1
+        Tech_ID: Tech5
+        "GenCo ID": 1
+        UNITGROUP: NGCT
+        UNIT_CATEGORY: NGCT
+        UNIT_TYPE: NGCT
+        FUEL: NGCT
+        EXUNITS: 175
+        CAP: 50
+        MAXINVEST: 0
+        MININVEST: 0
+        MINRET: 0
+    conventional_nuclear:
+        "GEN UID": 1_nuclear_C
+        bus_i: 1
+        Tech_ID: Tech6
+        "GenCo ID": 1
+        UNITGROUP: ConventionalNuclear
+        UNIT_CATEGORY: ConventionalNuclear
+        UNIT_TYPE: ConventionalNuclear
+        FUEL: Nuclear
+        EXUNITS: 13
+        CAP: 400
+        MAXINVEST: 0
+        MININVEST: 0
+        MINRET: 0
+    advanced_nuclear:
+        "GEN UID": 1_nuclear_A
+        bus_i: 1
+        Tech_ID: Tech7
+        "GenCo ID": 1
+        UNITGROUP: AdvancedNuclear
+        UNIT_CATEGORY: AdvancedNuclear
+        UNIT_TYPE: AdvancedNuclear
+        FUEL: Nuclear
+        EXUNITS: 0
+        CAP: 300
+        MAXINVEST: 0
+        MININVEST: 0
+        MINRET: 0
 
