@@ -1,4 +1,5 @@
 import yaml
+import logging
 
 ALEAF_schema_file = "/home/biegelk/abce/inputs/ALEAF_settings_schema.yml"
 ALEAF_settings_file = "/home/biegelk/abce/inputs/ALEAF_settings.yml"
@@ -34,6 +35,7 @@ def initialize_file(file_data, ALEAF_settings, ABCE_settings):
     # Pop the file's exact name from the dictionary, allowing systematic
     #   processing of the other keys, which all indicate excel tabs
     file_name = file_data.pop("default_filename")
+    logging.info(f"Initializing file: {file_name}")
 
     # Set up each of the tabs in turn
     tabs = {}
@@ -52,6 +54,8 @@ def initialize_file(file_data, ALEAF_settings, ABCE_settings):
 def initialize_tab(tab_data, ALEAF_settings, ABCE_settings):
     # Pop the tab's ALEAF-style name from the dictionary
     tab_ALEAF_name = tab_data.pop("tab_name")
+
+    logging.info(f"Initializing {tab_ALEAF_name}")
 
     # Pop the order of the fields in this tab, if available
     tab_data, field_order = get_field_order(tab_data)
@@ -124,6 +128,7 @@ def set_field_value(field_name, field_data, ALEAF_settings, ABCE_settings, probl
     elif "default_value" in field_data.keys():
         field_value = field_data["default_value"]
     elif "input_type" in field_data.keys() and field_data["input_type"] == "dynamic":
+        logging.info(field_name)
         field_value = None
     else:
         # Log a problem: this field cannot be assigned a value
@@ -211,7 +216,41 @@ def initialize_ALEAF_schema():
     ALEAF_files = {}
     for file_type, file_data in ALEAF_schema.items():
         ALEAF_files[file_type] = initialize_file(file_data, ALEAF_settings, ABCE_settings)
+        ALEAF_files[file_type] = instantiate_dynamic_field_values(file_type, file_data)
+
+    return ALEAF_files
+
+
+def instantiate_dynamic_field_values(file_type, file_data):
+    if file_type == "ALEAF_Master":
+        for tab_name, tab_data in file_data.items():
+            if "solver_direct_mode_flag" in tab_data.keys():
+                if "CPLEX" in tab_name:
+                    file_data[tab_name]["solver_direct_mode_flag"]["field_value"] = "True"
+                else:
+                    file_data[tab_name]["solver_direct_mode_flag"]["field_value"] = "False"
+
+            if "solver_setting_list" in tab_data.keys():
+                # Get all settings aside from those which are ignored
+                ignore = ["solver_direct_mode_flag", "solver_setting_list", "num_solver_setting"]
+                all_solver_settings = [key for key in tab_data.keys() if key not in ignore]
+
+                file_data[tab_name]["solver_setting_list"]["field_value"] = ", ".join(all_solver_settings)
+                file_data[tab_name]["num_solver_setting"]["field_value"] = len(all_solver_settings)
+
+    elif file_type == "ALEAF_Master_LC_GEP":
+        print(file_data["simulation_settings"])
+
+    elif file_type == "ALEAF_portfolio":
+        pass
+
+    return file_data
+
+
+
+
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     initialize_ALEAF_schema()
