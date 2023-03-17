@@ -267,6 +267,12 @@ ALEAF_Master:
         - str
       allowed_values:
         - "FALSE"
+    num_solver_setting:
+      description: Number of solver settings in this tab
+      input_type: dynamic
+    solver_setting_list:
+      description: List of solver settings in this tab
+      input_type: dynamic
     time_limit:
       description: HiGHS total allowed solve time, in seconds
       input_type: optional
@@ -311,6 +317,12 @@ ALEAF_Master:
         - str
       allowed_values:
         - "FALSE"
+    num_solver_setting:
+      description: Number of solver settings in this tab
+      input_type: dynamic
+    solver_setting_list:
+      description: list of all solver settings in this tab
+      input_type: dynamic
     TimeLimit:
       description: Gurobi's total solve time limit, in seconds
       input_type: optional
