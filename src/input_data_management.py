@@ -33,7 +33,7 @@ def process_system_portfolio(agent_portfolios):
     return system_portfolio
 
 
-def process_unit_specs(unit_specs_data, system_portfolio):
+def update_unit_specs_for_ALEAF(unit_specs_data, system_portfolio):
     # Separate out ATB_search_settings
     for unit_type, unit_type_data in unit_specs_data.items():
         if "ATB_search_settings" in unit_type_data.keys():
@@ -463,15 +463,77 @@ def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
     writer_object.close()
 
 
-def load_data_files():
-    # Load in the general ABCE settings
-    settings = load_data(settings_file)
+def load_data_files(settings):
+    # Load unit_specs, agent_portfolios, and ALEAF_data files as dictionaries
+    #   (if yml) or as dataframes (if csv)
+    unit_specs_data = load_data(settings["file_paths"]["unit_specs_data_file"])
+    agent_portfolios = load_data(settings["file_paths"]["portfolios_file"])
+    ALEAF_data = load_data(settings["ALEAF"]["ALEAF_data_file"])
 
-    ALEAF_data = load_data(ALEAF_data_file)
-    unit_specs_data = load_data(unit_specs_data_file)
-    agent_portfolios = load_data(agent_portfolios_file)
+    return unit_specs_data, agent_portfolios, ALEAF_data
 
-    return settings, ALEAF_data, unit_specs_data, agent_portfolios
+
+def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
+    # Initialize all units with zero policy adjustment
+    policy_adj_per_MWh = 0
+
+    if "policies" in settings["scenario"].keys():
+        # If some policies are specified, determine their effect
+        for policy, policy_specs in settings["scenario"]["policies"].items():
+            if policy_specs["enabled"]:
+                is_eligible = False
+                if "eligibility" not in policy_specs.keys():
+                    # If there are no eligibility criteria specified, the
+                    #   policy applies to all units
+                    is_eligible = True
+                elif "unit_type" in policy_specs["eligibility"].keys() and unit_type in policy_specs["eligibility"]["unit_type"]:
+                    # Check to see if the unit's type is included in a list of
+                    #   eligible unit types
+                    is_eligible = True
+                else:
+                    # Check for any other eligibility criteria
+                    for criterion, value in policy_specs["eligibility"].keys():
+                        if unit_type_data[criterion] == value:
+                            is_eligible = True
+
+                if is_eligible:
+                    if policy == "CTAX":
+                        policy_adj_per_MWh -= unit_type_data["heat_rate"] * unit_type_data["emissions_per_MMBTU"] * policy_specs["qty"]
+                    elif policy == "PTC":
+                        policy_adj_per_MWh += policy_specs["qty"]
+
+
+    return policy_adj_per_MWh
+
+
+def compute_unit_specs_cols(unit_specs, settings):
+    for unit_type, unit_type_data in unit_specs.items():
+        # Ensure all units have fuel cost elements
+        if not unit_type_data["uses_fuel"]:
+            unit_type_data["FC_per_MMBTU"] = 0
+            unit_type_data["fuel_type"] = "none"
+
+        # Add fuel cost per MWh column
+        unit_type_data["FC_per_MWh"] = unit_type_data["FC_per_MMBTU"] * unit_type_data["heat_rate"]
+
+        # Add policy adjustment per MWh column
+        unit_type_data["policy_adj_per_MWh"] = set_unit_type_policy_adjustment(unit_type, unit_type_data, settings)
+
+        # Add C2N-related factors, with a default value of 0
+        C2N_vals = ["cpp_ret_lead", "num_cpp_rets", "rev_head_start"]
+        for val in C2N_vals:
+            if val not in unit_type_data.keys():
+                unit_type_data[val] = 0
+
+    return unit_specs
+
+
+def initialize_inputs(settings):
+    unit_specs, agent_portfolios, ALEAF_data = load_data_files(settings)
+
+    unit_specs = compute_unit_specs_cols(unit_specs, settings)
+
+    return unit_specs, agent_portfolios, ALEAF_data
 
 
 def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, agent_portfolios):
@@ -479,7 +541,7 @@ def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, agent_portfolios):
     system_portfolio = process_system_portfolio(agent_portfolios)
 
     # Process the dictionary unit_specs into the A-LEAF-style format
-    unit_specs = process_unit_specs(unit_specs_data, system_portfolio)
+    unit_specs = update_unit_specs_for_ALEAF(unit_specs_data, system_portfolio)
 
     # Process the unit_specs data into A-LEAF-ready dataframes
     gen_technology, gen, ATB_settings = create_ALEAF_unit_dataframes(unit_specs)
