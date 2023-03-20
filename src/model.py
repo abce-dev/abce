@@ -164,33 +164,29 @@ class GridModel(Model):
         """ Set up all absolute paths to ALEAF and its input files, and
               save them as member data.
         """
-
-        # Set up top-level A-LEAF directory
-        self.ALEAF_abs_path = Path(self.settings["ALEAF"]["ALEAF_abs_path"])
-
         # Set up the destination for ALEAF_<region>.xlsx system portfolio file
-        self.ALEAF_portfolio_path = (self.ALEAF_abs_path / 
-                                     "data" /
-                                     self.settings["ALEAF"]["ALEAF_model_type"] /
-                                     self.settings["ALEAF"]["ALEAF_region"] /
-                                     self.settings["ALEAF"]["ALEAF_portfolio_file"]
+        self.ALEAF_portfolio_path = Path(Path(os.environ["ALEAF_DIR"]) / 
+                                         "data" /
+                                         self.settings["ALEAF"]["ALEAF_model_type"] /
+                                         self.settings["ALEAF"]["ALEAF_region"] /
+                                         self.settings["ALEAF"]["ALEAF_portfolio_file"]
                                     )
 
         # Set up the destination for the ALEAF_Master.xlsx file
-        self.ALEAF_Master_path = (self.ALEAF_abs_path /
-                                  "setting" /
-                                  self.settings["ALEAF_master_settings_file"]
+        self.ALEAF_Master_path = Path(Path(os.environ["ALEAF_DIR"]) /
+                                      "setting" /
+                                      self.settings["ALEAF_master_settings_file"]
                                  )
 
         # Set up the destination for the ALEAF_Master_<model>.xlsx file
-        self.ALEAF_model_file = (self.ALEAF_abs_path /
-                                 "setting" /
-                                 self.settings["ALEAF"]["ALEAF_model_settings_file"]
+        self.ALEAF_model_file = Path(Path(os.environ["ALEAF_DIR"]) /
+                                     "setting" /
+                                     self.settings["ALEAF"]["ALEAF_model_settings_file"]
                                 )
         
         # Set path to ALEAF outputs
-        self.ALEAF_output_data_path = (
-            self.ALEAF_abs_path /
+        self.ALEAF_output_data_path = Path(
+            Path(os.environ["ALEAF_DIR"]) /
             "output" /
             self.settings["ALEAF"]["ALEAF_model_type"] /
             self.settings["ALEAF"]["ALEAF_region"] /
@@ -429,6 +425,7 @@ class GridModel(Model):
             self.unit_specs
         )
 
+        # Close the database to avoid access problems in the Julia scope
         self.db.commit()
         self.db.close()
 
@@ -440,6 +437,7 @@ class GridModel(Model):
             "\nAll agent turns are complete.\n"
         )
 
+        # Reopen the database connection, now that Julia execution is complete
         self.db = sqlite3.connect(self.db_file, timeout=10)
         self.cur = self.db.cursor()
 
@@ -458,13 +456,13 @@ class GridModel(Model):
         if self.settings["simulation"]["run_ALEAF"]:
             # Generate all three A-LEAf input files and save them to the 
             #   appropriate subdirectories in the A-LEAF top-level directory
-            idm.create_ALEAF_file(self.settings, self.ALEAF_data, self.unit_specs, self.agent_portfolios)
+            idm.create_ALEAF_files(self.settings, self.ALEAF_data, self.unit_specs, self.agent_portfolios)
 
             # Run A-LEAF
             logging.log(self.settings["constants"]["vis_lvl"], "Running A-LEAF...")
-            run_script_path = self.ALEAF_abs_path / "execute_ALEAF.jl"
-            ALEAF_env_path = self.ALEAF_abs_path / "."
-            ALEAF_sysimage_path = self.ALEAF_abs_path / "aleafSysimage.so"
+            run_script_path = Path(Path(os.environ["ALEAF_DIR"]) / "execute_ALEAF.jl")
+            ALEAF_env_path = Path(Path(os.environ["ALEAF_DIR"]) / ".")
+            ALEAF_sysimage_path = Path(Path(os.environ["ALEAF_DIR"]) / "aleafSysimage.so")
             aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.settings['ALEAF']['ALEAF_abs_path']}"
 
             if self.args.verbosity < 2:
@@ -848,6 +846,7 @@ class GridModel(Model):
             if_exists="append",
             index=False)
         self.db.commit()
+
 
     def save_ALEAF_outputs(self):
         # Copy all ALEAF output files to the output directory, with
