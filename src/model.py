@@ -190,7 +190,7 @@ class GridModel(Model):
         
         # Set path to ALEAF outputs
         self.ALEAF_output_data_path = (
-            self.ALEAF_remote_path /
+            self.ALEAF_abs_path /
             "output" /
             self.settings["ALEAF"]["ALEAF_model_type"] /
             self.settings["ALEAF"]["ALEAF_region"] /
@@ -456,26 +456,15 @@ class GridModel(Model):
             user_response = input("Press Enter to continue: ")
 
         if self.settings["simulation"]["run_ALEAF"]:
-            # Update the A-LEAF system portfolio based on any new units completed
-            #   or units retired this period
-            ALI.update_ALEAF_system_portfolio(
-                self.ALEAF_portfolio_remote,
-                self.ALEAF_portfolio_remote,
-                self.db,
-                self.current_pd)
-
-            # Update ALEAF peak demand
-            ALI.update_ALEAF_model_settings(self.ALEAF_model_settings_remote,
-                                            self.ALEAF_model_settings_remote,
-                                            self.db,
-                                            self.settings,
-                                            self.current_pd)
+            # Generate all three A-LEAf input files and save them to the 
+            #   appropriate subdirectories in the A-LEAF top-level directory
+            idm.create_ALEAF_file(self.settings, self.ALEAF_data, self.unit_specs, self.agent_portfolios)
 
             # Run A-LEAF
             logging.log(self.settings["constants"]["vis_lvl"], "Running A-LEAF...")
-            run_script_path = self.ALEAF_remote_path / "execute_ALEAF.jl"
-            ALEAF_env_path = self.ALEAF_remote_path / "."
-            ALEAF_sysimage_path = self.ALEAF_remote_path / "aleafSysimage.so"
+            run_script_path = self.ALEAF_abs_path / "execute_ALEAF.jl"
+            ALEAF_env_path = self.ALEAF_abs_path / "."
+            ALEAF_sysimage_path = self.ALEAF_abs_path / "aleafSysimage.so"
             aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.settings['ALEAF']['ALEAF_abs_path']}"
 
             if self.args.verbosity < 2:
