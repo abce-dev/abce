@@ -463,7 +463,7 @@ def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
     writer_object.close()
 
 
-def create_ALEAF_files():
+def load_data_files():
     # Load in the general ABCE settings
     settings = load_data(settings_file)
 
@@ -471,6 +471,10 @@ def create_ALEAF_files():
     unit_specs_data = load_data(unit_specs_data_file)
     agent_portfolios = load_data(agent_portfolios_file)
 
+    return settings, ALEAF_data, unit_specs_data, agent_portfolios
+
+
+def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, agent_portfolios):
     # Process the system portfolio
     system_portfolio = process_system_portfolio(agent_portfolios)
 
@@ -489,5 +493,7 @@ def create_ALEAF_files():
     # Create the ALEAF_portfolio.xlsx file
     create_ALEAF_portfolio_file(ALEAF_data, gen, settings, Path(Path.cwd()))
 
+
 if __name__ == "__main__":
+    settings, ALEAF_data, unit_specs_data, agent_portfolios = load_data_files()
     create_ALEAF_files()
