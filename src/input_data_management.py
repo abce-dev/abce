@@ -4,12 +4,6 @@ import yaml
 import openpyxl
 from pathlib import Path
 
-ALEAF_data_file = "/home/biegelk/abce/inputs/ALEAF_settings.yml"
-unit_specs_data_file = "/home/biegelk/abce/inputs/unit_specs.yml"
-settings_file = "/home/biegelk/abce/settings.yml"
-agent_portfolios_file = "/home/biegelk/abce/inputs/ERCOT_portfolios_stdnames.csv"
-
-
 def load_data(file_name):
     if Path(file_name).suffix in [".yml", ".yaml"]:
         file_contents = yaml.load(
