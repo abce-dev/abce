@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import yaml
@@ -116,7 +117,7 @@ def create_ALEAF_unit_dataframes(unit_specs):
         "retirement_cost": "RETC",
         "FOM": "FOM",
         "VOM": "VOM",
-        "fuel_cost_per_MMBTU": "FC",
+        "FC_per_MMBTU": "FC",
         "no_load_cost": "NLC",
         "start_up_cost": "SUC",
         "shut_down_cost": "SDC",
@@ -126,7 +127,7 @@ def create_ALEAF_unit_dataframes(unit_specs):
         "max_regulation": "MAXR",
         "max_spinning_reserve": "MAXSR",
         "max_nonspinning_reserve": "MAXNSR",
-        "capacity_credit": "CAPCRED",
+        "capacity_factor": "CAPCRED",
         "emissions_per_MMBTU": "EMSFAC",
         "Charge_CAP": "Charge_CAP",
         "STOCAP": "STOCAP",
@@ -181,7 +182,7 @@ def create_ALEAF_unit_dataframes(unit_specs):
     return gen_technology, gen, ATB_settings
 
 
-def create_ALEAF_Master_file(ALEAF_data, settings, output_path):
+def create_ALEAF_Master_file(ALEAF_data, settings):
     # Dictionary of all tabs and their metadata
     # In final implementation, will be replaced by the ALEAF standard
     #   data schema
@@ -221,6 +222,9 @@ def create_ALEAF_Master_file(ALEAF_data, settings, output_path):
     for ALEAF_tab_name, tab_data in tabs_to_create.items():
         tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data["ALEAF_Master"][tab_data["ABCE_tab_name"]]
 
+    # Pull the appropriate solver name from the settings file
+    tabs_to_create["ALEAF Master Setup"]["solver_name"] = settings["simulation"]["solver"]
+
     # Finalize the <solver> Setting tab data
     for solver_tab, tab_data in tabs_to_create.items():
         if solver_tab != "ALEAF Master Setup":
@@ -241,10 +245,17 @@ def create_ALEAF_Master_file(ALEAF_data, settings, output_path):
 
             tab_data["data"].update(solver_extra_items)
 
+    # Construct the path to which this file should be written
+    output_path = Path(Path(os.environ["ALEAF_DIR"]) /
+                       "setting" /
+                       settings["ALEAF"]["ALEAF_master_settings_file"]
+                  )
+
+    # Write this file to the destination
     write_workbook_and_close("ALEAF_Master", tabs_to_create, output_path)
 
 
-def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, settings, output_path):
+def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, settings):
     tabs_to_create = {
         "LC_GEP Setting": {
             "ABCE_tab_name": "LC_GEP_settings",
@@ -369,10 +380,17 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
     }
     tabs_to_create["Scenario Reduction Setting"]["data"].update(srs_extra_items)
 
+    # Construct the path to which this file should be written
+    output_path = Path(Path(os.environ["ALEAF_DIR"]) /
+                       "setting" /
+                       settings["ALEAF"]["ALEAF_model_settings_file"]
+                  )
+
+    # Write this file to the destination
     write_workbook_and_close("ALEAF_Master_LC_GEP", tabs_to_create, output_path)
 
 
-def create_ALEAF_portfolio_file(ALEAF_data, gen, settings, output_path):
+def create_ALEAF_portfolio_file(ALEAF_data, gen, settings):
     tabs_to_create = {
         "case setting": {
             "ABCE_tab_name": "grid_settings",
@@ -413,6 +431,15 @@ def create_ALEAF_portfolio_file(ALEAF_data, gen, settings, output_path):
         if not isinstance(tab_data["data"], pd.DataFrame):
             tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data["ALEAF_portfolio"][tab_data["ABCE_tab_name"]]
 
+    # Construct the path to which this file should be written
+    output_path = Path(Path(os.environ["ALEAF_DIR"]) /
+                       "data" /
+                       settings["ALEAF"]["ALEAF_model_type"] /
+                       settings["ALEAF"]["ALEAF_region"] /
+                       settings["ALEAF"]["ALEAF_model_settings_file"]
+                  )
+
+    # Write this file to the destination
     write_workbook_and_close("ALEAF_ERCOT", tabs_to_create, output_path)
 
 
@@ -442,8 +469,7 @@ def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
             tabs_to_create[ALEAF_tab_name]["data"] = df
 
     # Create an ExcelWriter object to contain all tabs and save file
-    full_file_path = Path(output_file_path / f"{base_filename}.xlsx")
-    writer_object = pd.ExcelWriter(full_file_path, engine="openpyxl")
+    writer_object = pd.ExcelWriter(output_file_path, engine="openpyxl")
 
     # Write all tabs to file
     for ALEAF_tab_name, tab_data in tabs_to_create.items():
@@ -541,13 +567,13 @@ def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, agent_portfolios):
     gen_technology, gen, ATB_settings = create_ALEAF_unit_dataframes(unit_specs)
 
     # Create the ALEAF_Master.xlsx file
-    create_ALEAF_Master_file(ALEAF_data, settings, Path(Path.cwd()))
+    create_ALEAF_Master_file(ALEAF_data, settings)
 
     # Create the ALEAF_Master_LC_GEP.xlsx file
-    create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, settings, Path(Path.cwd()))
+    create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, settings)
 
     # Create the ALEAF_portfolio.xlsx file
-    create_ALEAF_portfolio_file(ALEAF_data, gen, settings, Path(Path.cwd()))
+    create_ALEAF_portfolio_file(ALEAF_data, gen, settings)
 
 
 if __name__ == "__main__":
