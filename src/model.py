@@ -210,47 +210,29 @@ class GridModel(Model):
               save them as member data.
         """
 
-        self.ALEAF_remote_path = Path(self.settings["ALEAF"]["ALEAF_abs_path"])
-        self.ALEAF_remote_data_path = (self.ALEAF_remote_path /
-                                       "data" /
-                                       self.settings["ALEAF"]["ALEAF_model_type"] /
-                                       self.settings["ALEAF"]["ALEAF_region"]
-                                      )
-        # Set file paths of local reference copies of ALEAF input data
-        ALEAF_inputs_path = (
-            Path(self.settings["file_paths"]["ABCE_abs_path"]) /
-            "inputs" /
-            "ALEAF_inputs"
-        )
-        self.ALEAF_master_settings_ref = (
-            Path(ALEAF_inputs_path) /
-            self.settings["ALEAF"]["ALEAF_master_settings_file"]
-        )
-        self.ALEAF_model_settings_ref = (
-            Path(ALEAF_inputs_path) /
-            self.settings["ALEAF"]["ALEAF_model_settings_file"]
-        )
-        self.ALEAF_portfolio_ref = (
-            Path(ALEAF_inputs_path) /
-            self.settings["ALEAF"]["ALEAF_portfolio_file"]
-        )
+        # Set up top-level A-LEAF directory
+        self.ALEAF_abs_path = Path(self.settings["ALEAF"]["ALEAF_abs_path"])
 
-        # Set the paths to where settings are stored in the ALEAF directory
-        ALEAF_settings_path = self.ALEAF_remote_path / "setting"
-        self.ALEAF_master_settings_remote = (
-            Path(ALEAF_settings_path) /
-            self.settings["ALEAF"]["ALEAF_master_settings_file"]
-        )
-        self.ALEAF_model_settings_remote = (
-            Path(ALEAF_settings_path) /
-            f"ALEAF_Master_{self.settings['ALEAF']['ALEAF_model_type']}.xlsx"
-        )
-        self.ALEAF_portfolio_remote = (
-            self.ALEAF_remote_data_path /
-            f"ALEAF_{self.settings['ALEAF']['ALEAF_region']}.xlsx"
-        )
-        self.ATB_remote = (ALEAF_inputs_path / "ATBe.csv")
+        # Set up the destination for ALEAF_<region>.xlsx system portfolio file
+        self.ALEAF_portfolio_path = (self.ALEAF_abs_path / 
+                                     "data" /
+                                     self.settings["ALEAF"]["ALEAF_model_type"] /
+                                     self.settings["ALEAF"]["ALEAF_region"] /
+                                     self.settings["ALEAF"]["ALEAF_portfolio_file"]
+                                    )
 
+        # Set up the destination for the ALEAF_Master.xlsx file
+        self.ALEAF_Master_path = (self.ALEAF_abs_path /
+                                  "setting" /
+                                  self.settings["ALEAF_master_settings_file"]
+                                 )
+
+        # Set up the destination for the ALEAF_Master_<model>.xlsx file
+        self.ALEAF_model_file = (self.ALEAF_abs_path /
+                                 "setting" /
+                                 self.settings["ALEAF"]["ALEAF_model_settings_file"]
+                                )
+        
         # Set path to ALEAF outputs
         self.ALEAF_output_data_path = (
             self.ALEAF_remote_path /
@@ -259,6 +241,7 @@ class GridModel(Model):
             self.settings["ALEAF"]["ALEAF_region"] /
             f"scenario_1_{self.settings['simulation']['ALEAF_scenario_name']}"
         )
+
 
     def reinitialize_ALEAF_input_data(self):
         """ Setting ALEAF inputs requires overwriting fixed xlsx input files.
