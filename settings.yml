@@ -1,31 +1,31 @@
 simulation:
   ALEAF_scenario_name: "ABCE_ERCOT"
   solver: "HiGHS"
-  num_steps: 1 
+  num_steps: 2
   run_ALEAF: False
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 80000
-  natural_gas_price: 4  # $/MWh
+  peak_demand: 76000
   policies:
     CTAX:
       enabled: True
       qty: 150  # $/t CO2
     PTC:
       enabled: False
-      eligible:
-        - ConventionalNuclear
-        - Wind
-        - Solar
+      eligibility:
+        unit_type:
+          - ConventionalNuclear
+          - Wind
+          - Solar
       qty: 15.0   # $/MWh
   allowed_xtr_types:
-    - Wind
-    - Solar
-    - NGCC
-    - NGCT
-    - ConventionalNuclear
-    - AdvancedNuclear
+    - wind
+    - solar
+    - ngcc
+    - ngct
+    - conventional_nuclear
+    - advanced_nuclear
 
 
 #######################################################
@@ -53,6 +53,7 @@ file_paths:
   retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
   seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_IL_C2N__dispatch_summary_OP__step_0.csv"
   time_series_data_file: "inputs/timeseriesParams.xlsx"
+  unit_specs_data_file: "inputs/unit_specs.yml"
   unit_specs_abce_supp_file: "inputs/unit_specs_abce_supplemental.csv"
   logo: "abce.txt"
 
@@ -62,7 +63,7 @@ system:
   tax_rate: 0.21
   planning_reserve_margin: 0.1375
   peak_initial_reserves: 0.0
-  max_total_ENS: 10000  # MWh, allowed gen. undersupply in first projected dispatch year (Energy Not Served)
+  max_total_ENS: 100000  # MWh, allowed gen. undersupply in first projected dispatch year (Energy Not Served)
 
 # Settings for demand projections
 demand:
@@ -105,4 +106,5 @@ ALEAF:
   ALEAF_region: "ERCOT"
   ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
   ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
+  ALEAF_data_file: "inputs/ALEAF_settings.yml"
 
