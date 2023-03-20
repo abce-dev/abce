@@ -44,41 +44,16 @@ class GridModel(Model):
     def __init__(self, settings, args):
         # Copy the command-line arguments as member data
         self.args = args
-
         self.settings = settings
-
-        # Check ./outputs/ dir and clear out old files
-        self.prepare_outputs_directory()
 
         # If verbosity is 2 or 3, show the ABCE splash header
         if self.args.verbosity >= 2:
             self.show_abce_header()
 
-        # Set the solver to be used for the agent optimizations
-        self.solver = settings["simulation"]["solver"].lower()
+        # Check ./outputs/ dir and clear out old files
+        self.prepare_outputs_directory()
 
-        # Get model/system parameters from the settings dictionary
-        self.policies = settings["scenario"]["policies"]
-
-        # If natural gas price or conventional nuclear FOM are set in
-        #   settings.yml, retrieve those values
-        if 'natural_gas_price' in settings["scenario"]:
-            self.natgas_price = settings["scenario"]["natural_gas_price"]
-        if 'conv_nuclear_FOM' in settings["scenario"]:
-            self.conv_nuclear_FOM = settings["scenario"]["conv_nuclear_FOM"]
-
-        if 'ATB_year' in settings:
-            self.ATB_year = settings['ATB_year']
-        else:
-            self.ATB_year = 2020
-
-        logging.debug(f"Using ATB Year {self.ATB_year}")
-
-        # Initialize the model one time step before the true start date
-        self.current_pd = -1
-
-        # Initialize database for managing asset and WIP construction project
-        # data
+        # Initialize database for storing and managing all simulation data
         self.db_file = (Path.cwd() / 
                         "outputs" / 
                         settings["simulation"]["ALEAF_scenario_name"] / 
@@ -93,6 +68,9 @@ class GridModel(Model):
         #   if it doesn't already exist
         tmp_dir_location = (Path.cwd() / "tmp")
         Path(tmp_dir_location).mkdir(exist_ok=True)
+
+        # Initialize the model one time step before the true start date
+        self.current_pd = -1
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
