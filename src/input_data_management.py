@@ -17,13 +17,18 @@ def load_data(file_name):
     return file_contents
 
 
-def process_system_portfolio(agent_portfolios):
-    system_portfolio = pd.pivot_table(
-                           agent_portfolios,
-                           values="num_units",
-                           index="unit_type",
-                           aggfunc = np.sum
+def process_system_portfolio(db, current_pd):
+    # Retrieve the list of currently-operational assets by type
+    system_portfolio = pd.read_sql_query(
+                           f"SELECT unit_type, COUNT(unit_type) FROM assets " +
+                           f"WHERE completion_pd <= {current_pd} AND " +
+                           f"retirement_pd > {current_pd} " +
+                           f"GROUP BY unit_type",
+                           db
                        )
+
+    # Rename the aggregation column to match the standard
+    system_portfolio = system_portfolio.rename(columns={"COUNT(unit_type)": "num_units"})
 
     return system_portfolio
 
@@ -544,18 +549,17 @@ def compute_unit_specs_cols(unit_specs, settings):
     return unit_specs
 
 
-def initialize_inputs(settings):
+def initialize_unit_specs(settings):
     unit_specs = load_data(settings["file_paths"]["unit_specs_data_file"])
-    agent_portfolios = load_data(settings["file_paths"]["portfolios_file"])
 
     unit_specs = compute_unit_specs_cols(unit_specs, settings)
 
-    return unit_specs, agent_portfolios
+    return unit_specs
 
 
-def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, agent_portfolios):
+def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, db, current_pd):
     # Process the system portfolio
-    system_portfolio = process_system_portfolio(agent_portfolios)
+    system_portfolio = process_system_portfolio(db, current_pd)
 
     # Process the dictionary unit_specs into the A-LEAF-style format
     unit_specs = update_unit_specs_for_ALEAF(unit_specs_data, system_portfolio)
