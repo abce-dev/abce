@@ -69,6 +69,10 @@ class GridModel(Model):
         tmp_dir_location = (Path.cwd() / "tmp")
         Path(tmp_dir_location).mkdir(exist_ok=True)
 
+        # If running A-LEAF, set up any necessary file paths
+        if self.settings["simulation"]["run_ALEAF"]:
+            self.set_ALEAF_file_paths()
+
         # Initialize the model one time step before the true start date
         self.current_pd = -1
 
@@ -164,26 +168,6 @@ class GridModel(Model):
         """ Set up all absolute paths to ALEAF and its input files, and
               save them as member data.
         """
-        # Set up the destination for ALEAF_<region>.xlsx system portfolio file
-        self.ALEAF_portfolio_path = Path(Path(os.environ["ALEAF_DIR"]) / 
-                                         "data" /
-                                         self.settings["ALEAF"]["ALEAF_model_type"] /
-                                         self.settings["ALEAF"]["ALEAF_region"] /
-                                         self.settings["ALEAF"]["ALEAF_portfolio_file"]
-                                    )
-
-        # Set up the destination for the ALEAF_Master.xlsx file
-        self.ALEAF_Master_path = Path(Path(os.environ["ALEAF_DIR"]) /
-                                      "setting" /
-                                      self.settings["ALEAF_master_settings_file"]
-                                 )
-
-        # Set up the destination for the ALEAF_Master_<model>.xlsx file
-        self.ALEAF_model_file = Path(Path(os.environ["ALEAF_DIR"]) /
-                                     "setting" /
-                                     self.settings["ALEAF"]["ALEAF_model_settings_file"]
-                                )
-        
         # Set path to ALEAF outputs
         self.ALEAF_output_data_path = Path(
             Path(os.environ["ALEAF_DIR"]) /
