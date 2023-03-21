@@ -489,16 +489,6 @@ def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
     writer_object.close()
 
 
-def load_data_files(settings):
-    # Load unit_specs, agent_portfolios, and ALEAF_data files as dictionaries
-    #   (if yml) or as dataframes (if csv)
-    unit_specs_data = load_data(settings["file_paths"]["unit_specs_data_file"])
-    agent_portfolios = load_data(settings["file_paths"]["portfolios_file"])
-    ALEAF_data = load_data(settings["ALEAF"]["ALEAF_data_file"])
-
-    return unit_specs_data, agent_portfolios, ALEAF_data
-
-
 def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
     # Initialize all units with zero policy adjustment
     policy_adj_per_MWh = 0
@@ -555,11 +545,12 @@ def compute_unit_specs_cols(unit_specs, settings):
 
 
 def initialize_inputs(settings):
-    unit_specs, agent_portfolios, ALEAF_data = load_data_files(settings)
+    unit_specs = load_data(settings["file_paths"]["unit_specs_data_file"])
+    agent_portfolios = load_data(settings["file_paths"]["portfolios_file"])
 
     unit_specs = compute_unit_specs_cols(unit_specs, settings)
 
-    return unit_specs, agent_portfolios, ALEAF_data
+    return unit_specs, agent_portfolios
 
 
 def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, agent_portfolios):
@@ -582,6 +573,3 @@ def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, agent_portfolios):
     create_ALEAF_portfolio_file(ALEAF_data, gen, settings)
 
 
-if __name__ == "__main__":
-    settings, ALEAF_data, unit_specs_data, agent_portfolios = load_data_files()
-    create_ALEAF_files()

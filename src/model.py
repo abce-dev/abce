@@ -95,7 +95,7 @@ class GridModel(Model):
 
     def load_all_data(self):
         # Retrieve the input data
-        self.unit_specs, self.agent_portfolios, self.ALEAF_data = idm.initialize_inputs(self.settings)
+        self.unit_specs, self.agent_portfolios = idm.initialize_inputs(self.settings)
 
         # Save unit_specs to the database
         self.add_unit_specs_to_db()
@@ -438,9 +438,12 @@ class GridModel(Model):
             user_response = input("Press Enter to continue: ")
 
         if self.settings["simulation"]["run_ALEAF"]:
-            # Generate all three A-LEAf input files and save them to the 
+            # Re-load the baseline A-LEAF data
+            ALEAF_data = idm.load_data(Path(self.settings["ALEAF"]["ALEAF_data_file"]))
+
+            # Generate all three A-LEAF input files and save them to the 
             #   appropriate subdirectories in the A-LEAF top-level directory
-            idm.create_ALEAF_files(self.settings, self.ALEAF_data, self.unit_specs, self.agent_portfolios)
+            idm.create_ALEAF_files(self.settings, ALEAF_data, self.unit_specs, self.agent_portfolios)
 
             # Run A-LEAF
             logging.log(self.settings["constants"]["vis_lvl"], "Running A-LEAF...")
@@ -929,7 +932,7 @@ class GridModel(Model):
             #   then the project is complete
             if project_data.loc[0, "rcec"] <= self.settings["constants"]["large_epsilon"]:
                 # Record the project's completion period as the current period
-                self.record_completeconstruction_durationtr_project(project_data)
+                self.record_complete_construction_project(project_data)
 
             # Record updates to the WIP project's status
             self.record_WIP_project_updates(project_data)
@@ -939,7 +942,7 @@ class GridModel(Model):
             self.update_expected_completion_period(project_data)
 
 
-    def record_completeconstruction_durationtr_project(self, project_data):
+    def record_complete_construction_project(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
 
         # Get asset record from assets
@@ -948,8 +951,7 @@ class GridModel(Model):
 
        # Compute periodic sinking fund payments
         unit_type = asset_data.loc[0, "unit_type"]
-        unit_life = int(math.ceil(
-            self.unit_specs.loc[self.unit_specs.unit_type == unit_type, "unit_life"].values[0]))
+        unit_life = int(math.ceil(self.unit_specs[unit_type]["unit_life"]))
         #capex_payment = self.compute_sinking_fund_payment(asset_data.loc[0, "agent_id"], asset_data.loc[0, "cum_construction_exp"], unit_life)
         capex_payment = 0  # to be replaced by capex and financial instrument tracking
 
