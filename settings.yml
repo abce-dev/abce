@@ -1,7 +1,7 @@
 simulation:
   ALEAF_scenario_name: "ABCE_ERCOT"
   solver: "HiGHS"
-  num_steps: 2
+  num_steps: 1
   run_ALEAF: False
   C2N_assumption: baseline
 
@@ -49,12 +49,8 @@ file_paths:
   dispatch_sysimage_file: "dispatch.so"
   gc_params_file: "inputs/ERCOT_gc_params.yml"
   output_file: "outputs.xlsx"
-  portfolios_file: "inputs/ERCOT_portfolios.csv"
   retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
-  seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_IL_C2N__dispatch_summary_OP__step_0.csv"
-  time_series_data_file: "inputs/timeseriesParams.xlsx"
   unit_specs_data_file: "inputs/unit_specs.yml"
-  unit_specs_abce_supp_file: "inputs/unit_specs_abce_supplemental.csv"
   logo: "abce.txt"
 
 # Modeled grid system settings which are unlikely to change frequently

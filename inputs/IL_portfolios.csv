@@ -1,9 +1,0 @@
-agent_id,unit_type,num_units
-201,Solar,1
-201,NGCT,9
-201,ConventionalNuclear,11
-202,Wind,67
-202,Solar,6
-202,Coal,19
-202,NGCC,44
-202,NGCT,217
