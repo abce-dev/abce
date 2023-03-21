@@ -229,7 +229,8 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
     for solver_tab, tab_data in tabs_to_create.items():
         if solver_tab != "ALEAF Master Setup":
             # Set up metadata about solver settings
-            solver_setting_list = ", ".join([parameter for parameter in tabs_to_create[solver_tab]["data"].keys()])
+            invalid_items = ["solver_setting_list", "num_solver_setting", "solver_direct_mode_flag"]
+            solver_setting_list = ", ".join([parameter for parameter in tabs_to_create[solver_tab]["data"].keys() if parameter not in invalid_items])
 
             # Set up solver_direct_mode_flag: TRUE if CPLEX, FALSE otherwise
             mode_flag = "false"
@@ -243,7 +244,9 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
                 "solver_setting_list": solver_setting_list
             }
 
-            tab_data["data"].update(solver_extra_items)
+            for key, value in solver_extra_items.items():
+                if key not in tab_data["data"].keys():
+                    tab_data["data"].update({key: value})
 
     # Construct the path to which this file should be written
     output_path = Path(Path(os.environ["ALEAF_DIR"]) /
@@ -320,7 +323,8 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
         "planning_reserve_margin": "planning_reserve_margin_value"
     }
     for key, value in items_to_rename.items():
-        tabs_to_create["Planning Design"]["data"][value] = tabs_to_create["Planning Design"]["data"].pop(key)
+        if value not in tabs_to_create["Planning Design"]["data"].keys():
+            tabs_to_create["Planning Design"]["data"][value] = tabs_to_create["Planning Design"]["data"].pop(key)
 
 
     # Finalize "Simulation Setting" tab
@@ -336,7 +340,8 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
         "network_reduction_flag": "Network_reduction_flag"
     }
     for key, value in items_to_rename.items():
-        tabs_to_create["Simulation Setting"]["data"][value] = tabs_to_create["Simulation Setting"]["data"].pop(key)
+        if value not in tabs_to_create["Simulation Setting"]["data"].keys():
+            tabs_to_create["Simulation Setting"]["data"][value] = tabs_to_create["Simulation Setting"]["data"].pop(key)
 
 
     # Finalize "Simulation Configuration" tab
@@ -361,7 +366,8 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
         "nuclear_ITC": "ITC_N"
     }
     for key, value in items_to_rename.items():
-        tabs_to_create["Simulation Configuration"]["data"][value] = tabs_to_create["Simulation Configuration"]["data"].pop(key)
+        if value not in tabs_to_create["Simulation Configuration"]["data"].keys():
+            tabs_to_create["Simulation Configuration"]["data"][value] = tabs_to_create["Simulation Configuration"]["data"].pop(key)
 
 
     # Finalize "Scenario Reduction Setting" tab
@@ -436,7 +442,7 @@ def create_ALEAF_portfolio_file(ALEAF_data, gen, settings):
                        "data" /
                        settings["ALEAF"]["ALEAF_model_type"] /
                        settings["ALEAF"]["ALEAF_region"] /
-                       settings["ALEAF"]["ALEAF_model_settings_file"]
+                       settings["ALEAF"]["ALEAF_portfolio_file"]
                   )
 
     # Write this file to the destination
