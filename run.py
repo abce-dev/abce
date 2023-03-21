@@ -25,7 +25,7 @@ from src.model import GridModel
 import yaml
 import pandas as pd
 import argparse
-import src.ABCEfunctions
+from src import ABCEfunctions
 from pathlib import Path
 
 
@@ -189,13 +189,6 @@ def run_model():
             final_db = pd.read_sql_query(
                 f"SELECT * FROM {table}", abce_model.db)
             final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
-
-    if abce_model.settings["simulation"]["run_ALEAF"]:
-        # Postprocess A-LEAF results
-        ABCEfunctions.process_outputs(
-            settings,
-            abce_model.ABCE_output_data_path,
-            abce_model.unit_specs)
 
 
 class ABCEFormatter(logging.Formatter):
