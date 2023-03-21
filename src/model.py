@@ -934,8 +934,7 @@ class GridModel(Model):
        # Compute periodic sinking fund payments
         unit_type = asset_data.loc[0, "unit_type"]
         unit_life = int(math.ceil(self.unit_specs[unit_type]["unit_life"]))
-        #capex_payment = self.compute_sinking_fund_payment(asset_data.loc[0, "agent_id"], asset_data.loc[0, "cum_construction_exp"], unit_life)
-        capex_payment = 0  # to be replaced by capex and financial instrument tracking
+        capex_payment = 0
 
         to_update = {"completion_pd": self.current_pd,
                      "retirement_pd": self.current_pd + unit_life,
