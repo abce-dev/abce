@@ -30,7 +30,6 @@ from mesa.time import RandomActivation
 from .agent import GenCo
 from . import ABCEfunctions as ABCE
 from . import seed_creator as sc
-from . import ALEAF_interface as ALI
 from . import dispatch_ppx as dsp
 from . import input_data_management as idm
 
