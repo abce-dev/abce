@@ -80,7 +80,6 @@ class GridModel(Model):
         self.schedule = RandomActivation(self)
 
         # Create agents
-        num_agents = len(self.gc_params.keys())
         for agent_id in list(self.gc_params.keys()):
             gc = GenCo(
                 agent_id,
