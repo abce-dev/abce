@@ -22,3 +22,8 @@ inputs/ALEAF_inputs/scenario_reduction_tmp
 repDays*.csv
 tmp/
 archive/
+inputs/backup_calcs
+inputs/ERCOT_inputs
+inputs/IL_inputs
+inputs/C2N_inputs
+test/norun
