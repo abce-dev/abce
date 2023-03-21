@@ -43,7 +43,6 @@ constants:
 # File paths and filenames
 file_paths:
   ABCE_sysimage_file: "abceSysimage.so"
-  ALEAF_settings_file: "inputs/ALEAF_settings.yml"
   db_file: "abce_db.db"
   demand_data_file: "inputs/demand_data.csv"
   dispatch_sysimage_file: "dispatch.so"
