@@ -914,7 +914,7 @@ class GridModel(Model):
             #   then the project is complete
             if project_data.loc[0, "rcec"] <= self.settings["constants"]["large_epsilon"]:
                 # Record the project's completion period as the current period
-                self.record_complete_construction_project(project_data)
+                self.record_completed_construction_project(project_data)
 
             # Record updates to the WIP project's status
             self.record_WIP_project_updates(project_data)
@@ -924,7 +924,7 @@ class GridModel(Model):
             self.update_expected_completion_period(project_data)
 
 
-    def record_complete_construction_project(self, project_data):
+    def record_completed_construction_project(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
 
         # Get asset record from assets
