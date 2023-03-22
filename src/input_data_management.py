@@ -92,7 +92,6 @@ def update_unit_specs_for_ALEAF(unit_specs_data, system_portfolio):
         unit_specs.loc[unit_type.Index, "GEN UID"] = f"{unit_type.Index}_1"
 
     # Pivot in num_units data from the system portfolio for convenience
-    system_portfolio = system_portfolio.reset_index().rename(columns={"index": "unit_type"})
     unit_specs = unit_specs.reset_index().rename(columns={"index": "unit_type"})
     unit_specs = unit_specs.merge(
                      system_portfolio,

@@ -410,7 +410,7 @@ class GridModel(Model):
 
             # Generate all three A-LEAF input files and save them to the 
             #   appropriate subdirectories in the A-LEAF top-level directory
-            idm.create_ALEAF_files(self.settings, ALEAF_data, self.unit_specs, self.db, self.current_step)
+            idm.create_ALEAF_files(self.settings, ALEAF_data, self.unit_specs, self.db, self.current_pd)
 
             # Run A-LEAF
             logging.log(self.settings["constants"]["vis_lvl"], "Running A-LEAF...")
