@@ -79,7 +79,7 @@ class GridModel(Model):
         self.schedule = RandomActivation(self)
 
         # Create agents
-        for agent_id, agent_params in self.gc_params.items():
+        for agent_id, agent_params in self.agent_specs.items():
             gc = GenCo(
                 agent_id,
                 self,
@@ -104,22 +104,22 @@ class GridModel(Model):
         # Add model parameters to the database
         self.load_model_parameters_to_db()
 
-        # Read gc_params
-        self.load_gc_params()
+        # Read agent specification data
+        self.load_agent_specifications()
 
         # Load in mandatory unit retirement data
         self.load_retirement_data()
 
 
-    def load_gc_params(self):
+    def load_agent_specifications(self):
         # Read in the GenCo parameters data from file
-        gc_params_file_name = Path(
+        agent_specs_file_name = Path(
             self.settings["file_paths"]["ABCE_abs_path"] /
-            self.settings["file_paths"]["gc_params_file"]
+            self.settings["file_paths"]["agent_specifications_file"]
         )
-        self.gc_params = yaml.load(
+        self.agent_specs = yaml.load(
             open(
-                gc_params_file_name,
+                agent_specs_file_name,
                 'r'),
             Loader=yaml.FullLoader)
 
@@ -200,8 +200,8 @@ class GridModel(Model):
 
 
     def initialize_agent_assets(self, agent_id):
-        if "starting_portfolio" in self.gc_params[agent_id].keys():
-            agent_portfolio = self.gc_params[agent_id]["starting_portfolio"]
+        if "starting_portfolio" in self.agent_specs[agent_id].keys():
+            agent_portfolio = self.agent_specs[agent_id]["starting_portfolio"]
 
             # Set the initial asset ID
             asset_id = ABCE.get_next_asset_id(
@@ -608,7 +608,7 @@ class GridModel(Model):
         #   debt and equity for the agents
         if self.current_pd < 1:
             inst_id = 1000
-            for agent_id, agent_params in self.gc_params.items():
+            for agent_id, agent_params in self.agent_specs.items():
                 starting_debt = float(agent_params["starting_debt"])
                 debt_frac = agent_params["debt_fraction"]
                 starting_equity = float(
@@ -649,9 +649,9 @@ class GridModel(Model):
             asset_id = new_capex_instances.loc[i, "asset_id"]
             total_qty = float(new_capex_instances.loc[i, "capex"])
             pd_issued = new_capex_instances.loc[i, "projected_pd"]
-            agent_debt_frac = self.gc_params[agent_id]["debt_fraction"]
-            agent_debt_cost = self.gc_params[agent_id]["cost_of_debt"]
-            agent_equity_cost = self.gc_params[agent_id]["cost_of_equity"]
+            agent_debt_frac = self.agent_specs[agent_id]["debt_fraction"]
+            agent_debt_cost = self.agent_specs[agent_id]["cost_of_debt"]
+            agent_equity_cost = self.agent_specs[agent_id]["cost_of_equity"]
             amort_pd = 30
             debt_row = [agent_id,                         # agent_id
                         inst_id,                          # instrument_id
@@ -750,7 +750,7 @@ class GridModel(Model):
                 "depreciation",
                 "beginning_book_value"]
             dep_projections = pd.DataFrame(columns=dep_cols)
-            for agent_id, agent_params in self.gc_params.items():
+            for agent_id, agent_params in self.agent_specs.items():
                 summary_asset_id = agent_id
                 init_PPE = agent_params["starting_PPE"]
                 dep_horiz = 30
