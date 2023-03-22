@@ -197,11 +197,28 @@ class GridModel(Model):
         if "scheduled_retirements" in self.agent_specs[agent_id].keys():
             agent_retirements = self.agent_specs[agent_id]["scheduled_retirements"]
 
-        # Set the initial asset ID
-        asset_id = ABCE.get_next_asset_id(
-                       self.db,
-                       self.settings["constants"]["first_asset_id"]
-                   )
+        # Validate the number of retirements versus number of owned units
+        for unit_type, num_units in agent_portfolio.items():
+            if unit_type not in agent_retirements.keys():
+                # If this unit type is not found in the agent's retirement
+                #   schedule, set all agent's owned units to retire at some
+                #   very distant period
+                agent_retirements[unit_type] = {}
+                agent_retirements[unit_type][self.settings["constants"]["big_M"]] = num_units
+            else:
+                # Square up the number of units set to retire with the total
+                #   number of owned units
+                total_ret_units = 0
+                for retirement_pd, ret_num_units in agent_retirements[unit_type].items():
+                    total_ret_units += ret_num_units
+
+                if total_ret_units > num_units:
+                    raise ValueError(f"Portfolio specification mismatch for agent #{agent_id}: total owned {unit_type} units = {num_units}, but total specified {unit_type} retirements = {total_ret_units}.")
+
+                # If there are any units with unspecified retirement dates, set
+                #   their retirement date to a large number
+                elif total_ret_units < num_units:
+                    agent_retirements[unit_type][self.settings["constants"]["big_M"]] = num_units - total_ret_units
 
         # Retrieve the column-header schema for the 'assets' table
         self.cur.execute("SELECT * FROM assets")
@@ -214,35 +231,15 @@ class GridModel(Model):
 
         # Assign units to this agent as specified in the portfolio file,
         #   and record each in the master_asset_df dataframe
-        for unit_type, num_units in agent_portfolio.items():
-            # Retrieve the list of retirement period data for this unit type
-            #   and agent
-            unit_retirements = {}
-            if unit_type in agent_retirements.keys():
-                unit_retirements = agent_retirements[unit_type]
-
-            # Check to ensure there are not more retirements scheduled than
-            #   units owned by the agent
-            total_ret_units = 0
-            for retirement_pd, ret_num_units in unit_retirements.items():
-                total_ret_units += ret_num_units
-
-            if total_ret_units > num_units:
-                raise ValueError(f"Portfolio specification mismatch for agent #{agent_id}: total owned {unit_type} units = {num_units}, but total specified {unit_type} retirements = {total_ret_units}.")
-            # If there are any units with unspecified retirement dates, set
-            #   their retirement date to a large number
-            elif total_ret_units < num_units:
-                unit_retirements[self.settings["constants"]["big_M"]] = num_units - total_ret_units
-
+        for unit_type, unit_ret_data in agent_retirements.items():
             # Create assets in blocks, according to the number of units per
             #   retirement period
-            for retirement_pd, num_units in unit_retirements.items():
+            for retirement_pd, num_units in unit_ret_data.items():
                 # Compute unit capex according to the unit type spec
                 unit_capex = self.compute_total_capex_preexisting(unit_type)
                 cap_pmt = 0
 
-                # Save all values which don't change for each asset in this
-                #   block, i.e. everything but the asset_id
+                # Set up all data values except for the asset id
                 asset_dict = {"agent_id": agent_id,
                               "unit_type": unit_type,
                               "start_pd": -1,
