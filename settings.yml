@@ -37,6 +37,7 @@ constants:
   first_asset_id: 2001
   vis_lvl: 45   # sets the logging level for bare visual elements
   large_epsilon: 1.0
+  big_M: 9999
   hours_per_year: 8760
   MW2kW: 1000   # converts MW to kW
 
@@ -48,7 +49,6 @@ file_paths:
   dispatch_sysimage_file: "dispatch.so"
   agent_specifications_file: "inputs/agent_specifications.yml"
   output_file: "outputs.xlsx"
-  retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
   unit_specs_data_file: "inputs/unit_specs.yml"
   logo: "abce.txt"
 
