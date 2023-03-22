@@ -221,16 +221,4 @@
         solar: 61
         ngcc: 121
         ngct: 4
-    scheduled_retirements:
-    # Format:
-    # unit_type:
-    #   retirement_pd: num_units
-        wind:
-            100: 238
-        solar:
-            100: 61
-        ngcc:
-            100: 121
-        ngct:
-            100: 4
- 
+
