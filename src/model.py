@@ -86,7 +86,8 @@ class GridModel(Model):
                 agent_params
             )
             self.schedule.add(gc)
-            self.initialize_agent_assets(agent_id)
+            if "starting_portfolio" in agent_params.keys():
+                self.initialize_agent_assets(agent_id)
 
         self.db.commit()
 
@@ -200,103 +201,102 @@ class GridModel(Model):
 
 
     def initialize_agent_assets(self, agent_id):
-        if "starting_portfolio" in self.agent_specs[agent_id].keys():
-            agent_portfolio = self.agent_specs[agent_id]["starting_portfolio"]
+        agent_portfolio = self.agent_specs[agent_id]["starting_portfolio"]
 
-            # Set the initial asset ID
-            asset_id = ABCE.get_next_asset_id(
-                           self.db,
-                           self.settings["constants"]["first_asset_id"]
-                       )
+        # Set the initial asset ID
+        asset_id = ABCE.get_next_asset_id(
+                       self.db,
+                       self.settings["constants"]["first_asset_id"]
+                   )
 
-            # Retrieve the column-header schema for the 'assets' table
-            self.cur.execute("SELECT * FROM assets")
-            assets_col_names = [element[0] for element in self.cur.description]
+        # Retrieve the column-header schema for the 'assets' table
+        self.cur.execute("SELECT * FROM assets")
+        assets_col_names = [element[0] for element in self.cur.description]
 
-            # Create a master dataframe to hold all asset records for this
-            #   agent-unit type combination (to reduce the frequency of saving
-            #   to the database)
-            master_assets_df = pd.DataFrame(columns=assets_col_names)
+        # Create a master dataframe to hold all asset records for this
+        #   agent-unit type combination (to reduce the frequency of saving
+        #   to the database)
+        master_assets_df = pd.DataFrame(columns=assets_col_names)
 
-            # Assign units to this agent as specified in the portfolio file,
-            #   and record each in the master_asset_df dataframe
-            for unit_type, num_units in agent_portfolio.items():
-                # Retrieve the list of retirement period data for this unit type
-                #   and agent
-                unit_rets = self.create_unit_type_retirement_df(
-                    unit_type, agent_id, asset_id)
+        # Assign units to this agent as specified in the portfolio file,
+        #   and record each in the master_asset_df dataframe
+        for unit_type, num_units in agent_portfolio.items():
+            # Retrieve the list of retirement period data for this unit type
+            #   and agent
+            unit_rets = self.create_unit_type_retirement_df(
+                unit_type, agent_id, asset_id)
 
-                # Out of the total number of assets of this type belonging to this
-                #   agent, any "left over" units with no specified retirement date
-                #   should all retire at period 9999
-                assets_remaining = num_units
-                num_not_specified = num_units - sum(unit_rets["num_copies"])
-                unit_rets = unit_rets.append({
-                    "agent_id": agent_id,
-                    "unit_type": unit_type,
-                    "retirement_pd": 9999,
-                    "num_copies": num_not_specified
-                }, ignore_index=True)
+            # Out of the total number of assets of this type belonging to this
+            #   agent, any "left over" units with no specified retirement date
+            #   should all retire at period 9999
+            assets_remaining = num_units
+            num_not_specified = num_units - sum(unit_rets["num_copies"])
+            unit_rets = unit_rets.append({
+                "agent_id": agent_id,
+                "unit_type": unit_type,
+                "retirement_pd": 9999,
+                "num_copies": num_not_specified
+            }, ignore_index=True)
 
-                # Create assets in blocks, according to the number of units per
-                #   retirement period
-                for rets_row in unit_rets.itertuples():
-                    retirement_pd = rets_row.retirement_pd
-                    num_copies = rets_row.num_copies
+            # Create assets in blocks, according to the number of units per
+            #   retirement period
+            for rets_row in unit_rets.itertuples():
+                retirement_pd = rets_row.retirement_pd
+                num_copies = rets_row.num_copies
 
-                    # Compute unit capex according to the unit type spec
-                    unit_capex = self.compute_total_capex_preexisting(unit_type)
-                    cap_pmt = 0
+                # Compute unit capex according to the unit type spec
+                unit_capex = self.compute_total_capex_preexisting(unit_type)
+                cap_pmt = 0
 
-                    # Save all values which don't change for each asset in this
-                    #   block, i.e. everything but the asset_id
-                    asset_dict = {"agent_id": agent_id,
-                                  "unit_type": unit_type,
-                                  "start_pd": -1,
-                                  "completion_pd": 0,
-                                  "cancellation_pd": 9999,
-                                  "retirement_pd": retirement_pd,
-                                  "total_capex": unit_capex,
-                                  "cap_pmt": cap_pmt,
-                                  "C2N_reserved": 0
-                                  }
+                # Save all values which don't change for each asset in this
+                #   block, i.e. everything but the asset_id
+                asset_dict = {"agent_id": agent_id,
+                              "unit_type": unit_type,
+                              "start_pd": -1,
+                              "completion_pd": 0,
+                              "cancellation_pd": 9999,
+                              "retirement_pd": retirement_pd,
+                              "total_capex": unit_capex,
+                              "cap_pmt": cap_pmt,
+                              "C2N_reserved": 0
+                             }
 
-                    # For each asset in this block, create a dataframe record and
-                    #   store it to the master_assets_df
-                    for i in range(num_copies):
-                        # Find the largest extant asset id, and set the current
-                        #   asset id 1 higher
-                        asset_dict["asset_id"] = max(
-                            ABCE.get_next_asset_id(
-                                self.db,
-                                self.settings["constants"]["first_asset_id"]
-                            ),
-                            max(
-                                master_assets_df["asset_id"],
-                                default=self.settings["constants"]["first_asset_id"]
-                            ) + 1
-                         )
+                # For each asset in this block, create a dataframe record and
+                #   store it to the master_assets_df
+                for i in range(num_copies):
+                    # Find the largest extant asset id, and set the current
+                    #   asset id 1 higher
+                    asset_dict["asset_id"] = max(
+                        ABCE.get_next_asset_id(
+                            self.db,
+                            self.settings["constants"]["first_asset_id"]
+                        ),
+                        max(
+                            master_assets_df["asset_id"],
+                            default=self.settings["constants"]["first_asset_id"]
+                        ) + 1
+                    )
 
-                        # Convert the dictionary to a dataframe format and save
-                        new_record = pd.DataFrame(asset_dict, index=[0])
-                        master_assets_df = master_assets_df.append(new_record)
+                    # Convert the dictionary to a dataframe format and save
+                    new_record = pd.DataFrame(asset_dict, index=[0])
+                    master_assets_df = master_assets_df.append(new_record)
 
-                # For any leftover units in assets_remaining with no specified
-                #   retirement date, initialize them with the default retirement date
-                #   of 9999
-                asset_dict["retirement_pd"] = 9999
+            # For any leftover units in assets_remaining with no specified
+            #   retirement date, initialize them with the default retirement date
+            #   of 9999
+            asset_dict["retirement_pd"] = 9999
 
-            # Once all assets from all unit types for this agent have had records
-            #   initialized, save the dataframe of all assets into the 'assets'
-            #   DB table
-            master_assets_df.to_sql(
-                "assets",
-                self.db,
-                if_exists="append",
-                index=False
-            )
+        # Once all assets from all unit types for this agent have had records
+        #   initialized, save the dataframe of all assets into the 'assets'
+        #   DB table
+        master_assets_df.to_sql(
+            "assets",
+            self.db,
+            if_exists="append",
+            index=False
+        )
 
-            self.db.commit()
+        self.db.commit()
 
 
     def compute_total_capex_preexisting(self, unit_type):
