@@ -175,10 +175,10 @@ class GridModel(Model):
 
         # Retrieve the column-header schema for the 'unit_specs' table
         self.cur.execute("SELECT * FROM unit_specs")
-        unit_specs_cols = [element[0] for element in self.cur.description]
+        unit_specs_db_cols = [element[0] for element in self.cur.description]
 
         # Select the necessary DB columns in order
-        unit_specs = unit_specs[unit_specs_cols]
+        unit_specs = unit_specs[unit_specs_db_cols]
 
         # Save the finalized unit specs data to the DB, and set the member data
         unit_specs.to_sql(
