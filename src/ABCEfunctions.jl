@@ -1441,6 +1441,25 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     # Create the annualized results dataframe so far
     results_pivot = combine(groupby(fin_results, :y), [:total_rev, :total_VOM, :total_FC] .=> sum; renamecols=false)
 
+	# If the agent is projected to reach zero installed capacity within the 
+	#   forecast period, pad the results_pivot with zeros until the
+	#   end of the forecast period
+	if size(results_pivot)[1] < fc_pd
+		pad_length = fc_pd - size(results_pivot)[1]
+		y_pad = maximum(results_pivot[!, :y])+1:maximum(results_pivot[!, :y])+pad_length
+		rev_pad = zeros(Int64, pad_length)
+		VOM_pad = zeros(Int64, pad_length)
+		FC_pad = zeros(Int64, pad_length)
+		pad_df = DataFrame(
+			y = y_pad,
+			total_rev = rev_pad,
+			total_VOM = VOM_pad,
+			total_FC = FC_pad
+		)
+
+		results_pivot = vcat(results_pivot, pad_df)
+	end
+
     fs = DataFrame(
              base_pd = ones(Int64, fc_pd) .* current_pd,
              projected_pd = current_pd:current_pd+fc_pd-1,
