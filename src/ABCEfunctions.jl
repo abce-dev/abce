@@ -1302,7 +1302,7 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
     rtec = cum_construction_duration
     start_pd = current_pd
     completion_pd = current_pd + unit_type_specs[1, :construction_duration]
-    cancellation_pd = 9999
+    cancellation_pd = settings["constants"]["big_M"]
     retirement_pd = current_pd + unit_type_specs[1, :construction_duration] + unit_type_specs[1, :unit_life]
     total_capex = 0
     cap_pmt = 0
