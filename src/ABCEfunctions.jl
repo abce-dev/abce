@@ -1254,7 +1254,7 @@ end
 
 
 ### Postprocessing
-function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, agent_id)
+function postprocess_agent_decisions(settings, all_results, unit_specs, db, current_pd, agent_id)
     for i = 1:size(all_results)[1]
         # Retrieve the individual result row for convenience
         result = all_results[i, :]
@@ -1262,7 +1262,7 @@ function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, ag
         if result[:project_type] == "new_xtr"
         # New construction decisions are binding for this period only
             if (result[:lag] == 0) && (result[:units_to_execute] != 0)
-                record_new_construction_projects(result, unit_specs, db, current_pd, agent_id)
+                record_new_construction_projects(settings, result, unit_specs, db, current_pd, agent_id)
                 # If the project is a C2N project, retire two coal units at
                 #    the appropriate time
                 if occursin("C2N", result[:unit_type])
@@ -1290,7 +1290,7 @@ function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, ag
 end
 
 
-function record_new_construction_projects(result, unit_data, db, current_pd, agent_id)
+function record_new_construction_projects(settings, result, unit_data, db, current_pd, agent_id)
     # Retrieve unit_specs data for this unit type
     unit_type_specs = filter(:unit_type => x -> x == result[:unit_type], unit_data)
 
@@ -1302,7 +1302,7 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
     rtec = cum_construction_duration
     start_pd = current_pd
     completion_pd = current_pd + unit_type_specs[1, :construction_duration]
-    cancellation_pd = settings["constants"]["big_M"]
+    cancellation_pd = settings["constants"]["distant_time"]
     retirement_pd = current_pd + unit_type_specs[1, :construction_duration] + unit_type_specs[1, :unit_life]
     total_capex = 0
     cap_pmt = 0

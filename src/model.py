@@ -218,7 +218,7 @@ class GridModel(Model):
             # If there are any units with unspecified retirement dates, set
             #   their retirement date to a large number
             elif total_ret_units < num_units:
-                agent_retirements[unit_type][self.settings["constants"]["big_M"]] = num_units - total_ret_units
+                agent_retirements[unit_type][self.settings["constants"]["distant_time"]] = num_units - total_ret_units
 
         # Retrieve the column-header schema for the 'assets' table
         self.cur.execute("SELECT * FROM assets")
@@ -244,7 +244,7 @@ class GridModel(Model):
                               "unit_type": unit_type,
                               "start_pd": -1,
                               "completion_pd": 0,
-                              "cancellation_pd": self.settings["constants"]["big_M"],
+                              "cancellation_pd": self.settings["constants"]["distant_time"],
                               "retirement_pd": int(retirement_pd),
                               "total_capex": unit_capex,
                               "cap_pmt": cap_pmt,

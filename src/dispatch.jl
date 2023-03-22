@@ -80,7 +80,7 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
-        run_next_year, total_ENS = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
+        run_next_year, total_ENS = run_annual_dispatch(settings, y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
@@ -202,7 +202,7 @@ function set_up_wind_solar_repdays(ts_data)
 end
 
 
-function set_up_model(ts_data, year_portfolio, unit_specs, solver)
+function set_up_model(settings, ts_data, year_portfolio, unit_specs, solver)
     # Create joined portfolio-unit_specs dataframe, to ensure consistent
     #   accounting for units which are actually present and consistent
     #   unit ordering
@@ -309,7 +309,7 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
         end
     end
 
-    ENS_penalty = settings["constants"]["big_M"]
+    ENS_penalty = settings["constants"]["big_number"]
 
     @objective(m, Min, sum(sum(sum(g[i, k, j] + ENS_penalty * s[k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] - portfolio_specs[i, :policy_adj_per_MWh]) for i = 1:num_units))
 
@@ -417,7 +417,7 @@ function propagate_all_results(end_year, all_gc_results, all_prices, current_pd)
 end
 
 
-function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
+function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
     # Constants
     num_hours = 24
 
@@ -435,7 +435,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     ts_data = set_up_wind_solar_repdays(ts_data)
 
     @debug "Setting up optimization model..."
-    m, portfolio_specs = set_up_model(ts_data, year_portfolio, unit_specs, solver)
+    m, portfolio_specs = set_up_model(settings, ts_data, year_portfolio, unit_specs, solver)
 
     @debug "Optimization model set up."
     @debug string("Solving repday dispatch for year ", y, "...")

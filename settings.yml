@@ -2,7 +2,7 @@ simulation:
   ALEAF_scenario_name: "ABCE_ERCOT"
   solver: "HiGHS"
   num_steps: 1
-  run_ALEAF: False
+  run_ALEAF: True
   C2N_assumption: baseline
 
 scenario:
@@ -37,7 +37,8 @@ constants:
   first_asset_id: 2001
   vis_lvl: 45   # sets the logging level for bare visual elements
   large_epsilon: 1.0
-  big_M: 9999
+  distant_time: 9999
+  big_number: 999999
   hours_per_year: 8760
   MW2kW: 1000   # converts MW to kW
 
