@@ -199,26 +199,26 @@ class GridModel(Model):
 
         # Validate the number of retirements versus number of owned units
         for unit_type, num_units in agent_portfolio.items():
+            total_ret_units = 0
             if unit_type not in agent_retirements.keys():
                 # If this unit type is not found in the agent's retirement
-                #   schedule, set all agent's owned units to retire at some
-                #   very distant period
+                #   schedule, initialize an empty dictionary
                 agent_retirements[unit_type] = {}
-                agent_retirements[unit_type][self.settings["constants"]["big_M"]] = num_units
             else:
-                # Square up the number of units set to retire with the total
-                #   number of owned units
-                total_ret_units = 0
+                # Determine the total number of units of this type scheduled
+                #   scheduled to be retired by this agent
                 for retirement_pd, ret_num_units in agent_retirements[unit_type].items():
                     total_ret_units += ret_num_units
 
-                if total_ret_units > num_units:
-                    raise ValueError(f"Portfolio specification mismatch for agent #{agent_id}: total owned {unit_type} units = {num_units}, but total specified {unit_type} retirements = {total_ret_units}.")
+            # Reconcile total number of scheduled retirements with total number
+            #   of owned assets of this type
+            if total_ret_units > num_units:
+                raise ValueError(f"Portfolio specification mismatch for agent #{agent_id}: total owned {unit_type} units = {num_units}, but total specified {unit_type} retirements = {total_ret_units}.")
 
-                # If there are any units with unspecified retirement dates, set
-                #   their retirement date to a large number
-                elif total_ret_units < num_units:
-                    agent_retirements[unit_type][self.settings["constants"]["big_M"]] = num_units - total_ret_units
+            # If there are any units with unspecified retirement dates, set
+            #   their retirement date to a large number
+            elif total_ret_units < num_units:
+                agent_retirements[unit_type][self.settings["constants"]["big_M"]] = num_units - total_ret_units
 
         # Retrieve the column-header schema for the 'assets' table
         self.cur.execute("SELECT * FROM assets")
