@@ -201,7 +201,13 @@ class GridModel(Model):
 
 
     def initialize_agent_assets(self, agent_id):
+        # Get the agent's portfolio of owned assets
         agent_portfolio = self.agent_specs[agent_id]["starting_portfolio"]
+
+        # Retrieve info on scheduled unit retirements for this agent
+        agent_retirements = {}
+        if "scheduled_retirements" in self.agent_specs[agent_id].keys():
+            agent_retirements = self.agent_specs[agent_id]["scheduled_retirements"]
 
         # Set the initial asset ID
         asset_id = ABCE.get_next_asset_id(
@@ -223,27 +229,25 @@ class GridModel(Model):
         for unit_type, num_units in agent_portfolio.items():
             # Retrieve the list of retirement period data for this unit type
             #   and agent
-            unit_rets = self.create_unit_type_retirement_df(
-                unit_type, agent_id, asset_id)
+            if unit_type in agent_retirements.keys():
+                unit_retirements = agent_retirements[unit_type]
 
-            # Out of the total number of assets of this type belonging to this
-            #   agent, any "left over" units with no specified retirement date
-            #   should all retire at period 9999
-            assets_remaining = num_units
-            num_not_specified = num_units - sum(unit_rets["num_copies"])
-            unit_rets = unit_rets.append({
-                "agent_id": agent_id,
-                "unit_type": unit_type,
-                "retirement_pd": 9999,
-                "num_copies": num_not_specified
-            }, ignore_index=True)
+            # Check to ensure there are not more retirements scheduled than
+            #   units owned by the agent
+            total_ret_units = 0
+            for retirement_pd, ret_num_units in unit_retirements.items():
+                total_ret_units += ret_num_units
+
+            if total_ret_units > num_units:
+                raise ValueError(f"Portfolio specification mismatch for agent #{agent_id}: total owned {unit_type} units = {num_units}, but total specified {unit_type} retirements = {total_ret_units}.")
+            # If there are any units with unspecified retirement dates, set
+            #   their retirement date to a large number
+            elif total_ret_units < num_units:
+                unit_retirements[self.settings["constants"]["big_M"]] = num_units - total_ret_units
 
             # Create assets in blocks, according to the number of units per
             #   retirement period
-            for rets_row in unit_rets.itertuples():
-                retirement_pd = rets_row.retirement_pd
-                num_copies = rets_row.num_copies
-
+            for retirement_pd, num_units in unit_retirements.items():
                 # Compute unit capex according to the unit type spec
                 unit_capex = self.compute_total_capex_preexisting(unit_type)
                 cap_pmt = 0
@@ -254,8 +258,8 @@ class GridModel(Model):
                               "unit_type": unit_type,
                               "start_pd": -1,
                               "completion_pd": 0,
-                              "cancellation_pd": 9999,
-                              "retirement_pd": retirement_pd,
+                              "cancellation_pd": self.settings["constants"]["big_M"],
+                              "retirement_pd": int(retirement_pd),
                               "total_capex": unit_capex,
                               "cap_pmt": cap_pmt,
                               "C2N_reserved": 0
@@ -263,7 +267,7 @@ class GridModel(Model):
 
                 # For each asset in this block, create a dataframe record and
                 #   store it to the master_assets_df
-                for i in range(num_copies):
+                for i in range(num_units):
                     # Find the largest extant asset id, and set the current
                     #   asset id 1 higher
                     asset_dict["asset_id"] = max(
@@ -280,11 +284,6 @@ class GridModel(Model):
                     # Convert the dictionary to a dataframe format and save
                     new_record = pd.DataFrame(asset_dict, index=[0])
                     master_assets_df = master_assets_df.append(new_record)
-
-            # For any leftover units in assets_remaining with no specified
-            #   retirement date, initialize them with the default retirement date
-            #   of 9999
-            asset_dict["retirement_pd"] = 9999
 
         # Once all assets from all unit types for this agent have had records
         #   initialized, save the dataframe of all assets into the 'assets'
