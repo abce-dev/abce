@@ -85,10 +85,18 @@ class GridModel(Model):
                 self,
                 agent_params
             )
-            self.schedule.add(gc)
+
+            # Initialize assets owned by this agent, and add them to
+            #   the database
             if "starting_portfolio" in agent_params.keys():
                 self.initialize_agent_assets(agent_id)
 
+            # Only add active agents to the schedule
+            if ("inactive" not in agent_params.keys() or
+                agent_params["inactive"] == False):
+                self.schedule.add(gc)
+
+        # Make sure all pending database transactions are resolved
         self.db.commit()
 
 

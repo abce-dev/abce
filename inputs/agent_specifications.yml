@@ -221,4 +221,4 @@
         solar: 61
         ngcc: 121
         ngct: 4
-
+    inactive: True
