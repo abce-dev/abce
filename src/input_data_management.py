@@ -254,9 +254,9 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
                     tab_data["data"].update({key: value})
 
     # Construct the path to which this file should be written
-    output_path = Path(Path(os.environ["ALEAF_DIR"]) /
-                       "setting" /
-                       settings["ALEAF"]["ALEAF_master_settings_file"]
+    output_path = (Path(os.environ["ALEAF_DIR"]) /
+                   "setting" /
+                   settings["ALEAF"]["ALEAF_master_settings_file"]
                   )
 
     # Write this file to the destination
@@ -392,9 +392,9 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
     tabs_to_create["Scenario Reduction Setting"]["data"].update(srs_extra_items)
 
     # Construct the path to which this file should be written
-    output_path = Path(Path(os.environ["ALEAF_DIR"]) /
-                       "setting" /
-                       settings["ALEAF"]["ALEAF_model_settings_file"]
+    output_path = (Path(os.environ["ALEAF_DIR"]) /
+                   "setting" /
+                   settings["ALEAF"]["ALEAF_model_settings_file"]
                   )
 
     # Write this file to the destination
@@ -443,11 +443,11 @@ def create_ALEAF_portfolio_file(ALEAF_data, gen, settings):
             tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data["ALEAF_portfolio"][tab_data["ABCE_tab_name"]]
 
     # Construct the path to which this file should be written
-    output_path = Path(Path(os.environ["ALEAF_DIR"]) /
-                       "data" /
-                       settings["ALEAF"]["ALEAF_model_type"] /
-                       settings["ALEAF"]["ALEAF_region"] /
-                       settings["ALEAF"]["ALEAF_portfolio_file"]
+    output_path = (Path(os.environ["ALEAF_DIR"]) /
+                   "data" /
+                   settings["ALEAF"]["ALEAF_model_type"] /
+                   settings["ALEAF"]["ALEAF_region"] /
+                   settings["ALEAF"]["ALEAF_portfolio_file"]
                   )
 
     # Write this file to the destination

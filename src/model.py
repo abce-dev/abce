@@ -417,9 +417,9 @@ class GridModel(Model):
 
             # Run A-LEAF
             logging.log(self.settings["constants"]["vis_lvl"], "Running A-LEAF...")
-            run_script_path = Path(Path(os.environ["ALEAF_DIR"]) / "execute_ALEAF.jl")
-            ALEAF_env_path = Path(Path(os.environ["ALEAF_DIR"]) / ".")
-            ALEAF_sysimage_path = Path(Path(os.environ["ALEAF_DIR"]) / "aleafSysimage.so")
+            run_script_path = Path(os.environ["ALEAF_DIR"]) / "execute_ALEAF.jl"
+            ALEAF_env_path = Path(os.environ["ALEAF_DIR"]) / "."
+            ALEAF_sysimage_path = Path(os.environ["ALEAF_DIR"]) / "aleafSysimage.so"
             aleaf_cmd = f"julia --project={ALEAF_env_path} -J {ALEAF_sysimage_path} {run_script_path} {self.settings['ALEAF']['ALEAF_abs_path']}"
 
             if self.args.verbosity < 2:
