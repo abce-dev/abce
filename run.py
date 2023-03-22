@@ -25,7 +25,6 @@ from src.model import GridModel
 import yaml
 import pandas as pd
 import argparse
-from src import ABCEfunctions
 from pathlib import Path
 
 
