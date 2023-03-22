@@ -108,9 +108,6 @@ class GridModel(Model):
         # Read agent specification data
         self.load_agent_specifications()
 
-        # Load in mandatory unit retirement data
-        self.load_retirement_data()
-
 
     def load_agent_specifications(self):
         # Read in the GenCo parameters data from file
@@ -123,15 +120,6 @@ class GridModel(Model):
                 agent_specs_file_name,
                 'r'),
             Loader=yaml.FullLoader)
-
-
-    def load_retirement_data(self):
-        # Load the mandatory unit retirement data
-        ret_data_file = Path(
-            self.settings["file_paths"]["ABCE_abs_path"] /
-            self.settings["file_paths"]["retirement_period_specs_file"]
-        )
-        self.ret_data = pd.read_csv(ret_data_file, comment="#")
 
 
     def prepare_outputs_directory(self):
@@ -229,6 +217,7 @@ class GridModel(Model):
         for unit_type, num_units in agent_portfolio.items():
             # Retrieve the list of retirement period data for this unit type
             #   and agent
+            unit_retirements = {}
             if unit_type in agent_retirements.keys():
                 unit_retirements = agent_retirements[unit_type]
 
