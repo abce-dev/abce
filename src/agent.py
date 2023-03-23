@@ -57,9 +57,22 @@ class GenCo(Agent):
 
 
     def assign_parameters(self, gc_params):
+        # Retrieve the column headers from the agent_params table
+        cur = self.model.db.cursor()
+        cur.execute("SELECT * FROM agent_params")
+        agent_params_cols = [element[0] for element in cur.description]
+        agent_params_cols.remove("agent_id")
+
         # Assign all parameters from agent_params as member data
-        for key, val in gc_params.items():
-            setattr(self, key, val)
+        for param in agent_params_cols:
+            if param in gc_params.keys():
+                setattr(self, param, gc_params[param])
+            else:
+                if "inactive" in gc_params.keys() and gc_params["inactive"]:
+                    setattr(self, param, 0)
+                    self.model.agent_specs[self.unique_id][param] = 0
+                else:
+                    raise ValueError(f"Agent #{self.unique_id} is missing required parameter {param} from its specification.")
 
         # Save parameters to DB table `agent_params`
         self.db = self.model.db
