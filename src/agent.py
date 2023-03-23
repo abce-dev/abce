@@ -57,22 +57,33 @@ class GenCo(Agent):
 
 
     def assign_parameters(self, gc_params):
-        # Retrieve the column headers from the agent_params table
+        # Retrieve all parameter names, the union of the database table column
+        #   headers and the items provided in the agent_specifications file
         cur = self.model.db.cursor()
         cur.execute("SELECT * FROM agent_params")
-        agent_params_cols = [element[0] for element in cur.description]
-        agent_params_cols.remove("agent_id")
+        agent_params_db_cols = set([element[0] for element in cur.description])
+        agent_params_spec_file_fields = set(gc_params.keys())
+        all_agent_params = list(agent_params_db_cols | agent_params_spec_file_fields)
 
-        # Assign all parameters from agent_params as member data
-        for param in agent_params_cols:
+        # Remove "agent_id" from this list, as it's already set in __init__()
+        all_agent_params.remove("agent_id")
+
+        # Iterate through all parameters in all_agent_params.
+        # The starting_portfolio and/or scheduled_retirements sub-dictionaries
+        #   can be initialized as empty dicts if not provided in the inputs.
+        # An inactive agent is not required to have financial parameters
+        #   specified, so these can be filled in with zeros.
+        # Other than these two cases, unavailable parameters should raise 
+        #   an error.
+        for param in all_agent_params:
             if param in gc_params.keys():
                 setattr(self, param, gc_params[param])
+            elif param in ["starting_portfolio", "scheduled_retirements"]:
+                setattr(self, param, {})
+            elif "inactive" in gc_params.keys() and gc_params["inactive"]:
+                setattr(self, param, 0)
             else:
-                if "inactive" in gc_params.keys() and gc_params["inactive"]:
-                    setattr(self, param, 0)
-                    self.model.agent_specs[self.unique_id][param] = 0
-                else:
-                    raise ValueError(f"Agent #{self.unique_id} is missing required parameter {param} from its specification.")
+                raise ValueError(f"Agent #{self.unique_id} is missing required parameter {param} from its specification.")
 
         # Save parameters to DB table `agent_params`
         self.db = self.model.db
@@ -88,45 +99,46 @@ class GenCo(Agent):
         """
         Controller function to activate all agent behaviors at each time step.
         """
-        logging.log(
-            self.model.settings["constants"]["vis_lvl"],
-            f"Agent #{self.unique_id} is taking its turn..."
-        )
+        if not self.inactive:
+            logging.log(
+                self.model.settings["constants"]["vis_lvl"],
+                f"Agent #{self.unique_id} is taking its turn..."
+            )
 
-        # Run the agent behavior choice algorithm
-        agent_choice_path = (
-            Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
-            "src" /
-            "agent_choice.jl"
-        )
-
-        sysimage_cmd = ""
-
-        if self.model.has_ABCE_sysimage:
-            sysimage_path = (
+            # Run the agent behavior choice algorithm
+            agent_choice_path = (
                 Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
-                     "env" /
-                     self.model.settings["file_paths"]["ABCE_sysimage_file"])
-            sysimage_cmd = f"-J {sysimage_path}"
+                "src" /
+                "agent_choice.jl"
+            )
 
-        local_project = Path(self.model.settings["file_paths"]["ABCE_abs_path"], "env")
+            sysimage_cmd = ""
 
-        julia_cmd = (
-            f"julia --project={local_project} " + 
-            f"{sysimage_cmd} {agent_choice_path} " +
-            f"--current_pd={self.model.current_pd} " +
-            f"--agent_id={self.unique_id} " +
-            f"--verbosity={self.model.args.verbosity} " +
-            f"--settings_file={self.model.args.settings_file} " +
-            f"--abce_abs_path={self.model.settings['file_paths']['ABCE_abs_path']}"
-        )
+            if self.model.has_ABCE_sysimage:
+                sysimage_path = (
+                    Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
+                         "env" /
+                         self.model.settings["file_paths"]["ABCE_sysimage_file"])
+                sysimage_cmd = f"-J {sysimage_path}"
 
-        sp = subprocess.check_call(julia_cmd, shell=True)
+            local_project = Path(self.model.settings["file_paths"]["ABCE_abs_path"], "env")
 
-        logging.log(
-            self.model.settings["constants"]["vis_lvl"],
-            f"Agent #{self.unique_id}'s turn is complete.\n"
-        )
+            julia_cmd = (
+                f"julia --project={local_project} " + 
+                f"{sysimage_cmd} {agent_choice_path} " +
+                f"--current_pd={self.model.current_pd} " +
+                f"--agent_id={self.unique_id} " +
+                f"--verbosity={self.model.args.verbosity} " +
+                f"--settings_file={self.model.args.settings_file} " +
+                f"--abce_abs_path={self.model.settings['file_paths']['ABCE_abs_path']}"
+            )
+
+            sp = subprocess.check_call(julia_cmd, shell=True)
+
+            logging.log(
+                self.model.settings["constants"]["vis_lvl"],
+                f"Agent #{self.unique_id}'s turn is complete.\n"
+            )
 
     def get_current_asset_list(self):
         """
