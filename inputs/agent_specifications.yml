@@ -211,11 +211,6 @@
  
 # Balance of System
 208:
-    debt_fraction: 0.5
-    cost_of_debt: 0.99
-    cost_of_equity: 0.99
-    starting_debt:  9000000000000
-    starting_PPE: 1000000
     starting_portfolio:
         wind: 238
         solar: 61
