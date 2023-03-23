@@ -210,7 +210,7 @@ elseif CLI_args["verbosity"] == 3
 end
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
-ABCEfunctions.postprocess_agent_decisions(all_results, unit_specs, db, pd, agent_id)
+ABCEfunctions.postprocess_agent_decisions(settings, all_results, unit_specs, db, pd, agent_id)
 
 ##### Authorize ANPE for all current WIP projects
 # Retrieve all WIP projects

@@ -56,15 +56,13 @@ def execute_scenario_reduction(
     current_portfolio = pd.read_sql_query(
         f"SELECT unit_type FROM assets WHERE completion_pd <= {current_pd} AND retirement_pd > {current_pd}",
         db)
-    num_wind = len(current_portfolio.loc[current_portfolio.unit_type == "Wind"])
+    num_wind = len(current_portfolio.loc[current_portfolio.unit_type == "wind"])
     num_solar = len(
-        current_portfolio.loc[current_portfolio.unit_type == "Solar"])
+        current_portfolio.loc[current_portfolio.unit_type == "solar"])
 
     # Get the capacity of wind and solar units
-    wind_cap = unit_specs.loc[unit_specs.unit_type ==
-                              "Wind", "capacity"].values[0]
-    solar_cap = unit_specs.loc[unit_specs.unit_type ==
-                               "Solar", "capacity"].values[0]
+    wind_cap = unit_specs["wind"]["capacity"]
+    solar_cap = unit_specs["solar"]["capacity"]
 
     # Get peak demand for this period
     peak_demand = pd.read_sql_query(
