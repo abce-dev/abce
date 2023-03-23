@@ -599,38 +599,47 @@ class GridModel(Model):
 
         # On the first period, add instruments representing preexisting
         #   debt and equity for the agents
-        if self.current_pd < 1:
+        if self.current_pd == 0:
             inst_id = 1000
             for agent_id, agent_params in self.agent_specs.items():
-                starting_debt = float(agent_params["starting_debt"])
-                debt_frac = agent_params["debt_fraction"]
-                starting_equity = float(
-                    agent_params["starting_debt"]) / debt_frac * (1 - debt_frac)
-                agent_debt_cost = agent_params["cost_of_debt"]
-                agent_equity_cost = agent_params["cost_of_equity"]
-                debt_row = [agent_id,           # agent_id
-                            inst_id,            # instrument_id
-                            "debt",             # instrument_type
-                            agent_id,
-                            # asset_id (agent_id for starting instruments)
-                            -1,                 # pd_issued
-                            starting_debt,      # initial_principal
-                            30,                 # maturity_pd
-                            agent_debt_cost     # rate
-                            ]
-                equity_row = [agent_id,
-                              inst_id + 1,
-                              "equity",
-                              agent_id,
-                              -1,
-                              starting_equity,
-                              30,
-                              agent_equity_cost
-                              ]
-                fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
-                fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
+                if "inactive" not in agent_params.keys() or not agent_params["inactive"]:
+                    starting_debt = float(agent_params["starting_debt"])
+                    debt_frac = agent_params["debt_fraction"]
+                    try:
+                        starting_equity = float(
+                            agent_params["starting_debt"]) / debt_frac * (1 - debt_frac)
+                    except ZeroDivisionError:
+                        starting_equity = agent_params["starting_debt"]
+                    agent_debt_cost = agent_params["cost_of_debt"]
+                    agent_equity_cost = agent_params["cost_of_equity"]
 
-                inst_id += 2
+                    if starting_debt > 0:
+                        debt_row = [agent_id,           # agent_id
+                                    inst_id,            # instrument_id
+                                    "debt",             # instrument_type
+                                    agent_id,
+                                    # asset_id (agent_id for starting instruments)
+                                    -1,                 # pd_issued
+                                    starting_debt,      # initial_principal
+                                    30,                 # maturity_pd
+                                    agent_debt_cost     # rate
+                                   ]
+                        inst_id += 1
+
+                    if starting_equity > 0:
+                        equity_row = [agent_id,
+                                      inst_id,
+                                      "equity",
+                                      agent_id,
+                                      -1,
+                                      starting_equity,
+                                      30,
+                                      agent_equity_cost
+                                     ]
+                        inst_id += 1
+
+                    fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
+                    fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
 
         # Get a list of all capex projections
         new_capex_instances = pd.read_sql_query(
