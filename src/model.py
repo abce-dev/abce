@@ -75,12 +75,15 @@ class GridModel(Model):
         # Initialize the model one time step before the true start date
         self.current_pd = -1
 
+        # Define a dictionary to hold all agents for easier indexing
+        self.agents = {}
+
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
 
         # Create agents
         for agent_id, agent_params in self.agent_specs.items():
-            gc = GenCo(
+            agent = GenCo(
                 agent_id,
                 self,
                 agent_params
@@ -88,11 +91,13 @@ class GridModel(Model):
 
             # Initialize assets owned by this agent, and add them to
             #   the database
-            if "starting_portfolio" in agent_params.keys():
-                self.initialize_agent_assets(agent_id)
+            self.initialize_agent_assets(agent)
+
+            # Add this agent to the dictionary of agents
+            self.agents[agent_id] = agent
 
             # Add this agent to the schedule
-            self.schedule.add(gc)
+            self.schedule.add(agent)
 
         # Make sure all pending database transactions are resolved
         self.db.commit()
@@ -194,26 +199,18 @@ class GridModel(Model):
             index=False)
 
 
-    def initialize_agent_assets(self, agent_id):
-        # Get the agent's portfolio of owned assets
-        agent_portfolio = self.agent_specs[agent_id]["starting_portfolio"]
-
-        # Retrieve info on scheduled unit retirements for this agent
-        agent_retirements = {}
-        if "scheduled_retirements" in self.agent_specs[agent_id].keys():
-            agent_retirements = self.agent_specs[agent_id]["scheduled_retirements"]
-
+    def initialize_agent_assets(self, agent):
         # Validate the number of retirements versus number of owned units
-        for unit_type, num_units in agent_portfolio.items():
+        for unit_type, num_units in agent.starting_portfolio.items():
             total_ret_units = 0
-            if unit_type not in agent_retirements.keys():
+            if unit_type not in agent.scheduled_retirements.keys():
                 # If this unit type is not found in the agent's retirement
                 #   schedule, initialize an empty dictionary
-                agent_retirements[unit_type] = {}
+                agent.scheduled_retirements[unit_type] = {}
             else:
                 # Determine the total number of units of this type scheduled
                 #   scheduled to be retired by this agent
-                for retirement_pd, ret_num_units in agent_retirements[unit_type].items():
+                for retirement_pd, ret_num_units in agent.scheduled_retirements[unit_type].items():
                     total_ret_units += ret_num_units
 
             # Reconcile total number of scheduled retirements with total number
@@ -224,7 +221,7 @@ class GridModel(Model):
             # If there are any units with unspecified retirement dates, set
             #   their retirement date to a large number
             elif total_ret_units < num_units:
-                agent_retirements[unit_type][self.settings["constants"]["distant_time"]] = num_units - total_ret_units
+                agent.scheduled_retirements[unit_type][self.settings["constants"]["distant_time"]] = num_units - total_ret_units
 
         # Retrieve the column-header schema for the 'assets' table
         self.cur.execute("SELECT * FROM assets")
@@ -237,7 +234,7 @@ class GridModel(Model):
 
         # Assign units to this agent as specified in the portfolio file,
         #   and record each in the master_asset_df dataframe
-        for unit_type, unit_ret_data in agent_retirements.items():
+        for unit_type, unit_ret_data in agent.scheduled_retirements.items():
             # Create assets in blocks, according to the number of units per
             #   retirement period
             for retirement_pd, num_units in unit_ret_data.items():
@@ -246,7 +243,7 @@ class GridModel(Model):
                 cap_pmt = 0
 
                 # Set up all data values except for the asset id
-                asset_dict = {"agent_id": agent_id,
+                asset_dict = {"agent_id": agent.unique_id,
                               "unit_type": unit_type,
                               "start_pd": -1,
                               "completion_pd": 0,
@@ -599,45 +596,40 @@ class GridModel(Model):
         #   debt and equity for the agents
         if self.current_pd == 0:
             inst_id = 1000
-            for agent_id, agent_params in self.agent_specs.items():
-                if "inactive" not in agent_params.keys() or not agent_params["inactive"]:
-                    starting_debt = float(agent_params["starting_debt"])
-                    debt_frac = agent_params["debt_fraction"]
-                    try:
-                        starting_equity = float(
-                            agent_params["starting_debt"]) / debt_frac * (1 - debt_frac)
-                    except ZeroDivisionError:
-                        starting_equity = agent_params["starting_debt"]
-                    agent_debt_cost = agent_params["cost_of_debt"]
-                    agent_equity_cost = agent_params["cost_of_equity"]
+            for agent_id, agent in self.agents.items():
+                if not hasattr(agent, "inactive"):
+                    if agent.debt_fraction != 0:
+                        starting_equity = float(agent.starting_debt) / agent.debt_fraction * (1 - agent.debt_fraction)
+                    else:
+                        starting_equity = agent.starting_debt
 
-                    if starting_debt > 0:
-                        debt_row = [agent_id,           # agent_id
+                    if float(agent.starting_debt) > 0:
+                        debt_row = [agent.unique_id,    # agent_id
                                     inst_id,            # instrument_id
                                     "debt",             # instrument_type
-                                    agent_id,
-                                    # asset_id (agent_id for starting instruments)
+                                    agent.unique_id,    # asset_id (agent_id for starting instruments)
                                     -1,                 # pd_issued
-                                    starting_debt,      # initial_principal
+                                    float(agent.starting_debt),      # initial_principal
                                     30,                 # maturity_pd
-                                    agent_debt_cost     # rate
+                                    agent.cost_of_debt  # rate
                                    ]
+
+                        fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
                         inst_id += 1
 
                     if starting_equity > 0:
-                        equity_row = [agent_id,
+                        equity_row = [agent.unique_id,
                                       inst_id,
                                       "equity",
-                                      agent_id,
+                                      agent.unique_id,
                                       -1,
                                       starting_equity,
                                       30,
-                                      agent_equity_cost
+                                      agent.cost_of_equity
                                      ]
-                        inst_id += 1
 
-                    fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
-                    fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
+                        fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
+                        inst_id += 1
 
         # Get a list of all capex projections
         new_capex_instances = pd.read_sql_query(
@@ -649,9 +641,9 @@ class GridModel(Model):
             asset_id = new_capex_instances.loc[i, "asset_id"]
             total_qty = float(new_capex_instances.loc[i, "capex"])
             pd_issued = new_capex_instances.loc[i, "projected_pd"]
-            agent_debt_frac = self.agent_specs[agent_id]["debt_fraction"]
-            agent_debt_cost = self.agent_specs[agent_id]["cost_of_debt"]
-            agent_equity_cost = self.agent_specs[agent_id]["cost_of_equity"]
+            agent_debt_frac = self.agents[agent_id].debt_fraction
+            agent_debt_cost = self.agents[agent_id].cost_of_debt
+            agent_equity_cost = self.agents[agent_id].cost_of_equity
             amort_pd = 30
             debt_row = [agent_id,                         # agent_id
                         inst_id,                          # instrument_id
@@ -750,9 +742,9 @@ class GridModel(Model):
                 "depreciation",
                 "beginning_book_value"]
             dep_projections = pd.DataFrame(columns=dep_cols)
-            for agent_id, agent_params in self.agent_specs.items():
-                summary_asset_id = agent_id
-                init_PPE = agent_params["starting_PPE"]
+            for agent_id, agent in self.agents.items():
+                summary_asset_id = agent.unique_id
+                init_PPE = agent.starting_PPE
                 dep_horiz = 30
                 pd_dep = init_PPE / dep_horiz
                 for i in range(dep_horiz):

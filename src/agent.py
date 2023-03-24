@@ -63,7 +63,8 @@ class GenCo(Agent):
         cur.execute("SELECT * FROM agent_params")
         agent_params_db_cols = set([element[0] for element in cur.description])
         agent_params_spec_file_fields = set(gc_params.keys())
-        all_agent_params = list(agent_params_db_cols | agent_params_spec_file_fields)
+        optional_fields = ["starting_portfolio", "scheduled_retirements"]
+        all_agent_params = list(agent_params_db_cols | agent_params_spec_file_fields | set(optional_fields))
 
         # Remove "agent_id" from this list, as it's already set in __init__()
         all_agent_params.remove("agent_id")
@@ -78,7 +79,7 @@ class GenCo(Agent):
         for param in all_agent_params:
             if param in gc_params.keys():
                 setattr(self, param, gc_params[param])
-            elif param in ["starting_portfolio", "scheduled_retirements"]:
+            elif param in optional_fields:
                 setattr(self, param, {})
             elif "inactive" in gc_params.keys() and gc_params["inactive"]:
                 setattr(self, param, 0)
@@ -99,7 +100,7 @@ class GenCo(Agent):
         """
         Controller function to activate all agent behaviors at each time step.
         """
-        if not self.inactive:
+        if not hasattr(self, "inactive") or (not self.inactive):
             logging.log(
                 self.model.settings["constants"]["vis_lvl"],
                 f"Agent #{self.unique_id} is taking its turn..."
