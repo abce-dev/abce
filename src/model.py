@@ -595,8 +595,6 @@ class GridModel(Model):
         # On the first period, add instruments representing preexisting
         #   debt and equity for the agents
         if self.current_pd == 0:
-            # All agents start with instrument no. 1000
-            inst_id = 1000
             for agent_id, agent in self.agents.items():
                 if not hasattr(agent, "inactive"):
                     # Compute starting level of extant equity
@@ -607,12 +605,12 @@ class GridModel(Model):
 
                     # Instantiate a debt record
                     debt_row = [agent.unique_id,    # agent_id
-                                inst_id,            # instrument_id
+                                self.settings["financing"]["starting_instrument_id"],   # instrument_id
                                 "debt",             # instrument_type
                                 agent.unique_id,    # asset_id (agent_id for starting instruments)
-                                -1,                 # pd_issued
+                                self.settings["constants"]["time_before_start"],   # pd_issued
                                 float(agent.starting_debt),      # initial_principal
-                                30,                 # maturity_pd
+                                self.settings["financing"]["default_debt_term"],   # maturity_pd
                                 agent.cost_of_debt  # rate
                                ]
 
@@ -621,12 +619,12 @@ class GridModel(Model):
 
                     # Instantiate an equity record
                     equity_row = [agent.unique_id,
-                                  inst_id,
+                                  self.settings["financing"]["starting_instrument_id"],
                                   "equity",
                                   agent.unique_id,
-                                  -1,
+                                  self.settings["constants"]["time_before_start"],
                                   starting_equity,
-                                  30,
+                                  self.settings["financing"]["default_equity_horizon"],
                                   agent.cost_of_equity
                                  ]
 
@@ -646,27 +644,32 @@ class GridModel(Model):
             agent_debt_frac = self.agents[agent_id].debt_fraction
             agent_debt_cost = self.agents[agent_id].cost_of_debt
             agent_equity_cost = self.agents[agent_id].cost_of_equity
-            amort_pd = 30
+
+            # Set up debt issuance for this project for this year
             debt_row = [agent_id,                         # agent_id
                         inst_id,                          # instrument_id
                         "debt",                           # instrument_type
                         asset_id,                         # asset_id
                         pd_issued,                        # pd_issued
                         total_qty * agent_debt_frac,      # initial_principal
-                        pd_issued + amort_pd,             # maturity_pd
+                        pd_issued + self.settings["financing"]["default_debt_term"],             # maturity_pd
                         agent_debt_cost                   # rate
                         ]
+            fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
+
+
+            # Set up equity issuance for this project for this year
             equity_row = [agent_id,
                           inst_id + 1,
                           "equity",
                           asset_id,
                           pd_issued,
                           total_qty * (1 - agent_debt_frac),
-                          pd_issued + amort_pd,
+                          pd_issued + self.settings["financing"]["default_equity_horizon"],
                           agent_equity_cost
                           ]
-            fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
             fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
+
             inst_id = max(fin_insts_updates["instrument_id"]) + 1
 
         # Overwrite the financial_instrument_manifest table with the new data
@@ -730,6 +733,7 @@ class GridModel(Model):
             if_exists="append",
             index=False)
 
+
     def update_depreciation_projections(self):
         # Currently uses straight-line depreciation only
         # Future: allow user selection of SLD or DDBD
@@ -747,7 +751,7 @@ class GridModel(Model):
             for agent_id, agent in self.agents.items():
                 summary_asset_id = agent.unique_id
                 init_PPE = agent.starting_PPE
-                dep_horiz = 30
+                dep_horiz = self.settings["financing"]["depreciation_horizon"]
                 pd_dep = init_PPE / dep_horiz
                 for i in range(dep_horiz):
                     beginning_book_value = init_PPE * \
@@ -789,7 +793,7 @@ class GridModel(Model):
                 starting_pd = getattr(row, "period") + \
                     math.ceil(round(getattr(row, "rtec"), 3))
                 asset_PPE = getattr(row, "cum_construction_exp") + getattr(row, "rcec")
-                dep_horiz = 20
+                dep_horiz = self.settings["financing"]["depreciation_horizon"]
                 pd_dep = asset_PPE / dep_horiz
                 for i in range(dep_horiz):
                     book_value = asset_PPE * (dep_horiz - i) / dep_horiz
