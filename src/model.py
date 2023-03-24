@@ -595,41 +595,43 @@ class GridModel(Model):
         # On the first period, add instruments representing preexisting
         #   debt and equity for the agents
         if self.current_pd == 0:
+            # All agents start with instrument no. 1000
             inst_id = 1000
             for agent_id, agent in self.agents.items():
                 if not hasattr(agent, "inactive"):
+                    # Compute starting level of extant equity
                     if agent.debt_fraction != 0:
                         starting_equity = float(agent.starting_debt) / agent.debt_fraction * (1 - agent.debt_fraction)
                     else:
                         starting_equity = agent.starting_debt
 
-                    if float(agent.starting_debt) > 0:
-                        debt_row = [agent.unique_id,    # agent_id
-                                    inst_id,            # instrument_id
-                                    "debt",             # instrument_type
-                                    agent.unique_id,    # asset_id (agent_id for starting instruments)
-                                    -1,                 # pd_issued
-                                    float(agent.starting_debt),      # initial_principal
-                                    30,                 # maturity_pd
-                                    agent.cost_of_debt  # rate
-                                   ]
+                    # Instantiate a debt record
+                    debt_row = [agent.unique_id,    # agent_id
+                                inst_id,            # instrument_id
+                                "debt",             # instrument_type
+                                agent.unique_id,    # asset_id (agent_id for starting instruments)
+                                -1,                 # pd_issued
+                                float(agent.starting_debt),      # initial_principal
+                                30,                 # maturity_pd
+                                agent.cost_of_debt  # rate
+                               ]
 
-                        fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
-                        inst_id += 1
+                    fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
+                    inst_id += 1
 
-                    if starting_equity > 0:
-                        equity_row = [agent.unique_id,
-                                      inst_id,
-                                      "equity",
-                                      agent.unique_id,
-                                      -1,
-                                      starting_equity,
-                                      30,
-                                      agent.cost_of_equity
-                                     ]
+                    # Instantiate an equity record
+                    equity_row = [agent.unique_id,
+                                  inst_id,
+                                  "equity",
+                                  agent.unique_id,
+                                  -1,
+                                  starting_equity,
+                                  30,
+                                  agent.cost_of_equity
+                                 ]
 
-                        fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
-                        inst_id += 1
+                    fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
+                    inst_id += 1
 
         # Get a list of all capex projections
         new_capex_instances = pd.read_sql_query(
