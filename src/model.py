@@ -595,6 +595,9 @@ class GridModel(Model):
         # On the first period, add instruments representing preexisting
         #   debt and equity for the agents
         if self.current_pd == 0:
+            # Initialize the instrument ids
+            inst_id = self.settings["financing"]["starting_instrument_id"]
+
             for agent_id, agent in self.agents.items():
                 if not hasattr(agent, "inactive"):
                     # Compute starting level of extant equity
@@ -605,7 +608,7 @@ class GridModel(Model):
 
                     # Instantiate a debt record
                     debt_row = [agent.unique_id,    # agent_id
-                                self.settings["financing"]["starting_instrument_id"],   # instrument_id
+                                inst_id,   # instrument_id
                                 "debt",             # instrument_type
                                 agent.unique_id,    # asset_id (agent_id for starting instruments)
                                 self.settings["constants"]["time_before_start"],   # pd_issued
@@ -619,7 +622,7 @@ class GridModel(Model):
 
                     # Instantiate an equity record
                     equity_row = [agent.unique_id,
-                                  self.settings["financing"]["starting_instrument_id"],
+                                  inst_id,
                                   "equity",
                                   agent.unique_id,
                                   self.settings["constants"]["time_before_start"],
