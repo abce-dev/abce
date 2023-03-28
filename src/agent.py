@@ -105,46 +105,46 @@ class GenCo(Agent):
         if hasattr(self, "inactive") and self.inactive:
             return
 
-        else:
-            logging.log(
-                self.model.settings["constants"]["vis_lvl"],
-                f"Agent #{self.unique_id} is taking its turn..."
-            )
+        logging.log(
+            self.model.settings["constants"]["vis_lvl"],
+            f"Agent #{self.unique_id} is taking its turn..."
+        )
 
-            # Run the agent behavior choice algorithm
-            agent_choice_path = (
+        # Run the agent behavior choice algorithm
+        agent_choice_path = (
+            Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
+            "src" /
+            "agent_choice.jl"
+        )
+
+        sysimage_cmd = ""
+
+        if self.model.has_ABCE_sysimage:
+            sysimage_path = (
                 Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
-                "src" /
-                "agent_choice.jl"
-            )
+                     "env" /
+                     self.model.settings["file_paths"]["ABCE_sysimage_file"])
+            sysimage_cmd = f"-J {sysimage_path}"
 
-            sysimage_cmd = ""
+        local_project = Path(self.model.settings["file_paths"]["ABCE_abs_path"], "env")
 
-            if self.model.has_ABCE_sysimage:
-                sysimage_path = (
-                    Path(self.model.settings["file_paths"]["ABCE_abs_path"]) /
-                         "env" /
-                         self.model.settings["file_paths"]["ABCE_sysimage_file"])
-                sysimage_cmd = f"-J {sysimage_path}"
+        julia_cmd = (
+            f"julia --project={local_project} " + 
+            f"{sysimage_cmd} {agent_choice_path} " +
+            f"--current_pd={self.model.current_pd} " +
+            f"--agent_id={self.unique_id} " +
+            f"--verbosity={self.model.args.verbosity} " +
+            f"--settings_file={self.model.args.settings_file} " +
+            f"--abce_abs_path={self.model.settings['file_paths']['ABCE_abs_path']}"
+        )
 
-            local_project = Path(self.model.settings["file_paths"]["ABCE_abs_path"], "env")
+        sp = subprocess.check_call(julia_cmd, shell=True)
 
-            julia_cmd = (
-                f"julia --project={local_project} " + 
-                f"{sysimage_cmd} {agent_choice_path} " +
-                f"--current_pd={self.model.current_pd} " +
-                f"--agent_id={self.unique_id} " +
-                f"--verbosity={self.model.args.verbosity} " +
-                f"--settings_file={self.model.args.settings_file} " +
-                f"--abce_abs_path={self.model.settings['file_paths']['ABCE_abs_path']}"
-            )
+        logging.log(
+            self.model.settings["constants"]["vis_lvl"],
+            f"Agent #{self.unique_id}'s turn is complete.\n"
+        )
 
-            sp = subprocess.check_call(julia_cmd, shell=True)
-
-            logging.log(
-                self.model.settings["constants"]["vis_lvl"],
-                f"Agent #{self.unique_id}'s turn is complete.\n"
-            )
 
     def get_current_asset_list(self):
         """
