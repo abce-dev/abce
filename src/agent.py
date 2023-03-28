@@ -100,7 +100,12 @@ class GenCo(Agent):
         """
         Controller function to activate all agent behaviors at each time step.
         """
-        if not hasattr(self, "inactive") or (not self.inactive):
+        # If this agent is designated as inactive, this function should return
+        #   immediately
+        if hasattr(self, "inactive") and self.inactive:
+            return
+
+        else:
             logging.log(
                 self.model.settings["constants"]["vis_lvl"],
                 f"Agent #{self.unique_id} is taking its turn..."
