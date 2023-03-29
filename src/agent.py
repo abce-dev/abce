@@ -63,15 +63,30 @@ class GenCo(Agent):
         cur.execute("SELECT * FROM agent_params")
         agent_params_db_cols = set([element[0] for element in cur.description])
         agent_params_spec_file_fields = set(gc_params.keys())
-        optional_fields = ["starting_portfolio", "scheduled_retirements"]
-        all_agent_params = list(agent_params_db_cols | agent_params_spec_file_fields | set(optional_fields))
+
+        # Finalize the list of all possible parameter names
+        all_agent_params = list(agent_params_db_cols | agent_params_spec_file_fields)
 
         # Remove "agent_id" from this list, as it's already set in __init__()
         all_agent_params.remove("agent_id")
 
-        # Iterate through all parameters in all_agent_params.
-        # The starting_portfolio and/or scheduled_retirements sub-dictionaries
-        #   can be initialized as empty dicts if not provided in the inputs.
+        # Set up default values for fields which are optional to specify
+        #   for any agent
+        universal_optional_fields = {
+            "starting_portfolio": {},
+            "scheduled_retirements": {},
+            "inactive": False
+        }
+
+        # Start by ensuring that the agent has attributes set for all optional
+        #   fields, using the defaults in optional_fields if necessary
+        for key, value in universal_optional_fields.items():
+            if key in gc_params.keys():
+                setattr(self, key, gc_params[key])
+            else:
+                setattr(self, key, universal_optional_fields[key])
+
+        # Iterate through all remaining parameters in all_agent_params.
         # An inactive agent is not required to have financial parameters
         #   specified, so these can be filled in with zeros.
         # Other than these two cases, unavailable parameters should raise 
@@ -79,9 +94,7 @@ class GenCo(Agent):
         for param in all_agent_params:
             if param in gc_params.keys():
                 setattr(self, param, gc_params[param])
-            elif param in optional_fields:
-                setattr(self, param, {})
-            elif "inactive" in gc_params.keys() and gc_params["inactive"]:
+            elif gc_params["inactive"]:
                 setattr(self, param, 0)
             else:
                 raise ValueError(f"Agent #{self.unique_id} is missing required parameter {param} from its specification.")
@@ -102,7 +115,7 @@ class GenCo(Agent):
         """
         # If this agent is designated as inactive, this function should return
         #   immediately
-        if hasattr(self, "inactive") and self.inactive:
+        if self.inactive:
             return
 
         logging.log(

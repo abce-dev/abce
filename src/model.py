@@ -599,7 +599,7 @@ class GridModel(Model):
             inst_id = self.settings["financing"]["starting_instrument_id"]
 
             for agent_id, agent in self.agents.items():
-                if not hasattr(agent, "inactive"):
+                if not agent.inactive:
                     # Compute starting level of extant equity
                     if agent.debt_fraction != 0:
                         starting_equity = float(agent.starting_debt) / agent.debt_fraction * (1 - agent.debt_fraction)
