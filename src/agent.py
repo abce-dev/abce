@@ -80,11 +80,11 @@ class GenCo(Agent):
 
         # Start by ensuring that the agent has attributes set for all optional
         #   fields, using the defaults in optional_fields if necessary
-        for key, value in universal_optional_fields.items():
+        for key, default_value in universal_optional_fields.items():
             if key in gc_params.keys():
                 setattr(self, key, gc_params[key])
             else:
-                setattr(self, key, universal_optional_fields[key])
+                setattr(self, key, default_value)
 
         # Iterate through all remaining parameters in all_agent_params.
         # An inactive agent is not required to have financial parameters
@@ -94,7 +94,7 @@ class GenCo(Agent):
         for param in all_agent_params:
             if param in gc_params.keys():
                 setattr(self, param, gc_params[param])
-            elif gc_params["inactive"]:
+            elif self.inactive:
                 setattr(self, param, 0)
             else:
                 raise ValueError(f"Agent #{self.unique_id} is missing required parameter {param} from its specification.")
