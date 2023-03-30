@@ -199,7 +199,8 @@ class GridModel(Model):
             index=False)
 
 
-    def initialize_agent_assets(self, agent):
+
+    def initialize_agent_retirement_schedule(self, agent):
         # Validate the number of retirements versus number of owned units
         for unit_type, num_units in agent.starting_portfolio.items():
             total_ret_units = 0
@@ -207,11 +208,11 @@ class GridModel(Model):
                 # If this unit type is not found in the agent's retirement
                 #   schedule, initialize an empty dictionary
                 agent.scheduled_retirements[unit_type] = {}
-            else:
-                # Determine the total number of units of this type scheduled
-                #   scheduled to be retired by this agent
-                for retirement_pd, ret_num_units in agent.scheduled_retirements[unit_type].items():
-                    total_ret_units += ret_num_units
+
+            # Determine the total number of units of this type scheduled
+            #   scheduled to be retired by this agent
+            for retirement_pd, ret_num_units in agent.scheduled_retirements[unit_type].items():
+                total_ret_units += ret_num_units
 
             # Reconcile total number of scheduled retirements with total number
             #   of owned assets of this type
@@ -222,6 +223,13 @@ class GridModel(Model):
             #   their retirement date to a large number
             elif total_ret_units < num_units:
                 agent.scheduled_retirements[unit_type][self.settings["constants"]["distant_time"]] = num_units - total_ret_units
+
+
+
+    def initialize_agent_assets(self, agent):
+        # Set up the agent's retirement schedule, and validate that the 
+        #   schedule of retirements is compatible with the agent's portfolio
+        self.initialize_agent_retirement_schedule(agent)
 
         # Retrieve the column-header schema for the 'assets' table
         self.cur.execute("SELECT * FROM assets")
@@ -572,6 +580,49 @@ class GridModel(Model):
         return projected_capex
 
 
+    def initialize_preexisting_instruments(self, fin_insts_updates):
+        # Initialize the instrument ids
+        inst_id = self.settings["financing"]["starting_instrument_id"]
+
+        for agent_id, agent in self.agents.items():
+            if not agent.inactive:
+                # Compute starting level of extant equity
+                if agent.debt_fraction != 0:
+                    starting_equity = float(agent.starting_debt) / agent.debt_fraction * (1 - agent.debt_fraction)
+                else:
+                    starting_equity = agent.starting_debt
+
+                # Instantiate a debt record
+                debt_row = [agent.unique_id,    # agent_id
+                            inst_id,   # instrument_id
+                            "debt",             # instrument_type
+                            agent.unique_id,    # asset_id (agent_id for starting instruments)
+                            self.settings["constants"]["time_before_start"],   # pd_issued
+                            float(agent.starting_debt),      # initial_principal
+                            self.settings["financing"]["default_debt_term"],   # maturity_pd
+                            agent.cost_of_debt  # rate
+                           ]
+
+                fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
+                inst_id += 1
+
+                # Instantiate an equity record
+                equity_row = [agent.unique_id,
+                              inst_id,
+                              "equity",
+                              agent.unique_id,
+                              self.settings["constants"]["time_before_start"],
+                              starting_equity,
+                              self.settings["financing"]["default_equity_horizon"],
+                              agent.cost_of_equity
+                             ]
+
+                fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
+                inst_id += 1
+
+        return fin_insts_updates
+
+
     def update_financial_instrument_manifest(self):
         # Based on projected capital expenditures, project the total set of
         #   active financial instruments which will exist at any point in the
@@ -595,44 +646,7 @@ class GridModel(Model):
         # On the first period, add instruments representing preexisting
         #   debt and equity for the agents
         if self.current_pd == 0:
-            # Initialize the instrument ids
-            inst_id = self.settings["financing"]["starting_instrument_id"]
-
-            for agent_id, agent in self.agents.items():
-                if not agent.inactive:
-                    # Compute starting level of extant equity
-                    if agent.debt_fraction != 0:
-                        starting_equity = float(agent.starting_debt) / agent.debt_fraction * (1 - agent.debt_fraction)
-                    else:
-                        starting_equity = agent.starting_debt
-
-                    # Instantiate a debt record
-                    debt_row = [agent.unique_id,    # agent_id
-                                inst_id,   # instrument_id
-                                "debt",             # instrument_type
-                                agent.unique_id,    # asset_id (agent_id for starting instruments)
-                                self.settings["constants"]["time_before_start"],   # pd_issued
-                                float(agent.starting_debt),      # initial_principal
-                                self.settings["financing"]["default_debt_term"],   # maturity_pd
-                                agent.cost_of_debt  # rate
-                               ]
-
-                    fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
-                    inst_id += 1
-
-                    # Instantiate an equity record
-                    equity_row = [agent.unique_id,
-                                  inst_id,
-                                  "equity",
-                                  agent.unique_id,
-                                  self.settings["constants"]["time_before_start"],
-                                  starting_equity,
-                                  self.settings["financing"]["default_equity_horizon"],
-                                  agent.cost_of_equity
-                                 ]
-
-                    fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
-                    inst_id += 1
+            fin_insts_updates = self.initialize_preexisting_instruments(fin_insts_updates)
 
         # Get a list of all capex projections
         new_capex_instances = pd.read_sql_query(
