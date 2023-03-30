@@ -1,12 +1,13 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS
+using Requires, Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS
 
-try
-    using CPLEX
-catch LoadError
-    @info string("CPLEX is not available!")
+
+# Initialize this module, with CPLEX as an optional library if available
+function __init__()
+    @require CPLEX="a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
 end
+
 
 function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
     @info string("Running the dispatch simulation for ", settings["dispatch"]["num_dispatch_years"], " years...")
