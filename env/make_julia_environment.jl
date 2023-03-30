@@ -20,6 +20,7 @@ julia_pkg_list = [
     "PackageCompiler",
     "PowerModels",
     "PyCall",
+    "Requires",
     "SQLite",
     "Tables",
     "XLSX",
