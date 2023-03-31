@@ -14,12 +14,11 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS
+using Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS
 
-try
-    using CPLEX
-catch LoadError
-    @info string("CPLEX is not available!")
+# Use CPLEX if available
+function __init__()
+    @require CPLEX="a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
 end
 
 include("./dispatch.jl")

@@ -11,4 +11,5 @@ dependencies:
   - openpyxl
   - pytest
   - matplotlib
+  - yaml
   - julia=1.8
