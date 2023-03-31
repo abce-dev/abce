@@ -73,7 +73,7 @@ class GridModel(Model):
             self.set_ALEAF_file_paths()
 
         # Initialize the model one time step before the true start date
-        self.current_pd = -1
+        self.current_pd = self.settings["constants"]["time_before_start"]
 
         # Define a dictionary to hold all agents for easier indexing
         self.agents = {}
@@ -253,7 +253,7 @@ class GridModel(Model):
                 # Set up all data values except for the asset id
                 asset_dict = {"agent_id": agent.unique_id,
                               "unit_type": unit_type,
-                              "start_pd": -1,
+                              "start_pd": self.settings["constants"]["time_before_start"],
                               "completion_pd": 0,
                               "cancellation_pd": self.settings["constants"]["distant_time"],
                               "retirement_pd": int(retirement_pd),
