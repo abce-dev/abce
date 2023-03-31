@@ -37,6 +37,7 @@ constants:
   first_asset_id: 2001
   vis_lvl: 45   # sets the logging level for bare visual elements
   large_epsilon: 1.0
+  time_before_start: -1
   distant_time: 9999
   big_number: 999999
   hours_per_year: 8760
@@ -94,6 +95,12 @@ agent_opt:
   credit_rating_lamda: 0.1
   cr_horizon: 6
   int_bound: 5.0
+
+financing:
+  default_debt_term: 30
+  default_equity_horizon: 30
+  depreciation_horizon: 20
+  starting_instrument_id: 1000
 
 # Filenames and settings for ALEAF
 ALEAF:

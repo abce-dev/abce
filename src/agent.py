@@ -57,9 +57,47 @@ class GenCo(Agent):
 
 
     def assign_parameters(self, gc_params):
-        # Assign all parameters from agent_params as member data
-        for key, val in gc_params.items():
-            setattr(self, key, val)
+        # Retrieve all parameter names, the union of the database table column
+        #   headers and the items provided in the agent_specifications file
+        cur = self.model.db.cursor()
+        cur.execute("SELECT * FROM agent_params")
+        agent_params_db_cols = set([element[0] for element in cur.description])
+        agent_params_spec_file_fields = set(gc_params.keys())
+
+        # Finalize the list of all possible parameter names
+        all_agent_params = list(agent_params_db_cols | agent_params_spec_file_fields)
+
+        # Remove "agent_id" from this list, as it's already set in __init__()
+        all_agent_params.remove("agent_id")
+
+        # Set up default values for fields which are optional to specify
+        #   for any agent
+        universal_optional_fields = {
+            "starting_portfolio": {},
+            "scheduled_retirements": {},
+            "inactive": False
+        }
+
+        # Start by ensuring that the agent has attributes set for all optional
+        #   fields, using the defaults in optional_fields if necessary
+        for key, default_value in universal_optional_fields.items():
+            if key in gc_params.keys():
+                setattr(self, key, gc_params[key])
+            else:
+                setattr(self, key, default_value)
+
+        # Iterate through all remaining parameters in all_agent_params.
+        # An inactive agent is not required to have financial parameters
+        #   specified, so these can be filled in with zeros.
+        # Other than these two cases, unavailable parameters should raise 
+        #   an error.
+        for param in all_agent_params:
+            if param in gc_params.keys():
+                setattr(self, param, gc_params[param])
+            elif self.inactive:
+                setattr(self, param, 0)
+            else:
+                raise ValueError(f"Agent #{self.unique_id} is missing required parameter {param} from its specification.")
 
         # Save parameters to DB table `agent_params`
         self.db = self.model.db
@@ -75,6 +113,11 @@ class GenCo(Agent):
         """
         Controller function to activate all agent behaviors at each time step.
         """
+        # If this agent is designated as inactive, this function should return
+        #   immediately
+        if self.inactive:
+            return
+
         logging.log(
             self.model.settings["constants"]["vis_lvl"],
             f"Agent #{self.unique_id} is taking its turn..."
@@ -114,6 +157,7 @@ class GenCo(Agent):
             self.model.settings["constants"]["vis_lvl"],
             f"Agent #{self.unique_id}'s turn is complete.\n"
         )
+
 
     def get_current_asset_list(self):
         """
