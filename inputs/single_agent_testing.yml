@@ -1,6 +1,9 @@
 # This is a dummy implementation of the ERCOT market, with all assets owned
 #   by the balance of system operator except for one of each type, which is
 #   owned by active agent #201.
+# This total system portfolio can serve a peak demand of around 75000 MW.
+#   Check your settings.yml file to make sure dispatch won't fail due to energy
+#   shortages.
 
 # Test agent
 201:
