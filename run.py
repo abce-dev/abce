@@ -179,7 +179,7 @@ def run_model():
              Path(
                  settings["file_paths"]["ABCE_abs_path"] /
                  "outputs" /
-                 settings["simulation"]["ALEAF_scenario_name"] /
+                 settings["simulation"]["scenario_name"] /
                  settings["file_paths"]["output_file"]
              )
         ) as writer:

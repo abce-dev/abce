@@ -52,6 +52,6 @@ if __name__ == "__main__":
     output_dir = os.path.join(
         args.toplevel_dir,
         "outputs",
-        settings["simulation"]["ALEAF_scenario_name"])
+        settings["simulation"]["scenario_name"])
 
     af.process_outputs(settings, output_dir)
