@@ -42,7 +42,7 @@ def set_up_local_paths(settings):
     # Set the path for ABCE files to the directory where run.py is saved
     settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
 
-    if settings["simulation"]["run_ALEAF"]:
+    if settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
     # Try to locate an environment variable to specify where A-LEAF is located
         try:
             settings["ALEAF"]["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
@@ -179,7 +179,7 @@ def run_model():
              Path(
                  settings["file_paths"]["ABCE_abs_path"] /
                  "outputs" /
-                 settings["simulation"]["ALEAF_scenario_name"] /
+                 settings["simulation"]["scenario_name"] /
                  settings["file_paths"]["output_file"]
              )
         ) as writer:

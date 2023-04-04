@@ -165,7 +165,7 @@ def process_outputs(settings, output_dir, unit_specs):
     """
 
     # Postprocessing settings
-    ALEAF_scenario_name = settings["simulation"]["ALEAF_scenario_name"]
+    scenario_name = settings["simulation"]["scenario_name"]
     file_types = [
         "dispatch_summary_OP",
         "expansion_result",
@@ -182,30 +182,30 @@ def process_outputs(settings, output_dir, unit_specs):
     expansion_results = process_expansion_results(
         file_lists["expansion_result"],
         output_dir,
-        ALEAF_scenario_name,
+        scenario_name,
         unit_specs)
 
     # Postprocess the system-level results
     system_summary_results = process_system_summary(
-        file_lists["system_summary_OP"], output_dir, ALEAF_scenario_name)
+        file_lists["system_summary_OP"], output_dir, scenario_name)
 
     # Postprocess the generation unit type results
     system_tech_results = process_tech_summary(
         file_lists["system_tech_summary_OP"],
         output_dir,
-        ALEAF_scenario_name,
+        scenario_name,
         unit_specs)
 
     # Postprocess the electricity price data
     unsorted_lmp_data, sorted_lmp_data = process_dispatch_data(
-        file_lists["dispatch_summary_OP"], output_dir, ALEAF_scenario_name)
+        file_lists["dispatch_summary_OP"], output_dir, scenario_name)
 
     # Write results to xlsx
     writer = pd.ExcelWriter(
                  Path(
                      self.settings["file_paths"]["ABCE_abs_path"] /
                      "outputs" /
-                     self.settings["simulation"]["ALEAF_scenario_name"] /
+                     self.settings["simulation"]["scenario_name"] /
                      "abce_ppx_outputs.xlsx"
                  )
              )
@@ -236,7 +236,7 @@ def process_outputs(settings, output_dir, unit_specs):
 def process_expansion_results(
         exp_file_list,
         output_dir,
-        ALEAF_scenario_name,
+        scenario_name,
         unit_specs):
     """
     Process the "capacity expansion" results output by A-LEAF. For ABCE,
@@ -249,7 +249,7 @@ def process_expansion_results(
     for i in range(num_files):
         file_name = os.path.join(
             output_dir,
-            f"{ALEAF_scenario_name}__expansion_result__step_{i}.csv")
+            f"{scenario_name}__expansion_result__step_{i}.csv")
         df = pd.read_csv(file_name)
 
         # Use the first file as a seed
@@ -279,7 +279,7 @@ def process_expansion_results(
     return exp_df
 
 
-def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
+def process_system_summary(ss_file_list, output_dir, scenario_name):
     """
     Process and collect all system-summary data outputs from A-LEAF.
 
@@ -292,7 +292,7 @@ def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
     for i in range(num_files):
         file_name = os.path.join(
             output_dir,
-            f"{ALEAF_scenario_name}__system_summary_OP__step_{i}.csv")
+            f"{scenario_name}__system_summary_OP__step_{i}.csv")
         df = pd.read_csv(file_name)
         # For my workflow, df should only have one line. Alert the user if
         # otherwise
@@ -306,7 +306,7 @@ def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
         # Correctly calculate weighted average electricity and AS prices, and
         #   add them to the appropriate columns
         ds_file_name = os.path.join(
-            output_dir, f"{ALEAF_scenario_name}__dispatch_summary_OP__step_{i}.csv")
+            output_dir, f"{scenario_name}__dispatch_summary_OP__step_{i}.csv")
         dsdf = pd.read_csv(ds_file_name)
         # Set up weighted price columns
         dsdf["wtd_LMP"] = dsdf["g_idht"] * dsdf["LMP_dht"]
@@ -337,7 +337,7 @@ def process_system_summary(ss_file_list, output_dir, ALEAF_scenario_name):
 def process_tech_summary(
         sts_file_list,
         output_dir,
-        ALEAF_scenario_name,
+        scenario_name,
         unit_specs):
     """
     Process all sets of A-LEAF unit-type summary statistics. Cleans up unit
@@ -348,7 +348,7 @@ def process_tech_summary(
         # Read in the system technology summary for time-step i
         file_name = os.path.join(
             output_dir,
-            f"{ALEAF_scenario_name}__system_tech_summary_OP__step_{i}.csv")
+            f"{scenario_name}__system_tech_summary_OP__step_{i}.csv")
         df = pd.read_csv(file_name)
 
         # Clean up unit type representation
@@ -391,7 +391,7 @@ def process_tech_summary(
     return results
 
 
-def process_dispatch_data(ds_file_list, output_dir, ALEAF_scenario_name):
+def process_dispatch_data(ds_file_list, output_dir, scenario_name):
     """
     Process all sets of A-LEAF dispatch output data, in order to create
       dataframes of electricity price (LMP) data. Function filters the raw data
@@ -409,7 +409,7 @@ def process_dispatch_data(ds_file_list, output_dir, ALEAF_scenario_name):
         # Read in the ALEAF dispatch output data for time-step i
         file_name = os.path.join(
             output_dir,
-            f"{ALEAF_scenario_name}__dispatch_summary_OP__step_{i}.csv")
+            f"{scenario_name}__dispatch_summary_OP__step_{i}.csv")
         df = pd.read_csv(file_name)
 
         # Filter out duplicate price entries: the dispatch data df has one

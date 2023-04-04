@@ -31,7 +31,7 @@ wind:
     CRP: 30
     Scenario: Moderate
     Year: 2025
-    "ATB Year": 2020
+    ATB_year: 2020
 solar:
   capacity: 100   # MW
   max_PL: 1.0
@@ -65,7 +65,7 @@ solar:
     CRP: 30
     Scenario: Moderate
     Year: 2025
-    "ATB Year": 2020
+    ATB_year: 2020
 coal:
   capacity: 500   # MW
   max_PL: 0.84
@@ -75,15 +75,15 @@ coal:
   FOM: 39.70    # $/kW-yr
   VOM: 4.4    # $/MWh
   fuel_type: coal
-  FC_per_MMBTU: 16.56
+  FC_per_MMBTU: 1.98
   no_load_cost: 0.0
-  start_up_cost: 0.0
-  shut_down_cost: 0.0
-  heat_rate: 8.638    # MWh/MMBTU
-  ramp_up_limit: 0.4    # % PL/hr
-  ramp_down_limit: 0.4  # % PL/hr
+  start_up_cost: 131  # $/MW, cold start
+  shut_down_cost: 10.15  # $/MW, non-fuel startup costs
+  heat_rate: 10.583    # MWh/MMBTU
+  ramp_up_limit: 0.3    # % PL/hr
+  ramp_down_limit: 0.3  # % PL/hr
   max_regulation: 0.1
-  max_spinning_reserve: 0.2
+  max_spinning_reserve: 0.15
   max_nonspinning_reserve: 0.0
   capacity_factor: 0.9
   emissions_per_MMBTU: 0.11   # t CO2 / MMBTU
@@ -100,7 +100,7 @@ coal:
     CRP: 30
     Scenario: Moderate
     Year: 2025
-    "ATB Year": 2020
+    ATB_year: 2020
 ngcc:
   capacity: 200   # MW
   max_PL: 0.9
@@ -110,10 +110,10 @@ ngcc:
   FOM: 12.86    # $/kW-yr
   VOM: 2.16    # $/MWh
   fuel_type: natural_gas
-  FC_per_MMBTU: 3.25
+  FC_per_MMBTU: 4.0
   no_load_cost: 0.0
-  start_up_cost: 0.0
-  shut_down_cost: 0.0
+  start_up_cost: 1.53  # $/MW
+  shut_down_cost: 0.0  # $/MW, non-fuel start-up costs
   heat_rate: 6.401    # MWh/MMBTU
   ramp_up_limit: 0.6    # % PL/hr
   ramp_down_limit: 0.6  # % PL/hr
@@ -135,7 +135,7 @@ ngcc:
     CRP: 30
     Scenario: Moderate
     Year: 2025
-    "ATB Year": 2020
+    ATB_year: 2020
 ngct:
   capacity: 50   # MW
   max_PL: 0.92
@@ -145,10 +145,10 @@ ngct:
   FOM: 11.39    # $/kW-yr
   VOM: 4.50    # $/MWh
   fuel_type: natural_gas
-  FC_per_MMBTU: 3.25
+  FC_per_MMBTU: 4.0
   no_load_cost: 0.0
-  start_up_cost: 0.0
-  shut_down_cost: 0.0
+  start_up_cost: 3.04   # $/MW
+  shut_down_cost: 0.95  # $/MW, non-fuel start-up costs
   heat_rate: 9.515    # MWh/MMBTU
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
@@ -170,7 +170,7 @@ ngct:
     CRP: 30
     Scenario: Moderate
     Year: 2025
-    "ATB Year": 2020
+    ATB_year: 2020
 conventional_nuclear:
   capacity: 400   # MW
   max_PL: 0.93
@@ -205,7 +205,7 @@ conventional_nuclear:
     CRP: 30
     Scenario: Moderate
     Year: 2025
-    "ATB Year": 2020
+    ATB_year: 2020
 advanced_nuclear:
   capacity: 300   # MW
   max_PL: 1.0
@@ -240,5 +240,5 @@ advanced_nuclear:
     CRP: 30
     Scenario: Moderate
     Year: 2025
-    "ATB Year": 2020
+    ATB_year: 2020
 

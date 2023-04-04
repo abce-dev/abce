@@ -55,7 +55,7 @@ class GridModel(Model):
         # Initialize database for storing and managing all simulation data
         self.db_file = (Path.cwd() / 
                         "outputs" / 
-                        settings["simulation"]["ALEAF_scenario_name"] / 
+                        settings["simulation"]["scenario_name"] / 
                         settings["file_paths"]["db_file"]
                        )
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
@@ -69,7 +69,7 @@ class GridModel(Model):
         Path(tmp_dir_location).mkdir(exist_ok=True)
 
         # If running A-LEAF, set up any necessary file paths
-        if self.settings["simulation"]["run_ALEAF"]:
+        if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
             self.set_ALEAF_file_paths()
 
         # Initialize the model one time step before the true start date
@@ -138,7 +138,7 @@ class GridModel(Model):
         self.ABCE_output_data_path = (
             Path(os.getcwd()) /
             "outputs" /
-            self.settings["simulation"]["ALEAF_scenario_name"]
+            self.settings["simulation"]["scenario_name"]
         )
 
         if not Path(self.ABCE_output_data_path).is_dir():
@@ -172,7 +172,7 @@ class GridModel(Model):
             "output" /
             self.settings["ALEAF"]["ALEAF_model_type"] /
             self.settings["ALEAF"]["ALEAF_region"] /
-            f"scenario_1_{self.settings['simulation']['ALEAF_scenario_name']}"
+            f"scenario_1_{self.settings['simulation']['scenario_name']}"
         )
 
 
@@ -415,7 +415,7 @@ class GridModel(Model):
             logging.log(self.settings["constants"]["vis_lvl"], "\n")
             user_response = input("Press Enter to continue: ")
 
-        if self.settings["simulation"]["run_ALEAF"]:
+        if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
             # Re-load the baseline A-LEAF data
             ALEAF_data = idm.load_data(Path(self.settings["ALEAF"]["ALEAF_data_file"]))
 
@@ -841,9 +841,9 @@ class GridModel(Model):
             "system_summary_OP",
             "system_tech_summary_OP"]
         for outfile in files_to_save:
-            old_filename = f"{self.settings['simulation']['ALEAF_scenario_name']}__{outfile}.csv"
+            old_filename = f"{self.settings['simulation']['scenario_name']}__{outfile}.csv"
             old_filepath = Path(self.ALEAF_output_data_path) / old_filename
-            new_filename = f"{self.settings['simulation']['ALEAF_scenario_name']}__{outfile}__step_{self.current_pd}.csv"
+            new_filename = f"{self.settings['simulation']['scenario_name']}__{outfile}__step_{self.current_pd}.csv"
             new_filepath = Path(self.ABCE_output_data_path) / new_filename
             shutil.copy2(old_filepath, new_filepath)
 

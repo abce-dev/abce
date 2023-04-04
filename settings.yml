@@ -1,8 +1,8 @@
 simulation:
-  ALEAF_scenario_name: "ABCE_ERCOT"
-  solver: "HiGHS"
+  scenario_name: "ABCE_ERCOT"
+  solver: "CPLEX"
   num_steps: 1
-  run_ALEAF: True
+  annual_dispatch_engine: A-LEAF
   C2N_assumption: baseline
 
 scenario:
@@ -49,7 +49,7 @@ file_paths:
   db_file: "abce_db.db"
   demand_data_file: "inputs/demand_data.csv"
   dispatch_sysimage_file: "dispatch.so"
-  agent_specifications_file: "inputs/agent_specifications.yml"
+  agent_specifications_file: "inputs/single_agent_testing.yml"
   output_file: "outputs.xlsx"
   unit_specs_data_file: "inputs/unit_specs.yml"
   logo: "abce.txt"

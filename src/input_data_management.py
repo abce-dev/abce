@@ -178,7 +178,7 @@ def create_ALEAF_unit_dataframes(unit_specs):
         "ATB_CRP": "CRP",
         "ATB_Scenario": "Scenario",
         "ATB_Year": "Year",
-        "ATB_ATB Year": "ATB Year"
+        "ATB_ATB_year": "ATB Year"
     }
 
     ATB_settings = unit_specs[list(ATB_settings_cols.keys())].copy().rename(columns=ATB_settings_cols)
