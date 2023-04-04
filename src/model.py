@@ -69,7 +69,7 @@ class GridModel(Model):
         Path(tmp_dir_location).mkdir(exist_ok=True)
 
         # If running A-LEAF, set up any necessary file paths
-        if self.settings["simulation"]["run_ALEAF"]:
+        if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
             self.set_ALEAF_file_paths()
 
         # Initialize the model one time step before the true start date
@@ -415,7 +415,7 @@ class GridModel(Model):
             logging.log(self.settings["constants"]["vis_lvl"], "\n")
             user_response = input("Press Enter to continue: ")
 
-        if self.settings["simulation"]["run_ALEAF"]:
+        if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
             # Re-load the baseline A-LEAF data
             ALEAF_data = idm.load_data(Path(self.settings["ALEAF"]["ALEAF_data_file"]))
 
