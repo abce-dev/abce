@@ -106,7 +106,7 @@ else
 end
 
 # File names
-db_file = joinpath(pwd(), "outputs", settings["simulation"]["ALEAF_scenario_name"], settings["file_paths"]["db_file"])
+db_file = joinpath(pwd(), "outputs", settings["simulation"]["scenario_name"], settings["file_paths"]["db_file"])
 C2N_specs_file = joinpath(
                      settings["file_paths"]["ABCE_abs_path"],
                      "inputs",
@@ -210,7 +210,7 @@ elseif CLI_args["verbosity"] == 3
 end
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
-ABCEfunctions.postprocess_agent_decisions(all_results, unit_specs, db, pd, agent_id)
+ABCEfunctions.postprocess_agent_decisions(settings, all_results, unit_specs, db, pd, agent_id)
 
 ##### Authorize ANPE for all current WIP projects
 # Retrieve all WIP projects

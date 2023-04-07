@@ -1,12 +1,13 @@
 module Dispatch
 
-using Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS
+using Requires, Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS
 
-try
-    using CPLEX
-catch LoadError
-    @info string("CPLEX is not available!")
+
+# Initialize this module, with CPLEX as an optional library if available
+function __init__()
+    @require CPLEX="a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
 end
+
 
 function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
     @info string("Running the dispatch simulation for ", settings["dispatch"]["num_dispatch_years"], " years...")
@@ -80,13 +81,18 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
-        run_next_year = run_annual_dispatch(y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
+        run_next_year, total_ENS = run_annual_dispatch(settings, y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
         if !run_next_year
             break
         end
+
+        if total_ENS > settings["system"]["max_total_ENS"] && y == current_pd
+            throw(ErrorException("In the upcoming dispatch year, the system is projected to experience a total energy shortage which exceeds the maximum allowed level of energy not served (ENS). The system portfolio is likely in an unsalvageable state of supply insufficiency in the immediate term. The run will now terminate."))
+        end
+
     end
 
     # If no years ran correctly, throw an error and exit
@@ -154,27 +160,27 @@ end
 
 
 function scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
-    wind_specs = filter(:unit_type => x -> x == "Wind", unit_specs)[1, :]
-    solar_specs = filter(:unit_type => x -> x == "Solar", unit_specs)[1, :]
+    wind_specs = filter(:unit_type => x -> x == "wind", unit_specs)[1, :]
+    solar_specs = filter(:unit_type => x -> x == "solar", unit_specs)[1, :]
 
     # For non-zero wind and solar capacity, scale the WindShape series by the
     #   installed capacity to get total instantaneous VRE availability
     # If either wind or solar has 0 installed capacity, set its entire time
     #   series to 0.0
-    if !isempty(filter(:unit_type => x -> x == "Wind", year_portfolio))
-        ts_data[:wind_data][!, :Wind] = (ts_data[:wind_data][!, :WindShape]
-                                            * filter(:unit_type => x -> x == "Wind", year_portfolio)[1, :num_units]
+    if !isempty(filter(:unit_type => x -> x == "wind", year_portfolio))
+        ts_data[:wind_data][!, :wind] = (ts_data[:wind_data][!, :WindShape]
+                                            * filter(:unit_type => x -> x == "wind", year_portfolio)[1, :num_units]
                                             * wind_specs[:capacity])
     else
-        ts_data[:wind_data][!, :Wind] .= 0.0
+        ts_data[:wind_data][!, :wind] .= 0.0
     end
 
-    if !isempty(filter(:unit_type => x -> x == "Solar", year_portfolio))
-        ts_data[:solar_data][!, :Solar] = (ts_data[:solar_data][!, :SolarShape]
-                                              * filter(:unit_type => x -> x == "Solar", year_portfolio)[1, :num_units]
+    if !isempty(filter(:unit_type => x -> x == "solar", year_portfolio))
+        ts_data[:solar_data][!, :solar] = (ts_data[:solar_data][!, :SolarShape]
+                                              * filter(:unit_type => x -> x == "solar", year_portfolio)[1, :num_units]
                                               * solar_specs[:capacity])
     else
-        ts_data[:solar_data][!, :Solar] .= 0.0
+        ts_data[:solar_data][!, :solar] .= 0.0
     end
 
     return ts_data
@@ -186,8 +192,8 @@ function set_up_wind_solar_repdays(ts_data)
     solar_repdays = DataFrame()
 
     for day in ts_data[:repdays_data][!, :Day]
-        wind_repdays[!, Symbol(day)] = ts_data[:wind_data][(24 * day + 1):(24 * (day + 1)), :Wind]
-        solar_repdays[!, Symbol(day)] = ts_data[:solar_data][(24 * day + 1):(24 * (day + 1)), :Solar]
+        wind_repdays[!, Symbol(day)] = ts_data[:wind_data][(24 * day + 1):(24 * (day + 1)), :wind]
+        solar_repdays[!, Symbol(day)] = ts_data[:solar_data][(24 * day + 1):(24 * (day + 1)), :solar]
     end
 
     ts_data[:wind_repdays] = wind_repdays
@@ -197,7 +203,7 @@ function set_up_wind_solar_repdays(ts_data)
 end
 
 
-function set_up_model(ts_data, year_portfolio, unit_specs, solver)
+function set_up_model(settings, ts_data, year_portfolio, unit_specs, solver)
     # Create joined portfolio-unit_specs dataframe, to ensure consistent
     #   accounting for units which are actually present and consistent
     #   unit ordering
@@ -207,11 +213,11 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     # Set up wind_index and solar_index for easy filtering later
     wind_index = 0
     solar_index = 0
-    if !isempty(filter(:unit_type => x -> x == "Wind", portfolio_specs))
-        wind_index = filter(:unit_type => x -> x == "Wind", portfolio_specs)[1, :unit_index]
+    if !isempty(filter(:unit_type => x -> x == "wind", portfolio_specs))
+        wind_index = filter(:unit_type => x -> x == "wind", portfolio_specs)[1, :unit_index]
     end
-    if !isempty(filter(:unit_type => x -> x == "Solar", portfolio_specs))
-        solar_index = filter(:unit_type => x -> x == "Solar", portfolio_specs)[1, :unit_index]
+    if !isempty(filter(:unit_type => x -> x == "solar", portfolio_specs))
+        solar_index = filter(:unit_type => x -> x == "solar", portfolio_specs)[1, :unit_index]
     end
 
     # Helpful named constants
@@ -248,8 +254,11 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     # c: number of units of each type committed in each hour
     @variable(m, c[1:num_units, 1:num_days, 1:num_hours] >= 0, Int)
 
+    # s: penalty variable for energy not served in each hour
+    @variable(m, s[1:num_days, 1:num_hours] >= 0)
+
     # Total generation per hour must be greater than or equal to the demand
-    @constraint(m, mkt_equil[k=1:num_days, j=1:num_hours], sum(g[i, k, j] for i = 1:num_units) >= load_repdays[j, k])
+    @constraint(m, mkt_equil[k=1:num_days, j=1:num_hours], sum(g[i, k, j] for i = 1:num_units) + s[k, j] >= load_repdays[j, k])
 
     # Number of committed units per hour must be less than or equal to the total
     #   number of units of that type in the system
@@ -264,13 +273,13 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
     # Limit total generation per unit type each hour to the total capacity of all
     #   committed units of this type, with committed units subject to minimum and
     #   maximum power levels
-    # Wind and solar are excluded
+    # wind and solar are excluded
     for i = 1:num_units
-        if !(portfolio_specs[i, :unit_type] in ["Wind", "Solar"])
+        if !(portfolio_specs[i, :unit_type] in ["wind", "solar"])
             for k = 1:num_days
                 for j = 1:num_hours
-                    @constraint(m, g[i, k, j] <= c[i, k, j] .* portfolio_specs[i, :capacity] .* portfolio_specs[i, :CF] .* portfolio_specs[i, :PMAX])
-                    @constraint(m, g[i, k, j] >= c[i, k, j] .* portfolio_specs[i, :capacity] .* portfolio_specs[i, :CF] .* portfolio_specs[i, :PMIN])
+                    @constraint(m, g[i, k, j] <= c[i, k, j] .* portfolio_specs[i, :capacity] .* portfolio_specs[i, :capacity_factor] .* portfolio_specs[i, :max_PL])
+                    @constraint(m, g[i, k, j] >= c[i, k, j] .* portfolio_specs[i, :capacity] .* portfolio_specs[i, :capacity_factor] .* portfolio_specs[i, :min_PL])
                 end
             end
         end
@@ -294,14 +303,16 @@ function set_up_model(ts_data, year_portfolio, unit_specs, solver)
         for k = 1:num_days
             for j = 1:num_hours-1
                 # Ramp-up constraint
-                @constraint(m, g[i, k, j+1] - g[i, k, j] <= c[i, k, j+1] .* portfolio_specs[i, :RUL] * portfolio_specs[i, :capacity] * portfolio_specs[i, :CF])
+                @constraint(m, g[i, k, j+1] - g[i, k, j] <= c[i, k, j+1] .* portfolio_specs[i, :ramp_up_limit] * portfolio_specs[i, :capacity] * portfolio_specs[i, :capacity_factor])
                 # Ramp-down constraint
-                @constraint(m, g[i, k, j+1] - g[i, k, j] >= (-1) * c[i, k, j+1] * portfolio_specs[i, :RDL] * portfolio_specs[i, :capacity] * portfolio_specs[i, :CF])
+                @constraint(m, g[i, k, j+1] - g[i, k, j] >= (-1) * c[i, k, j+1] * portfolio_specs[i, :ramp_down_limit] * portfolio_specs[i, :capacity] * portfolio_specs[i, :capacity_factor])
             end
         end
     end
 
-    @objective(m, Min, sum(sum(sum(g[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] - portfolio_specs[i, :policy_adj_per_MWh]) for i = 1:num_units))
+    ENS_penalty = settings["constants"]["big_number"]
+
+    @objective(m, Min, sum(sum(sum(g[i, k, j] + ENS_penalty * s[k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] - portfolio_specs[i, :policy_adj_per_MWh]) for i = 1:num_units))
 
     return m, portfolio_specs
 end
@@ -315,12 +326,14 @@ function solve_model(model; model_type="integral")
         @debug "$model_type model status: $status"
         gen_qty = nothing
         c = nothing
+        s = nothing
         if status == "OPTIMAL"
             gen_qty = value.(model[:g])
             c = value.(model[:c])
+            s = value.(model[:s])
         end
 
-        returns = model, status, gen_qty, c
+        returns = model, status, gen_qty, c, s
 
     elseif model_type == "relaxed_integrality"
         optimize!(model)
@@ -362,8 +375,13 @@ function reshape_shadow_price(model, ts_data, y, num_hours, num_days, all_prices
     prices = zeros(1, num_hours*num_days)
     for j = 1:num_hours
         for k = 1:num_days
+            # Ensure the shadow price is no greater than the system cap
+            price = (-1) * market_prices[k, j]
+            if price > 9000
+                price = 9000
+            end
             line = (y = y, d = k, h = j,
-                    price = (-1) * market_prices[k, j])
+                    price = price)
             push!(all_prices, line)
         end
     end
@@ -400,7 +418,7 @@ function propagate_all_results(end_year, all_gc_results, all_prices, current_pd)
 end
 
 
-function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
+function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
     # Constants
     num_hours = 24
 
@@ -418,7 +436,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     ts_data = set_up_wind_solar_repdays(ts_data)
 
     @debug "Setting up optimization model..."
-    m, portfolio_specs = set_up_model(ts_data, year_portfolio, unit_specs, solver)
+    m, portfolio_specs = set_up_model(settings, ts_data, year_portfolio, unit_specs, solver)
 
     @debug "Optimization model set up."
     @debug string("Solving repday dispatch for year ", y, "...")
@@ -438,7 +456,7 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
     set_silent(m_copy)
 
     # Solve the integral optimization problem
-    m, status, gen_qty, c = solve_model(m, model_type = "integral")
+    m, status, gen_qty, c, s = solve_model(m, model_type = "integral")
 
     if status == "OPTIMAL"
         # Save the generation and commitment results from the integral problem
@@ -460,6 +478,10 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
                          all_prices
                      )
 
+        # Determine the total level of energy not served (ENS) for this
+        #   dispatch result
+        total_ENS = sum(sum(s[k, j] for k=1:size(s)[1]) for j = 1:size(s)[2])
+
         @debug "Year $y dispatch run complete."
         run_next_year = true
 
@@ -468,9 +490,10 @@ function run_annual_dispatch(y, year_portfolio, peak_demand, ts_data, unit_specs
         #   not had a chance to address conditions in this year yet
         # Break the loop
         run_next_year = false
+        total_ENS = nothing
     end
 
-    return run_next_year
+    return run_next_year, total_ENS
 
 end
 
@@ -495,7 +518,7 @@ end
 function pivot_gc_results(all_gc_results, all_prices, repdays_data=nothing)
     @debug "Postprocessing results..."
     # Pivot generation data by unit type
-    # Output format: y, d, h, Wind, Solar, ..., AdvancedNuclear
+    # Output format: y, d, h, wind, solar, ..., AdvancedNuclear
     g_pivot = select(all_gc_results, Not(:commit))
     g_pivot = unstack(g_pivot, :unit_type, :gen)
     g_pivot = innerjoin(g_pivot, all_prices, on = [:y, :d, :h])
@@ -511,7 +534,7 @@ function pivot_gc_results(all_gc_results, all_prices, repdays_data=nothing)
     end
 
     # Pivot commitment data by unit type
-    # Output format: y, d, h, Wind, ..., AdvancedNuclear
+    # Output format: y, d, h, wind, ..., AdvancedNuclear
     c_pivot = select!(all_gc_results, Not(:gen))
     c_pivot = unstack(c_pivot, :unit_type, :commit)
 

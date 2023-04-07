@@ -27,9 +27,9 @@ abce_tables = {"WIP_projects":
                 ("period", "real"),
                 ("cum_occ", "real"),
                 ("rcec", "real"),
-                ("cum_d_x", "real"),
+                ("cum_construction_duration", "real"),
                 ("rtec", "real"),
-                ("cum_exp", "real"),
+                ("cum_construction_exp", "real"),
                 ("anpe", "real")
                 ],
 
@@ -58,9 +58,9 @@ abce_tables = {"WIP_projects":
                 ("period", "real"),
                 ("cum_occ", "real"),
                 ("rcec", "real"),
-                ("cum_d_x", "real"),
+                ("cum_construction_duration", "real"),
                 ("rtec", "real"),
-                ("cum_exp", "real"),
+                ("cum_construction_exp", "real"),
                 ("anpe", "real")
                 ],
 
@@ -85,12 +85,9 @@ abce_tables = {"WIP_projects":
 
                "agent_params":
                [("agent_id", "text", "PRIMARY KEY"),
-                ("tax_rate", "real"),
-                ("term_growth_rate", "real"),
                 ("debt_fraction", "real"),
                 ("cost_of_debt", "real"),
                 ("cost_of_equity", "real"),
-                ("starting_fcf", "real"),
                 ("starting_debt", "real"),
                 ("starting_PPE", "real")
                 ],
@@ -99,22 +96,21 @@ abce_tables = {"WIP_projects":
                [("unit_type", "text", "PRIMARY KEY"),
                 ("fuel_type", "text"),
                 ("capacity", "real"),        # MW
-                ("uc_x", "real"),            # $/kW
-                ("d_x", "real"),             # years
-                ("heat_rate", "real"),       # BTU/Wh
+                ("overnight_capital_cost", "real"),  # $/kW
+                ("construction_duration", "real"),   # years
+                ("heat_rate", "real"),       # MMBTU/MWh
                 ("VOM", "real"),             # $/MWh
                 ("FOM", "real"),             # $/kW-yr
                 ("unit_life", "real"),       # years
-                ("CF", "real"),              # frac
-                ("PMAX", "real"),            # frac
-                ("PMIN", "real"),            # frac
-                ("RUL", "real"),             # frac PL change/hr
-                ("RDL", "real"),             # frac PL change/hr
-                ("original_FC", "real"),          # $/MWh or $/MMBTU
-                ("original_FC_units", "text"),    # unit for ATB FC
+                ("capacity_factor", "real"),              # frac
+                ("max_PL", "real"),            # frac
+                ("min_PL", "real"),            # frac
+                ("ramp_up_limit", "real"),             # frac PL change/hr
+                ("ramp_down_limit", "real"),             # frac PL change/hr
+                ("FC_per_MMBTU", "real"),         # $/MMBTU
                 ("FC_per_MWh", "real"),      # $/MWh
                 ("is_VRE", "text"),          # boolean
-                ("emissions_rate", "real"),  # tCO2 / MWh
+                ("emissions_per_MMBTU", "real"),  # tCO2 / MMBTU
                 # net $/MWh subsidy or penalty due to carbon tax, PTC, etc.,
                 ("policy_adj_per_MWh", "real"),
                 # lead time between xtr start and cpp retirement

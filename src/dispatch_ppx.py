@@ -80,8 +80,14 @@ def pivot_dispatch_results(df):
 
 
 def join_unit_data(dsp_pivot, system_portfolio, unit_specs):
+    # Join system_portfolio into the dispatch results
     dsp_ext_pivot = dsp_pivot.join(system_portfolio, how="inner")
-    dsp_ext_pivot = dsp_ext_pivot.join(unit_specs.set_index("unit_type"), how="inner")
+
+    # Convert unit_specs into a dataframe for this join
+    unit_specs_df = pd.DataFrame.from_dict(unit_specs, orient="index").reset_index().rename(columns={"index": "unit_type"})
+
+    # Join unit_specs into the dispatch results, for convenience
+    dsp_ext_pivot = dsp_ext_pivot.join(unit_specs_df.set_index("unit_type"), how="inner")
 
     return dsp_ext_pivot
 

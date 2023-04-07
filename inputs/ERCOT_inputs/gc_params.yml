@@ -1,0 +1,93 @@
+# GenCos included in this input data have portfolio information drawn from
+#   publicly-available sources, such as the EIA-860 annual database.
+# Financial parameters are rough estimates for the GenCos which approximate
+#   real firms, and are representative values for the non-real GenCos.
+
+# NRG
+201:
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.03
+    cost_of_equity: 0.1
+    tax_rate: 0.21
+    starting_fcf:  3647000000
+    starting_debt: 1000000000
+    starting_PPE:   222000000
+
+# Luminant
+202:
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.05
+    cost_of_equity: 0.12
+    tax_rate: 0.21
+    starting_fcf:   551000000
+    starting_debt:  258000000
+    starting_PPE: 25200000000
+
+# City of San Antonio
+203:
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.05
+    cost_of_equity: 0.12
+    tax_rate: 0.21
+    starting_fcf:   551000000
+    starting_debt:  258000000
+    starting_PPE: 25200000000
+
+# Renewables, Inc.
+204:
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.05
+    cost_of_equity: 0.12
+    tax_rate: 0.21
+    starting_fcf:   551000000
+    starting_debt:  258000000
+    starting_PPE: 25200000000
+
+# Lean Gas Ops, Inc.
+205:
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.05
+    cost_of_equity: 0.12
+    tax_rate: 0.21
+    starting_fcf:   551000000
+    starting_debt:  258000000
+    starting_PPE: 25200000000
+
+# Legacy Fossil Operator, Inc.
+206:
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.05
+    cost_of_equity: 0.12
+    tax_rate: 0.21
+    starting_fcf:   551000000
+    starting_debt:  258000000
+    starting_PPE: 25200000000
+
+# TinySolar
+207:
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.05
+    cost_of_equity: 0.12
+    tax_rate: 0.21
+    starting_fcf:   551000000
+    starting_debt:  258000000
+    starting_PPE: 25200000000
+
+# Balance of System
+208:
+    terminal_growth_rate: 0.03
+    debt_fraction: 0.5
+    cost_of_debt: 0.05
+    cost_of_equity: 0.12
+    tax_rate: 0.21
+    starting_fcf:   551000000
+    starting_debt:  258000000
+    starting_PPE: 25200000000
+

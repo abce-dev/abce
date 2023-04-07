@@ -1,31 +1,31 @@
 simulation:
-  ALEAF_scenario_name: "ABCE_IL"
-  solver: "HiGHS"
-  num_steps: 2
-  run_ALEAF: False
+  scenario_name: "ABCE_ERCOT"
+  solver: "CPLEX"
+  num_steps: 1
+  annual_dispatch_engine: ALEAF
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 34000
-  conv_nuclear_FOM: 80
-  natural_gas_price: 4  # $/MWh
+  peak_demand: 76000
   policies:
     CTAX:
       enabled: True
-      qty: 60  # $/t CO2
+      qty: 150  # $/t CO2
     PTC:
       enabled: False
-      eligible:
-        - ConventionalNuclear
-        - Wind
-        - Solar
+      eligibility:
+        unit_type:
+          - ConventionalNuclear
+          - Wind
+          - Solar
       qty: 15.0   # $/MWh
   allowed_xtr_types:
-    - Wind
-    - Solar
-    - NGCC
-    - NGCT
-    - AdvancedNuclear
+    - wind
+    - solar
+    - ngcc
+    - ngct
+    - conventional_nuclear
+    - advanced_nuclear
 
 
 #######################################################
@@ -37,6 +37,9 @@ constants:
   first_asset_id: 2001
   vis_lvl: 45   # sets the logging level for bare visual elements
   large_epsilon: 1.0
+  time_before_start: -1
+  distant_time: 9999
+  big_number: 999999
   hours_per_year: 8760
   MW2kW: 1000   # converts MW to kW
 
@@ -46,13 +49,9 @@ file_paths:
   db_file: "abce_db.db"
   demand_data_file: "inputs/demand_data.csv"
   dispatch_sysimage_file: "dispatch.so"
-  gc_params_file: "inputs/gc_params.yml"
+  agent_specifications_file: "inputs/single_agent_testing.yml"
   output_file: "outputs.xlsx"
-  portfolios_file: "inputs/IL_portfolios.csv"
-  retirement_period_specs_file: "inputs/portfolio_retirement_specification.csv"
-  seed_dispatch_data_file: "inputs/ALEAF_inputs/ABCE_IL_C2N__dispatch_summary_OP__step_0.csv"
-  time_series_data_file: "inputs/timeseriesParams.xlsx"
-  unit_specs_abce_supp_file: "inputs/unit_specs_abce_supplemental.csv"
+  unit_specs_data_file: "inputs/unit_specs.yml"
   logo: "abce.txt"
 
 # Modeled grid system settings which are unlikely to change frequently
@@ -61,6 +60,7 @@ system:
   tax_rate: 0.21
   planning_reserve_margin: 0.1375
   peak_initial_reserves: 0.0
+  max_total_ENS: 100000  # MWh, allowed gen. undersupply in first projected dispatch year (Energy Not Served)
 
 # Settings for demand projections
 demand:
@@ -75,7 +75,7 @@ demand:
 #   dispatch data
 dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
-  num_repdays: 20
+  num_repdays: 35
   hist_wt: 0.4  # Weighting of historical versus projected data
   hist_decay: 0.5   # Decay factor for each historical data year
 
@@ -87,7 +87,7 @@ agent_opt:
   max_type_newbuilds_per_pd: 5
   shortage_protection_period: 8
   cap_decrease_threshold: 1.05
-  cap_decrease_margin: -0.2
+  cap_decrease_margin: -0.05
   cap_maintain_threshold: 1.0
   cap_maintain_margin: 0.0
   cap_increase_margin: 0.02
@@ -96,11 +96,18 @@ agent_opt:
   cr_horizon: 6
   int_bound: 5.0
 
+financing:
+  default_debt_term: 30
+  default_equity_horizon: 30
+  depreciation_horizon: 20
+  starting_instrument_id: 1000
+
 # Filenames and settings for ALEAF
 ALEAF:
   ALEAF_master_settings_file: "ALEAF_Master.xlsx"
   ALEAF_model_type: "LC_GEP"
-  ALEAF_region: "IL"
+  ALEAF_region: "ERCOT"
   ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
-  ALEAF_portfolio_file: "ALEAF_IL.xlsx"
+  ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
+  ALEAF_data_file: "inputs/ALEAF_settings.yml"
 

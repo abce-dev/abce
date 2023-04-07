@@ -14,12 +14,11 @@
 
 module ABCEfunctions
 
-using SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS
+using Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS
 
-try
-    using CPLEX
-catch LoadError
-    @info string("CPLEX is not available!")
+# Use CPLEX if available
+function __init__()
+    @require CPLEX="a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
 end
 
 include("./dispatch.jl")
@@ -66,7 +65,7 @@ end
 
 function set_up_local_paths(settings, abce_abs_path)
     settings["file_paths"]["ABCE_abs_path"] = abce_abs_path
-    if settings["simulation"]["run_ALEAF"] == true
+    if settings["simulation"]["annual_dispatch_engine"] == "ALEAF"
         try
             settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
         catch LoadError
@@ -89,7 +88,7 @@ end
 
 
 function set_forecast_period(unit_specs, num_lags)
-    transform!(unit_specs, [:d_x, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
+    transform!(unit_specs, [:construction_duration, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
     max_horizon = convert(Int64, ceil(maximum(unit_specs[!, :full_life]) + num_lags))
     return max_horizon
 end
@@ -253,7 +252,7 @@ function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast, all_year_syste
 
     for i = pd:pd+fc_pd-1
         year_portfolio = innerjoin(all_year_system_portfolios[i], unit_specs, on = :unit_type)
-        transform!(year_portfolio, [:num_units, :capacity, :CF] => ((num_units, cap, CF) -> num_units .* cap .* CF) => :effective_capacity)
+        transform!(year_portfolio, [:num_units, :capacity, :capacity_factor] => ((num_units, cap, CF) -> num_units .* cap .* CF) => :effective_capacity)
         total_year_cap = sum(year_portfolio[!, :effective_capacity])
         push!(total_caps, [i, total_year_cap])
     end
@@ -303,7 +302,7 @@ function authorize_anpe(db, agent_id, current_period, project_list, unit_specs)
         asset_type = DBInterface.execute(db, string("SELECT unit_type FROM assets WHERE asset_id = ", current_asset)) |> DataFrame
         unit = filter(row -> row[:unit_type] == asset_type[1, :unit_type], unit_specs)
         # Authorize a uniform expenditure over the life of the project
-        anpe_val = unit[1, :uc_x] * unit[1, :capacity] * 1000 / unit[1, :d_x]
+        anpe_val = unit[1, :overnight_capital_cost] * unit[1, :capacity] * 1000 / unit[1, :construction_duration]
         vals = (anpe_val, current_period, current_asset)
         DBInterface.execute(db, "UPDATE WIP_updates SET anpe = ? WHERE period = ? AND asset_id = ?", vals)
     end
@@ -522,8 +521,8 @@ function generate_capex_profile(db, settings, current_pd, unit_type_data, lag, f
     else
         # Uniformly distribute projected total project costs over the construction
         #   period
-        capex_per_pd = unit_type_data[:uc_x] * unit_type_data[:capacity] * MW2kW / unit_type_data[:d_x]
-        capex = ones(convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))) .* capex_per_pd
+        capex_per_pd = unit_type_data[:overnight_capital_cost] * unit_type_data[:capacity] * MW2kW / unit_type_data[:construction_duration]
+        capex = ones(convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))) .* capex_per_pd
     end
 
     # No construction expenditures from the end of construction until the end
@@ -580,7 +579,7 @@ end
 Set up the record of the accrual of debt during construction.
 """
 function set_initial_debt_principal_series(unit_fs, unit_type_data, lag, agent_params)
-    for i = lag+1:lag+convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
+    for i = lag+1:lag+convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))
         unit_fs[i, :remaining_debt_principal] = sum(unit_fs[1:i, :capex]) * agent_params[1, :debt_fraction]
     end
 end
@@ -597,7 +596,7 @@ Generate the "prime mover" time series during the operating life of the plant:
 Revenue is calculated in a separate function.
 """
 function generate_prime_movers(unit_type_data, unit_fs, lag, cod)
-    unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
+    unit_d_x = convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
     financing_term = 30
     rev_head_start = ceil(Int64, round(unit_type_data[:rev_head_start], digits=3))
@@ -717,7 +716,7 @@ function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, la
     check_valid_vector_mode(mode)
 
     # Helpful short variables
-    unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
+    unit_d_x = convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
 
     # Add a Revenue column to the financial statement dataframe
@@ -806,7 +805,7 @@ function compute_total_generation(settings, current_pd, unit_type_data, unit_fs,
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
-    unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
+    unit_d_x = convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
 
     # In "new_xtr" mode, generation persists from end of construction to end of life
@@ -898,7 +897,7 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     check_valid_vector_mode(mode)
 
     # Helpful short variable names
-    unit_d_x = convert(Int64, ceil(round(unit_type_data[:d_x], digits=3)))
+    unit_d_x = convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
     rev_head_start = ceil(Int64, round(unit_type_data[:rev_head_start], digits=3))
     cpp_ret_lead = floor(Int64, round(unit_type_data[:cpp_ret_lead], digits=3))
@@ -1116,12 +1115,12 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
             #   marginal generation array
             unit_type_data = filter(:unit_type => x -> x == PA_uids[i, :unit_type], unit_specs)
             if PA_uids[i, :project_type] == "new_xtr"
-                if j > PA_uids[i, :lag] + unit_type_data[1, :d_x]
-                    marg_eff_cap[i, j] = unit_type_data[1, :capacity] * unit_type_data[1, :CF]
+                if j > PA_uids[i, :lag] + unit_type_data[1, :construction_duration]
+                    marg_eff_cap[i, j] = unit_type_data[1, :capacity] * unit_type_data[1, :capacity_factor]
                 end
             elseif PA_uids[i, :project_type] == "retirement"
                 if (j > PA_uids[i, :lag]) && (j <= PA_uids[i, :ret_pd])
-                    marg_eff_cap[i, j] = (-1) * unit_type_data[1, :capacity] * unit_type_data[1, :CF]
+                    marg_eff_cap[i, j] = (-1) * unit_type_data[1, :capacity] * unit_type_data[1, :capacity_factor]
                 end
             end
         end
@@ -1254,7 +1253,7 @@ end
 
 
 ### Postprocessing
-function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, agent_id)
+function postprocess_agent_decisions(settings, all_results, unit_specs, db, current_pd, agent_id)
     for i = 1:size(all_results)[1]
         # Retrieve the individual result row for convenience
         result = all_results[i, :]
@@ -1262,7 +1261,7 @@ function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, ag
         if result[:project_type] == "new_xtr"
         # New construction decisions are binding for this period only
             if (result[:lag] == 0) && (result[:units_to_execute] != 0)
-                record_new_construction_projects(result, unit_specs, db, current_pd, agent_id)
+                record_new_construction_projects(settings, result, unit_specs, db, current_pd, agent_id)
                 # If the project is a C2N project, retire two coal units at
                 #    the appropriate time
                 if occursin("C2N", result[:unit_type])
@@ -1290,23 +1289,23 @@ function postprocess_agent_decisions(all_results, unit_specs, db, current_pd, ag
 end
 
 
-function record_new_construction_projects(result, unit_data, db, current_pd, agent_id)
+function record_new_construction_projects(settings, result, unit_data, db, current_pd, agent_id)
     # Retrieve unit_specs data for this unit type
     unit_type_specs = filter(:unit_type => x -> x == result[:unit_type], unit_data)
 
     # Set default initial values
-    cum_occ = unit_type_specs[1, :uc_x] * unit_type_specs[1, :capacity] * MW2kW
+    cum_occ = unit_type_specs[1, :overnight_capital_cost] * unit_type_specs[1, :capacity] * MW2kW
     rcec = cum_occ
-    cum_exp = 0
-    cum_d_x = unit_type_specs[1, :d_x]
-    rtec = cum_d_x
+    cum_construction_exp = 0
+    cum_construction_duration = unit_type_specs[1, :construction_duration]
+    rtec = cum_construction_duration
     start_pd = current_pd
-    completion_pd = current_pd + unit_type_specs[1, :d_x]
-    cancellation_pd = 9999
-    retirement_pd = current_pd + unit_type_specs[1, :d_x] + unit_type_specs[1, :unit_life]
+    completion_pd = current_pd + unit_type_specs[1, :construction_duration]
+    cancellation_pd = settings["constants"]["distant_time"]
+    retirement_pd = current_pd + unit_type_specs[1, :construction_duration] + unit_type_specs[1, :unit_life]
     total_capex = 0
     cap_pmt = 0
-    anpe = unit_type_specs[1, :uc_x] * unit_type_specs[1, :capacity] * 1000 / unit_type_specs[1, :d_x]
+    anpe = unit_type_specs[1, :overnight_capital_cost] * unit_type_specs[1, :capacity] * 1000 / unit_type_specs[1, :construction_duration]
     C2N_reserved = 0
 
     # Add a number of project instances equal to the 'units_to_execute'
@@ -1321,9 +1320,9 @@ function record_new_construction_projects(result, unit_data, db, current_pd, age
             current_pd,
             cum_occ,
             rcec,
-            cum_d_x,
+            cum_construction_duration,
             rtec,
-            cum_exp,
+            cum_construction_exp,
             anpe
         )
         DBInterface.execute(
@@ -1441,6 +1440,25 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     # Create the annualized results dataframe so far
     results_pivot = combine(groupby(fin_results, :y), [:total_rev, :total_VOM, :total_FC] .=> sum; renamecols=false)
 
+	# If the agent is projected to reach zero installed capacity within the 
+	#   forecast period, pad the results_pivot with zeros until the
+	#   end of the forecast period
+	if size(results_pivot)[1] < fc_pd
+        pad_length = fc_pd - size(results_pivot)[1]
+        y_pad = maximum(results_pivot[!, :y])+1:maximum(results_pivot[!, :y])+pad_length
+        rev_pad = zeros(Int64, pad_length)
+        VOM_pad = zeros(Int64, pad_length)
+        FC_pad = zeros(Int64, pad_length)
+        pad_df = DataFrame(
+            y = y_pad,
+            total_rev = rev_pad,
+            total_VOM = VOM_pad,
+            total_FC = FC_pad
+        )
+
+        results_pivot = vcat(results_pivot, pad_df)
+	end
+
     fs = DataFrame(
              base_pd = ones(Int64, fc_pd) .* current_pd,
              projected_pd = current_pd:current_pd+fc_pd-1,
@@ -1488,8 +1506,14 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     # EBT
     transform!(fs, [:EBIT, :interest_payment] => ((EBIT, interest) -> EBIT - interest) => :EBT)
 
-    # Tax owed
-    tax_rate = 0.21
+    # Retrieve the system corporate tax rate from the database
+    command = string("SELECT value FROM model_params WHERE parameter == 'tax_rate'")
+    # Extract the value into a temporary dataframe
+    tax_rate = DBInterface.execute(db, command) |> DataFrame
+    # Pull out the bare value
+    tax_rate = tax_rate[1, :value]
+
+    # Compute actual tax paid
     transform!(fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_paid)
 
     # Net Income
