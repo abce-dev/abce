@@ -147,10 +147,10 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
     # Propagate the results dataframes out to the end of the projection horizon
     # Assume no change after the last modeled year
     all_gc_results, all_prices = propagate_all_results(
-                                     fc_pd-1,
                                      all_gc_results,
                                      all_prices,
-                                     current_pd
+                                     current_pd,
+                                     fc_pd
                                  )
 
     # Save the raw results
@@ -506,7 +506,9 @@ function assemble_gc_results(y, gen_qty, c, portfolio_specs)
     for k = 1:size(c)[2]            # num_days
         for j = 1:size(c)[3]        # num_hours
             for i = 1:size(c)[1]    # num_units
-                line = (y = y, d = k, h = j,
+                line = (y = y,
+                        d = k,
+                        h = j,
                         unit_type = portfolio_specs[i, :unit_type],
                         gen = gen_qty[i, k, j],
                         commit = round(Int, c[i, k, j]))
@@ -539,7 +541,7 @@ function reshape_shadow_prices(shadow_prices, y, settings)
 end
 
 
-function propagate_all_results(end_year, all_gc_results, all_prices, current_pd)
+function propagate_all_results(all_gc_results, all_prices, current_pd, end_year)
     final_dispatched_year = maximum(all_gc_results[!, :y])
 
     final_year_gc = filter(
@@ -551,7 +553,7 @@ function propagate_all_results(end_year, all_gc_results, all_prices, current_pd)
                             all_prices
                         )
 
-    for y = final_dispatched_year+1:current_pd+end_year
+    for y = final_dispatched_year+1:current_pd+end_year-1
         # Copy the final_year_gc results forward, updating the year
         next_year_gc = deepcopy(final_year_gc)
         next_year_gc[!, :y] .= y
