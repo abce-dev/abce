@@ -1,6 +1,6 @@
 include("../src/dispatch.jl")
 
-using Logging, DataFrames, .Dispatch
+using Logging, DataFrames, YAML, .Dispatch
 
 function test(thing, value)
     # Gather some information about the function calling test, for reporting
@@ -69,37 +69,41 @@ end
 # User-defined tests here                 #
 ###########################################
 
-function test_set_up_results_dfs()
-    all_prices, all_gc_results = Dispatch.set_up_results_dfs()
-
-    test_all_prices = DataFrame(
-                          y = Int[],
-                          g = Int[],
-                          h = Int[],
-                          price = Float64[]
-                      )
-
-    test(all_prices, DataFrame)
-    test(all_gc_results, DataFrame)
-    test(names(all_prices), names(test_all_prices))
-
-end
-
-
-function test_reshape_shadow_price(shadow_prices, check_reshaped_shadow_prices)
-    reshaped_shadow_prices = Dispatch.reshape_shadow_price(
+function test_reshape_shadow_prices(shadow_prices, check_reshaped_shadow_prices, y, settings)
+    reshaped_shadow_prices = Dispatch.reshape_shadow_prices(
                                  shadow_prices,
                                  y,
-                                 num_days,
-                                 num_hours
+                                 settings
                              )
 
-    test(all_prices, check_reshaped_shadow_prices)
+    test(reshaped_shadow_prices, check_reshaped_shadow_prices)
 
-    return all_prices
+    return reshaped_shadow_prices
 end
 
 
+settings = YAML.load_file("../settings.yml")
+test_shadow_prices = [-0.0 -0.0 -1.0 -5.0
+                      -0.0 -2.0 -9.1 -10000.0
+                      -1.5 -3.3 -0.0 -0.0]
+
+check = [1 1 1 0.0
+         1 1 2 0.0
+         1 1 3 1.0
+         1 1 4 5.0
+         1 2 1 0.0
+         1 2 2 2.0
+         1 2 3 9.1
+         1 2 4 9001
+         1 3 1 1.5
+         1 3 2 3.3
+         1 3 3 0.0
+         1 3 4 0.0]
+
+check = DataFrame(check, [:y, :d, :h, :price])
+check[!, :y] = convert.(Int64, check[:, :y])
+check[!, :d] = convert.(Int64, check[:, :d])
+check[!, :h] = convert.(Int64, check[:, :h])
 
 ###########################################
 # Test runner, with list of all tests     #
@@ -111,7 +115,8 @@ function run_tests()
     global num_failed = 0
 
     # Put list of tests here
-    test_set_up_results_dfs()
+    test_reshape_shadow_prices(test_shadow_prices, check, 1, settings)
+    test_reshape_shadow_prices(test_shadow_prices, check, 2, settings)
 
     report_results()
 end
