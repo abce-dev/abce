@@ -519,16 +519,16 @@ function assemble_gc_results(y, gen_qty, c, portfolio_specs)
 end
 
 
-function reshape_shadow_price(shadow_prices, y)
+function reshape_shadow_prices(shadow_prices, y, settings)
     price_df = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
 
     # Convert the (repdays, hours) table into a long (y, d, h, price) table
-    for j = 1:size(shadow_prices)[2]        # num_hours
-        for k = 1:size(shadow_prices)[1]    # num_days
+    for k = 1:size(shadow_prices)[1]        # num_days
+        for j = 1:size(shadow_prices)[2]    # num_hours
             # Ensure the shadow price is no greater than the system cap
             price = (-1) * shadow_prices[k, j]
-            if price > 9000
-                price = 9000
+            if price > settings["system"]["price_cap"]
+                price = settings["system"]["price_cap"]
             end
             line = (y = y, d = k, h = j, price = price)
             push!(price_df, line)
@@ -632,9 +632,10 @@ function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, 
 
         # Solve the relaxed-integrality model to compute the shadow prices
         m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
-        new_prices = reshape_shadow_price(
+        new_prices = reshape_shadow_prices(
                          shadow_price.(m_copy[:mkt_equil]),   # shadow prices
-                         y
+                         y,
+                         settings
                      )
 
         # Determine the total level of energy not served (ENS) for this
