@@ -10,7 +10,7 @@ end
 
 
 function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
-    @info string(
+    @debug string(
               "Running the dispatch simulation for ",
               settings["dispatch"]["num_dispatch_years"],
               " years..."
