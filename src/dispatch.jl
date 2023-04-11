@@ -159,10 +159,10 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
     # Create the final results set for use by the agent decision algorithm
     @debug "Postprocessing all dispatch results..."
     long_econ_results = postprocess_results(
-                            all_year_system_portfolios,
-                            all_prices,
                             all_gc_results,
-                            ts_data,
+                            all_prices,
+                            ts_data[:repdays_data],
+                            all_year_system_portfolios,
                             unit_specs,
                             fc_pd,
                             current_pd
@@ -683,32 +683,6 @@ function save_raw_results(all_prices, all_gc_results)
 end
 
 
-function pivot_gc_results(all_gc_results, all_prices, repdays_data=nothing)
-    @debug "Postprocessing results..."
-    # Pivot generation data by unit type
-    # Output format: y, d, h, wind, solar, ..., AdvancedNuclear
-    g_pivot = select(all_gc_results, Not(:commit))
-    g_pivot = unstack(g_pivot, :unit_type, :gen)
-    g_pivot = innerjoin(g_pivot, all_prices, on = [:y, :d, :h])
-
-    # Incorporate repdays probability data, if provided
-    if repdays_data == nothing
-        # If no repdays data is provided, assume this is a full-year run
-        #   where all days have probability 1/365
-        g_pivot[!, :Probability] .= 1/365
-    else
-        # If repdays data is provided, inner join on the days column
-        g_pivot = innerjoin(
-                      g_pivot,
-                      select(repdays_data, [:index, :Probability]),
-                      on = [:d => :index]
-                  )
-    end
-
-    return g_pivot
-end
-
-
 function create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
     # Combine the system portfolios into a single dataframe with indicator
     #   column :y
@@ -734,22 +708,46 @@ function create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
 end
 
 
-function postprocess_long_results(long_rev_results, system_portfolios, unit_specs, fc_pd, current_pd)
-    # Get a single long dataframe with unit numbers by type for each year
-    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
+function postprocess_results(all_gc_results, all_prices, repdays_data, system_portfolios, unit_specs, fc_pd, current_pd)
+    # Join in price data to all_gc_results
+    all_gc_results = innerjoin(all_gc_results, all_prices, on = [:y, :d, :h])
 
-    # Get a list of all long_rev_results columns whose names match entries in
-    #   unit_specs
-    types_list = unit_specs[!, :unit_type]
-    extant_types = [col for col in names(long_rev_results) if col in types_list]
-    
-    long_rev_results = stack(long_rev_results, extant_types)
-    rename!(long_rev_results, :variable => :unit_type, :value => :gen)
-    short_unit_specs = select(unit_specs, [:unit_type, :capacity, :VOM, :FC_per_MWh, :policy_adj_per_MWh])
-    long_rev_results = innerjoin(long_rev_results, short_unit_specs, on = :unit_type)
+    # Incorporate repdays probability data
+    all_gc_results = innerjoin(
+                  all_gc_results,
+                  select(repdays_data, [:index, :Probability]),
+                  on = [:d => :index]
+              )
+
+    # Get a single long dataframe with unit numbers by type for each year
+    all_year_portfolios = create_all_year_portfolios(
+                              system_portfolios,
+                              fc_pd,
+                              current_pd
+                          )
+
+    short_unit_specs = select(
+                           unit_specs,
+                           [:unit_type,
+                            :capacity,
+                            :VOM,
+                            :FC_per_MWh,
+                            :policy_adj_per_MWh
+                           ]
+                       )
+
+    long_rev_results = innerjoin(
+                           all_gc_results,
+                           short_unit_specs,
+                           on = :unit_type
+                       )
 
     # Append unit number data to long_rev_results
-    long_rev_results = innerjoin(long_rev_results, all_year_portfolios, on = [:y, :unit_type])
+    long_rev_results = innerjoin(
+                           long_rev_results,
+                           all_year_portfolios,
+                           on = [:y, :unit_type]
+                       )
 
     # Calculate revenues
     transform!(
@@ -789,25 +787,5 @@ function postprocess_long_results(long_rev_results, system_portfolios, unit_spec
     return long_rev_results
 
 end 
-
-
-function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
-    # Pivot the generation and commitment results
-    g_pivot = pivot_gc_results(
-                  all_gc_results,
-                  all_prices,
-                  ts_data[:repdays_data]
-              )
-
-    long_econ_results = postprocess_long_results(
-                            g_pivot,
-                            system_portfolios,
-                            unit_specs,
-                            fc_pd,
-                            current_pd
-                        )
-
-    return long_econ_results
-end
 
 end
