@@ -23,45 +23,24 @@ function test_propagate_all_results(all_gc_results, all_prices, current_pd, end_
     sTest.test(propagated_prices, test_prices)
 end
 
+###########################################
+# Loading test data                       #
+###########################################
 
+input_shadow_prices = Matrix(
+                          CSV.read(
+                              "./test_data/raw_shadow_prices.csv",
+                              DataFrame,
+                              header=false
+                          )
+                      )
 
-settings = YAML.load_file("../settings.yml")
-test_shadow_prices = [-0.0 -0.0 -1.0 -5.0
-                      -0.0 -2.0 -9.1 -10000.0
-                      -1.5 -3.3 -0.0 -0.0]
+check_prices = CSV.read("./test_data/reshaped_prices.csv", DataFrame)
 
-check_prices = [1 1 1 0.0
-                1 1 2 0.0
-                1 1 3 1.0
-                1 1 4 5.0
-                1 2 1 0.0
-                1 2 2 2.0
-                1 2 3 9.1
-                1 2 4 9001
-                1 3 1 1.5
-                1 3 2 3.3
-                1 3 3 0.0
-                1 3 4 0.0]
-check_prices = DataFrame(check_prices, [:y, :d, :h, :price])
+all_gc_results = CSV.read("./test_data/all_gc_results.csv", DataFrame)
 
-all_gc_results = [1 1 1 "abc" 1.0 1
-                  1 1 1 "def" 100 1
-                  1 1 2 "abc" 2.0 1
-                  1 1 2 "def" 112 2
-                  1 2 1 "abc" 75.1 1
-                  1 2 1 "def" 0.0 0
-                  1 2 2 "abc" 0.1 1
-                  1 2 2 "def" 10000 256]
-all_gc_results = DataFrame(all_gc_results, [:y, :d, :h, :unit_type, :gen, :commit])
-
-y2_gc_results = copy(all_gc_results)
-y2_gc_results[!, :y] .= 2
-
-c2 = copy(check_prices)
-c2[!, :y] .= 2
-
-check_prop_gc_results = vcat(all_gc_results, y2_gc_results)
-check_prop_prices = vcat(check_prices, c2)
+prop_prices = CSV.read("./test_data/prop_prices.csv", DataFrame)
+prop_gc_results = CSV.read("./test_data/prop_gc_results.csv", DataFrame)
 
 
 ###########################################
@@ -69,10 +48,12 @@ check_prop_prices = vcat(check_prices, c2)
 ###########################################
 
 function run_tests()
-    # Put list of tests here
-    all_prices = test_reshape_shadow_prices(test_shadow_prices, check_prices, 1, settings)
+    settings = YAML.load_file("../settings.yml")
 
-    test_propagate_all_results(all_gc_results, all_prices, 1, 2, check_prop_gc_results, check_prop_prices)
+    # Put list of tests here
+    all_prices = test_reshape_shadow_prices(input_shadow_prices, check_prices, 1, settings)
+
+    test_propagate_all_results(all_gc_results, all_prices, 1, 2, prop_gc_results, prop_prices)
 end
 
 
