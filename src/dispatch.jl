@@ -10,7 +10,11 @@ end
 
 
 function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
-    @info string("Running the dispatch simulation for ", settings["dispatch"]["num_dispatch_years"], " years...")
+    @info string(
+              "Running the dispatch simulation for ",
+              settings["dispatch"]["num_dispatch_years"],
+              " years..."
+          )
 
     # Set up all timeseries data
     ts_data = load_ts_data(
@@ -21,9 +25,6 @@ function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, t
                   settings["dispatch"]["num_repdays"]
               )
 
-    # Set up dataframes to record all results
-    all_prices, all_gc_results = set_up_results_dfs()
-
     long_econ_results = handle_annual_dispatch(
                             settings,
                             current_pd,
@@ -32,8 +33,6 @@ function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, t
                             total_demand,
                             ts_data,
                             unit_specs,
-                            all_gc_results,
-                            all_prices,
                             solver
                         )
 
@@ -49,10 +48,27 @@ function set_up_dispatch_portfolios(db, start_year, fc_pd, agent_id, unit_specs)
 
     for y = start_year:start_year+fc_pd
         # Retrieve annual system portfolios
-        system_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
+        system_portfolio = DBInterface.execute(
+                               db,
+                               string("SELECT unit_type, COUNT(unit_type) ",
+                                      "FROM assets WHERE completion_pd <= $y ",
+                                      "AND retirement_pd > $y ",
+                                      "AND cancellation_pd > $y ",
+                                      "GROUP BY unit_type"
+                               )
+                           ) |> DataFrame
 
         # Retrieve annual system portfolios for the current agent
-        agent_portfolio = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
+        agent_portfolio = DBInterface.execute(
+                              db,
+                              string("SELECT unit_type, COUNT(unit_type) ",
+                                     "FROM assets WHERE agent_id = $agent_id ",
+                                     "AND completion_pd <= $y ",
+                                     "AND retirement_pd > $y ",
+                                     "AND cancellation_pd > $y ",
+                                     "GROUP BY unit_type"
+                              )
+                          ) |> DataFrame
 
         # Clean up column names in the portfolio dataframes
         rename!(system_portfolio, Symbol("COUNT(unit_type)") => :num_units)
@@ -67,7 +83,9 @@ function set_up_dispatch_portfolios(db, start_year, fc_pd, agent_id, unit_specs)
 end
 
 
-function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
+function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, solver)
+    all_gc_results, all_prices = set_up_results_dfs()
+
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:current_pd + settings["dispatch"]["num_dispatch_years"]
         @debug "\n\nDISPATCH SIMULATION: YEAR $y"
@@ -76,40 +94,79 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         year_portfolio = all_year_system_portfolios[y]
 
         # Determine appropriate total demand for this year
-        year_demand = filter(:period => ((pd) -> pd == y), total_demand)[1, :real_demand]
+        year_demand = filter(
+                          :period => ((pd) -> pd == y),
+                          total_demand
+                      )[1, :real_demand]
 
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
-        run_next_year, total_ENS = run_annual_dispatch(settings, y, year_portfolio, year_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
+        results = run_annual_dispatch(
+                      settings,
+                      y,
+                      year_portfolio,
+                      year_demand,
+                      ts_data,
+                      unit_specs,
+                      solver
+                  )
+
+        # Save new generation, commitment, and price results
+        all_gc_results = vcat(all_gc_results, results[:new_gc_results])
+        all_prices = vcat(all_prices, results[:new_prices])
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
-        if !run_next_year
+        if !results[:run_next_year]
             break
         end
 
-        if total_ENS > settings["system"]["max_total_ENS"] && y == current_pd
-            throw(ErrorException("In the upcoming dispatch year, the system is projected to experience a total energy shortage which exceeds the maximum allowed level of energy not served (ENS). The system portfolio is likely in an unsalvageable state of supply insufficiency in the immediate term. The run will now terminate."))
+        if ((results[:total_ENS] > settings["system"]["max_total_ENS"])
+             && (y == current_pd))
+            msg = string("In the upcoming dispatch year, the system is ",
+                         "projected to experience a total energy shortage ",
+                         "which exceeds the maximum allowed level of energy ",
+                         "not served (ENS). The system portfolio is likely ",
+                         "in an unsalvageable state of supply insufficiency ",
+                         "in the immediate term. The run will now terminate."
+                  )
+            throw(ErrorException(msg))
         end
 
     end
 
     # If no years ran correctly, throw an error and exit
     if size(all_gc_results)[1] == 0
-        throw(ErrorException("No dispatch simulations could be run. Re-check your inputs."))
+        msg = string("No dispatch simulations could be run. Re-check ",
+                     "your inputs."
+              )
+        throw(ErrorException(msg))
     end
 
     # Propagate the results dataframes out to the end of the projection horizon
     # Assume no change after the last modeled year
-    all_gc_results, all_prices = propagate_all_results(fc_pd-1, all_gc_results, all_prices, current_pd)
+    all_gc_results, all_prices = propagate_all_results(
+                                     fc_pd-1,
+                                     all_gc_results,
+                                     all_prices,
+                                     current_pd
+                                 )
 
     # Save the raw results
-    #save_raw_results(all_prices, all_gc_results)
+    save_raw_results(all_prices, all_gc_results)
 
     # Create the final results set for use by the agent decision algorithm
     @debug "Postprocessing all dispatch results..."
-    long_econ_results = postprocess_results(all_year_system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
+    long_econ_results = postprocess_results(
+                            all_year_system_portfolios,
+                            all_prices,
+                            all_gc_results,
+                            ts_data,
+                            unit_specs,
+                            fc_pd,
+                            current_pd
+                        )
 
     return long_econ_results    
 
@@ -118,10 +175,22 @@ end
 
 function load_ts_data(ts_file_dir, num_repdays)
     # Load the time-series demand and VRE data into dataframes
-    load_data = CSV.read(joinpath(ts_file_dir, "timeseries_load_hourly.csv"), DataFrame)
-    wind_data = CSV.read(joinpath(ts_file_dir, "timeseries_wind_hourly.csv"), DataFrame)
-    solar_data = CSV.read(joinpath(ts_file_dir, "timeseries_pv_hourly.csv"), DataFrame)
-    repdays_data = CSV.read(joinpath(ts_file_dir, "repDays_$num_repdays.csv"), DataFrame)
+    load_data = CSV.read(
+                    joinpath(ts_file_dir, "timeseries_load_hourly.csv"),
+                    DataFrame
+                )
+    wind_data = CSV.read(
+                    joinpath(ts_file_dir, "timeseries_wind_hourly.csv"),
+                    DataFrame
+                )
+    solar_data = CSV.read(
+                     joinpath(ts_file_dir, "timeseries_pv_hourly.csv"),
+                     DataFrame
+                 )
+    repdays_data = CSV.read(
+                       joinpath(ts_file_dir, "repDays_$num_repdays.csv"),
+                       DataFrame
+                   )
 
     ts_data = Dict(:load_data => load_data,
                    :wind_data => wind_data,
@@ -133,10 +202,23 @@ end
 
 
 function set_up_results_dfs()
-    all_prices = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
-    all_gc_results = DataFrame(y = Int[], d = Int[], h = Int[], unit_type = String[], gen = Float64[], commit = Int[])
+    all_gc_results = DataFrame(
+                         y = Int[],
+                         d = Int[],
+                         h = Int[],
+                         unit_type = String[],
+                         gen = Float64[],
+                         commit = Int[]
+                     )
 
-    return all_prices, all_gc_results
+    all_prices = DataFrame(
+                     y = Int[],
+                     d = Int[],
+                     h = Int[],
+                     price = Float64[]
+                 )
+
+    return all_gc_results, all_prices
 end
 
 
@@ -169,16 +251,24 @@ function scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
     #   series to 0.0
     if !isempty(filter(:unit_type => x -> x == "wind", year_portfolio))
         ts_data[:wind_data][!, :wind] = (ts_data[:wind_data][!, :WindShape]
-                                            * filter(:unit_type => x -> x == "wind", year_portfolio)[1, :num_units]
-                                            * wind_specs[:capacity])
+                                         * filter(
+                                               :unit_type => x -> x == "wind",
+                                               year_portfolio
+                                           )[1, :num_units]
+                                         * wind_specs[:capacity]
+                                        )
     else
         ts_data[:wind_data][!, :wind] .= 0.0
     end
 
     if !isempty(filter(:unit_type => x -> x == "solar", year_portfolio))
         ts_data[:solar_data][!, :solar] = (ts_data[:solar_data][!, :SolarShape]
-                                              * filter(:unit_type => x -> x == "solar", year_portfolio)[1, :num_units]
-                                              * solar_specs[:capacity])
+                                           * filter(
+                                                 :unit_type => x -> x == "solar",
+                                                 year_portfolio
+                                             )[1, :num_units]
+                                           * solar_specs[:capacity]
+                                          )
     else
         ts_data[:solar_data][!, :solar] .= 0.0
     end
@@ -214,10 +304,16 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs, solver)
     wind_index = 0
     solar_index = 0
     if !isempty(filter(:unit_type => x -> x == "wind", portfolio_specs))
-        wind_index = filter(:unit_type => x -> x == "wind", portfolio_specs)[1, :unit_index]
+        wind_index = filter(
+                         :unit_type => x -> x == "wind",
+                         portfolio_specs
+                     )[1, :unit_index]
     end
     if !isempty(filter(:unit_type => x -> x == "solar", portfolio_specs))
-        solar_index = filter(:unit_type => x -> x == "solar", portfolio_specs)[1, :unit_index]
+        solar_index = filter(
+                          :unit_type => x -> x == "solar",
+                          portfolio_specs
+                      )[1, :unit_index]
     end
 
     # Helpful named constants
@@ -258,10 +354,14 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs, solver)
     @variable(m, s[1:num_days, 1:num_hours] >= 0)
 
     # Total generation per hour must be greater than or equal to the demand
-    @constraint(m, mkt_equil[k=1:num_days, j=1:num_hours], sum(g[i, k, j] for i = 1:num_units) + s[k, j] >= load_repdays[j, k])
+    @constraint(
+        m,
+        mkt_equil[k=1:num_days, j=1:num_hours],
+        sum(g[i, k, j] for i = 1:num_units) + s[k, j] >= load_repdays[j, k]
+    )
 
-    # Number of committed units per hour must be less than or equal to the total
-    #   number of units of that type in the system
+    # Number of committed units per hour must be less than or equal to the
+    #   total number of units of that type in the system
     for i = 1:num_units
         for k = 1:num_days
             for j = 1:num_hours
@@ -270,16 +370,30 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs, solver)
         end
     end
 
-    # Limit total generation per unit type each hour to the total capacity of all
-    #   committed units of this type, with committed units subject to minimum and
-    #   maximum power levels
+    # Limit total generation per unit type each hour to the total capacity of
+    #   all committed units of this type, with committed units subject to
+    #   minimum and maximum power levels
     # wind and solar are excluded
     for i = 1:num_units
         if !(portfolio_specs[i, :unit_type] in ["wind", "solar"])
             for k = 1:num_days
                 for j = 1:num_hours
-                    @constraint(m, g[i, k, j] <= c[i, k, j] .* portfolio_specs[i, :capacity] .* portfolio_specs[i, :capacity_factor] .* portfolio_specs[i, :max_PL])
-                    @constraint(m, g[i, k, j] >= c[i, k, j] .* portfolio_specs[i, :capacity] .* portfolio_specs[i, :capacity_factor] .* portfolio_specs[i, :min_PL])
+                    @constraint(
+                        m,
+                        g[i, k, j] <= (c[i, k, j] 
+                                       .* portfolio_specs[i, :capacity]
+                                       .* portfolio_specs[i, :capacity_factor]
+                                       .* portfolio_specs[i, :max_PL]
+                                      )
+                    )
+                    @constraint(
+                        m,
+                        g[i, k, j] >= (c[i, k, j] 
+                                       .* portfolio_specs[i, :capacity]
+                                       .* portfolio_specs[i, :capacity_factor]
+                                       .* portfolio_specs[i, :min_PL]
+                                      )
+                    )
                 end
             end
         end
@@ -303,16 +417,44 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs, solver)
         for k = 1:num_days
             for j = 1:num_hours-1
                 # Ramp-up constraint
-                @constraint(m, g[i, k, j+1] - g[i, k, j] <= c[i, k, j+1] .* portfolio_specs[i, :ramp_up_limit] * portfolio_specs[i, :capacity] * portfolio_specs[i, :capacity_factor])
+                @constraint(
+                    m,
+                    (g[i, k, j+1] - g[i, k, j] <=
+                        c[i, k, j+1]
+                        .* portfolio_specs[i, :ramp_up_limit]
+                         * portfolio_specs[i, :capacity]
+                         * portfolio_specs[i, :capacity_factor]
+                    )
+                )
                 # Ramp-down constraint
-                @constraint(m, g[i, k, j+1] - g[i, k, j] >= (-1) * c[i, k, j+1] * portfolio_specs[i, :ramp_down_limit] * portfolio_specs[i, :capacity] * portfolio_specs[i, :capacity_factor])
+                @constraint(
+                    m,
+                    (g[i, k, j+1] - g[i, k, j] >= 
+                        (-1) * c[i, k, j+1]
+                        * portfolio_specs[i, :ramp_down_limit]
+                        * portfolio_specs[i, :capacity]
+                        * portfolio_specs[i, :capacity_factor]
+                    )
+                )
             end
         end
     end
 
     ENS_penalty = settings["constants"]["big_number"]
 
-    @objective(m, Min, sum(sum(sum(g[i, k, j] + ENS_penalty * s[k, j] for j = 1:num_hours) for k = 1:num_days) .* (portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] - portfolio_specs[i, :policy_adj_per_MWh]) for i = 1:num_units))
+    @objective(
+        m,
+        Min,
+        sum(
+            sum(
+                sum(g[i, k, j] + ENS_penalty * s[k, j]
+                for j = 1:num_hours)
+            for k = 1:num_days)
+            .* (portfolio_specs[i, :VOM] 
+                + portfolio_specs[i, :FC_per_MWh] 
+                - portfolio_specs[i, :policy_adj_per_MWh])
+        for i = 1:num_units)
+    )
 
     return m, portfolio_specs
 end
@@ -348,53 +490,66 @@ function solve_model(model; model_type="integral")
 end
 
 
-function save_gc_results(ts_data, num_hours, num_units, y, gen_qty, c, all_gc_results, portfolio_specs)
-    # Save generation and commitment results
-    for k = 1:size(ts_data[:repdays_data])[1]
-        for j = 1:num_hours
-            for i = 1:num_units
+function assemble_gc_results(y, gen_qty, c, portfolio_specs)
+    new_gc_results = DataFrame(
+                         y = Int[],
+                         d = Int[],
+                         h = Int[],
+                         unit_type = String[],
+                         gen = Float64[],
+                         commit = Int[]
+                     )
+
+    # Save generation and commitment results to a dataframe
+    # g[i, k, j] and c[i, k, j] are arranged as
+    #   [num_units, num_days, num_hours]
+    for k = 1:size(c)[2]            # num_days
+        for j = 1:size(c)[3]        # num_hours
+            for i = 1:size(c)[1]    # num_units
                 line = (y = y, d = k, h = j,
                         unit_type = portfolio_specs[i, :unit_type],
                         gen = gen_qty[i, k, j],
                         commit = round(Int, c[i, k, j]))
-                push!(all_gc_results, line)
+                push!(new_gc_results, line)
             end
         end
     end
 
-    return all_gc_results
+    return new_gc_results
 end
 
 
-function reshape_shadow_price(model, ts_data, y, num_hours, num_days, all_prices)
-    market_prices = reshape(shadow_price.(model[:mkt_equil]),
-                     (size(ts_data[:repdays_data])[1], num_hours))
+function reshape_shadow_price(shadow_prices, y)
+    price_df = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
 
-    # The result of shadow_price comes out weirdly reshaped, so this operation
-    #   orders the data by hour (inner loop) then by day (outer loop)
-    prices = zeros(1, num_hours*num_days)
-    for j = 1:num_hours
-        for k = 1:num_days
+    # Convert the (repdays, hours) table into a long (y, d, h, price) table
+    for j = 1:size(shadow_prices)[2]        # num_hours
+        for k = 1:size(shadow_prices)[1]    # num_days
             # Ensure the shadow price is no greater than the system cap
-            price = (-1) * market_prices[k, j]
+            price = (-1) * shadow_prices[k, j]
             if price > 9000
                 price = 9000
             end
-            line = (y = y, d = k, h = j,
-                    price = price)
-            push!(all_prices, line)
+            line = (y = y, d = k, h = j, price = price)
+            push!(price_df, line)
         end
     end
 
-    return all_prices
+    return price_df
 end
 
 
 function propagate_all_results(end_year, all_gc_results, all_prices, current_pd)
     final_dispatched_year = maximum(all_gc_results[!, :y])
 
-    final_year_gc = filter(:y => x -> x == final_dispatched_year, all_gc_results)
-    final_year_prices = filter(:y => x -> x == final_dispatched_year, all_prices)
+    final_year_gc = filter(
+                        :y => x -> x == final_dispatched_year,
+                        all_gc_results
+                    )
+    final_year_prices = filter(
+                            :y => x -> x == final_dispatched_year,
+                            all_prices
+                        )
 
     for y = final_dispatched_year+1:current_pd+end_year
         # Copy the final_year_gc results forward, updating the year
@@ -418,10 +573,7 @@ function propagate_all_results(end_year, all_gc_results, all_prices, current_pd)
 end
 
 
-function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, unit_specs, all_gc_results, all_prices, solver)
-    # Constants
-    num_hours = 24
-
+function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, unit_specs, solver)
     # Scale the load data to the PD value for this year
     ts_data = scale_load(ts_data, peak_demand)
 
@@ -436,7 +588,13 @@ function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, 
     ts_data = set_up_wind_solar_repdays(ts_data)
 
     @debug "Setting up optimization model..."
-    m, portfolio_specs = set_up_model(settings, ts_data, year_portfolio, unit_specs, solver)
+    m, portfolio_specs = set_up_model(
+                             settings,
+                             ts_data,
+                             year_portfolio,
+                             unit_specs,
+                             solver
+                         )
 
     @debug "Optimization model set up."
     @debug string("Solving repday dispatch for year ", y, "...")
@@ -460,22 +618,23 @@ function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, 
 
     if status == "OPTIMAL"
         # Save the generation and commitment results from the integral problem
-        all_gc_results = save_gc_results(ts_data, num_hours, size(year_portfolio)[1], y, gen_qty, c, all_gc_results, portfolio_specs)
+        new_gc_results = assemble_gc_results(
+                             y, 
+                             gen_qty,
+                             c,
+                             portfolio_specs
+                         )
 
-        # Set up a relaxed-integrality version of this model, to allow retrieval
-        #   of dual values for the mkt_equil constraint
+        # Set up a relaxed-integrality version of this model, to allow
+        #   retrieval of dual values for the mkt_equil constraint
         @debug "Solving relaxed-integrality problem to get shadow prices..."
         undo = relax_integrality(m_copy)
 
         # Solve the relaxed-integrality model to compute the shadow prices
         m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
-        all_prices = reshape_shadow_price(
-                         m_copy,
-                         ts_data,
-                         y,
-                         num_hours,
-                         size(ts_data[:repdays_data])[1],
-                         all_prices
+        new_prices = reshape_shadow_price(
+                         shadow_price.(m_copy[:mkt_equil]),   # shadow prices
+                         y
                      )
 
         # Determine the total level of energy not served (ENS) for this
@@ -493,7 +652,13 @@ function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, 
         total_ENS = nothing
     end
 
-    return run_next_year, total_ENS
+    results = Dict(:new_gc_results => new_gc_results,
+                   :new_prices => new_prices,
+                   :run_next_year => run_next_year,
+                   :total_ENS => total_ENS
+              )
+
+    return results
 
 end
 
@@ -530,112 +695,14 @@ function pivot_gc_results(all_gc_results, all_prices, repdays_data=nothing)
         g_pivot[!, :Probability] .= 1/365
     else
         # If repdays data is provided, inner join on the days column
-        g_pivot = innerjoin(g_pivot, select(repdays_data, [:index, :Probability]), on = [:d => :index])
-    end
-
-    # Pivot commitment data by unit type
-    # Output format: y, d, h, wind, ..., AdvancedNuclear
-    c_pivot = select!(all_gc_results, Not(:gen))
-    c_pivot = unstack(c_pivot, :unit_type, :commit)
-
-    return g_pivot, c_pivot
-end
-
-
-function set_up_ppx_revenue(g_pivot, ts_data, unit_specs)
-    # Add revenue columns to g_pivot
-    for unit_type in unit_specs[!, :unit_type]
-        # Retrieve this unit's specs for easy reference
-        unit_spec = filter(:unit_type => x -> x == unit_type, unit_specs)
-        transform!(g_pivot, [Symbol(unit_type), :Probability] => ((gen, prob) -> gen .* prob .* 365) => Symbol(string(unit_type, "total_gen")))
-        transform!(g_pivot, [Symbol(string(unit_type, "total_gen")), :price] => ((gen, price) -> gen .* price) => Symbol(string(unit_type, "rev")))
-        transform!(g_pivot, [Symbol(string(unit_type, "total_gen"))] => ((gen) -> gen .* (unit_spec[1, :VOM] + unit_spec[1, :FC_per_MWh] .* unit_spec[1, :heat_rate])) => Symbol(string(unit_type, "opcost")))
-        transform!(g_pivot, [Symbol(string(unit_type, "rev")), Symbol(string(unit_type, "opcost"))] => ((rev, opcost) -> rev - opcost) => Symbol(string(unit_type, "profit")))
+        g_pivot = innerjoin(
+                      g_pivot,
+                      select(repdays_data, [:index, :Probability]),
+                      on = [:d => :index]
+                  )
     end
 
     return g_pivot
-
-end
-
-
-function reorganize_g_pivot(g_pivot, unit_specs)
-    # Reorganize g_pivot in order to retrieve a DataFrame of annual profit values
-    #   by unit type
-    fields_to_select = [:y, :d, :h]
-    for unit_type in unit_specs[!, :unit_type]
-        append!(fields_to_select, [Symbol(string(unit_type, :profit))])
-    end
-    g_unpivot = select(g_pivot, fields_to_select)
-
-    # Rename unit-specific columns from <type>profit to just <type> for clarity
-    for unit_type in unit_specs[!, :unit_type]
-        rename!(g_unpivot, Symbol(string(unit_type, "profit")) => Symbol(unit_type))
-    end
-
-    g_unpivot = stack(g_unpivot, 4:size(g_unpivot)[2])
-
-    # Rename new columns from automatic names to more descriptive ones
-    rename!(g_unpivot, :variable => :unit_type, :value => :profit)
-
-    # Pivot g_pivot so that generation results from each year (by unit type) are grouped together
-    fields_to_select = [:y, :d, :h]
-    for unit_type in unit_specs[!, :unit_type]
-        append!(fields_to_select, [Symbol(string(unit_type, "total_gen"))])
-    end
-    g_gen = select(g_pivot, fields_to_select)
-
-    # Rename unit-specific columns from <type>total_gen to just <type>
-    for unit_type in unit_specs[!, :unit_type]
-        rename!(g_gen, Symbol(string(unit_type, "total_gen")) => Symbol(unit_type))
-    end
-
-    g_gen = stack(g_gen, Not([:y, :d, :h]))
-
-    rename!(g_gen, :variable => :unit_type, :value => :ydh_gen)
-
-    g_gen = combine(groupby(g_gen, [:y, :unit_type]), :ydh_gen => sum => :total_gen)
-
-    return g_unpivot, g_gen
-
-end
-
-
-function compute_final_profit(g_unpivot, system_portfolios, unit_specs, fc_pd, current_pd)
-    # Combine the system portfolios into a single dataframe with indicator
-    #   column :y
-    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
-
-    # Calculate operating and net profit per unit per unit type
-    g_unpivot = innerjoin(g_unpivot, all_year_portfolios, on = [:unit_type, :y])
-    transform!(g_unpivot, [:profit, :num_units] => ((profit, num_units) -> profit ./ num_units) => :ProfitPerUnit)
-
-    g_profitsum = combine(groupby(g_unpivot, [:y, :unit_type]), :ProfitPerUnit => sum => :annual_profit)
-    g_profitsum[!, :FOM_per_unit] .= 0.0
-
-    for i = 1:size(g_profitsum)[1]
-        unit_type = g_profitsum[i, :unit_type]
-        unit_spec = filter(
-                        :unit_type => x -> x == unit_type,
-                        unit_specs
-                    )
-        g_profitsum[i, :FOM_per_unit] = unit_spec[1, :FOM] * unit_spec[1, :capacity] * 1000
-    end
-
-    # Re-pivot the final result to show annual net profit per unit for each
-    #   unit type and year
-    transform!(g_profitsum, [:annual_profit, :FOM_per_unit] =>
-               ((profit, FOM) -> profit - FOM) =>
-               :net_profit_per_unit)
-
-    final_profit_pivot = unstack(
-                             select(
-                                 g_profitsum,
-                                 Not([:annual_profit, :FOM_per_unit])),
-                             :unit_type, :net_profit_per_unit
-                         )
-
-    return final_profit_pivot
-
 end
 
 
@@ -664,24 +731,7 @@ function create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
 end
 
 
-function compute_final_gen(g_gen, system_portfolios, fc_pd, current_pd)
-    all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
-
-    # Calculate operating and net profit per unit per unit type
-    g_gen = innerjoin(g_gen, all_year_portfolios, on = [:unit_type, :y])
-    transform!(g_gen, [:total_gen, :num_units] => ((total_gen, num_units) -> total_gen ./ num_units) => :GenPerUnit)
-
-    final_gen_pivot = g_gen
-
-    return final_gen_pivot
-
-end
-
-
-function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
-    # Organize data
-    long_rev_results = deepcopy(g_pivot)
-
+function postprocess_long_results(long_rev_results, system_portfolios, unit_specs, fc_pd, current_pd)
     # Get a single long dataframe with unit numbers by type for each year
     all_year_portfolios = create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
 
@@ -699,16 +749,39 @@ function postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd,
     long_rev_results = innerjoin(long_rev_results, all_year_portfolios, on = [:y, :unit_type])
 
     # Calculate revenues
-    transform!(long_rev_results, [:gen, :price, :Probability, :num_units] => ((gen, price, prob, num_units) -> gen .* price .* prob .* 365 ./ num_units) => :annualized_rev_perunit)
+    transform!(
+        long_rev_results,
+        [:gen, :price, :Probability, :num_units]
+          => ((gen, price, prob, num_units) 
+               -> gen .* price .* prob .* 365 ./ num_units)
+          => :annualized_rev_perunit)
 
     # Calculate VOM
-    transform!(long_rev_results, [:gen, :VOM, :Probability, :num_units] => ((gen, VOM, prob, num_units) -> gen .* VOM .* prob .* 365 ./ num_units) => :annualized_VOM_perunit)
+    transform!(
+        long_rev_results,
+        [:gen, :VOM, :Probability, :num_units]
+          => ((gen, VOM, prob, num_units)
+               -> gen .* VOM .* prob .* 365 ./ num_units)
+          => :annualized_VOM_perunit
+    )
 
     # Calculate fuel cost
-    transform!(long_rev_results, [:gen, :FC_per_MWh, :Probability, :num_units] => ((gen, fc, prob, num_units) -> gen .* fc .* prob .* 365 ./ num_units) => :annualized_FC_perunit)
+    transform!(
+        long_rev_results,
+        [:gen, :FC_per_MWh, :Probability, :num_units]
+          => ((gen, fc, prob, num_units)
+               -> gen .* fc .* prob .* 365 ./ num_units)
+          => :annualized_FC_perunit
+    )
 
     # Calculate policy adjustment
-    transform!(long_rev_results, [:gen, :policy_adj_per_MWh, :Probability, :num_units] => ((gen, adj, prob, num_units) -> gen .* adj .* prob .* 365 ./ num_units) => :annualized_policy_adj_perunit)
+    transform!(
+        long_rev_results,
+        [:gen, :policy_adj_per_MWh, :Probability, :num_units]
+          => ((gen, adj, prob, num_units) 
+               -> gen .* adj .* prob .* 365 ./ num_units)
+          => :annualized_policy_adj_perunit
+    )
 
     return long_rev_results
 
@@ -717,9 +790,19 @@ end
 
 function postprocess_results(system_portfolios, all_prices, all_gc_results, ts_data, unit_specs, fc_pd, current_pd)
     # Pivot the generation and commitment results
-    g_pivot, c_pivot = pivot_gc_results(all_gc_results, all_prices, ts_data[:repdays_data])
+    g_pivot = pivot_gc_results(
+                  all_gc_results,
+                  all_prices,
+                  ts_data[:repdays_data]
+              )
 
-    long_econ_results = postprocess_long_results(g_pivot, system_portfolios, unit_specs, fc_pd, current_pd)
+    long_econ_results = postprocess_long_results(
+                            g_pivot,
+                            system_portfolios,
+                            unit_specs,
+                            fc_pd,
+                            current_pd
+                        )
 
     return long_econ_results
 end
