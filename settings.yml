@@ -2,7 +2,7 @@ simulation:
   scenario_name: "ABCE_ERCOT"
   solver: "CPLEX"
   num_steps: 1
-  annual_dispatch_engine: ALEAF
+  annual_dispatch_engine: none
   C2N_assumption: baseline
 
 scenario:
