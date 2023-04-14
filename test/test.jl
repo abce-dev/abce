@@ -1,8 +1,6 @@
 module sTest
 
-include("../src/dispatch.jl")
-
-using Logging, DataFrames, YAML, .Dispatch
+using Logging, DataFrames, YAML
 
 function test(thing, value)
     # Gather some information about the function calling test, for reporting
