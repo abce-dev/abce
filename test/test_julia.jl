@@ -22,6 +22,16 @@ function test_propagate_all_results(all_gc_results, all_prices, current_pd, end_
 end
 
 
+function test_combine_and_extend_year_portfolios(dict_of_portfolios, comparison_portfolios_df, forecast_end_pd)
+    combined_portfolios_df = Dispatch.combine_and_extend_year_portfolios(dict_of_portfolios, forecast_end_pd)
+
+    sTest.test(combined_portfolios_df, comparison_portfolios_df)
+
+end
+
+
+
+
 ###########################################
 # Loading test data                       #
 ###########################################
@@ -39,6 +49,11 @@ all_gc_results = CSV.read("./test_data/all_gc_results.csv", DataFrame)
 prop_prices = CSV.read("./test_data/prop_prices.csv", DataFrame)
 prop_gc_results = CSV.read("./test_data/prop_gc_results.csv", DataFrame)
 
+# Portfolio data
+y1_system_portfolio = CSV.read("./test_data/y1_system_portfolio.csv", DataFrame)
+y2_system_portfolio = CSV.read("./test_data/y2_system_portfolio.csv", DataFrame)
+year_portfolios = Dict(1 => y1_system_portfolio, 2 => y2_system_portfolio)
+extended_system_portfolios = CSV.read("./test_data/extended_system_portfolio.csv", DataFrame)
 
 ###########################################
 # Test runner, with list of all tests     #
@@ -59,10 +74,17 @@ function run_tests()
         all_gc_results,
         all_prices,
         1,                 # current year
-        2,                 # end year
+        3,                 # end year
         prop_gc_results,   # static test data
         prop_prices        # static test data
     )
+
+    test_combine_and_extend_year_portfolios(
+        Dict(1 => y1_system_portfolio, 2 => y2_system_portfolio),
+        extended_system_portfolios,
+        3
+    )
+
 end
 
 
