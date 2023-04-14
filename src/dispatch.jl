@@ -683,11 +683,9 @@ function save_raw_results(all_prices, all_gc_results)
 end
 
 
-function create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
-    # Combine the system portfolios into a single dataframe with indicator
-    #   column :y
-
-    # Explicit dispatch results
+function combine_and_extend_year_portfolios(system_portfolios, forecast_end_pd)
+    # Combine the existing system portfolios into a single dataframe with
+    #   indicator column :y
     all_year_portfolios = DataFrame()
     for key in keys(system_portfolios)
         df = system_portfolios[key]
@@ -697,7 +695,7 @@ function create_all_year_portfolios(system_portfolios, fc_pd, current_pd)
 
     # Extend dispatch results by assuming no change after last dispatch year
     last_dispatch_year = maximum([key for key in keys(system_portfolios)])
-    for i = last_dispatch_year+1:current_pd+fc_pd
+    for i = last_dispatch_year+1:forecast_end_pd
         df = system_portfolios[length(keys(system_portfolios))-1]
         df[!, :y] .= i
         append!(all_year_portfolios, df)
@@ -710,22 +708,16 @@ end
 
 function postprocess_results(all_gc_results, all_prices, repdays_data, system_portfolios, unit_specs, fc_pd, current_pd)
     # Join in price data to all_gc_results
-    all_gc_results = innerjoin(all_gc_results, all_prices, on = [:y, :d, :h])
+    long_econ_results = innerjoin(all_gc_results, all_prices, on = [:y, :d, :h])
 
     # Incorporate repdays probability data
-    all_gc_results = innerjoin(
-                  all_gc_results,
-                  select(repdays_data, [:index, :Probability]),
-                  on = [:d => :index]
-              )
+    long_econ_results = innerjoin(
+                            long_econ_results,
+                            select(repdays_data, [:index, :Probability]),
+                            on = [:d => :index]
+                        )
 
-    # Get a single long dataframe with unit numbers by type for each year
-    all_year_portfolios = create_all_year_portfolios(
-                              system_portfolios,
-                              fc_pd,
-                              current_pd
-                          )
-
+    # Retrieve an abbreviated table of unit specs data
     short_unit_specs = select(
                            unit_specs,
                            [:unit_type,
@@ -736,11 +728,19 @@ function postprocess_results(all_gc_results, all_prices, repdays_data, system_po
                            ]
                        )
 
+    # Join in limited unit_specs data to compute some cash flows
     long_rev_results = innerjoin(
                            all_gc_results,
                            short_unit_specs,
                            on = :unit_type
                        )
+
+    # Get a single long dataframe with unit numbers by type for each year
+    all_year_portfolios = combine_and_extend_year_portfolios(
+                              system_portfolios,
+                              current_pd,
+                              fc_pd
+                          )
 
     # Append unit number data to long_rev_results
     long_rev_results = innerjoin(
@@ -749,9 +749,17 @@ function postprocess_results(all_gc_results, all_prices, repdays_data, system_po
                            on = [:y, :unit_type]
                        )
 
+    long_econ_results = compute_per_unit_cash_flows(long_econ_results)
+
+    return long_econ_results
+
+end
+
+
+function compute_per_unit_cash_flows(long_econ_results)
     # Calculate revenues
     transform!(
-        long_rev_results,
+        long_econ_results,
         [:gen, :price, :Probability, :num_units]
           => ((gen, price, prob, num_units) 
                -> gen .* price .* prob .* 365 ./ num_units)
@@ -759,7 +767,7 @@ function postprocess_results(all_gc_results, all_prices, repdays_data, system_po
 
     # Calculate VOM
     transform!(
-        long_rev_results,
+        long_econ_results,
         [:gen, :VOM, :Probability, :num_units]
           => ((gen, VOM, prob, num_units)
                -> gen .* VOM .* prob .* 365 ./ num_units)
@@ -768,7 +776,7 @@ function postprocess_results(all_gc_results, all_prices, repdays_data, system_po
 
     # Calculate fuel cost
     transform!(
-        long_rev_results,
+        long_econ_results,
         [:gen, :FC_per_MWh, :Probability, :num_units]
           => ((gen, fc, prob, num_units)
                -> gen .* fc .* prob .* 365 ./ num_units)
@@ -777,14 +785,14 @@ function postprocess_results(all_gc_results, all_prices, repdays_data, system_po
 
     # Calculate policy adjustment
     transform!(
-        long_rev_results,
+        long_econ_results,
         [:gen, :policy_adj_per_MWh, :Probability, :num_units]
           => ((gen, adj, prob, num_units) 
                -> gen .* adj .* prob .* 365 ./ num_units)
           => :annualized_policy_adj_perunit
     )
 
-    return long_rev_results
+    return long_econ_results
 
 end 
 
