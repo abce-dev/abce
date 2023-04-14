@@ -696,7 +696,7 @@ function combine_and_extend_year_portfolios(system_portfolios, forecast_end_pd)
     # Extend dispatch results by assuming no change after last dispatch year
     last_dispatch_year = maximum([key for key in keys(system_portfolios)])
     for i = last_dispatch_year+1:forecast_end_pd
-        df = system_portfolios[length(keys(system_portfolios))-1]
+        df = system_portfolios[length(keys(system_portfolios))]
         df[!, :y] .= i
         append!(all_year_portfolios, df)
     end
