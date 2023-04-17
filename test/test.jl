@@ -25,6 +25,24 @@ function test(thing, value)
             result_msg = "fail"
             extra_info = string("/n", thing, " is not ", value)
         end
+    elseif isa(thing, DataFrame) && isa(value, DataFrame)
+    # If both objects are DataFrames, use DataFrame-specific equivalence check
+        # Check for same columns
+        if issetequal(names(thing), names(value))
+            # If all columns match, reorder columns in thing to follow value
+            thing = select(thing, names(value))
+
+            # Sort both dataframes lexicographically, using defaults
+            sort!(thing)
+            sort!(value)
+
+            # Check whether the dataframes are now identical
+            if !isequal(thing, value)
+                pass = false
+                result_msg = "fail"
+                extra_info = string("\n", thing, "\n is not equal to:\n", value)
+            end
+        end
     else
     # If `value` is not a DataType, assume a value comparison is desired
         if thing != value
