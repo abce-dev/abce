@@ -69,6 +69,27 @@ function get_CL_args()
 
 end
 
+
+function set_verbosity(vlevel)
+    # The default logging level is Info (level 0)
+    lvl = 0
+
+    if vlevel == 0
+        # Only show Logging messages of severity Error (level 2000) and above
+        lvl = 2000
+    elseif vlevel == 1
+        # Only show Logging messages of severity Warning (level 1000) and above
+        lvl = 1000
+    elseif vlevel == 3
+        # Show Logging messages of severity Debug (level -1000) and above
+        lvl = -1000
+    end
+
+    # Initialize the Logger within the Julia scope
+    global_logger(ConsoleLogger(lvl))
+end
+
+
 function load_db(db_file)
     try
         db = SQLite.DB(db_file)
