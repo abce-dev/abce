@@ -30,6 +30,17 @@ function test_combine_and_extend_year_portfolios(dict_of_portfolios, comparison_
 end
 
 
+function test_join_results_data_frames(all_gc_results, all_prices, repdays_data, all_year_portfolios, unit_specs, comparison_joined_dfs)
+    joined_dfs = Dispatch.join_results_data_frames(
+                     all_gc_results,
+                     all_prices,
+                     repdays_data,
+                     all_year_portfolios,
+                     unit_specs
+                 )
+
+    sTest.test(joined_dfs, comparison_joined_dfs)
+end
 
 
 ###########################################
@@ -55,6 +66,15 @@ y2_system_portfolio = CSV.read("./test_data/y2_system_portfolio.csv", DataFrame)
 year_portfolios = Dict(1 => y1_system_portfolio, 2 => y2_system_portfolio)
 extended_system_portfolios = CSV.read("./test_data/extended_system_portfolio.csv", DataFrame)
 
+# Unit specs data
+unit_specs = CSV.read("./test_data/unit_specs.csv", DataFrame)
+
+# Representative days data
+repdays_data = CSV.read("./test_data/repdays_data.csv", DataFrame)
+
+# Joined dfs
+joined_results_dfs = CSV.read("./test_data/joined_results_dfs.csv", DataFrame)
+
 ###########################################
 # Test runner, with list of all tests     #
 ###########################################
@@ -62,7 +82,9 @@ extended_system_portfolios = CSV.read("./test_data/extended_system_portfolio.csv
 function run_tests()
     settings = YAML.load_file("../settings.yml")
 
+    #####################################################################
     # Put list of tests here
+    #####################################################################
     test_reshape_shadow_prices(
         input_shadow_prices,
         all_prices,
@@ -85,6 +107,18 @@ function run_tests()
         3
     )
 
+    test_join_results_data_frames(
+        all_gc_results,
+        all_prices,
+        repdays_data,
+        extended_system_portfolios,
+        unit_specs,
+        joined_results_dfs
+    )
+
+    #####################################################################
+    # End of tests
+    #####################################################################
 end
 
 
