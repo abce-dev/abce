@@ -178,7 +178,7 @@ PA_uids, PA_fs_dict = ABCEfunctions.set_up_project_alternatives(settings, unit_s
 
 ###### Set up the model
 @info "Setting up the agent's decision optimization model..."
-unified_agent_portfolios = Dispatch.create_all_year_portfolios(all_year_agent_portfolios, fc_pd, pd)
+unified_agent_portfolios = Dispatch.combine_and_extend_year_portfolios(all_year_agent_portfolios, pd+fc_pd)
 
 agent_fs = ABCEfunctions.update_agent_financial_statement(agent_id, db, unit_specs, pd, fc_pd, long_econ_results, unified_agent_portfolios)
 
