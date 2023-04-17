@@ -789,15 +789,14 @@ function postprocess_results(all_gc_results, all_prices, repdays_data, all_year_
     # Get a single long dataframe with unit numbers by type for each year
     all_year_portfolios = combine_and_extend_year_portfolios(
                               all_year_system_portfolios,
-                              current_pd,
-                              fc_pd
+                              current_pd + fc_pd
                           )
 
     # Join in relevant data to create a single master dataframe suitable for
     #   a variety of column-wise operations
     long_econ_results = join_results_data_frames(
                             all_gc_results,
-                            all_price_results,
+                            all_prices,
                             repdays_data,
                             all_year_portfolios,
                             unit_specs
