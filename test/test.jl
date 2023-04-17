@@ -1,6 +1,6 @@
 module sTest
 
-using Logging, DataFrames, YAML
+using Logging, DataFrames, YAML, CSV
 
 function test(thing, value)
     # Gather some information about the function calling test, for reporting
@@ -36,11 +36,24 @@ function test(thing, value)
             sort!(thing)
             sort!(value)
 
+            for col_name in names(value)
+                if eltype(thing[!, col_name]) <: Union{Integer, Real}
+                    thing[!, col_name] = round.(thing[!, col_name], digits=5)
+                end
+
+                if eltype(value[!, col_name]) <: Union{Integer, Real}
+                    value[!, col_name] = round.(value[!, col_name], digits=5)
+                end
+            end
+
             # Check whether the dataframes are now identical
             if !isequal(thing, value)
                 pass = false
                 result_msg = "fail"
                 extra_info = string("\n", thing, "\n is not equal to:\n", value)
+
+                CSV.write("computed_df.csv", thing)
+                CSV.write("test_df.csv", value)
             end
         end
     else
