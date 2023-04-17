@@ -730,6 +730,46 @@ function join_results_data_frames(all_gc_results, all_prices, repdays_data, all_
 end
 
 
+function compute_per_unit_cash_flows(long_econ_results)
+    # Calculate revenues
+    transform!(
+        long_econ_results,
+        [:gen, :price, :Probability, :num_units]
+          => ((gen, price, prob, num_units) 
+               -> gen .* price .* prob .* 365 ./ num_units)
+          => :annualized_rev_per_unit)
+
+    # Calculate VOM
+    transform!(
+        long_econ_results,
+        [:gen, :VOM, :Probability, :num_units]
+          => ((gen, VOM, prob, num_units)
+               -> gen .* VOM .* prob .* 365 ./ num_units)
+          => :annualized_VOM_per_unit
+    )
+
+    # Calculate fuel cost
+    transform!(
+        long_econ_results,
+        [:gen, :FC_per_MWh, :Probability, :num_units]
+          => ((gen, fc, prob, num_units)
+               -> gen .* fc .* prob .* 365 ./ num_units)
+          => :annualized_FC_per_unit
+    )
+
+    # Calculate policy adjustment
+    transform!(
+        long_econ_results,
+        [:gen, :policy_adj_per_MWh, :Probability, :num_units]
+          => ((gen, adj, prob, num_units) 
+               -> gen .* adj .* prob .* 365 ./ num_units)
+          => :annualized_policy_adj_per_unit
+    )
+
+    return long_econ_results
+
+end 
+
 
 function postprocess_results(all_gc_results, all_prices, repdays_data, all_year_system_portfolios, unit_specs, current_pd, fc_pd)
     # Propagate the results dataframes out to the end of the projection horizon
@@ -766,45 +806,5 @@ function postprocess_results(all_gc_results, all_prices, repdays_data, all_year_
 
 end
 
-
-function compute_per_unit_cash_flows(long_econ_results)
-    # Calculate revenues
-    transform!(
-        long_econ_results,
-        [:gen, :price, :Probability, :num_units]
-          => ((gen, price, prob, num_units) 
-               -> gen .* price .* prob .* 365 ./ num_units)
-          => :annualized_rev_perunit)
-
-    # Calculate VOM
-    transform!(
-        long_econ_results,
-        [:gen, :VOM, :Probability, :num_units]
-          => ((gen, VOM, prob, num_units)
-               -> gen .* VOM .* prob .* 365 ./ num_units)
-          => :annualized_VOM_perunit
-    )
-
-    # Calculate fuel cost
-    transform!(
-        long_econ_results,
-        [:gen, :FC_per_MWh, :Probability, :num_units]
-          => ((gen, fc, prob, num_units)
-               -> gen .* fc .* prob .* 365 ./ num_units)
-          => :annualized_FC_perunit
-    )
-
-    # Calculate policy adjustment
-    transform!(
-        long_econ_results,
-        [:gen, :policy_adj_per_MWh, :Probability, :num_units]
-          => ((gen, adj, prob, num_units) 
-               -> gen .* adj .* prob .* 365 ./ num_units)
-          => :annualized_policy_adj_perunit
-    )
-
-    return long_econ_results
-
-end 
 
 end

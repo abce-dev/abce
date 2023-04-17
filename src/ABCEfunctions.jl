@@ -753,7 +753,7 @@ function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, la
     end
 
     # Compute final projected revenue series
-    agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), [:annualized_rev_perunit, :annualized_policy_adj_perunit] .=> sum, renamecols=false)
+    agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), [:annualized_rev_per_unit, :annualized_policy_adj_per_unit] .=> sum, renamecols=false)
 
     if wtd_hist_revs == nothing
         hist_rev = 0
@@ -777,7 +777,7 @@ function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, la
             else
                 wt = hist_wt^(y - current_pd)
             end
-            unit_fs[y, :Revenue] = (1 - hist_wt) * (row[1, :annualized_rev_perunit] + row[1, :annualized_policy_adj_perunit]) + hist_wt * hist_rev
+            unit_fs[y, :Revenue] = (1 - hist_wt) * (row[1, :annualized_rev_per_unit] + row[1, :annualized_policy_adj_per_unit]) + hist_wt * hist_rev
         else
             unit_fs[y, :Revenue] = 0
         end
@@ -789,7 +789,7 @@ function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, la
         for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):(floor(Int64, unit_type_data[:cpp_ret_lead])+lag+avg_cpp_life_rem)
             coal_data = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
             if (size(coal_data)[1] != 0)
-                unit_fs[y, :Revenue] = unit_fs[y, :Revenue] - unit_type_data["num_cpp_rets"]*(coal_data[1, :annualized_rev_perunit] + coal_data[1, :annualized_policy_adj_perunit])
+                unit_fs[y, :Revenue] = unit_fs[y, :Revenue] - unit_type_data["num_cpp_rets"]*(coal_data[1, :annualized_rev_per_unit] + coal_data[1, :annualized_policy_adj_per_unit])
             end
         end
     end
@@ -839,8 +839,8 @@ function compute_total_generation(settings, current_pd, unit_type_data, unit_fs,
         unit_fs[!, :coal_gen] .= 0.0
     end
 
-    transform!(long_econ_results, [:gen, :Probability, :num_units] => ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) => :annualized_gen_perunit)
-    agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_gen_perunit => sum, renamecols=false)
+    transform!(long_econ_results, [:gen, :Probability, :num_units] => ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) => :annualized_gen_per_unit)
+    agg_econ_results = combine(groupby(long_econ_results, [:y, :unit_type]), :annualized_gen_per_unit => sum, renamecols=false)
 
     if wtd_hist_gens == nothing
         hist_gen = 0
@@ -864,7 +864,7 @@ function compute_total_generation(settings, current_pd, unit_type_data, unit_fs,
             else
                 wt = hist_wt ^ (y - current_pd)
             end
-            unit_fs[y, :gen] = (1 - hist_wt) * row[1, :annualized_gen_perunit] + hist_wt * hist_gen
+            unit_fs[y, :gen] = (1 - hist_wt) * row[1, :annualized_gen_per_unit] + hist_wt * hist_gen
         else
             unit_fs[y, :gen] = 0
         end
@@ -876,7 +876,7 @@ function compute_total_generation(settings, current_pd, unit_type_data, unit_fs,
     #    for y = (floor(Int64, unit_type_data[:cpp_ret_lead])+lag+1):(floor(Int64, unit_type_data[:cpp_ret_lead])+lag+coal_avg_rem_life)
     #        coal_data = filter([:y, :unit_type] => (t, unit_type) -> (t == y) && (unit_type == "Coal"), agg_econ_results)
     #        if (size(coal_data)[1] != 0)
-    #            unit_fs[y, :coal_gen] = unit_type_data["num_cpp_rets"] * (coal_data[1, :annualized_gen_perunit])
+    #            unit_fs[y, :coal_gen] = unit_type_data["num_cpp_rets"] * (coal_data[1, :annualized_gen_per_unit])
     #        end
     #    end
     #end
@@ -1422,20 +1422,20 @@ end
 
 function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios)
     # Retrieve horizontally-abbreviated dataframes
-    short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_perunit, :annualized_VOM_perunit, :annualized_FC_perunit, :annualized_policy_adj_perunit])
+    short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_per_unit, :annualized_VOM_per_unit, :annualized_FC_per_unit, :annualized_policy_adj_per_unit])
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])
 
     # Inner join the year's portfolio with financial pivot
     fin_results = innerjoin(short_econ_results, all_year_portfolios, on = [:y, :unit_type])
 
     # Fill in total revenue
-    transform!(fin_results, [:annualized_rev_perunit, :annualized_policy_adj_perunit, :num_units] => ((rev, adj, num_units) -> (rev .+ adj) .* num_units) => :total_rev)
+    transform!(fin_results, [:annualized_rev_per_unit, :annualized_policy_adj_per_unit, :num_units] => ((rev, adj, num_units) -> (rev .+ adj) .* num_units) => :total_rev)
 
     # Fill in total VOM
-    transform!(fin_results, [:annualized_VOM_perunit, :num_units] => ((VOM, num_units) -> VOM .* num_units) => :total_VOM)
+    transform!(fin_results, [:annualized_VOM_per_unit, :num_units] => ((VOM, num_units) -> VOM .* num_units) => :total_VOM)
 
     # Fill in total fuel costs
-    transform!(fin_results, [:annualized_FC_perunit, :num_units] => ((FC, num_units) -> FC .* num_units) => :total_FC)
+    transform!(fin_results, [:annualized_FC_per_unit, :num_units] => ((FC, num_units) -> FC .* num_units) => :total_FC)
 
     # Create the annualized results dataframe so far
     results_pivot = combine(groupby(fin_results, :y), [:total_rev, :total_VOM, :total_FC] .=> sum; renamecols=false)
