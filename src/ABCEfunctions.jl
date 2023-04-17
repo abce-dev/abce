@@ -351,8 +351,6 @@ function get_unit_specs(db)
 end
 
 
-
-
 #####
 # NPV functions
 #####
@@ -1331,6 +1329,25 @@ function postprocess_agent_decisions(settings, all_results, unit_specs, db, curr
 end
 
 
+function finalize_results_dataframe(m, PA_uids)
+    # Check solve status of model
+    status = string(termination_status.(m))
+
+    # If the model solved to optimality, convert the results to type Int64
+    if status == "OPTIMAL"
+        unit_qty = Int64.(round.(value.(m[:u])))
+    else
+    # If the model did not solve to optimality, the agent does nothing. Return
+    #   a vector of all zeroes instead.
+        unit_qty = zeros(Int64, size(PA_uids)[1])
+    end
+
+    all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
+
+    return all_results
+end
+
+
 function record_new_construction_projects(settings, result, unit_data, db, current_pd, agent_id)
     # Retrieve unit_specs data for this unit type
     unit_type_specs = filter(:unit_type => x -> x == result[:unit_type], unit_data)
@@ -1609,6 +1626,16 @@ function save_agent_decisions(db, agent_id, decision_df)
 end
 
 
+function display_agent_choice_results(CLI_args, all_results)
+    if CLI_args["verbosity"] == 2
+        @info "Project alternatives to execute:"
+        @info filter(:units_to_execute => u -> u > 0, all_results)
+    elseif CLI_args["verbosity"] == 3
+        @debug "Alternatives to execute:"
+        @debug all_results
+    end
+
+end
 
 end
 

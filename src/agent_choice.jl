@@ -117,27 +117,11 @@ m = ABCEfunctions.set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asse
 ###### Solve the model
 @info "Solving agent's decision optimization problem..."
 optimize!(m)
-status = string(termination_status.(m))
-if status == "OPTIMAL"
-    # This MILP should always return integral solutions; convert the float values
-    #   to integers to avoid some future TypeErrors
-    unit_qty = Int.(round.(value.(m[:u])))
-else
-    # If the agent has no valid options, do nothing
-    unit_qty = zeros(Int64, size(PA_uids)[1])
-end
+
+all_results = ABCEfunctions.finalize_results_dataframe(m, PA_uids)
 
 ###### Display the results
-all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
-short_results = filter(:units_to_execute => u -> u > 0, all_results)
-@info status
-if CLI_args["verbosity"] == 2
-    @info "Alternatives to execute:"
-    @info short_results
-elseif CLI_args["verbosity"] == 3
-    @debug "Alternatives to execute:"
-    @debug all_results
-end
+ABCEfunctions.display_agent_choice_results(CLI_args, all_results)
 
 ###### Save the new units into the `assets` and `WIP_projects` DB tables
 ABCEfunctions.postprocess_agent_decisions(settings, all_results, unit_specs, db, pd, agent_id)
