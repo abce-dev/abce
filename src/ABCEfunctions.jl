@@ -338,11 +338,16 @@ end
 
 function get_unit_specs(db)
     # Retrieve the table of unit specifications from the DB
-    df = DBInterface.execute(db, "SELECT * FROM unit_specs") |> DataFrame
-    num_types = size(df)[1]
+    unit_specs = DBInterface.execute(db, "SELECT * FROM unit_specs") |> DataFrame
+
     # Convert the Int-type columns to Int64
-    df[!, :unit_life] = convert.(Int64, df[:, :unit_life])
-    return df, num_types
+    for col in names(unit_specs)
+        if eltype(unit_specs[!, col]) <: Integer
+            unit_specs[!, col] = convert.(Int64, unit_specs[:, col])
+        end
+    end
+
+    return unit_specs
 end
 
 

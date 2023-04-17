@@ -70,16 +70,15 @@ agent_assets, asset_counts = ABCEfunctions.get_current_assets_list(db, pd, agent
 agent_params = ABCEfunctions.get_agent_params(db, agent_id)
 
 # System parameters
-# Read unit operational data (unit_specs) and number of unit types (num_types)
-unit_specs, num_types = ABCEfunctions.get_unit_specs(db)
-num_alternatives = num_types * (num_lags + 1)
+# Read unit operational data (unit_specs)
+unit_specs = ABCEfunctions.get_unit_specs(db)
 
 # Ensure that forecast horizon is long enough to accommodate the end of life
 #   for the most long-lived possible unit
 fc_pd = ABCEfunctions.set_forecast_period(unit_specs, num_lags)
 
 # Add empty column for project NPVs in unit_specs
-unit_specs[!, :FCF_NPV] = zeros(Float64, num_types)
+unit_specs[!, :FCF_NPV] = zeros(Float64, size(unit_specs)[1])
 
 @info "Data initialized."
 
