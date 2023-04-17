@@ -64,7 +64,11 @@ C2N_specs = YAML.load_file(C2N_specs_file)
 # Get a list of all ongoing construction projects for the current agent
 agent_projects = ABCEfunctions.get_WIP_projects_list(db, pd, agent_id)
 # Get a list of all operating assets owned by the current agent
-agent_assets, asset_counts = ABCEfunctions.get_current_assets_list(db, pd, agent_id)
+agent_assets, asset_counts = ABCEfunctions.get_current_assets_list(
+                                 db,
+                                 pd,
+                                 agent_id
+                             )
 
 # Get agent financial parameters
 agent_params = ABCEfunctions.get_agent_params(db, agent_id)
@@ -77,11 +81,7 @@ unit_specs = ABCEfunctions.get_unit_specs(db)
 #   for the most long-lived possible unit
 fc_pd = ABCEfunctions.set_forecast_period(unit_specs, num_lags)
 
-# Add empty column for project NPVs in unit_specs
-unit_specs[!, :FCF_NPV] = zeros(Float64, size(unit_specs)[1])
-
 @info "Data initialized."
-
 @info "Setting up dispatch simulation..."
 
 all_year_system_portfolios, all_year_agent_portfolios = Dispatch.set_up_dispatch_portfolios(db, pd, fc_pd, agent_id, unit_specs)
