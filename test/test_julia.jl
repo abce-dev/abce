@@ -43,6 +43,14 @@ function test_join_results_data_frames(all_gc_results, all_prices, repdays_data,
 end
 
 
+function test_compute_per_unit_cash_flows(joined_results_dfs, comparison_long_econ_results)
+    long_econ_results = Dispatch.compute_per_unit_cash_flows(joined_results_dfs)
+
+    sTest.test(long_econ_results, comparison_long_econ_results)
+
+end
+
+
 ###########################################
 # Loading test data                       #
 ###########################################
@@ -74,6 +82,8 @@ repdays_data = CSV.read("./test_data/repdays_data.csv", DataFrame)
 
 # Joined dfs
 joined_results_dfs = CSV.read("./test_data/joined_results_dfs.csv", DataFrame)
+
+long_econ_results = CSV.read("./test_data/long_econ_results.csv", DataFrame)
 
 ###########################################
 # Test runner, with list of all tests     #
@@ -115,6 +125,12 @@ function run_tests()
         unit_specs,
         joined_results_dfs
     )
+
+    test_compute_per_unit_cash_flows(
+        joined_results_dfs,
+        long_econ_results
+    )
+
 
     #####################################################################
     # End of tests
