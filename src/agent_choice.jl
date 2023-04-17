@@ -50,12 +50,7 @@ C2N_specs_file = joinpath(
                  )
 # Constants
 hours_per_year = settings["constants"]["hours_per_year"]
-consider_future_projects = settings["agent_opt"]["consider_future_projects"]
-if consider_future_projects
-    num_lags = settings["agent_opt"]["num_future_periods_considered"]
-else
-    num_lags = 0
-end
+num_lags = settings["agent_opt"]["num_future_periods_considered"]
 
 # Load the inputs
 db = ABCEfunctions.load_db(db_file)
