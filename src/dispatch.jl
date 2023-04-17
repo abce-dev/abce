@@ -766,6 +766,11 @@ function compute_per_unit_cash_flows(long_econ_results)
           => :annualized_policy_adj_per_unit
     )
 
+    for col in eachcol(long_econ_results)
+        replace!(col, Inf => 0)
+        replace!(col, NaN => 0)
+    end
+
     return long_econ_results
 
 end 
