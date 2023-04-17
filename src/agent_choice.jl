@@ -21,7 +21,7 @@ using Logging
 @debug "Loading packages..."
 using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
 
-# Include local ABCE functions module
+# Include local ABCE functions modules
 include("ABCEfunctions.jl")
 include("dispatch.jl")
 include("C2N_projects.jl")
