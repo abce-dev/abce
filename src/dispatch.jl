@@ -25,15 +25,25 @@ function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, t
                   settings["dispatch"]["num_repdays"]
               )
 
-    long_econ_results = handle_annual_dispatch(
-                            settings,
-                            current_pd,
-                            fc_pd,
+    all_gc_results, all_price_results = handle_annual_dispatch(
+                                            settings,
+                                            current_pd,
+                                            fc_pd,
+                                            all_year_system_portfolios,
+                                            total_demand,
+                                            ts_data,
+                                            unit_specs,
+                                            solver
+                                        )
+
+    long_econ_results = postprocess_results(
+                            all_gc_results,
+                            all_price_results,
+                            ts_data[:repdays_data],
                             all_year_system_portfolios,
-                            total_demand,
-                            ts_data,
                             unit_specs,
-                            solver
+                            current_pd,
+                            fc_pd
                         )
 
     return long_econ_results
@@ -144,31 +154,7 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
         throw(ErrorException(msg))
     end
 
-    # Propagate the results dataframes out to the end of the projection horizon
-    # Assume no change after the last modeled year
-    all_gc_results, all_prices = propagate_all_results(
-                                     all_gc_results,
-                                     all_prices,
-                                     current_pd,
-                                     fc_pd
-                                 )
-
-    # Save the raw results
-    save_raw_results(all_prices, all_gc_results)
-
-    # Create the final results set for use by the agent decision algorithm
-    @debug "Postprocessing all dispatch results..."
-    long_econ_results = postprocess_results(
-                            all_gc_results,
-                            all_prices,
-                            ts_data[:repdays_data],
-                            all_year_system_portfolios,
-                            unit_specs,
-                            fc_pd,
-                            current_pd
-                        )
-
-    return long_econ_results    
+    return all_gc_results, all_prices
 
 end
 
@@ -706,7 +692,7 @@ function combine_and_extend_year_portfolios(system_portfolios, forecast_end_pd)
 end
 
 
-function postprocess_results(all_gc_results, all_prices, repdays_data, system_portfolios, unit_specs, fc_pd, current_pd)
+function join_results_data_frames(all_gc_results, all_prices, repdays_data, all_year_portfolios, unit_specs)
     # Join in price data to all_gc_results
     long_econ_results = innerjoin(all_gc_results, all_prices, on = [:y, :d, :h])
 
@@ -717,38 +703,63 @@ function postprocess_results(all_gc_results, all_prices, repdays_data, system_po
                             on = [:d => :index]
                         )
 
-    # Retrieve an abbreviated table of unit specs data
-    short_unit_specs = select(
-                           unit_specs,
-                           [:unit_type,
-                            :capacity,
-                            :VOM,
-                            :FC_per_MWh,
-                            :policy_adj_per_MWh
-                           ]
-                       )
-
     # Join in limited unit_specs data to compute some cash flows
-    long_rev_results = innerjoin(
-                           all_gc_results,
-                           short_unit_specs,
+    long_econ_results = innerjoin(
+                           long_econ_results,
+                           select(
+                               unit_specs,
+                               [:unit_type,
+                                :capacity,
+                                :VOM,
+                                :FC_per_MWh,
+                                :policy_adj_per_MWh
+                               ]
+                           ),
                            on = :unit_type
                        )
 
-    # Get a single long dataframe with unit numbers by type for each year
-    all_year_portfolios = combine_and_extend_year_portfolios(
-                              system_portfolios,
-                              current_pd,
-                              fc_pd
-                          )
-
-    # Append unit number data to long_rev_results
-    long_rev_results = innerjoin(
-                           long_rev_results,
+    # Join in unit number data to long_rev_results
+    long_econ_results = innerjoin(
+                           long_econ_results,
                            all_year_portfolios,
                            on = [:y, :unit_type]
                        )
 
+    return long_econ_results
+
+end
+
+
+
+function postprocess_results(all_gc_results, all_prices, repdays_data, all_year_system_portfolios, unit_specs, current_pd, fc_pd)
+    # Propagate the results dataframes out to the end of the projection horizon
+    # Assume no change after the last modeled year
+    all_gc_results, all_prices = propagate_all_results(
+                                     all_gc_results,
+                                     all_prices,
+                                     current_pd,
+                                     fc_pd
+                                 )
+
+    # Get a single long dataframe with unit numbers by type for each year
+    all_year_portfolios = combine_and_extend_year_portfolios(
+                              all_year_system_portfolios,
+                              current_pd,
+                              fc_pd
+                          )
+
+    # Join in relevant data to create a single master dataframe suitable for
+    #   a variety of column-wise operations
+    long_econ_results = join_results_data_frames(
+                            all_gc_results,
+                            all_price_results,
+                            repdays_data,
+                            all_year_portfolios,
+                            unit_specs
+                        )
+
+    # Compute cash flows on a per-unit basis: revenue, VOM, fuel cost, and
+    #   policy adjustment
     long_econ_results = compute_per_unit_cash_flows(long_econ_results)
 
     return long_econ_results
