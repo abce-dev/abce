@@ -21,35 +21,16 @@ using Logging
 @debug "Loading packages..."
 using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
 
-# Set up command-line parser
-s = ArgParseSettings()
-@add_arg_table s begin
-    "--settings_file"
-        help = "absolute path to the settings file"
-        required = false
-        default = joinpath(pwd(), "settings.yml")
-    "--agent_id"
-        help = "unique ID number of the agent"
-        arg_type = Int
-        required = true
-    "--current_pd"
-        help = "current ABCE time period"
-        arg_type = Int
-        required = true
-    "--verbosity"
-        help = "level of output logged to the console"
-        arg_type = Int
-        required = false
-        default = 1
-        range_tester = x -> x in [0, 1, 2, 3]
-    "--abce_abs_path"
-        help = "absolute path to the top-level ABCE directory"
-        arg_type = String
-        required = true
-end
+# Include local ABCE functions module
+julia_ABCE_module = "ABCEfunctions.jl"
+include(julia_ABCE_module)
+dispatch_module = "dispatch.jl"
+include(dispatch_module)
+C2N_module = "C2N_projects.jl"
+include(C2N_module)
+using .ABCEfunctions, .Dispatch, .C2N
 
-# Retrieve parsed arguments from command line
-CLI_args = parse_args(s)
+CLI_args = ABCEfunctions.get_CL_args()
 
 lvl = 0
 if CLI_args["verbosity"] == 0
@@ -70,15 +51,6 @@ settings = YAML.load_file(settings_file)
 
 settings_file = CLI_args["settings_file"]
 settings = YAML.load_file(settings_file)
-
-# Include local ABCE functions module
-julia_ABCE_module = "ABCEfunctions.jl"
-include(julia_ABCE_module)
-dispatch_module = "dispatch.jl"
-include(dispatch_module)
-C2N_module = "C2N_projects.jl"
-include(C2N_module)
-using .ABCEfunctions, .Dispatch, .C2N
 
 @debug "Julia modules loaded successfully."
 

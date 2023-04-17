@@ -14,7 +14,7 @@
 
 module ABCEfunctions
 
-using Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS
+using ArgParse, Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS
 
 # Use CPLEX if available
 function __init__()
@@ -38,6 +38,36 @@ hours_per_year = 8760   # Number of hours in a year (without final 0.25 day)
 #####
 # Setup functions
 #####
+function get_CL_args()
+    s = ArgParseSettings()
+    @add_arg_table s begin
+        "--settings_file"
+            help = "absolute path to the settings file"
+            required = false
+            default = joinpath(pwd(), "settings.yml")
+        "--agent_id"
+            help = "unique ID of the agent"
+            required = true
+            arg_type = Int
+        "--current_pd"
+            help = "current ABCE time period"
+            required = true
+            arg_type = Int
+        "--verbosity"
+            help = "level of output logged to the console"
+            required = false
+            arg_type = Int
+            range_tester = x -> x in [0, 1, 2, 3]
+            default = 1
+        "--abce_abs_path"
+            help = "absolute path to the top-level ABCE directory"
+            required = true
+            arg_type = String
+    end
+
+    return parse_args(s)
+
+end
 
 function load_db(db_file)
     try
