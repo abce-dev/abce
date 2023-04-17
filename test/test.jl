@@ -49,12 +49,12 @@ end
 
 function get_stacktrace_entries(st)
     # Determine the location of the test invocation in the top-level scope
-    outer_func_line = st[3].line
+    outer_func_line = st[4].line
 
     # Determine the test being called and the location of the sub-call
     #   to `test`
-    func_name = st[2].func
-    func_line = st[2].line
+    func_name = st[3].func
+    func_line = st[3].line
 
     return outer_func_line, func_name, func_line
 end
