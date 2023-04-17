@@ -22,12 +22,9 @@ using Logging
 using JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
 
 # Include local ABCE functions module
-julia_ABCE_module = "ABCEfunctions.jl"
-include(julia_ABCE_module)
-dispatch_module = "dispatch.jl"
-include(dispatch_module)
-C2N_module = "C2N_projects.jl"
-include(C2N_module)
+include("ABCEfunctions.jl")
+include("dispatch.jl")
+include("C2N_projects.jl")
 using .ABCEfunctions, .Dispatch, .C2N
 
 CLI_args = ABCEfunctions.get_CL_args()
