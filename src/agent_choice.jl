@@ -32,11 +32,7 @@ CLI_args = ABCEfunctions.get_CL_args()
 ABCEfunctions.set_verbosity(CLI_args["verbosity"])
 
 # Load settings and file locations from the settings file
-settings_file = CLI_args["settings_file"]
-settings = YAML.load_file(settings_file)
-
-settings_file = CLI_args["settings_file"]
-settings = YAML.load_file(settings_file)
+settings = YAML.load_file(CLI_args["settings_file"])
 
 @debug "Julia modules loaded successfully."
 
@@ -44,24 +40,6 @@ settings = YAML.load_file(settings_file)
 @info "Initializing data..."
 
 settings = ABCEfunctions.set_up_local_paths(settings, CLI_args["abce_abs_path"])
-
-solver = lowercase(settings["simulation"]["solver"])
-@debug string("Solver is `$solver`")
-if solver == "cplex"
-    try
-        using CPLEX
-    catch LoadError
-        throw(error("CPLEX is not available!"))
-    end
-elseif solver == "glpk"
-    using GLPK
-elseif solver == "cbc"
-    using Cbc
-elseif solver == "highs"
-    using HiGHS
-else
-    throw(error("Solver `$solver` not supported. Try `cplex` instead."))
-end
 
 # File names
 db_file = joinpath(pwd(), "outputs", settings["simulation"]["scenario_name"], settings["file_paths"]["db_file"])
@@ -123,7 +101,7 @@ total_demand = ABCEfunctions.get_net_demand(db, pd, agent_id, fc_pd, total_deman
 @debug total_demand[1:10, :]
 
 @info "Running dispatch simulation..."
-long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios, solver)
+long_econ_results = Dispatch.execute_dispatch_economic_projection(db, settings, pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
 @info "Dispatch projections complete."
 
 @info "Setting up project alternatives..."
