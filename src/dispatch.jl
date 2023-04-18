@@ -49,11 +49,10 @@ function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, t
 end
 
 
-function set_up_dispatch_portfolios(db, start_year, fc_pd, agent_id, unit_specs)
+function get_system_portfolios(db, start_year, fc_pd, unit_specs)
     # Set up portfolio dictionaries
     @debug "Setting up dispatch portfolios..."
-    all_year_system_portfolios = Dict()
-    all_year_agent_portfolios = Dict()
+    system_portfolios = Dict()
 
     for y = start_year:start_year+fc_pd
         # Retrieve annual system portfolios
@@ -67,27 +66,13 @@ function set_up_dispatch_portfolios(db, start_year, fc_pd, agent_id, unit_specs)
                                )
                            ) |> DataFrame
 
-        # Retrieve annual system portfolios for the current agent
-        agent_portfolio = DBInterface.execute(
-                              db,
-                              string("SELECT unit_type, COUNT(unit_type) ",
-                                     "FROM assets WHERE agent_id = $agent_id ",
-                                     "AND completion_pd <= $y ",
-                                     "AND retirement_pd > $y ",
-                                     "AND cancellation_pd > $y ",
-                                     "GROUP BY unit_type"
-                              )
-                          ) |> DataFrame
-
         # Clean up column names in the portfolio dataframes
         rename!(system_portfolio, Symbol("COUNT(unit_type)") => :num_units)
-        rename!(agent_portfolio, Symbol("COUNT(unit_type)") => :num_units)
 
-        all_year_system_portfolios[y] = system_portfolio
-        all_year_agent_portfolios[y] = agent_portfolio
+        system_portfolios[y] = system_portfolio
     end
 
-    return all_year_system_portfolios, all_year_agent_portfolios
+    return system_portfolios
 
 end
 
