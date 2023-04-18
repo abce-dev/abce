@@ -179,18 +179,30 @@ function get_WIP_projects_list(db, pd, agent_id)
 end
 
 
-function get_current_assets_list(db, pd, agent_id)
+function get_grouped_current_assets(db, pd, agent_id)
     # Get a list of all of the agent's currently-operating assets, plus their
     #   unit type and mandatory retirement date
     # Time-period convention:
     #   <status>_pd == "the first period where this asset has status <status>"
-    SQL_get_assets = SQLite.Stmt(db, string("SELECT asset_id, unit_type, retirement_pd, C2N_reserved FROM assets WHERE agent_id = ", agent_id, " AND completion_pd <= ", pd, " AND cancellation_pd > ", pd, " AND retirement_pd > ", pd))
-    asset_list = DBInterface.execute(SQL_get_assets) |> DataFrame
+    cmd = string(
+              "SELECT asset_id, unit_type, retirement_pd, C2N_reserved ",
+              "FROM assets WHERE agent_id = ", agent_id, 
+              " AND completion_pd <= ", pd, " AND cancellation_pd > ", pd,
+              " AND retirement_pd > ", pd
+          )
+
+    asset_list = DBInterface.execute(db, cmd) |> DataFrame
 
     # Count the number of assets by type
-    asset_counts = combine(groupby(asset_list, [:unit_type, :retirement_pd, :C2N_reserved]), nrow => :count)
+    grouped_agent_assets = combine(
+                               groupby(
+                                   asset_list,
+                                   [:unit_type, :retirement_pd, :C2N_reserved]
+                               ),
+                               nrow => :count
+                           )
 
-    return asset_list, asset_counts
+    return grouped_agent_assets
 end
 
 
@@ -278,7 +290,7 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
 end
 
 
-function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
+function get_demand_forecast(db, pd, fc_pd, settings)
     # Retrieve 
     vals = (pd, pd + settings["demand"]["demand_visibility_horizon"])
     visible_demand = DBInterface.execute(db, "SELECT period, demand FROM demand WHERE period >= ? AND period < ?", vals) |> DataFrame
@@ -294,7 +306,7 @@ function get_demand_forecast(db, pd, agent_id, fc_pd, settings)
 end
 
 
-function get_net_demand(db, pd, agent_id, fc_pd, demand_forecast, all_year_system_portfolios, unit_specs)
+function get_net_demand(db, pd, fc_pd, demand_forecast, all_year_system_portfolios, unit_specs)
     # Calculate the amount of forecasted net demand in future periods
     installed_cap_forecast = DataFrame(period = Int64[], derated_capacity = Float64[])
     vals = (pd, pd)
@@ -354,8 +366,8 @@ end
 #####
 # NPV functions
 #####
-function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lags, fc_pd, agent_params, db, current_pd, long_econ_results, C2N_specs)
-    PA_uids = create_PA_unique_ids(settings, unit_specs, asset_counts, num_lags)
+function set_up_project_alternatives(settings, unit_specs, asset_counts, fc_pd, agent_params, db, current_pd, long_econ_results, C2N_specs)
+    PA_uids = create_PA_unique_ids(settings, unit_specs, asset_counts)
 
     PA_fs_dict = create_PA_pro_formas(PA_uids, fc_pd)
 
@@ -365,7 +377,7 @@ function set_up_project_alternatives(settings, unit_specs, asset_counts, num_lag
 
 end
 
-function create_PA_unique_ids(settings, unit_specs, asset_counts, num_lags)
+function create_PA_unique_ids(settings, unit_specs, asset_counts)
     PA_uids = DataFrame(
                    unit_type = String[],
                    project_type = String[],
@@ -392,7 +404,7 @@ function create_PA_unique_ids(settings, unit_specs, asset_counts, num_lags)
             allowed=false
         end
 
-        for lag = 0:num_lags
+        for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
             push!(PA_uids, [unit_type project_type lag nothing uid NPV allowed])
             uid += 1
         end
@@ -403,7 +415,7 @@ function create_PA_unique_ids(settings, unit_specs, asset_counts, num_lags)
     allowed = true   # by default, retirements are always allowed
     for unit_type in unique(asset_counts[!, :unit_type])
         for ret_pd in filter([:unit_type, :C2N_reserved] => ((x, reserved) -> (x == unit_type) && (reserved == 0)), asset_counts)[!, :retirement_pd]
-            for lag = 0:num_lags
+            for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
                 push!(PA_uids, [unit_type project_type lag ret_pd uid NPV allowed])
                 uid += 1
             end
@@ -1293,6 +1305,25 @@ end
 
 
 ### Postprocessing
+function finalize_results_dataframe(m, PA_uids)
+    # Check solve status of model
+    status = string(termination_status.(m))
+
+    # If the model solved to optimality, convert the results to type Int64
+    if status == "OPTIMAL"
+        unit_qty = Int64.(round.(value.(m[:u])))
+    else
+    # If the model did not solve to optimality, the agent does nothing. Return
+    #   a vector of all zeroes instead.
+        unit_qty = zeros(Int64, size(PA_uids)[1])
+    end
+
+    all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
+
+    return all_results
+end
+
+
 function postprocess_agent_decisions(settings, all_results, unit_specs, db, current_pd, agent_id)
     for i = 1:size(all_results)[1]
         # Retrieve the individual result row for convenience
@@ -1326,25 +1357,6 @@ function postprocess_agent_decisions(settings, all_results, unit_specs, db, curr
     save_agent_decisions(db, agent_id, all_results)
 
 
-end
-
-
-function finalize_results_dataframe(m, PA_uids)
-    # Check solve status of model
-    status = string(termination_status.(m))
-
-    # If the model solved to optimality, convert the results to type Int64
-    if status == "OPTIMAL"
-        unit_qty = Int64.(round.(value.(m[:u])))
-    else
-    # If the model did not solve to optimality, the agent does nothing. Return
-    #   a vector of all zeroes instead.
-        unit_qty = zeros(Int64, size(PA_uids)[1])
-    end
-
-    all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
-
-    return all_results
 end
 
 
@@ -1479,13 +1491,40 @@ function record_asset_retirements(result, db, agent_id, unit_specs, current_pd; 
 end
 
 
-function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results, all_year_portfolios)
+function get_agent_portfolio_forecast(agent_id, db, current_pd, fc_pd)
+    agent_portfolios = DataFrame()
+    # Retrieve the agent's projected portfolios
+    for y = current_pd:current_pd+fc_pd
+        agent_portfolio = DBInterface.execute(
+            db,
+            string(
+                "SELECT unit_type, COUNT(unit_type) FROM assets ",
+                "WHERE agent_id = $agent_id AND completion_pd <= $y ",
+                "AND retirement_pd > $y AND cancellation_pd > $y ",
+                "GROUP BY unit_type"
+            )
+        ) |> DataFrame
+
+        rename!(agent_portfolio, Symbol("COUNT(unit_type)") => :num_units)
+        agent_portfolio[!, :y] .= y
+
+        append!(agent_portfolios, agent_portfolio)
+    end
+
+    return agent_portfolios
+end
+
+
+function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results)
     # Retrieve horizontally-abbreviated dataframes
     short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_per_unit, :annualized_VOM_per_unit, :annualized_FC_per_unit, :annualized_policy_adj_per_unit])
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])
 
+    # Retrieve the agent's complete portfolio forecast
+    agent_portfolio_forecast = get_agent_portfolio_forecast(agent_id, db, current_pd, fc_pd)
+
     # Inner join the year's portfolio with financial pivot
-    fin_results = innerjoin(short_econ_results, all_year_portfolios, on = [:y, :unit_type])
+    fin_results = innerjoin(short_econ_results, agent_portfolio_forecast, on = [:y, :unit_type])
 
     # Fill in total revenue
     transform!(fin_results, [:annualized_rev_per_unit, :annualized_policy_adj_per_unit, :num_units] => ((rev, adj, num_units) -> (rev .+ adj) .* num_units) => :total_rev)
@@ -1528,7 +1567,7 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
 
     # Fill in total FOM
     # Inner join the FOM table with the agent portfolios
-    FOM_df = innerjoin(all_year_portfolios, short_unit_specs, on = :unit_type)
+    FOM_df = innerjoin(agent_portfolio_forecast, short_unit_specs, on = :unit_type)
     transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* 1000) => :total_FOM)
     FOM_df = select(combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols=false), [:y, :total_FOM])
     rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
