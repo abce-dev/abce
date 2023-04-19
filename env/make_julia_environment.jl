@@ -15,6 +15,7 @@ julia_pkg_list = [
     "JSON",
     "JuMP",
     "LinearAlgebra",
+    "Logging",
     "MathOptInterface",
     "Memento",
     "PackageCompiler",
