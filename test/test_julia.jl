@@ -54,43 +54,147 @@ end
 ###########################################
 # Loading test data                       #
 ###########################################
+settings_file = joinpath(
+                    ENV["ABCE_DIR"],
+                    "settings.yml"
+                )
+
 
 input_shadow_prices = Matrix(
                           CSV.read(
-                              "./test_data/raw_shadow_prices.csv",
+                              joinpath(
+                                  ENV["ABCE_DIR"],
+                                  "test",
+                                  "test_data",
+                                  "raw_shadow_prices.csv"
+                              ),
                               DataFrame,
                               header=false
                           )
                       )
 
-all_prices = CSV.read("./test_data/reshaped_prices.csv", DataFrame)
-all_gc_results = CSV.read("./test_data/all_gc_results.csv", DataFrame)
-prop_prices = CSV.read("./test_data/prop_prices.csv", DataFrame)
-prop_gc_results = CSV.read("./test_data/prop_gc_results.csv", DataFrame)
+all_prices = CSV.read(
+                 joinpath(
+                     ENV["ABCE_DIR"],
+                     "test",
+                     "test_data",
+                     "reshaped_prices.csv"
+                 ),
+                 DataFrame
+             )
+
+all_gc_results = CSV.read(
+                     joinpath(
+                         ENV["ABCE_DIR"],
+                         "test",
+                         "test_data",
+                         "all_gc_results.csv"
+                     ),
+                     DataFrame
+                 )
+
+prop_prices = CSV.read(
+                  joinpath(
+                      ENV["ABCE_DIR"],
+                      "test",
+                      "test_data",
+                      "prop_prices.csv"
+                  ),
+                  DataFrame
+               )
+
+prop_gc_results = CSV.read(
+                      joinpath(
+                          ENV["ABCE_DIR"],
+                          "test",
+                          "test_data",
+                          "prop_gc_results.csv"
+                      ),
+                      DataFrame
+                  )
 
 # Portfolio data
-y1_system_portfolio = CSV.read("./test_data/y1_system_portfolio.csv", DataFrame)
-y2_system_portfolio = CSV.read("./test_data/y2_system_portfolio.csv", DataFrame)
+y1_system_portfolio = CSV.read(
+                          joinpath(
+                              ENV["ABCE_DIR"],
+                              "test",
+                              "test_data",
+                              "y1_system_portfolio.csv"
+                          ),
+                          DataFrame
+                      )
+
+y2_system_portfolio = CSV.read(
+                          joinpath(
+                              ENV["ABCE_DIR"],
+                              "test",
+                              "test_data",
+                              "y2_system_portfolio.csv"
+                          ),
+                          DataFrame
+                      )
+
 year_portfolios = Dict(1 => y1_system_portfolio, 2 => y2_system_portfolio)
-extended_system_portfolios = CSV.read("./test_data/extended_system_portfolio.csv", DataFrame)
+
+extended_system_portfolios = CSV.read(
+                                 joinpath(
+                                     ENV["ABCE_DIR"],
+                                     "test",
+                                     "test_data",
+                                     "extended_system_portfolio.csv"
+                                 ),
+                                 DataFrame
+                             )
 
 # Unit specs data
-unit_specs = CSV.read("./test_data/unit_specs.csv", DataFrame)
+unit_specs = CSV.read(
+                 joinpath(
+                     ENV["ABCE_DIR"],
+                     "test",
+                     "test_data",
+                     "unit_specs.csv"
+                 ),
+                 DataFrame
+             )
 
 # Representative days data
-repdays_data = CSV.read("./test_data/repdays_data.csv", DataFrame)
+repdays_data = CSV.read(
+                   joinpath(
+                       ENV["ABCE_DIR"],
+                       "test",
+                       "test_data",
+                       "repdays_data.csv"
+                   ),
+                   DataFrame
+               )
 
 # Joined dfs
-joined_results_dfs = CSV.read("./test_data/joined_results_dfs.csv", DataFrame)
+joined_results_dfs = CSV.read(
+                         joinpath(
+                             ENV["ABCE_DIR"],
+                             "test",
+                             "test_data",
+                             "joined_results_dfs.csv"
+                         ),
+                         DataFrame
+                     )
 
-long_econ_results = CSV.read("./test_data/long_econ_results.csv", DataFrame)
+long_econ_results = CSV.read(
+                        joinpath(
+                            ENV["ABCE_DIR"],
+                            "test",
+                            "test_data",
+                            "long_econ_results.csv"
+                        ),
+                        DataFrame
+                    )
 
 ###########################################
 # Test runner, with list of all tests     #
 ###########################################
 
 function run_tests()
-    settings = YAML.load_file("../settings.yml")
+    settings = YAML.load_file(settings_file)
 
     #####################################################################
     # Put list of tests here
