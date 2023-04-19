@@ -13,27 +13,42 @@
 # limitations under the License.
 ##########################################################################
 
-using PackageCompiler, Pkg
+using PackageCompiler, Pkg, Requires
 
 # Load all default Julia packages into the current environment
 Pkg.activate(".")
 
-# Run the current version of unit_choice.jl, outputting function-compilation
+# Run agent_choice.jl as a standalone script, outputting function-compilation
 #   records to `./precompile.jl`
 run(`julia --project=. --trace-compile=precompile.jl ../src/agent_choice.jl --settings_file=../settings.yml --current_pd=1 --agent_id=201 --abce_abs_path=..`)
+
+pkg_list = [
+    :ArgParse,
+    :Cbc,
+    :CSV,
+    :DataFrames,
+    :GLPK,
+    :HiGHS,
+    :Logging,
+    :JuMP,
+    :SQLite,
+    :Tables,
+    :XLSX,
+    :YAML
+]
+
+# If CPLEX is available, add it to the package list for precompilation
+try
+    using CPLEX
+    push!(pkg_list, :CPLEX)
+catch
+    println("skipping CPLEX")
+end
 
 # Create `abceSysimage.so` using the specified packages and the newly
 #   generated `precompile.jl` file.
 create_sysimage(
-    [:CPLEX,
-     :CSV,
-     :DataFrames,
-     :GLPK,
-     :JuMP,
-     :SQLite,
-     :XLSX,
-     :YAML
-    ];
+    pkg_list;
     sysimage_path="abceSysimage.so",
     precompile_statements_file="./precompile.jl"
 )
