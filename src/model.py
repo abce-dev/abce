@@ -369,7 +369,7 @@ class GridModel(Model):
         self.current_pd += 1
 
         if self.current_pd == 0:
-            self.has_ABCE_sysimage, self.has_dispatch_sysimage = self.check_for_sysimage_files()
+            self.has_ABCE_sysimage = self.check_for_sysimage_file()
 
         self.display_step_header()
 
@@ -456,21 +456,14 @@ class GridModel(Model):
         logging.debug(pd.read_sql("SELECT * FROM WIP_updates", self.db).tail(n=10))
 
 
-    def check_for_sysimage_files(self):
+    def check_for_sysimage_file(self):
         ABCE_sysimage_path = (Path(
             self.settings["file_paths"]["ABCE_abs_path"]) /
             "env" /
             self.settings["file_paths"]["ABCE_sysimage_file"]
         )
 
-        dispatch_sysimage_path = (Path(
-            self.settings["file_paths"]["ABCE_abs_path"]) /
-            "env" /
-            self.settings["file_paths"]["dispatch_sysimage_file"]
-        )
-
         has_ABCE_sysimage = True
-        has_dispatch_sysimage = True
 
         if not Path(ABCE_sysimage_path).exists():
             msg = (
@@ -483,18 +476,7 @@ class GridModel(Model):
             logging.warn(msg)
             has_ABCE_sysimage = False
 
-        if not Path(dispatch_sysimage_path).exists():
-            msg = (
-                f"No sysimage file found at {dispatch_sysimage_path}. " +
-                "Execution will proceed, but the dispatch sub-module may run extremely slowly. " +
-                "If you already have a dispatch sysimage file, please move it to " +
-                "the filename {dispatch_sysimage_path}. If you do not have a " +
-                "dispatch sysimage file, please run 'julia make_sysimage.jl --mode=dispatch' in this " +
-                "directory.")
-            logging.warn(msg)
-            has_dispatch_sysimage = False
-
-        return has_ABCE_sysimage, has_dispatch_sysimage
+        return has_ABCE_sysimage
 
     def update_agent_financials(self):
         # Update the following database tables for all agents:
