@@ -32,4 +32,6 @@ jobs:
     - name: Install and configure ABCE
       run: |
         bash install.sh -n -a ""
-
+    - name: Run Julia dispatch tests
+      run: |
+        bash "test/run_julia_tests.sh"

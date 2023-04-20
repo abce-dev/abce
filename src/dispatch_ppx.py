@@ -92,7 +92,7 @@ def join_unit_data(dsp_pivot, system_portfolio, unit_specs):
     return dsp_ext_pivot
 
 
-def compute_perunit_results(agg_dsp_pivot):
+def compute_per_unit_results(agg_dsp_pivot):
     # Copy out columns which are already on a per-unit basis
     dsp_pivot_PU = (agg_dsp_pivot[[
                         "num_units",
@@ -177,7 +177,7 @@ def postprocess_dispatch(dispatch_file, system_portfolio, unit_specs):
     df = compute_timeseries_revenues(df)
     agg_dsp_pivot = pivot_dispatch_results(df)
     agg_dsp_pivot = join_unit_data(agg_dsp_pivot, system_portfolio, unit_specs)
-    dsp_pivot_PU = compute_perunit_results(agg_dsp_pivot)
+    dsp_pivot_PU = compute_per_unit_results(agg_dsp_pivot)
     final_dsp_results = downselect_dispatch_econ_results(dsp_pivot_PU)
     final_dsp_results = resolve_nans(final_dsp_results)
 
