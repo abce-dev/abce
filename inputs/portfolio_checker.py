@@ -62,14 +62,15 @@ def load_unit_specifications(unit_specs_file):
 def get_total_unit_numbers(pfs):
     # Convert portfolio dictionaries into a dataframe, filling missing
     #   values with 0. Rows are unit types, columns are agent ids.
-    pf_df = pd.DataFrame.from_dict(pfs).fillna(0).astype("int")
+    unit_nums_table = pd.DataFrame.from_dict(pfs).fillna(0).astype("int")
 
     # Add a column of totals by unit type.
-    pf_df["total"] = pf_df[[agent_id for agent_id in pfs.keys()]].sum(axis=1)
+    unit_nums_table["total"] = (unit_nums_table[
+                                    [agent_id for agent_id in pfs.keys()]
+                                ].sum(axis=1)
+                               )
 
-    print("\nTotal number of units by type:")
-    print(pf_df)
-    print("\n")
+    return unit_nums_table
 
 
 def get_installed_capacity(pfs, unit_caps):
@@ -116,12 +117,21 @@ def get_installed_capacity(pfs, unit_caps):
                                           ].sum(axis=1)
                                          )
 
+    return caps_table
+
+
+def show_results(unit_nums_table, caps_table):
+    print("\nTotal number of units by type:")
+    print(unit_nums_table)
+    print("\n")
+
     print("\nTotal installed capacity by unit type:")
     print(caps_table)
     print("\n")
 
     grand_total = sum(caps_table["Total capacity (MWe)"])
     print(f"Grand total system nameplate capacity = {grand_total} MWe.")
+
 
 
 def check_portfolio(args):
@@ -136,6 +146,8 @@ def check_portfolio(args):
 
     # Get installed capacity by type, per agent and system total
     caps_table = get_installed_capacity(pfs, unit_caps)
+
+    show_results(unit_nums_table, caps_table)
 
 
 if __name__ == "__main__":
