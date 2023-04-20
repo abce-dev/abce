@@ -76,8 +76,8 @@ function process_results(settings, CLI_args, m, db, PA_uids, unit_specs)
         all_results,
         unit_specs,
         db,
-        CLI_args["agent_id"],
-        CLI_args["current_pd"]
+        CLI_args["current_pd"],
+        CLI_args["agent_id"]
     )
 end
 
