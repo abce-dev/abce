@@ -15,7 +15,7 @@
 
 using PackageCompiler, Pkg, Requires
 
-# Load all default Julia packages into the current environment
+# Activate the current environment
 Pkg.activate(".")
 
 # Run agent_choice.jl as a standalone script, outputting function-compilation
