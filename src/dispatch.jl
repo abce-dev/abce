@@ -94,7 +94,8 @@ end
 
 
 function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, solver)
-    all_gc_results, all_prices = set_up_results_dfs()
+    all_gc_results = set_up_gc_results_df()
+    all_prices = set_up_prices_df()
 
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:current_pd + settings["dispatch"]["num_dispatch_years"]
@@ -186,8 +187,7 @@ function load_ts_data(ts_file_dir, num_repdays)
     return ts_data
 end
 
-
-function set_up_results_dfs()
+function set_up_gc_results_df()
     all_gc_results = DataFrame(
                          y = Int[],
                          d = Int[],
@@ -197,6 +197,11 @@ function set_up_results_dfs()
                          commit = Int[]
                      )
 
+    return all_gc_results
+end
+
+
+function set_up_prices_df()
     all_prices = DataFrame(
                      y = Int[],
                      d = Int[],
@@ -204,7 +209,7 @@ function set_up_results_dfs()
                      price = Float64[]
                  )
 
-    return all_gc_results, all_prices
+    return all_prices
 end
 
 
@@ -477,14 +482,7 @@ end
 
 
 function assemble_gc_results(y, gen_qty, c, portfolio_specs)
-    new_gc_results = DataFrame(
-                         y = Int[],
-                         d = Int[],
-                         h = Int[],
-                         unit_type = String[],
-                         gen = Float64[],
-                         commit = Int[]
-                     )
+    new_gc_results = set_up_gc_results_df()
 
     # Save generation and commitment results to a dataframe
     # g[i, k, j] and c[i, k, j] are arranged as
