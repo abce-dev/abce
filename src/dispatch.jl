@@ -77,7 +77,7 @@ function get_system_portfolios(db, start_year, fc_pd, unit_specs)
 end
 
 
-function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs, solver)
+function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs)
     all_gc_results = set_up_gc_results_df()
     all_prices = set_up_prices_df()
 
