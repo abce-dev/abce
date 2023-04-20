@@ -35,6 +35,6 @@ jobs:
     - name: Run Julia dispatch tests
       run: |
         echo "$ABCE_DIR"
-        bash "$ABCE_DIR/test/run_julia_tests.sh"
+        bash "test/run_julia_tests.sh"
       env:
-        ABCE_DIR: "$( pwd )"
+        ABCE_DIR: "/home/abce"
