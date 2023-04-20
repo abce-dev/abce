@@ -37,4 +37,4 @@ jobs:
         echo "$ABCE_DIR"
         bash "$ABCE_DIR/test/run_julia_tests.sh"
       env:
-        ABCE_DIR: "."
+        ABCE_DIR: "$( pwd )"
