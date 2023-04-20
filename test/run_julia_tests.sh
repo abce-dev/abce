@@ -1,8 +1,10 @@
 #!/bin/bash
-
+test_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+abce_dir="$( dirname $test_dir )"
+echo $abce_dir
 # Use testSysimage.so if available
-if [[ -f "$ABCE_DIR/test/testSysimage.so" ]]; then
-    julia --project="$ABCE_DIR/env" -J "$ABCE_DIR/test/testSysimage.so" "$ABCE_DIR/test/test_julia.jl"
+if [[ -f "$test_dir/testSysimage.so" ]]; then
+    julia --project="$abce_dir/env" -J "$test_dir/testSysimage.so" "$test_dir/test_julia.jl"
 else
-    julia --project="$ABCE_DIR/env" "$ABCE_DIR/test/test_julia.jl"
+    julia --project="$abce_dir/env" "$test_dir/test_julia.jl"
 fi
