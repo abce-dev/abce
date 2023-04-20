@@ -6,7 +6,9 @@ import yaml
 
 
 def cli_args():
-    parser = argparse.ArgumentParser(description="Check the total system portfolio composition in a given file.")
+    parser = argparse.ArgumentParser(
+                 description="Check the total system portfolio composition in a given file."
+             )
     parser.add_argument(
         "--portfolio_file",
         type=str,
@@ -72,25 +74,47 @@ def get_total_unit_numbers(pfs):
 
 def get_installed_capacity(pfs, unit_caps):
     # Convert pfs into a dataframe; rows are unit types, columns are agent ids
-    pf_df = pd.DataFrame.from_dict(pfs).fillna(0).astype("int").reset_index().rename(columns={"index": "unit_type"})
+    pf_df = (pd.DataFrame.from_dict(pfs)
+               .fillna(0)
+               .astype("int")
+               .reset_index()
+               .rename(columns={"index": "unit_type"})
+            )
 
     # Unpivot the dataframe to create a joinable long-style tidy dataset
-    pf_df = pd.melt(pf_df, id_vars="unit_type", value_vars = [agent_id for agent_id in pfs.keys()]).rename(columns={"variable": "agent_id", "value": "num_units"})
+    pf_df = (pd.melt(
+                 pf_df,
+                 id_vars="unit_type",
+                 value_vars = [agent_id for agent_id in pfs.keys()]
+             ).rename(columns={"variable": "agent_id", "value": "num_units"})
+            )
 
     # Convert unit capacity data into a dataframe
-    unit_caps = pd.DataFrame.from_dict(unit_caps, orient="index").reset_index().rename(columns={"index": "unit_type", 0: "capacity"})
+    unit_caps = (pd.DataFrame.from_dict(unit_caps, orient="index")
+                   .reset_index()
+                   .rename(columns={"index": "unit_type", 0: "capacity"})
+                )
 
     # Join the unit capacity data into the portfolio dataframe by unit type
     caps_table = pf_df.merge(unit_caps, on="unit_type", how="left")
 
     # Create a column of total capacity by agent
-    caps_table["total_capacity"] = caps_table["num_units"] * caps_table["capacity"]
+    caps_table["total_capacity"] = (caps_table["num_units"] 
+                                    * caps_table["capacity"])
 
     # Pivot caps_table to show installed capacity by unit type and agent
-    caps_table = pd.pivot_table(caps_table, values="total_capacity", index="unit_type", columns="agent_id")
+    caps_table = pd.pivot_table(
+                     caps_table,
+                     values="total_capacity",
+                     index="unit_type",
+                     columns="agent_id"
+                 )
 
     # Add a column of totals by unit type.
-    caps_table["Total capacity (MWe)"] = caps_table[[agent_id for agent_id in pfs.keys()]].sum(axis=1)
+    caps_table["Total capacity (MWe)"] = (caps_table[
+                                              [agent_id for agent_id in pfs.keys()]
+                                          ].sum(axis=1)
+                                         )
 
     print("\nTotal installed capacity by unit type:")
     print(caps_table)
