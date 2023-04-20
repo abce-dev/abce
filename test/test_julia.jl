@@ -57,8 +57,7 @@ end
 function get_data_df(filename)
     fdata = CSV.read(
                 joinpath(
-                    ENV["ABCE_DIR"],
-                    "test",
+                    @__DIR__,
                     "test_data",
                     filename
                 ),
@@ -70,7 +69,8 @@ end
 
 
 settings_file = joinpath(
-                    ENV["ABCE_DIR"],
+                    @__DIR__,
+                    "..",
                     "settings.yml"
                 )
 
@@ -78,8 +78,7 @@ settings_file = joinpath(
 input_shadow_prices = Matrix(
                           CSV.read(
                               joinpath(
-                                  ENV["ABCE_DIR"],
-                                  "test",
+                                  @__DIR__,
                                   "test_data",
                                   "raw_shadow_prices.csv"
                               ),
