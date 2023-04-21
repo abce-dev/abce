@@ -40,5 +40,6 @@ jobs:
     - name: ksjdhf
       run: |
         cd $GITHUB_WORKSPACE
+        ls *
         bash test/run_julia_tests.sh
 
