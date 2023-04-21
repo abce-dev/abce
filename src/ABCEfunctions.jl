@@ -36,7 +36,7 @@ hours_per_year = 8760   # Number of hours in a year (without final 0.25 day)
 
 
 #####
-# Setup functions
+# Agent turn setup functions
 #####
 function get_CL_args()
     s = ArgParseSettings()
@@ -90,6 +90,33 @@ function set_verbosity(vlevel)
 end
 
 
+function set_up_local_paths(settings, abce_abs_path)
+    settings["file_paths"]["ABCE_abs_path"] = abce_abs_path
+    if settings["simulation"]["annual_dispatch_engine"] == "ALEAF"
+        try
+            settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
+        catch LoadError
+            println("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
+        end
+    else
+        settings["file_paths"]["ALEAF_abs_path"] = "NULL_PATH"
+    end
+
+    return settings
+
+end
+
+
+function set_forecast_period(unit_specs, num_lags)
+    transform!(unit_specs, [:construction_duration, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
+    max_horizon = convert(Int64, ceil(maximum(unit_specs[!, :full_life]) + num_lags))
+    return max_horizon
+end
+
+
+#####
+# Database interaction functions
+#####
 function load_db(db_file)
     try
         db = SQLite.DB(db_file)
@@ -111,71 +138,6 @@ function get_agent_params(db, agent_id)
         @error e
         exit()
     end
-end
-
-
-function set_up_local_paths(settings, abce_abs_path)
-    settings["file_paths"]["ABCE_abs_path"] = abce_abs_path
-    if settings["simulation"]["annual_dispatch_engine"] == "ALEAF"
-        try
-            settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]            
-        catch LoadError
-            println("The environment variable ALEAF_abs_path does not appear to be set. Please make sure it points to the correct directory.")
-        end
-    else
-        settings["file_paths"]["ALEAF_abs_path"] = "NULL_PATH"
-    end
-
-    return settings
-
-end
-
-
-function load_unit_type_data(unit_data_file)
-    unit_data = CSV.read(unit_data_file, DataFrame)
-    num_types = size(unit_data)[1]
-    return unit_data, num_types
-end
-
-
-function set_forecast_period(unit_specs, num_lags)
-    transform!(unit_specs, [:construction_duration, :unit_life] => ((lead_time, unit_life) -> lead_time + unit_life) => :full_life)
-    max_horizon = convert(Int64, ceil(maximum(unit_specs[!, :full_life]) + num_lags))
-    return max_horizon
-end
-
-
-function allocate_fuel_costs(unit_data, fuel_costs)
-    num_units = size(unit_data)[1]
-    unit_data[!, :uc_fuel] = zeros(num_units)
-    for i = 1:num_units
-        unit_data[i, :uc_fuel] = fuel_costs[fuel_costs[!, :fuel_type] == unit_data[i, :fuel_type], :cost_per_mmbtu]
-    end
-    return unit_data
-end
-
-
-
-
-#####
-# Database interaction functions
-#####
-
-
-function get_table(db, table_name)
-    command = string("SELECT * FROM ", string(table_name))
-    df = DBInterface.execute(db, command) |> DataFrame
-    return df
-end
-
-
-function get_WIP_projects_list(db, pd, agent_id)
-    # Get a list of all WIP (non-complete, non-cancelled) projects for the given agent
-    # Time-period convention:
-    #   <status>_pd == "the first period where this asset has status <status>"
-    SQL_get_proj = SQLite.Stmt(db, string("SELECT asset_id FROM assets WHERE agent_id = ", agent_id, " AND completion_pd > ", pd, " AND cancellation_pd > ", pd))
-    project_list = DBInterface.execute(SQL_get_proj) |> DataFrame
-    return project_list
 end
 
 
@@ -206,6 +168,9 @@ function get_grouped_current_assets(db, pd, agent_id)
 end
 
 
+#####
+# Preprocessing
+#####
 function extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
     mode = settings["demand"]["demand_projection_mode"]
     if mode == "flat"
@@ -505,19 +470,7 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
 end
 
 
-function check_valid_vector_mode(mode)
-    if !(mode in ["new_xtr", "retirement"])
-        # Invalid mode supplied; alert the user and exit
-        @error string("Invalid decision vector type specified: ", mode)
-        @error "Please ensure that 'mode' is set to either 'new_xtr' or 'retirement'."
-        exit()
-    end
-end
-
-
 function create_FS_dict(data, fc_pd, num_lags; mode="new_xtr")
-    check_valid_vector_mode(mode)
-
     fs_dict = Dict()
     num_alts = size(data)[1]
     for i = 1:num_alts
@@ -695,8 +648,6 @@ If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
   eligible to generate.
 """
 function forecast_unit_revenue_and_gen(settings, unit_type_data, unit_fs, db, current_pd, lag, long_econ_results; mode="new_xtr", orig_ret_pd)
-    check_valid_vector_mode(mode)
-
     # Compute the original retirement period
     # Minimum of ret_pd or size of the unit FS (i.e. the forecast period)
     if orig_ret_pd == nothing
@@ -765,8 +716,6 @@ Compute the final projected revenue stream for the current unit type, adjusting
 unit availability if it is a VRE type.
 """
 function compute_total_revenue(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_revs; mode, orig_ret_pd=9999)
-    check_valid_vector_mode(mode)
-
     # Helpful short variables
     unit_d_x = convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
@@ -854,8 +803,6 @@ end
 Calculate the unit's total generation for the period, in kWh.
 """
 function compute_total_generation(settings, current_pd, unit_type_data, unit_fs, lag, long_econ_results, wtd_hist_gens; mode, orig_ret_pd)
-    check_valid_vector_mode(mode)
-
     # Helpful short variable names
     unit_d_x = convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
@@ -946,8 +893,6 @@ Forecast cost line items for the current unit:
  - FOM
 """
 function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", orig_ret_pd)
-    check_valid_vector_mode(mode)
-
     # Helpful short variable names
     unit_d_x = convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
@@ -1084,30 +1029,9 @@ function compute_alternative_NPV(unit_fs, agent_params)
 
 end
 
-
-function set_baseline_future_years(db, agent_id)
-    all_unit_manifest = DBInterface.execute(db, "SELECT *, COUNT(asset_id) FROM assets GROUP BY unit_type, completion_pd, retirement_pd")
-    owned_unit_manifest = filter(:agent_id => x -> x == agent_id, all_unit_manifest)
-
-    num_forecast_years = 10
-
-    all_extant_units = Dict()
-    owned_extant_units = Dict()
-
-    for i = 1:num_forecast_years
-        # Determine the total number of extant units by type during this year
-        aeudf = groupby(filter([:completion_pd, :retirement_pd] => (c, r) -> (c <= i) && (r > i), unit_manifest), :unit_type)
-        all_extant_units[i] = combine(aeudf, Symbol("COUNT(asset_id)") => sum)
-
-        # Determine the number of owned extant (operational) units by type during this year
-        oeudf = groupby(filter([:completion_pd, :retirement_pd] => (c, r) -> (c <= i) && (r > i), unit_manifest), :unit_type)
-        owned_extant_units[i] = combine(oeudf, Symbol("COUNT(asset_id)") => sum)
-    end
-
-end
-
-
-### JuMP optimization model initialization
+#####
+# JuMP optimization model initialization
+#####
 function create_model_with_optimizer(settings)
     # Determine which solver to use, based on the settings file
     solver = lowercase(settings["simulation"]["solver"])
