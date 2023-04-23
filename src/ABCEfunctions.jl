@@ -1088,13 +1088,6 @@ function compute_total_revenue(
         rev_end = min(orig_ret_pd, size(unit_fs)[1] - 1)
     end
 
-    # If the project is a C2N project, use the AdvancedNuclear results
-    # Otherwise, use the unit's own results
-    type_filter = unit_type_data[:unit_type]
-    if occursin("C2N", unit_type_data[:unit_type])
-        type_filter = "AdvancedNuclear"
-    end
-
     # Compute final projected revenue series
     agg_econ_results = combine(
         groupby(long_econ_results, [:y, :unit_type]),
@@ -1107,7 +1100,7 @@ function compute_total_revenue(
         hist_wt = 0
     else
         try
-            hist_rev = wtd_hist_revs[1, type_filter]
+            hist_rev = wtd_hist_revs[1, unit_type_data[:unit_type]]
             hist_wt = settings["dispatch"]["hist_wt"]
         catch
             hist_rev = 0
@@ -1118,7 +1111,7 @@ function compute_total_revenue(
     for y = rev_start:rev_end
         row = filter(
             [:y, :unit_type] =>
-                ((t, unit_type) -> (t == y) && (unit_type == type_filter)),
+                ((t, unit_type) -> (t == y) && (unit_type == unit_type_data[:unit_type])),
             agg_econ_results,
         )
 
@@ -1218,11 +1211,9 @@ function compute_total_generation(
         gen_end = min(orig_ret_pd, size(unit_fs)[1])
     end
 
-    # If the project is a C2N project, use the AdvancedNuclear results
-    # Otherwise, use the unit's own results
-    type_filter = unit_type_data[:unit_type]
+    # If the project is a C2N project, initialize a column to record lost coal
+    #   generation
     if occursin("C2N", unit_type_data[:unit_type])
-        type_filter = "AdvancedNuclear"
         unit_fs[!, :coal_gen] .= 0.0
     end
 
@@ -1243,7 +1234,7 @@ function compute_total_generation(
         hist_wt = 0
     else
         try
-            hist_gen = wtd_hist_gens[1, type_filter]
+            hist_gen = wtd_hist_gens[1, unit_type_data[:unit_type]]
             hist_wt = settings["dispatch"]["hist_wt"]
         catch
             hist_gen = 0
@@ -1255,9 +1246,10 @@ function compute_total_generation(
     for y = gen_start:gen_end
         row = filter(
             [:y, :unit_type] =>
-                (t, unit_type) -> (t == y) && (unit_type == type_filter),
+                (t, unit_type) -> (t == y) && (unit_type == unit_type_data[:unit_type]),
             agg_econ_results,
         )
+
         if size(row)[1] != 0
             if hist_wt == 0
                 wt = 0
