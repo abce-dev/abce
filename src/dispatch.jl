@@ -16,7 +16,7 @@ function execute_dispatch_economic_projection(
     fc_pd,
     total_demand,
     unit_specs,
-    all_year_system_portfolios,
+    system_portfolios,
 )
     @debug string(
         "Running the dispatch simulation for ",
@@ -34,11 +34,12 @@ function execute_dispatch_economic_projection(
         settings["dispatch"]["num_repdays"],
     )
 
+    system_portfolios = fill_portfolios_missing_units(system_portfolios, unit_specs)
+
     all_gc_results, all_price_results = handle_annual_dispatch(
         settings,
         current_pd,
-        fc_pd,
-        all_year_system_portfolios,
+        system_portfolios,
         total_demand,
         ts_data,
         unit_specs,
@@ -48,7 +49,7 @@ function execute_dispatch_economic_projection(
         all_gc_results,
         all_price_results,
         ts_data[:repdays_data],
-        all_year_system_portfolios,
+        system_portfolios,
         unit_specs,
         current_pd,
         fc_pd,
@@ -89,7 +90,22 @@ function get_system_portfolios(db, settings, start_year, unit_specs)
     end
 
     return system_portfolios
+end
 
+
+function fill_portfolios_missing_units(system_portfolios, unit_specs)
+    # Ensure that at least 1 unit of every type in unit_specs is represented in
+    #   every year of the system portfolio, by adding 1 instance of missing
+    #   unit types.
+    for y=minimum(keys(system_portfolios)):maximum(keys(system_portfolios))
+        for unit_type in unit_specs[!, :unit_type]
+            if !in(unit_type, system_portfolios[y][!, :unit_type])
+                push!(system_portfolios[y], (unit_type, 1))
+            end
+        end
+    end
+
+    return system_portfolios
 end
 
 
