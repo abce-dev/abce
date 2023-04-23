@@ -136,6 +136,7 @@ function validate_project_data(db, settings, unit_specs, C2N_specs)
     end
 
     return unit_specs
+
 end
 
 
