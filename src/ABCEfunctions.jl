@@ -110,6 +110,26 @@ function set_up_local_paths(settings, abce_abs_path)
 end
 
 
+function validate_project_data(db, settings, unit_specs, C2N_specs)
+    for unit_type in unit_specs[!, :unit_type]
+        if occursin("C2N", unit_type)
+            unit_type_data = filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
+            # Dummy data for testing
+            lag = 0
+            fc_pd = 70
+            current_pd = 0
+            capex_tl, activity_schedule = project_C2N_capex(db, settings, unit_type_data, lag, fc_pd, current_pd, C2N_specs)
+            println(capex_tl)
+            println(size(capex_tl)[1])
+            unit_specs[(unit_specs.unit_type .== unit_type), :construction_duration] .= size(capex_tl)[1]
+        end
+    end
+
+    return unit_specs
+
+end
+
+
 function set_forecast_period(unit_specs, num_lags)
     transform!(
         unit_specs,
