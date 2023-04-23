@@ -58,12 +58,17 @@ function execute_dispatch_economic_projection(
 end
 
 
-function get_system_portfolios(db, start_year, fc_pd, unit_specs)
+function get_system_portfolios(db, settings, start_year, unit_specs)
     # Set up portfolio dictionaries
     @debug "Setting up dispatch portfolios..."
     system_portfolios = Dict()
 
-    for y = start_year:(start_year + fc_pd)
+    end_year = (start_year
+                + convert(Int64, settings["dispatch"]["num_dispatch_years"])
+                - 1
+               )
+
+    for y = start_year:end_year
         # Retrieve annual system portfolios
         system_portfolio =
             DBInterface.execute(
@@ -101,7 +106,7 @@ function handle_annual_dispatch(
     all_prices = set_up_prices_df()
 
     # Run the annual dispatch for the user-specified number of dispatch years
-    for y = current_pd:(current_pd + settings["dispatch"]["num_dispatch_years"])
+    for y = current_pd:current_pd + settings["dispatch"]["num_dispatch_years"] - 1
         @debug "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Select the current year's expected portfolio
@@ -668,8 +673,8 @@ function combine_and_extend_year_portfolios(system_portfolios, forecast_end_pd)
 
     # Extend dispatch results by assuming no change after last dispatch year
     last_dispatch_year = maximum([key for key in keys(system_portfolios)])
-    for i = (last_dispatch_year + 1):forecast_end_pd
-        df = system_portfolios[length(keys(system_portfolios))]
+    for i = last_dispatch_year+1:forecast_end_pd
+        df = system_portfolios[last_dispatch_year]
         df[!, :y] .= i
         append!(all_year_portfolios, df)
     end

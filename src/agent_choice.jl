@@ -120,8 +120,8 @@ function run_agent_choice()
     #   available data
     system_portfolios = Dispatch.get_system_portfolios(
         db,
+        settings,
         CLI_args["current_pd"],
-        fc_pd,
         unit_specs,
     )
 

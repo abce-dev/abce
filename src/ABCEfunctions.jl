@@ -119,8 +119,6 @@ function validate_project_data(db, settings, unit_specs, C2N_specs)
             fc_pd = 70
             current_pd = 0
             capex_tl, activity_schedule = project_C2N_capex(db, settings, unit_type_data, lag, fc_pd, current_pd, C2N_specs)
-            println(capex_tl)
-            println(size(capex_tl)[1])
             unit_specs[(unit_specs.unit_type .== unit_type), :construction_duration] .= size(capex_tl)[1]
         end
     end
@@ -361,7 +359,7 @@ function get_net_demand(
     pd,
     fc_pd,
     demand_forecast,
-    all_year_system_portfolios,
+    system_portfolios,
     unit_specs,
 )
     # Calculate the amount of forecasted net demand in future periods
@@ -371,9 +369,9 @@ function get_net_demand(
 
     total_caps = DataFrame(period = Int64[], total_eff_cap = Float64[])
 
-    for i = pd:(pd + fc_pd - 1)
+    for i = pd:pd+maximum(keys(system_portfolios))
         year_portfolio = innerjoin(
-            all_year_system_portfolios[i],
+            system_portfolios[i],
             unit_specs,
             on = :unit_type,
         )
@@ -650,6 +648,15 @@ function populate_PA_pro_formas(
 
         FCF_NPV, PA_fs_dict[uid] =
             compute_alternative_NPV(PA_fs_dict[uid], agent_params)
+        file_name = joinpath(
+            "tmp",
+            string(
+                current_PA[:unit_type], "_",
+                current_PA[:project_type], "_lag",
+                current_PA[:lag], "_fs.csv"
+            )
+        )
+        CSV.write(file_name, PA_fs_dict[uid])
 
         # Save the NPV result
         filter(:uid => x -> x == uid, PA_uids, view = true)[1, :NPV] = FCF_NPV
