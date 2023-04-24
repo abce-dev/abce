@@ -1743,7 +1743,6 @@ function set_up_model(
     #   excluding assets reserved for C2N conversion
     retireable_asset_counts =
         filter([:C2N_reserved] => ((reserved) -> reserved == 0), asset_counts)
-    k = size(retireable_asset_counts)[1]
 
     # Shortened name for the number of lag periods to consider
     #   1 is added, as the user-set value only specifies future periods,
@@ -1754,8 +1753,8 @@ function set_up_model(
     # This matrix has one long row for each retiring-asset category,
     #   with 1's in each element where the corresponding element of u[] is
     #   one of these units
-    ret_summation_matrix = zeros(k, size(PA_uids)[1])
-    for i = 1:k
+    ret_summation_matrix = zeros(size(retireable_asset_counts)[1], size(PA_uids)[1])
+    for i = 1:size(retireable_asset_counts)[1]
         for j = 1:size(PA_uids)[1]
             if (
                 (PA_uids[j, :project_type] == "retirement") &
@@ -1770,6 +1769,7 @@ function set_up_model(
             )
                 ret_summation_matrix[i, j] = 1
             end
+
         end
     end
 
@@ -1781,6 +1781,48 @@ function set_up_model(
             sum(ret_summation_matrix[i, :] .* u) <=
             retireable_asset_counts[i, :count]
         )
+    end
+
+    # Set up the coal retirements of matrix, to ensure that the total "pool"
+    #   of coal plants available for retirement is respected across the entire
+    #   visible horizon
+    coal_retirements = zeros(size(PA_uids)[1], 10)
+    planned_coal_units_operating = DataFrame(pd = Int64[], num_units = Int64[])
+
+    for i = 1:size(PA_uids)[1]
+        # Mark all of the direct coal retirements in the matrix
+        if (PA_uids[i, :project_type] == "retirement") && (PA_uids[i, :unit_type] == "coal")
+            coal_retirements[i, PA_uids[i, :lag]+1] = 1
+        end
+
+        # Mark all of the C2N-forced coal retirements in the matrix
+        if occursin("C2N", PA_uids[i, :unit_type])
+            unit_type_data = filter(:unit_type => ((ut) -> ut == PA_uids[i, :unit_type]), unit_specs)
+            target_coal_ret_pd = PA_uids[i, :lag] + unit_type_data[1, :cpp_ret_lead] + 1
+            if target_coal_ret_pd <= size(coal_retirements)[2]
+                coal_retirements[i, target_coal_ret_pd] = 1
+            end
+        end
+
+    end
+
+    for i=1:size(coal_retirements)[2]
+        num_units = 0
+
+        # Get number of planned coal units operating during this period
+        coal_ops = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE unit_type = 'coal' AND C2N_reserved = 0 AND agent_id = $agent_id AND completion_pd <= $i AND retirement_pd >= $i AND cancellation_pd >= $i GROUP BY unit_type") |> DataFrame
+        if size(coal_ops)[1] > 0
+            num_units = coal_ops[1, "COUNT(unit_type)"]
+        end
+
+        # Record the number of operating coal units in this period
+        push!(planned_coal_units_operating, (i, num_units))
+    end
+
+    # Constrain rolling total of coal retirements
+    for i=1:size(coal_retirements)[2]
+        @constraint(m, sum(transpose(u) * coal_retirements[:, i]) <= planned_coal_units_operating[i, :num_units])
+        @constraint(m, sum(sum(u .* coal_retirements[j, i]) for j = 1:i) <= planned_coal_units_operating[1, :num_units])
     end
 
     # Create the objective function 
@@ -2041,7 +2083,7 @@ function record_asset_retirements(
             ) |> DataFrame
 
         # Set the number of units to execute
-        units_to_execute = unit_type_specs["num_cpp_rets"]
+        units_to_execute = unit_type_specs["num_cpp_rets"] * result[:units_to_execute]
 
     end
 
