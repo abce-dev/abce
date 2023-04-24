@@ -267,6 +267,8 @@ PWR_C2N0_single:
   occ_stdev: 0
   const_dur_stdev: 0
   unit_life: 60
+  num_cpp_rets: 1
+  cpp_ret_lead: 2
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"
@@ -301,6 +303,8 @@ PWR_C2N1_single:
   occ_stdev: 0
   const_dur_stdev: 0
   unit_life: 60
+  num_cpp_rets: 1
+  cpp_ret_lead: 2
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"
