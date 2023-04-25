@@ -568,6 +568,13 @@ def initialize_unit_specs(settings):
     return unit_specs
 
 
+def update_ALEAF_data(ALEAF_data, settings):
+    # Update ALEAF_data with settings data
+    ALEAF_data["ALEAF_Master_LC_GEP"]["scenario_settings"]["scenario_name"] = settings["simulation"]["scenario_name"]
+
+    return ALEAF_data
+
+
 def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, db, current_pd):
     # Process the system portfolio
     system_portfolio = process_system_portfolio(db, current_pd)
@@ -577,6 +584,9 @@ def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, db, current_pd):
 
     # Process the unit_specs data into A-LEAF-ready dataframes
     gen_technology, gen, ATB_settings = create_ALEAF_unit_dataframes(unit_specs)
+
+    # Update ALEAF data
+    ALEAF_data = update_ALEAF_data(ALEAF_data, settings)
 
     # Create the ALEAF_Master.xlsx file
     create_ALEAF_Master_file(ALEAF_data, settings)
