@@ -1,12 +1,12 @@
 simulation:
-  scenario_name: "ABCE_ERCOT"
+  scenario_name: "ABCE_ERCOT_PWRC2N"
   solver: "CPLEX"
   num_steps: 10
-  annual_dispatch_engine: ALEAF
+  annual_dispatch_engine: none
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 76000
+  peak_demand: 80000
   policies:
     CTAX:
       enabled: True
@@ -15,17 +15,21 @@ scenario:
       enabled: True
       eligibility:
         unit_type:
-          - ConventionalNuclear
-          - Wind
-          - Solar
+          - conventional_nuclear
+          - wind
+          - solar
       qty: 15.0   # $/MWh
   allowed_xtr_types:
     - wind
     - solar
     - ngcc
     - ngct
-    - conventional_nuclear
-    - advanced_nuclear
+    - PWR_C2N0_single
+    - PWR_C2N1_single
+    - HTGR_C2N0_single
+    - HTGR_C2N2_single
+    - SFR_C2N0_single
+    - SFR_C2N3_single
 
 
 #######################################################
