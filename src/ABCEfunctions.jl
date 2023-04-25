@@ -381,6 +381,7 @@ function get_net_demand(
                 ((num_units, cap, CF) -> num_units .* cap .* CF) =>
                     :effective_capacity,
         )
+
         total_year_cap = sum(year_portfolio[!, :effective_capacity])
         push!(total_caps, [i, total_year_cap])
     end
@@ -1809,7 +1810,7 @@ function set_up_model(
     # Constrain rolling total of coal retirements
     for i=1:size(coal_retirements)[2]
         @constraint(m, sum(transpose(u) * coal_retirements[:, i]) <= planned_coal_units_operating[i, :num_units])
-        @constraint(m, sum(sum(u .* coal_retirements[j, i]) for j = 1:i) <= planned_coal_units_operating[1, :num_units])
+        @constraint(m, sum(sum(transpose(u) * coal_retirements[:, j]) for j = 1:i) <= planned_coal_units_operating[1, :num_units])
     end
 
     # Create the objective function 
