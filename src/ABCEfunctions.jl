@@ -26,14 +26,6 @@ using .Dispatch
 include("./C2N_projects.jl")
 using .C2N
 
-#####
-# Constants
-#####
-MW2kW = 1000            # Conversion factor from MW to kW
-MMBTU2BTU = 1000000     # Conversion factor from MMBTU to BTu
-kW2W = 1000             # Conversion factor from kW to W
-hours_per_year = 8760   # Number of hours in a year (without final 0.25 day)
-
 
 #####
 # Agent turn setup functions
@@ -446,7 +438,7 @@ function populate_PA_pro_formas(settings, PA_uids, PA_fs_dict, unit_specs, fc_pd
             orig_ret_pd = current_PA[:ret_pd])
 
         # Forecast unit operating costs: VOM, fuel cost, and FOM
-        forecast_unit_op_costs(unit_type_data, PA_fs_dict[uid], current_PA[:lag], mode=current_PA[:project_type], orig_ret_pd=current_PA[:ret_pd])
+        forecast_unit_op_costs(settings, unit_type_data, PA_fs_dict[uid], current_PA[:lag], mode=current_PA[:project_type], orig_ret_pd=current_PA[:ret_pd])
 
         # Propagate the accounting logic flow
         propagate_accounting_line_items(PA_fs_dict[uid], db)
@@ -526,7 +518,7 @@ function generate_capex_profile(db, settings, current_pd, unit_type_data, lag, f
     else
         # Uniformly distribute projected total project costs over the construction
         #   period
-        capex_per_pd = unit_type_data[:overnight_capital_cost] * unit_type_data[:capacity] * MW2kW / unit_type_data[:construction_duration]
+        capex_per_pd = unit_type_data[:overnight_capital_cost] * unit_type_data[:capacity] * settings["constants"]["MW2kW"] / unit_type_data[:construction_duration]
         capex = ones(convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))) .* capex_per_pd
     end
 
@@ -892,7 +884,7 @@ Forecast cost line items for the current unit:
  - VOM
  - FOM
 """
-function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", orig_ret_pd)
+function forecast_unit_op_costs(settings, unit_type_data, unit_fs, lag; mode="new_xtr", orig_ret_pd)
     # Helpful short variable names
     unit_d_x = convert(Int64, ceil(round(unit_type_data[:construction_duration], digits=3)))
     unit_op_life = unit_type_data[:unit_life]
@@ -929,10 +921,10 @@ function forecast_unit_op_costs(unit_type_data, unit_fs, lag; mode="new_xtr", or
     post_zeros = zeros(size(unit_fs)[1] - size(pre_zeros)[1] - size(op_ones)[1])
     unit_fs[!, :FOM_Cost] = vcat(pre_zeros, op_ones, post_zeros)
 
-    unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[:FOM] .* unit_type_data[:capacity] .* MW2kW
+    unit_fs[!, :FOM_Cost] .= unit_fs[!, :FOM_Cost] .* unit_type_data[:FOM] .* unit_type_data[:capacity] .* settings["constants"]["MW2kW"]
     if occursin("C2N", unit_type_data[:unit_type])
         for y = (lag+1+cpp_ret_lead):(lag+1+cpp_ret_lead+unit_op_life)
-            unit_fs[y, :FOM_Cost] = unit_fs[y, :FOM_Cost] - (unit_type_data["num_cpp_rets"] * 632 * MW2kW * 39.70)
+            unit_fs[y, :FOM_Cost] = unit_fs[y, :FOM_Cost] - (unit_type_data["num_cpp_rets"] * 632 * settings["constants"]["MW2kW"] * 39.70)
         end
     end
 
@@ -1085,7 +1077,7 @@ function set_up_model(settings, PA_uids, PA_fs_dict, total_demand, asset_counts,
     marg_eff_cap = zeros(num_alternatives, num_time_periods)
     for i = 1:size(PA_uids)[1]
         for j = 1:num_time_periods
-            marg_gen[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :gen] / MW2kW    # in kWh
+            marg_gen[i, j] = PA_fs_dict[PA_uids[i, :uid]][j, :gen] / settings["constants"]["MW2kW"]    # in kWh
             # Convert total anticipated marginal generation to an effective
             #   nameplate capacity and save to the appropriate entry in the
             #   marginal generation array
@@ -1289,7 +1281,7 @@ function record_new_construction_projects(settings, result, unit_data, db, curre
     unit_type_specs = filter(:unit_type => x -> x == result[:unit_type], unit_data)
 
     # Set default initial values
-    cum_occ = unit_type_specs[1, :overnight_capital_cost] * unit_type_specs[1, :capacity] * MW2kW
+    cum_occ = unit_type_specs[1, :overnight_capital_cost] * unit_type_specs[1, :capacity] * settings["constants"]["MW2kW"]
     rcec = cum_occ
     cum_construction_exp = 0
     cum_construction_duration = unit_type_specs[1, :construction_duration]
@@ -1300,7 +1292,7 @@ function record_new_construction_projects(settings, result, unit_data, db, curre
     retirement_pd = current_pd + unit_type_specs[1, :construction_duration] + unit_type_specs[1, :unit_life]
     total_capex = 0
     cap_pmt = 0
-    anpe = unit_type_specs[1, :overnight_capital_cost] * unit_type_specs[1, :capacity] * 1000 / unit_type_specs[1, :construction_duration]
+    anpe = unit_type_specs[1, :overnight_capital_cost] * unit_type_specs[1, :capacity] * settings["constants"]["MW2kW"] / unit_type_specs[1, :construction_duration]
     C2N_reserved = 0
 
     # Add a number of project instances equal to the 'units_to_execute'
@@ -1439,7 +1431,7 @@ function get_agent_portfolio_forecast(agent_id, db, current_pd, fc_pd)
 end
 
 
-function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results)
+function update_agent_financial_statement(settings, agent_id, db, unit_specs, current_pd, fc_pd, long_econ_results)
     # Retrieve horizontally-abbreviated dataframes
     short_econ_results = select(long_econ_results, [:unit_type, :y, :d, :h, :gen, :annualized_rev_per_unit, :annualized_VOM_per_unit, :annualized_FC_per_unit, :annualized_policy_adj_per_unit])
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])
@@ -1492,7 +1484,7 @@ function update_agent_financial_statement(agent_id, db, unit_specs, current_pd, 
     # Fill in total FOM
     # Inner join the FOM table with the agent portfolios
     FOM_df = innerjoin(agent_portfolio_forecast, short_unit_specs, on = :unit_type)
-    transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* 1000) => :total_FOM)
+    transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* settings["constants"]["MW2kW"]) => :total_FOM)
     FOM_df = select(combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols=false), [:y, :total_FOM])
     rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
 
