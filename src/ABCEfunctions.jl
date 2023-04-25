@@ -93,13 +93,11 @@ function set_up_local_paths(settings, abce_abs_path)
         try
             settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]
         catch LoadError
-            println(
-                string(
-                    "The environment variable ALEAF_abs_path does not appear ",
-                    "to be set. Please make sure it points to the correct ",
-                    "directory.",
-                ),
-            )
+            @error string(
+                       "The environment variable ALEAF_abs_path does not ",
+                       "appear to be set. Please make sure it points to ",
+                       "the correct directory."
+                   )
         end
     else
         settings["file_paths"]["ALEAF_abs_path"] = "NULL_PATH"
@@ -113,12 +111,23 @@ end
 function validate_project_data(db, settings, unit_specs, C2N_specs)
     for unit_type in unit_specs[!, :unit_type]
         if occursin("C2N", unit_type)
-            unit_type_data = filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
+            unit_type_data = filter(
+                                 :unit_type => x -> x == unit_type,
+                                 unit_specs
+                             )[1, :]
             # Dummy data for testing
             lag = 0
             fc_pd = 70
             current_pd = 0
-            capex_tl, activity_schedule = project_C2N_capex(db, settings, unit_type_data, lag, fc_pd, current_pd, C2N_specs)
+            capex_tl, activity_schedule = project_C2N_capex(
+                                              db,
+                                              settings,
+                                              unit_type_data,
+                                              lag,
+                                              fc_pd,
+                                              current_pd,
+                                              C2N_specs
+                                          )
             unit_specs[(unit_specs.unit_type .== unit_type), :construction_duration] .= size(capex_tl)[1]
         end
     end
@@ -129,6 +138,10 @@ end
 
 
 function set_forecast_period(unit_specs, num_lags)
+    # Compute forecast period as the maximum possible project horizon, based
+    #   on the sum of maximum lead time, maximum construction duration, 
+    #   and maximum unit life
+
     transform!(
         unit_specs,
         [:construction_duration, :unit_life] =>
@@ -136,6 +149,7 @@ function set_forecast_period(unit_specs, num_lags)
     )
     max_horizon =
         convert(Int64, ceil(maximum(unit_specs[!, :full_life]) + num_lags))
+
     return max_horizon
 end
 
@@ -157,8 +171,7 @@ end
 
 function get_agent_params(db, agent_id)
     try
-        command =
-            string("SELECT * FROM agent_params WHERE agent_id = ", agent_id)
+        command = "SELECT * FROM agent_params WHERE agent_id = $agent_id"
         df = DBInterface.execute(db, command) |> DataFrame
     catch e
         @error "Could not get agent parameters from file:"
@@ -280,35 +293,20 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     # If there isn't enough demand history to fulfill the desired projection
     #   window, take a weighted average of the computed beta with the known
     #   historical beta
-    beta[2] = (
-        (
-            beta[2] * size(y)[1] +
-            settings["demand"]["historical_demand_growth_rate"] *
-            (demand_projection_window - size(y)[1])
-        ) / demand_projection_window
-    )
+    beta[2] = ((beta[2] * size(y)[1] 
+                + settings["demand"]["historical_demand_growth_rate"] 
+                  * (demand_projection_window - size(y)[1])
+               ) / demand_projection_window
+              )
 
     # Project future demand
-    known_pd = size(visible_demand)[1]
-    proj_horiz = fc_pd - known_pd
+    proj_horiz = fc_pd - size(visible_demand)[1]
     x_proj = hcat(
-        ones(proj_horiz),
-        [
-            i for i =
-                (known_pd + size(demand_history)[1] + 1):(fc_pd + size(
-                    demand_history,
-                )[1])
-        ],
-    )
+                 ones(proj_horiz),
+                 [i for i=size(visible_demand)[1]+size(demand_history)[1]+1:fc_pd+size(demand_history)[1]]
+             )
     y_log_proj = x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2]
     y_proj = exp.(x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2])
-
-    all_proj = DataFrame(
-        intercept = x_proj[:, 1],
-        x_val = x_proj[:, 2],
-        y_log_proj = y_log_proj,
-        y_val = y_proj,
-    )
 
     # Concatenate input and projected demand data into a single DataFrame
     demand = DataFrame(demand = vcat(visible_demand[!, :demand], y_proj))
@@ -365,9 +363,13 @@ function get_net_demand(
     # Calculate the amount of forecasted net demand in future periods
     installed_cap_forecast =
         DataFrame(period = Int64[], derated_capacity = Float64[])
+
     vals = (pd, pd)
 
-    total_caps = DataFrame(period = Int64[], total_eff_cap = Float64[])
+    total_caps = DataFrame(
+                     period = Int64[],
+                     total_eff_cap = Float64[]
+                 )
 
     for i = pd:pd+maximum(keys(system_portfolios))
         year_portfolio = innerjoin(
@@ -506,7 +508,10 @@ function create_PA_unique_ids(settings, unit_specs, asset_counts)
         end
 
         for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
-            push!(PA_uids, [unit_type project_type lag nothing uid NPV allowed])
+            push!(
+                PA_uids,
+                [unit_type project_type lag nothing uid NPV allowed]
+            )
             uid += 1
         end
     end
@@ -519,10 +524,7 @@ function create_PA_unique_ids(settings, unit_specs, asset_counts)
             [:unit_type, :C2N_reserved] =>
                 ((x, reserved) -> (x == unit_type) && (reserved == 0)),
             asset_counts,
-        )[
-            !,
-            :retirement_pd,
-        ]
+        )[!, :retirement_pd,]
 
         for ret_pd in ret_pds
             for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
@@ -704,26 +706,11 @@ end
 
 
 """
-    generate_xtr_cost_profile(unit_type_data, lag)
+    generate_capex_profile(unit_type_data, lag)
 
 Creates a uniform expenditure profile for a potential construction project,
 and appends appropriate numbers of leading and lagging zeros (no construction 
 expenditures outside the construction period).
-
-Arguments:
-  unit_type_data: the appropriate unit specification data row for the current
-    alternative's unit type, selected from the set of all unit specifications
-    (called 'unit_data' in the main file)
-  lag (int): the amount of delay before the start of construction for the 
-    current project alternative
-  fc_pd: total forecast period for all unit types. Defined by the longest 
-    lag + construction duration + economic life of any available project
-    alternative.
-
-Returns:
-  capex_column: the construction expenditure profile of the project, padded
-    with zeros to indicate no construction costs outside the construction
-    period.
 """
 function generate_capex_profile(
     db,
