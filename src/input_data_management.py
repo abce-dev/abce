@@ -512,8 +512,8 @@ def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
                     is_eligible = True
                 else:
                     # Check for any other eligibility criteria
-                    for criterion, value in policy_specs["eligibility"].keys():
-                        if unit_type_data[criterion] == value:
+                    for criterion, value in policy_specs["eligibility"].items():
+                        if criterion != "unit_type" and unit_type_data[criterion] == value:
                             is_eligible = True
 
                 if is_eligible:
