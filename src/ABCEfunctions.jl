@@ -587,6 +587,7 @@ function populate_PA_pro_formas(
         if current_PA[:project_type] == "new_xtr"
             # Generate this alternative's expected construction
             #   expenditure profile
+
             PA_fs_dict[uid][!, :capex] = generate_capex_profile(
                 db,
                 settings,
@@ -912,10 +913,6 @@ end
 
 Forecast the revenue which will be earned by the current unit type,
 and the total generation (in kWh) of the unit, per time period.
-
-If the unit is of a VRE type (as specified in the A-LEAF inputs), then a flat
-  de-rating factor is applied to its availability during hours when it is
-  eligible to generate.
 """
 function forecast_unit_revenue_and_gen(
     settings,
@@ -1018,7 +1015,13 @@ function average_historical_ALEAF_results(settings, ALEAF_dispatch_results)
 
     end
 
-    return ALEAF_dispatch_results, wtd_hist_revs, wtd_hist_gens
+    hist_results = Dict(
+                       "wtd_hist_revs" => wtd_hist_revs,
+                       "wtd_hist_gens" => wtd_hist_gens
+                   )
+
+
+    return hist_results
 
 end
 
