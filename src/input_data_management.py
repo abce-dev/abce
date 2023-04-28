@@ -28,7 +28,9 @@ def process_system_portfolio(db, current_pd):
                        )
 
     # Rename the aggregation column to match the standard
-    system_portfolio = system_portfolio.rename(columns={"COUNT(unit_type)": "num_units"})
+    system_portfolio = system_portfolio.rename(
+                           columns={"COUNT(unit_type)": "num_units"}
+                       )
 
     return system_portfolio
 
@@ -72,7 +74,10 @@ def update_unit_specs_for_ALEAF(unit_specs_data, system_portfolio):
     unit_specs["ATB_Setting_ID"] = "ATB_ID_1"
 
     # Create the computed Emission column
-    unit_specs["Emission"] = unit_specs["emissions_per_MMBTU"] * unit_specs["heat_rate"] / 1000
+    unit_specs["Emission"] = (unit_specs["emissions_per_MMBTU"] 
+                              * unit_specs["heat_rate"] 
+                              / 1000
+                             )
 
     # Take care of the row-by-row operations
     unit_specs["Tech_ID"] = ""
@@ -146,7 +151,9 @@ def create_ALEAF_unit_dataframes(unit_specs):
         "Outages": "Outages"
     }
 
-    gen_technology = unit_specs[list(gen_technology_cols.keys())].copy().rename(columns=gen_technology_cols)
+    gen_technology = unit_specs[
+                         list(gen_technology_cols.keys())
+                     ].copy().rename(columns=gen_technology_cols)
 
     gen_cols = {
         "GEN UID": "GEN UID",
@@ -181,7 +188,9 @@ def create_ALEAF_unit_dataframes(unit_specs):
         "ATB_ATB_year": "ATB Year"
     }
 
-    ATB_settings = unit_specs[list(ATB_settings_cols.keys())].copy().rename(columns=ATB_settings_cols)
+    ATB_settings = unit_specs[
+                       list(ATB_settings_cols.keys())
+                   ].copy().rename(columns=ATB_settings_cols)
 
     return gen_technology, gen, ATB_settings
 
@@ -233,8 +242,16 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
     for solver_tab, tab_data in tabs_to_create.items():
         if solver_tab != "ALEAF Master Setup":
             # Set up metadata about solver settings
-            invalid_items = ["solver_setting_list", "num_solver_setting", "solver_direct_mode_flag"]
-            solver_setting_list = ", ".join([parameter for parameter in tabs_to_create[solver_tab]["data"].keys() if parameter not in invalid_items])
+            invalid_items = ["solver_setting_list",
+                             "num_solver_setting",
+                             "solver_direct_mode_flag"
+                            ]
+            solver_setting_list = ", ".join(
+                                      [parameter for parameter 
+                                       in tabs_to_create[solver_tab]["data"].keys()
+                                       if parameter not in invalid_items
+                                      ]
+                                  )
 
             # Set up solver_direct_mode_flag: TRUE if CPLEX, FALSE otherwise
             mode_flag = "false"
@@ -316,9 +333,15 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
     # Add extra items
     pd_data = tabs_to_create["Planning Design"]["data"]
     pd_extra_items = {
-        "targetyear_value": pd_data["final_year_value"] - pd_data["current_year_value"],
-        "load_increase_rate_value": 1, #TODO: determine A-LEAF's expected calculation
-        "num_simulation_per_stage_value": (pd_data["final_year_value"] - pd_data["current_year_value"]) / pd_data["numstages_value"]
+        "targetyear_value": (pd_data["final_year_value"] 
+                             - pd_data["current_year_value"]
+                            ),
+        "load_increase_rate_value": 1,
+        "num_simulation_per_stage_value": ((pd_data["final_year_value"] 
+                                            - pd_data["current_year_value"]
+                                           ) 
+                                           / pd_data["numstages_value"]
+                                          )
     }
     tabs_to_create["Planning Design"]["data"].update(pd_extra_items)
 
@@ -397,7 +420,11 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
                   )
 
     # Write this file to the destination
-    write_workbook_and_close("ALEAF_Master_LC_GEP", tabs_to_create, output_path)
+    write_workbook_and_close(
+        "ALEAF_Master_LC_GEP",
+        tabs_to_create,
+        output_path
+    )
 
 
 def create_ALEAF_portfolio_file(ALEAF_data, gen, settings):
@@ -506,19 +533,24 @@ def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
                     # If there are no eligibility criteria specified, the
                     #   policy applies to all units
                     is_eligible = True
-                elif "unit_type" in policy_specs["eligibility"].keys() and unit_type in policy_specs["eligibility"]["unit_type"]:
+                elif ("unit_type" in policy_specs["eligibility"].keys() 
+                    and unit_type in policy_specs["eligibility"]["unit_type"]):
                     # Check to see if the unit's type is included in a list of
                     #   eligible unit types
                     is_eligible = True
                 else:
                     # Check for any other eligibility criteria
                     for criterion, value in policy_specs["eligibility"].items():
-                        if criterion != "unit_type" and unit_type_data[criterion] == value:
+                        if (criterion != "unit_type"
+                            and unit_type_data[criterion] == value):
                             is_eligible = True
 
                 if is_eligible:
                     if policy == "CTAX":
-                        policy_adj_per_MWh -= unit_type_data["heat_rate"] * unit_type_data["emissions_per_MMBTU"] * policy_specs["qty"]
+                        policy_adj_per_MWh -= (unit_type_data["heat_rate"] 
+                                               * unit_type_data["emissions_per_MMBTU"] 
+                                               * policy_specs["qty"]
+                                              )
                     elif policy == "PTC":
                         policy_adj_per_MWh += policy_specs["qty"]
 
@@ -534,10 +566,16 @@ def compute_unit_specs_cols(unit_specs, settings):
             unit_type_data["fuel_type"] = "none"
 
         # Add fuel cost per MWh column
-        unit_type_data["FC_per_MWh"] = unit_type_data["FC_per_MMBTU"] * unit_type_data["heat_rate"]
+        unit_type_data["FC_per_MWh"] = (unit_type_data["FC_per_MMBTU"] 
+                                        * unit_type_data["heat_rate"]
+                                       )
 
         # Add policy adjustment per MWh column
-        unit_type_data["policy_adj_per_MWh"] = set_unit_type_policy_adjustment(unit_type, unit_type_data, settings)
+        unit_type_data["policy_adj_per_MWh"] = set_unit_type_policy_adjustment(
+                                                   unit_type,
+                                                   unit_type_data,
+                                                   settings
+                                               )
 
         # Add C2N-related factors, with a default value of 0
         C2N_vals = ["cpp_ret_lead", "num_cpp_rets", "rev_head_start"]
@@ -575,7 +613,12 @@ def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, db, current_pd):
     create_ALEAF_Master_file(ALEAF_data, settings)
 
     # Create the ALEAF_Master_LC_GEP.xlsx file
-    create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, settings)
+    create_ALEAF_Master_LC_GEP_file(
+        ALEAF_data,
+        gen_technology,
+        ATB_settings,
+        settings
+    )
 
     # Create the ALEAF_portfolio.xlsx file
     create_ALEAF_portfolio_file(ALEAF_data, gen, settings)
