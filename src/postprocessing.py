@@ -66,16 +66,6 @@ def get_agent_list(db):
     return agent_list
 
 
-def set_horizon(settings, unit_specs):
-    # Set the total time horizon to num_steps + the construction duration of
-    #   the fastest-to-build project
-    offset = min(unit_specs.construction_duration)
-
-    horizon = int(settings["simulation"]["num_steps"] + offset)
-
-    return horizon
-
-
 def get_unit_specs(db):
     unit_specs_full = pd.read_sql_query("SELECT * FROM unit_specs", db)
 
@@ -84,7 +74,7 @@ def get_unit_specs(db):
     return unit_specs
 
 
-def get_portfolio_profile(db, agent_id, unit_specs, horizon):
+def get_portfolio_profile(settings, db, agent_id, unit_specs):
     # Retrieve a long dataframe showing the number of installed units
     #   by type by year
     portfolios = pd.DataFrame()
@@ -95,7 +85,15 @@ def get_portfolio_profile(db, agent_id, unit_specs, horizon):
     else:
         agent_filter = f"agent_id = {agent_id} AND "
 
-    for i in range(horizon+1):
+    # Set the total time horizon to num_steps + the construction duration of
+    #   the fastest-to-build project
+    horizon = (min(unit_specs.construction_duration) 
+               + int(settings["simulation"]["num_steps"])
+               + 1
+              )
+
+    # Read and process the portfolio for each year in the horizon
+    for i in range(horizon):
         year_pf = pd.read_sql_query(
                       f"SELECT unit_type, COUNT(unit_type) " +
                       f"FROM assets WHERE " +
@@ -188,7 +186,7 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
     )
 
 
-def postprocess_portfolios(db, settings, unit_specs, agent_id, horizon):
+def postprocess_portfolios(db, settings, unit_specs, agent_id):
     if agent_id == None:
         msg = "total system portfolio"
     else:
@@ -196,10 +194,10 @@ def postprocess_portfolios(db, settings, unit_specs, agent_id, horizon):
 
     logging.debug(f"Procesing data for {msg}...")
     portfolio_profile = get_portfolio_profile(
+                            settings,
                             db,
                             agent_id,
-                            unit_specs,
-                            horizon
+                            unit_specs
                         )
 
     plot_portfolio_profile(settings, agent_id, portfolio_profile)
@@ -219,12 +217,9 @@ def postprocess_results(abce_model, settings):
     # Get an subset of unit_specs columns
     unit_specs = get_unit_specs(abce_model.db)
 
-    # Set total horizon over which to retrieve portfolios
-    horizon = set_horizon(settings, unit_specs)
-
     # Plot portfolio evolution for all agents, plus the overall system
     for agent_id in agent_list + [None]:
-        postprocess_portfolios(abce_model.db, settings, unit_specs, agent_id, horizon)
+        postprocess_portfolios(abce_model.db, settings, unit_specs, agent_id)
 
     logging.info("Postprocessing complete.")
 
