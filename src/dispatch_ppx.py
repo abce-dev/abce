@@ -44,7 +44,10 @@ def read_in_dispatch_file(dispatch_file):
 def select_standard_columns(dsp_df):
     dsp_df = dsp_df.rename(columns=std_names)
 
-    slim_df = dsp_df[list(value for key, value in std_names.items())].copy(deep=True)
+    slim_df = (dsp_df[
+                   list(value for key, value in std_names.items())
+               ].copy(deep=True)
+              )
 
     return slim_df
 
@@ -84,10 +87,16 @@ def join_unit_data(dsp_pivot, system_portfolio, unit_specs):
     dsp_ext_pivot = dsp_pivot.join(system_portfolio, how="inner")
 
     # Convert unit_specs into a dataframe for this join
-    unit_specs_df = pd.DataFrame.from_dict(unit_specs, orient="index").reset_index().rename(columns={"index": "unit_type"})
+    unit_specs_df = (pd.DataFrame.from_dict(unit_specs, orient="index")
+                                 .reset_index()
+                                 .rename(columns={"index": "unit_type"})
+                    )
 
     # Join unit_specs into the dispatch results, for convenience
-    dsp_ext_pivot = dsp_ext_pivot.join(unit_specs_df.set_index("unit_type"), how="inner")
+    dsp_ext_pivot = dsp_ext_pivot.join(
+                        unit_specs_df.set_index("unit_type"),
+                        how="inner"
+                    )
 
     return dsp_ext_pivot
 
@@ -120,10 +129,11 @@ def compute_per_unit_results(agg_dsp_pivot):
 
     # Get per-unit costs and policy incentive/penalty impacts
     dsp_pivot_PU["var_costs"] = (
-        (dsp_pivot_PU["VOM"] + dsp_pivot_PU["FC_per_MWh"]) * dsp_pivot_PU["gen_total"]
+        (dsp_pivot_PU["VOM"] + dsp_pivot_PU["FC_per_MWh"]) 
+        * dsp_pivot_PU["gen_total"]
     )
     dsp_pivot_PU["fixed_costs"] = (
-        dsp_pivot_PU["FOM"] * dsp_pivot_PU["capacity"] * 1000 # convert kW to MW
+        dsp_pivot_PU["FOM"] * dsp_pivot_PU["capacity"] * 1000
     )
     dsp_pivot_PU["total_policy_adj"] = (
         dsp_pivot_PU["policy_adj_per_MWh"] * dsp_pivot_PU["gen_total"]
