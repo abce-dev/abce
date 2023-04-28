@@ -25,7 +25,12 @@ scenario:
     - ngcc
     - ngct
     - conventional_nuclear
-    - advanced_nuclear
+    - PWR_C2N0_single
+    - PWR_C2N1_single
+    - HTGR_C2N0_single
+    - HTGR_C2N2_single
+    - SFR_C2N0_single
+    - SFR_C2N3_single
 
 
 #######################################################
