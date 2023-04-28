@@ -512,8 +512,8 @@ def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
                     is_eligible = True
                 else:
                     # Check for any other eligibility criteria
-                    for criterion, value in policy_specs["eligibility"].keys():
-                        if unit_type_data[criterion] == value:
+                    for criterion, value in policy_specs["eligibility"].items():
+                        if criterion != "unit_type" and unit_type_data[criterion] == value:
                             is_eligible = True
 
                 if is_eligible:
@@ -549,7 +549,12 @@ def compute_unit_specs_cols(unit_specs, settings):
 
 
 def initialize_unit_specs(settings):
-    unit_specs = load_data(settings["file_paths"]["unit_specs_data_file"])
+    unit_specs = load_data(
+                     Path(
+                         Path(__file__).parent.parent,
+                         settings["file_paths"]["unit_specs_data_file"]
+                     )
+                 )
 
     unit_specs = compute_unit_specs_cols(unit_specs, settings)
 

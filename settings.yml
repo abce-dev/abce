@@ -1,8 +1,8 @@
 simulation:
   scenario_name: "ABCE_ERCOT"
   solver: "CPLEX"
-  num_steps: 1
-  annual_dispatch_engine: none
+  num_steps: 10
+  annual_dispatch_engine: ALEAF
   C2N_assumption: baseline
 
 scenario:
@@ -10,9 +10,9 @@ scenario:
   policies:
     CTAX:
       enabled: True
-      qty: 150  # $/t CO2
+      qty: 0  # $/t CO2
     PTC:
-      enabled: False
+      enabled: True
       eligibility:
         unit_type:
           - ConventionalNuclear
@@ -48,7 +48,8 @@ file_paths:
   ABCE_sysimage_file: "abceSysimage.so"
   db_file: "abce_db.db"
   demand_data_file: "inputs/demand_data.csv"
-  agent_specifications_file: "inputs/single_agent_testing.yml"
+#  agent_specifications_file: "inputs/single_agent_testing.yml"
+  agent_specifications_file: "inputs/agent_specifications.yml"
   output_file: "outputs.xlsx"
   unit_specs_data_file: "inputs/unit_specs.yml"
   logo: "abce.txt"
@@ -80,7 +81,6 @@ dispatch:
 
 # Settings for agent behavior optimization
 agent_opt:
-  consider_future_projects: True
   num_future_periods_considered: 4    # Number of periods for which to consider future projects
   max_type_rets_per_pd: 3
   max_type_newbuilds_per_pd: 5

@@ -951,8 +951,6 @@ class GridModel(Model):
         self.db.commit()
 
     def record_WIP_project_updates(self, project_data):
-        # Set new_anpe = 0 to avoid inter-period contamination
-        #new_anpe = 0
         # Update the 'WIP_projects' table with new RCEC/RTEC/ANPE values
         self.cur.execute("INSERT INTO WIP_projects VALUES " +
                          f"({project_data.asset_id.values[0]}, " +
