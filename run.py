@@ -86,7 +86,9 @@ def cli_args():
         "--verbosity",
         choices=[0, 1, 2, 3],
         type=int,
-        help="Verbosity of output during runtime. 0 = totally silent; 1 = minimal output; 2 = default output; 3 = full/debug output",
+        help=("Verbosity of output during runtime. 0 = totally silent; " + 
+              "1 = minimal output; 2 = default output; 3 = full/debug output"
+             ),
         default=2
     )
     parser.add_argument(
@@ -140,12 +142,18 @@ def check_julia_environment(ABCE_abs_path):
     if not ((Path(ABCE_abs_path) / "env" / "Manifest.toml").exists()
             and (Path(ABCE_abs_path) / "env" / "Project.toml").exists()):
         julia_cmd = (
-            f"julia {Path(ABCE_abs_path) / 'env' / 'make_julia_environment.jl'}")
+            f"julia " +
+            f"{Path(ABCE_abs_path) / 'env' / 'make_julia_environment.jl'}"
+        )
+
         try:
             sp = subprocess.check_call([julia_cmd], shell=True)
             logging.info("Julia environment successfully created.\n\n")
         except subprocess.CalledProcessError:
-            logging.error("Cannot proceed without a valid Julia environment. Terminating...")
+            logging.error(
+                "Cannot proceed without a valid Julia environment. " +
+                "Terminating..."
+            )
             quit()
 
 
@@ -155,7 +163,7 @@ def run_model():
       - process command-line arguments
       - read in settings
       - run the model
-      - pull the completed DB into a pandas DataFrame and save it to xlsx
+      - postprocess the results
     """
     args = cli_args()
 
