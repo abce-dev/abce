@@ -41,24 +41,23 @@ def get_next_asset_id(db, suggested_next_id):
         next_id_candidates.append(id_val)
 
     # The largest of all non-None elements becomes the next asset id
-    next_id = max([item for item in next_id_candidates if item is not None]) + 1
+    next_id = max([item for item in next_id_candidates 
+                   if item is not None]) + 1
 
     return next_id
 
 
-def execute_scenario_reduction(
-        db,
-        current_pd,
-        settings,
-        unit_specs):
+def execute_scenario_reduction(db, current_pd, settings, unit_specs):
     # Get the number of wind and solar units to allow computation of net
     #   demand
     current_portfolio = pd.read_sql_query(
-        f"SELECT unit_type FROM assets WHERE completion_pd <= {current_pd} AND retirement_pd > {current_pd}",
-        db)
+                            f"SELECT unit_type FROM assets " +
+                            f"WHERE completion_pd <= {current_pd} " +
+                            f"AND retirement_pd > {current_pd}",
+                            db
+                        )
     num_wind = len(current_portfolio.loc[current_portfolio.unit_type == "wind"])
-    num_solar = len(
-        current_portfolio.loc[current_portfolio.unit_type == "solar"])
+    num_solar = len(current_portfolio.loc[current_portfolio.unit_type == "solar"])
 
     # Get the capacity of wind and solar units
     wind_cap = unit_specs["wind"]["capacity"]
@@ -66,32 +65,32 @@ def execute_scenario_reduction(
 
     # Get peak demand for this period
     peak_demand = pd.read_sql_query(
-        f"SELECT demand FROM demand WHERE period = {current_pd}", db).iloc[0, 0]
+                      f"SELECT demand FROM demand " +
+                      f"WHERE period = {current_pd}",
+                      db
+                  ).iloc[0, 0]
 
     # Set up directory locations
     init_data_dir = os.path.join(
-        settings["file_paths"]["ABCE_abs_path"],
-        "inputs",
-        "ALEAF_inputs"
-    )
+                        settings["file_paths"]["ABCE_abs_path"],
+                        "inputs",
+                        "ALEAF_inputs"
+                    )
 
     temp_data_dir = os.path.join(
-        settings["file_paths"]["ABCE_abs_path"],
-        "inputs",
-        "ALEAF_inputs",
-        "scenario_reduction_tmp"
-    )
+                        settings["file_paths"]["ABCE_abs_path"],
+                        "inputs",
+                        "ALEAF_inputs",
+                        "scenario_reduction_tmp"
+                    )
 
     output_dir = os.path.join(
-        settings["file_paths"]["ABCE_abs_path"],
-        "inputs",
-        "ALEAF_inputs"
-    )
+                     settings["file_paths"]["ABCE_abs_path"],
+                     "inputs",
+                     "ALEAF_inputs"
+                 )
 
-    plot_output_dir = os.path.join(
-        output_dir,
-        "sr_plots"
-    )
+    plot_output_dir = os.path.join(output_dir, "sr_plots")
 
     sr.run_scenario_reduction(
         time_resolution="hourly",
@@ -158,7 +157,8 @@ def process_outputs(settings, output_dir, unit_specs):
     Postprocessing tasks:
       - "Capacity expansion" (i.e. portfolio composition) (in # of units
           and MW installed)
-      - System-wide results, e.g. total system costs and weighted-average prices
+      - System-wide results, e.g. total system costs and weighted-average
+          prices
       - Generation unit type results: amount of generation and AS, and
           profitability by unit type
       - Price data: sorted by time-stamp and from high to low
@@ -170,7 +170,8 @@ def process_outputs(settings, output_dir, unit_specs):
         "dispatch_summary_OP",
         "expansion_result",
         "system_summary_OP",
-        "system_tech_summary_OP"]
+        "system_tech_summary_OP"
+    ]
 
     # Get a list of each type of file from the ABCE A-LEAF outputs dir
     # This will allow postprocessing to work even if some files are missing
@@ -210,7 +211,6 @@ def process_outputs(settings, output_dir, unit_specs):
                  )
              )
     expansion_results.to_excel(writer, sheet_name="exp_results", index=False)
-    #expansion_results_mw.to_excel(writer, sheet_name="exp_results_mw", index=False)
     system_summary_results.to_excel(
         writer, sheet_name="sys_summary_results", index=False)
     system_tech_results["gen"].to_excel(
@@ -270,12 +270,6 @@ def process_expansion_results(
     exp_df["unit_id"] = unit_specs["unit_type"]
     exp_df = exp_df.rename(columns={"unit_id": "unit_type"})
 
-    # Create separate dataframe in MW instead of # of units
-    #caps = [100, 100, 200, 50, 300]
-    #exp_df_mw = exp_df.copy()
-    #exp_df_mw = exp_df_mw.mul(caps, axis=0)
-    #exp_df_mw["unit_type"] = unit_types
-
     return exp_df
 
 
@@ -291,13 +285,18 @@ def process_system_summary(ss_file_list, output_dir, scenario_name):
     num_files = len(ss_file_list)
     for i in range(num_files):
         file_name = os.path.join(
-            output_dir,
-            f"{scenario_name}__system_summary_OP__step_{i}.csv")
+                        output_dir,
+                        f"{scenario_name}__system_summary_OP__step_{i}.csv"
+                    )
         df = pd.read_csv(file_name)
-        # For my workflow, df should only have one line. Alert the user if
+        # For this workflow, df should only have one line. Alert the user if
         # otherwise
         if len(df) != 1:
-            print("WARNING: It looks like you've run multiple ALEAF scenarios in the same run. Postprocessing outputs may be incorrectly translated.")
+            logging.warn(
+                "It looks like you've run multiple ALEAF scenarios ",
+                "in the same run. Postprocessing outputs may be ",
+                "incorrectly translated."
+            )
 
         # Give df a more helpful first-column key
         df = df.rename(columns={"Scenario": "step"})
@@ -306,7 +305,9 @@ def process_system_summary(ss_file_list, output_dir, scenario_name):
         # Correctly calculate weighted average electricity and AS prices, and
         #   add them to the appropriate columns
         ds_file_name = os.path.join(
-            output_dir, f"{scenario_name}__dispatch_summary_OP__step_{i}.csv")
+                           output_dir,
+                           f"{scenario_name}__dispatch_summary_OP__step_{i}.csv"
+                       )
         dsdf = pd.read_csv(ds_file_name)
         # Set up weighted price columns
         dsdf["wtd_LMP"] = dsdf["g_idht"] * dsdf["LMP_dht"]
@@ -426,8 +427,11 @@ def process_dispatch_data(ds_file_list, output_dir, scenario_name):
         # Name the new column in each df appropriately
         if i == 0:
             unsorted_lmp_data = unsorted_lmp.rename(
-                columns={"LMP_dht": "step_0"})
-            sorted_lmp_data = sorted_lmp.rename(columns={"LMP_dht": "step_0"})
+                                    columns={"LMP_dht": "step_0"}
+                                )
+            sorted_lmp_data = sorted_lmp.rename(
+                                  columns={"LMP_dht": "step_0"}
+                              )
         else:
             unsorted_lmp_data[f"step_{i}"] = unsorted_lmp
             sorted_lmp_data[f"step_{i}"] = sorted_lmp
