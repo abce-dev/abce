@@ -12,7 +12,7 @@ unit_type_colors = {
     "ngct": "#0340c8",
     "wind": "#16b904",
     "solar": "#ffc800",
-    "conventional_nuclear": "#e25c19",
+    "conventional_nuclear": "#ff6800",
     "advanced_nuclear": "#f1a66d",
     "PWR_C2N0_single": "#ff9aa7",
     "PWR_C2N1_single": "#ff0022",
