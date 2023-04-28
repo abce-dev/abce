@@ -173,9 +173,7 @@ def run_model():
     for i in range(settings["simulation"]["num_steps"]):
         abce_model.step(demo=args.demo)
 
-    ppx.write_raw_db_to_excel(abce_model, settings)
-
-    ppx.postprocess_results(abce_model.db, settings)
+    ppx.postprocess_results(abce_model, settings)
 
 
 class ABCEFormatter(logging.Formatter):

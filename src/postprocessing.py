@@ -23,11 +23,11 @@ unit_type_colors = {
 }
 
 
-def write_raw_db_to_excel(abce_model, settings):
+def write_raw_db_to_excel(settings, db):
     # Get the names of all database tables
     db_tables = pd.read_sql_query(
                     "SELECT name FROM sqlite_master WHERE type='table';",
-                     abce_model.db
+                     db
                 )
 
     # Set up the path to the ultimate outputs directory
@@ -47,7 +47,7 @@ def write_raw_db_to_excel(abce_model, settings):
             # Get table data
             table_data = pd.read_sql_query(
                              f"SELECT * FROM {table}",
-                             abce_model.db
+                             db
                          )
 
             # Write table data to excel tab
@@ -66,14 +66,10 @@ def get_agent_list(db):
     return agent_list
 
 
-def set_horizon(settings, db):
+def set_horizon(settings, unit_specs):
     # Set the total time horizon to num_steps + the construction duration of
     #   the fastest-to-build project
-    xtr_durations = pd.read_sql_query(
-                        "SELECT construction_duration FROM unit_specs",
-                        db
-                    )
-    offset = min(xtr_durations.construction_duration)
+    offset = min(unit_specs.construction_duration)
 
     horizon = int(settings["simulation"]["num_steps"] + offset)
 
@@ -83,7 +79,7 @@ def set_horizon(settings, db):
 def get_unit_specs(db):
     unit_specs_full = pd.read_sql_query("SELECT * FROM unit_specs", db)
 
-    unit_specs = unit_specs_full[["unit_type", "capacity"]]
+    unit_specs = unit_specs_full[["unit_type", "construction_duration", "capacity"]]
 
     return unit_specs
 
@@ -210,21 +206,25 @@ def postprocess_portfolios(db, settings, unit_specs, agent_id, horizon):
     logging.debug(f"Plot for {msg} saved.")
 
 
-def postprocess_results(db, settings):
+def postprocess_results(abce_model, settings):
     logging.info("Postprocessing results...")
 
-    # Get a list of all agent ids
-    agent_list = get_agent_list(db)
+    # Save the raw database as an Excel format for easier viewing and manual
+    #   postprocessing/debugging
+    write_raw_db_to_excel(settings, abce_model.db)
 
-    # Set total horizon over which to retrieve portfolios
-    horizon = set_horizon(settings, db)
+    # Get a list of all agent ids
+    agent_list = get_agent_list(abce_model.db)
 
     # Get an subset of unit_specs columns
-    unit_specs = get_unit_specs(db)
+    unit_specs = get_unit_specs(abce_model.db)
+
+    # Set total horizon over which to retrieve portfolios
+    horizon = set_horizon(settings, unit_specs)
 
     # Plot portfolio evolution for all agents, plus the overall system
     for agent_id in agent_list + [None]:
-        postprocess_portfolios(db, settings, unit_specs, agent_id, horizon)
+        postprocess_portfolios(abce_model.db, settings, unit_specs, agent_id, horizon)
 
     logging.info("Postprocessing complete.")
 
