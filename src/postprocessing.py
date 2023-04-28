@@ -71,16 +71,19 @@ def get_agent_portfolio_profile(db, agent_id, unit_specs, horizon):
     #   by type by year
     portfolios = pd.DataFrame()
 
-    horizon = 10
+    if agent_id == None:
+        agent_filter = ""
+    else:
+        agent_filter = f"agent_id = {agent_id} AND "
 
     for i in range(horizon+1):
         year_pf = pd.read_sql_query(
                       f"SELECT unit_type, COUNT(unit_type) " +
-                      f"FROM assets " +
-                      f"WHERE agent_id = {agent_id} " +
-                      f"AND completion_pd <= {i} " +
-                      f"AND retirement_pd > {i} " +
-                      f"AND cancellation_pd > {i} " +
+                      f"FROM assets WHERE " +
+                      agent_filter +
+                      f"completion_pd <= {i} AND " +
+                      f"retirement_pd > {i} AND " +
+                      f"cancellation_pd > {i} " +
                        "GROUP BY unit_type",
                       db
                   )
@@ -123,29 +126,38 @@ def get_agent_portfolio_profile(db, agent_id, unit_specs, horizon):
     return portfolios
 
 
-def plot_agent_portfolios(agent_id, agent_portfolios):
-    agent_pf_profile = agent_portfolios[agent_id]
-
+def plot_agent_portfolio(settings, agent_id, agent_portfolio):
     # Remove empty data columns
-    for column in list(agent_pf_profile.columns):
-        if sum(agent_pf_profile[column]) == 0:
-            agent_pf_profile = agent_pf_profile.drop(column, axis=1)
+    for column in list(agent_portfolio.columns):
+        if sum(agent_portfolio[column]) == 0:
+            agent_portfolio = agent_portfolio.drop(column, axis=1)
 
     # Set up the figure
     fig = plt.figure(constrained_layout=True, dpi=250)
 
     # Add the data
-    agent_pf_profile.plot.bar(stacked=True, ax=fig.gca())
+    agent_portfolio.plot.bar(stacked=True, ax=fig.gca())
 
     # Add titles and axis labels
-    fig.suptitle(f"Agent {agent_id} portfolio evolution: IRA policies only")
+    if agent_id == None:
+        title = "Total system portfolio evolution"
+    else:
+        title = f"Agent {agent_id} portfolio evolution"
+
+    fig.suptitle(title)
     fig.gca().set_ylabel("Installed capacity (MWe)")
 
     # Move the legend outside of the chart area
     plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
 
     # Save the figure
-    fig.get_figure().savefig(f"agent_{agent_id}_pf_evolution.png")
+    fig.get_figure().savefig(
+        Path(
+            "outputs",
+            settings["simulation"]["scenario_name"],
+            f"agent_{agent_id}_pf_evolution.png"
+        )
+    )
 
 
 def postprocess_results(db, settings):
@@ -155,19 +167,29 @@ def postprocess_results(db, settings):
 
     unit_specs = get_unit_specs(db)
 
-    agent_portfolios = {}
-
     for agent_id in agent_list:
         print(f"Processing data for agent {agent_id}...")
-        agent_portfolios[agent_id] = get_agent_portfolio_profile(
+        agent_portfolio = get_agent_portfolio_profile(
                                          db,
                                          agent_id,
                                          unit_specs,
                                          horizon
                                      )
 
-        plot_agent_portfolios(agent_id, agent_portfolios)
+        plot_agent_portfolio(settings, agent_id, agent_portfolio)
         print(f"Plot for agent {agent_id} saved.")
+
+    # Plot total system evolution
+    print("Processing total system portfolio...")
+    system_portfolio = get_agent_portfolio_profile(
+                           db,
+                           None,
+                           unit_specs,
+                           horizon
+                       )
+
+    plot_agent_portfolio(settings, "Total system", system_portfolio)
+    print("System portfolio processed.")
 
 
 if __name__ == "__main__":
