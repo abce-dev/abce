@@ -37,6 +37,10 @@ def write_raw_db_to_excel(abce_model, settings):
             table_data.to_excel(writer, sheet_name=table, engine="openpyxl")
 
 
+###############################################################################
+# Functions for postprocessing and plotting
+###############################################################################
+
 def get_agent_list(db):
     # Get a list of all unique agent IDs
     agent_list = pd.read_sql_query("SELECT agent_id FROM agent_params", db)
@@ -146,7 +150,7 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
     fig = plt.figure(constrained_layout=True, dpi=250)
 
     # Add the data
-    portfolio.plot.bar(stacked=True, ax=fig.gca())
+    portfolio.plot.bar(stacked=True, ax=fig.gca(), rot=0)
 
     # Add titles and axis labels
     fig.suptitle(title)
