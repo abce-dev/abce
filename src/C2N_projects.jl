@@ -5,7 +5,18 @@ using Logging, CSV, DataFrames
 
 function create_C2N_capex_timeline(db, conv_type, rxtr_type, base_pd, lag, fc_pd, C2N_specs, unit_type_data)
     check_init_inputs(conv_type, rxtr_type, lag, fc_pd)
-    capex_tl, activity_schedule = project_capex_profile(base_pd, lag, db, fc_pd, rxtr_type, conv_type, C2N_specs, unit_type_data; status="new", asset_id=nothing)
+    capex_tl, activity_schedule = project_capex_profile(
+                                      base_pd,
+                                      lag,
+                                      db,
+                                      fc_pd,
+                                      rxtr_type,
+                                      conv_type,
+                                      C2N_specs,
+                                      unit_type_data;
+                                      status="new",
+                                      asset_id=nothing
+                                  )
 
 end
 
@@ -18,8 +29,8 @@ function check_init_inputs(conv_type, rxtr_type, lag, fc_pd)
     # Check project categorical descriptors
     if !in(conv_type, valid_conv_types)
         err_msg = string(
-            "Conversion type $conv_type is not valid, or is not currently supported.\n",
-            "Currently supported conversion types:\n",
+            "Conversion type $conv_type is not valid, or is not currently ",
+            "supported.\n Currently supported conversion types:\n",
             valid_conv_types
         )
         throw(ArgumentError(conv_type, err_msg))
@@ -27,8 +38,8 @@ function check_init_inputs(conv_type, rxtr_type, lag, fc_pd)
 
      if !in(rxtr_type, valid_rxtr_types)
         err_msg = string(
-            "Reactor type $rxtr_type is not valid, or is not currently supported.\n",
-            "Currently supported reactor types:\n",
+            "Reactor type $rxtr_type is not valid, or is not currently ",
+            "supported.\n Currently supported reactor types:\n",
             valid_rxtr_types
         )
         throw(ArgumentError(rxtr_type, err_msg))
@@ -41,7 +52,10 @@ function check_init_inputs(conv_type, rxtr_type, lag, fc_pd)
 
     # Validate fc_pd
     if fc_pd < 1
-        throw(DomainError(fc_pd, "fc_pd (forecast period) must be an integer greater than 0."))
+        throw(DomainError(
+            fc_pd,
+            "fc_pd (forecast period) must be an integer greater than 0."
+        ))
     end
 
 end
@@ -54,7 +68,14 @@ function project_capex_profile(base_pd, lag, db, fc_pd, rxtr_type, conv_type, C2
     elseif status == "ongoing"
         # Retrieve current project status from database
         pd_of_interest = base_pd - 1
-        project_WIP_update = DBInterface.execute(db, "SELECT * FROM WIP_C2N WHERE asset_id = $asset_id AND period = $pd_of_interest") |> DataFrame
+        project_WIP_update = DBInterface.execute(
+                                 db,
+                                 string(
+                                     "SELECT * FROM WIP_C2N ", 
+                                     "WHERE asset_id = $asset_id ",
+                                     "AND period = $pd_of_interest"
+                                 )
+                             ) |> DataFrame
         project_WIP_update = project_WIP_update[1, :]
         project_current_status = Dict(
             :npp_ns_xtr => Dict("cost_rem" => project_WIP_update[:npp_ns_xtr_cost_rem], "time_rem" => project_WIP_update[:npp_ns_xtr_time_rem]),
@@ -77,16 +98,25 @@ function project_capex_profile(base_pd, lag, db, fc_pd, rxtr_type, conv_type, C2
     )
 
     # Generate the table of activities ongoing during project intervals
-    activity_schedule = get_C2N_available_activities(conv_type, project_current_status, base_pd, lag)
+    activity_schedule = get_C2N_available_activities(
+                            conv_type,
+                            project_current_status,
+                            base_pd,
+                            lag
+                        )
 
     # Convert the binary project schedule into a capex schedule
-    capex_activity_schedule = allocate_funds_to_activities(activity_schedule, project_current_status, C2N_specs, unit_type_data)
+    capex_activity_schedule = allocate_funds_to_activities(
+                                  activity_schedule,
+                                  project_current_status,
+                                  C2N_specs,
+                                  unit_type_data
+                              )
 
     # Convert the interval-based schedule into a yearly schedule
-    capex_tl, capex_activity_schedule = convert_to_annual_capex_schedule(capex_activity_schedule)
-
-    # Finalize the CapEx projection
-    #transform!(capex_tl, [:npp_ns_xtr, :npp_safety_xtr, :cpp_wr, :cpp_nrc, :cpp_dnd] => ((a, b, c, d, e) -> a + b + c + d + e) => total_capex)
+    capex_tl, capex_activity_schedule = convert_to_annual_capex_schedule(
+                                            capex_activity_schedule
+                                        )
 
     return capex_tl, activity_schedule
 
@@ -94,7 +124,12 @@ end
 
 
 function get_C2N_available_activities(conv_type, project_current_status, base_pd, lag)
-    all_activities = ["cpp_dnd", "cpp_nrc", "cpp_wr", "npp_ns_xtr", "npp_safety_xtr"]
+    all_activities = ["cpp_dnd",
+                      "cpp_nrc",
+                      "cpp_wr",
+                      "npp_ns_xtr",
+                      "npp_safety_xtr"
+                     ]
 
     activity_schedule = DataFrame(
         state_start = Float64[],
@@ -148,7 +183,10 @@ function get_C2N_available_activities(conv_type, project_current_status, base_pd
             next_start = last(activity_schedule[!, :state_end])
         end
         next_end = next_start + next_interval_duration
-        push!(activity_schedule, hcat(next_start, next_end, transpose(activity_bools)))
+        push!(
+            activity_schedule,
+            hcat(next_start, next_end, transpose(activity_bools))
+        )
 
         # Subtract this interval's duration from the time remaining for any
         #   available activities
@@ -165,15 +203,27 @@ end
 
 function get_available_activities(project_current_status, conv_type)
     if conv_type == "greenfield"
-        available_activities = get_available_activities_greenfield(project_current_status)
+        available_activities = get_available_activities_greenfield(
+                                   project_current_status
+                               )
     elseif conv_type == "electrical"
-        available_activities = get_available_activities_electrical(project_current_status)
+        available_activities = get_available_activities_electrical(
+                                   project_current_status
+                               )
     elseif conv_type == "steam_noTES"
-        available_activities = get_available_activities_steam_noTES(project_current_status)
+        available_activities = get_available_activities_steam_noTES(
+                                   project_current_status
+                               )
     elseif conv_type == "steam_TES"
-        available_activities = get_available_activities_steam_TES(project_current_status)
+        available_activities = get_available_activities_steam_TES(
+                                   project_current_status
+                               )
     else
-        println("I don't recognize that conversion project type. Check your inputs and try again.")
+        println(
+            string("I don't recognize that conversion project type. ",
+                   "Check your inputs and try again."
+            )
+        )
         exit()
     end
 
@@ -183,7 +233,12 @@ end
 
 
 function get_available_activities_greenfield(project_current_status)
-    all_activities = ["npp_ns_xtr", "npp_safety_xtr", "cpp_dnd", "cpp_wr", "cpp_nrc"]
+    all_activities = ["npp_ns_xtr",
+                      "npp_safety_xtr",
+                      "cpp_dnd",
+                      "cpp_wr",
+                      "cpp_nrc"
+                     ]
     completed_activities = []
     for activity in all_activities
         act_time_rem = project_current_status[activity]["time_rem"]
@@ -192,7 +247,10 @@ function get_available_activities_greenfield(project_current_status)
         end
     end
 
-    incomplete_activities = [all_activities[i] for i = 1:size(all_activities)[1] if !(all_activities[i] in completed_activities)]
+    incomplete_activities = [all_activities[i]
+                               for i = 1:size(all_activities)[1] 
+                               if !(all_activities[i] in completed_activities)
+                            ]
 
     # The first remaining activity in all_activities is the sole available
     #   activity
@@ -217,7 +275,10 @@ function get_available_activities_electrical(project_current_status)
         end
     end
 
-    incomplete_activities = [all_activities[i] for i = 1:size(all_activities)[1] if !(all_activities[i] in completed_activities)]
+    incomplete_activities = [all_activities[i]
+                               for i = 1:size(all_activities)[1] 
+                               if !(all_activities[i] in completed_activities)
+                            ]
 
     # Add activities which are available to be worked on to the
     #   available_activities list
@@ -236,17 +297,21 @@ function get_available_activities_electrical(project_current_status)
     end
 
     # CPP NRC license approval prerequisite: cpp_wr
-    if ("cpp_nrc" in incomplete_activities) && !("cpp_wr" in incomplete_activities)
+    if (("cpp_nrc" in incomplete_activities)
+         && !("cpp_wr" in incomplete_activities))
         push!(available_activities, "cpp_nrc")
     end
 
     # NPP safety xtr prerequisite: CPP NRC license
-    if ("npp_safety_xtr" in incomplete_activities) && !("cpp_nrc" in incomplete_activities) && ("npp_ns_xtr" in completed_activities)
+    if (("npp_safety_xtr" in incomplete_activities)
+         && !("cpp_nrc" in incomplete_activities)
+         && ("npp_ns_xtr" in completed_activities))
         push!(available_activities, "npp_safety_xtr")
     end
 
     # CPP D&D only after all other activities are done
-    if !("npp_safety_xtr" in incomplete_activities) && !("cpp_dnd" in completed_activities)
+    if (!("npp_safety_xtr" in incomplete_activities)
+          && !("cpp_dnd" in completed_activities))
         push!(available_activities, "cpp_dnd")
     end
 
@@ -263,7 +328,10 @@ function get_available_activities_steam_noTES(project_current_status)
         end
     end
 
-    incomplete_activities = [all_activities[i] for i = 1:size(all_activities)[1] if !(all_activities[i] in completed_activities)]
+    incomplete_activities = [all_activities[i]
+                               for i = 1:size(all_activities)[1] 
+                               if !(all_activities[i] in completed_activities)
+                            ]
 
     # Add activities which are available to be worked on to the
     #   available_activities list
@@ -286,12 +354,16 @@ function get_available_activities_steam_noTES(project_current_status)
     end
 
     # Only start NPP safety xtr after all three of the above are done
-    if ("cpp_wr" in completed_activities) && ("cpp_nrc" in completed_activities) && ("npp_ns_xtr" in completed_activities) && ("npp_safety_xtr" in incomplete_activities)
+    if (("cpp_wr" in completed_activities)
+         && ("cpp_nrc" in completed_activities)
+         && ("npp_ns_xtr" in completed_activities)
+         && ("npp_safety_xtr" in incomplete_activities))
         push!(available_activities, "npp_safety_xtr")
     end
 
     # Only start cpp_dnd after all other activities are complete
-    if !("npp_safety_xtr" in incomplete_activities) && !("cpp_dnd" in completed_activities)
+    if (!("npp_safety_xtr" in incomplete_activities)
+          && !("cpp_dnd" in completed_activities))
         push!(available_activities, "cpp_dnd")
     end
 
@@ -309,7 +381,10 @@ function get_available_activities_steam_TES(project_current_status)
         end
     end
 
-    incomplete_activities = [all_activities[i] for i = 1:size(all_activities)[1] if !(all_activities[i] in completed_activities)]
+    incomplete_activities = [all_activities[i] 
+                               for i = 1:size(all_activities)[1] 
+                               if !(all_activities[i] in completed_activities)
+                            ]
 
     # Add activities which are available to be worked on to the
     #   available_activities list
@@ -328,16 +403,19 @@ function get_available_activities_steam_TES(project_current_status)
     end
 
     # NPP safety xtr prerequisite: NPP NS xtr
-    if ("npp_ns_xtr" in completed_activities) && ("npp_safety_xtr" in incomplete_activities)
+    if (("npp_ns_xtr" in completed_activities)
+         && ("npp_safety_xtr" in incomplete_activities))
         push!(available_activities, "npp_safety_xtr")
     end
 
     # After NPP safety xtr is done, then do cpp_dnd and cpp_wr
-    if ("npp_safety_xtr" in completed_activities) && !("cpp_dnd" in completed_activities)
+    if (("npp_safety_xtr" in completed_activities)
+         && !("cpp_dnd" in completed_activities))
         push!(available_activities, "cpp_dnd")
     end
 
-    if ("npp_safety_xtr" in completed_activities) && !("cpp_wr" in completed_activities)
+    if (("npp_safety_xtr" in completed_activities)
+         && !("cpp_wr" in completed_activities))
         push!(available_activities, "cpp_wr")
     end
 
@@ -353,12 +431,21 @@ function allocate_funds_to_activities(activity_schedule, C2N_specs, project_curr
 
     for activity in all_activities
         if C2N_specs[activity]["time_rem"] != 0
-            linear_cost = C2N_specs[activity]["cost_rem"] / C2N_specs[activity]["time_rem"]
+            linear_cost = (C2N_specs[activity]["cost_rem"]
+                           / C2N_specs[activity]["time_rem"]
+                          )
         else
             linear_cost = 0
         end
         capacity = unit_type_data[:capacity]
-        transform!(capex_activity_schedule, [Symbol(activity), :state_start, :state_end] => ((activity, s_start, s_end) -> activity .* linear_cost * capacity * 1000) => Symbol(activity))
+        transform!(
+            capex_activity_schedule,
+            [Symbol(activity), :state_start, :state_end]
+              => ((activity, s_start, s_end)
+                   -> activity .* linear_cost * capacity * 1000
+                 ) 
+                => Symbol(activity)
+        )
     end
 
     return capex_activity_schedule
@@ -371,7 +458,12 @@ function convert_to_annual_capex_schedule(capex_activity_schedule)
     end_pd = ceil(Int64, maximum(capex_activity_schedule[!, :state_end]))
 
     # Get unscaled capex totals
-    transform!(capex_activity_schedule, [:cpp_dnd, :cpp_nrc, :cpp_wr, :npp_ns_xtr, :npp_safety_xtr] => ((a, b, c, d, e) -> a .+ b .+ c .+ d .+ e) => :unscaled_capex)
+    transform!(
+        capex_activity_schedule,
+        [:cpp_dnd, :cpp_nrc, :cpp_wr, :npp_ns_xtr, :npp_safety_xtr]
+          => ((a, b, c, d, e) -> a .+ b .+ c .+ d .+ e) 
+            => :unscaled_capex
+    )
 
     capex_tl = DataFrame(
         period = start_pd:end_pd,
@@ -379,10 +471,20 @@ function convert_to_annual_capex_schedule(capex_activity_schedule)
     )
 
     for i = start_pd:end_pd
-        subset = filter([:state_start, :state_end] => ((s_start, s_end) -> !(s_end <= i) && !(s_start >= i + 1)), capex_activity_schedule)
+        subset = filter(
+                     [:state_start, :state_end]
+                       => ((s_start, s_end) 
+                              -> !(s_end <= i) && !(s_start >= i + 1)
+                          ),
+                     capex_activity_schedule
+                 )
         for j = 1:size(subset)[1]
-            duration_in_i = min(i+1, subset[j, :state_end]) - max(i, subset[j, :state_start])
-            capex_tl[i - start_pd + 1, :total_capex] += duration_in_i * subset[j, :unscaled_capex]
+            duration_in_i = (min(i+1, subset[j, :state_end]) 
+                             - max(i, subset[j, :state_start])
+                            )
+            capex_tl[i - start_pd + 1, :total_capex] += (
+                duration_in_i * subset[j, :unscaled_capex]
+            )
         end
     end
 
