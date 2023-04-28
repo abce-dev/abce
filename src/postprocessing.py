@@ -6,6 +6,23 @@ import sqlite3
 import matplotlib.pyplot as plt
 import logging
 
+unit_type_colors = {
+    "coal": "#555051",
+    "ngcc": "#03cec8",
+    "ngct": "#0340c8",
+    "wind": "#16b904",
+    "solar": "#ffc800",
+    "conventional_nuclear": "#e25c19",
+    "advanced_nuclear": "#f1a66d",
+    "PWR_C2N0_single": "#ff9aa7",
+    "PWR_C2N1_single": "#ff0022",
+    "HTGR_C2N0_single": "#cb8ae9",
+    "HTGR_C2N2_single": "#a50eec",
+    "SFR_C2N0_single": "#ebf697",
+    "SFR_C2N3_single": "#c6e000"
+}
+
+
 def write_raw_db_to_excel(abce_model, settings):
     # Get the names of all database tables
     db_tables = pd.read_sql_query(
@@ -150,7 +167,7 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
     fig = plt.figure(constrained_layout=True, dpi=250)
 
     # Add the data
-    portfolio.plot.bar(stacked=True, ax=fig.gca(), rot=0)
+    portfolio.plot.bar(stacked=True, ax=fig.gca(), rot=0, color=unit_type_colors)
 
     # Add titles and axis labels
     fig.suptitle(title)
