@@ -26,6 +26,7 @@ import yaml
 import pandas as pd
 import argparse
 from pathlib import Path
+import src.postprocessing as ppx
 
 
 def read_settings(settings_file):
@@ -172,22 +173,7 @@ def run_model():
     for i in range(settings["simulation"]["num_steps"]):
         abce_model.step(demo=args.demo)
 
-    # Write the raw database to xlsx
-    db_tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE " +
-                                  "type='table';", abce_model.db)
-    with pd.ExcelWriter(
-             Path(
-                 settings["file_paths"]["ABCE_abs_path"] /
-                 "outputs" /
-                 settings["simulation"]["scenario_name"] /
-                 settings["file_paths"]["output_file"]
-             )
-        ) as writer:
-        for i in range(len(db_tables)):
-            table = db_tables.loc[i, "name"]
-            final_db = pd.read_sql_query(
-                f"SELECT * FROM {table}", abce_model.db)
-            final_db.to_excel(writer, sheet_name=f"{table}", engine="openpyxl")
+    ppx.postprocess_results(abce_model, settings)
 
 
 class ABCEFormatter(logging.Formatter):
