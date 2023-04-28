@@ -129,6 +129,14 @@ def get_portfolio_profile(db, agent_id, unit_specs, horizon):
 
 
 def plot_portfolio_profile(settings, agent_id, portfolio):
+    # Set up figure-specific strings according to the agent_id specified
+    if agent_id == None:
+        title = "Total system portfolio evolution"
+        filename = "total_system_portfolio_evolution.png"
+    else:
+        title = f"Agent {agent_id} portfolio evolution"
+        filename = f"agent_{agent_id}_portfolio_evolution.png"
+
     # Remove empty data columns
     for column in list(portfolio.columns):
         if sum(portfolio[column]) == 0:
@@ -139,12 +147,6 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
 
     # Add the data
     portfolio.plot.bar(stacked=True, ax=fig.gca())
-
-    # Set up the figure title according to the agent_id specified
-    if agent_id == None:
-        title = "Total system portfolio evolution"
-    else:
-        title = f"Agent {agent_id} portfolio evolution"
 
     # Add titles and axis labels
     fig.suptitle(title)
@@ -158,7 +160,7 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
         Path(
             "outputs",
             settings["simulation"]["scenario_name"],
-            f"agent_{agent_id}_pf_evolution.png"
+            filename
         )
     )
 
