@@ -62,10 +62,10 @@ class GenCo(Agent):
         cur = self.model.db.cursor()
         cur.execute("SELECT * FROM agent_params")
         agent_params_db_cols = set([element[0] for element in cur.description])
-        agent_params_spec_file_fields = set(gc_params.keys())
+        agent_params_fields = set(gc_params.keys())
 
         # Finalize the list of all possible parameter names
-        all_agent_params = list(agent_params_db_cols | agent_params_spec_file_fields)
+        all_agent_params = list(agent_params_db_cols | agent_params_fields)
 
         # Remove "agent_id" from this list, as it's already set in __init__()
         all_agent_params.remove("agent_id")
@@ -97,7 +97,10 @@ class GenCo(Agent):
             elif self.inactive:
                 setattr(self, param, 0)
             else:
-                raise ValueError(f"Agent #{self.unique_id} is missing required parameter {param} from its specification.")
+                raise ValueError(
+                    f"Agent #{self.unique_id} is missing required parameter " +
+                    f"{param} from its specification."
+                )
 
         # Save parameters to DB table `agent_params`
         self.db = self.model.db
@@ -139,7 +142,10 @@ class GenCo(Agent):
                      self.model.settings["file_paths"]["ABCE_sysimage_file"])
             sysimage_cmd = f"-J {sysimage_path}"
 
-        local_project = Path(self.model.settings["file_paths"]["ABCE_abs_path"], "env")
+        local_project = Path(
+                            self.model.settings["file_paths"]["ABCE_abs_path"]/
+                            "env"
+                        )
 
         julia_cmd = (
             f"julia --project={local_project} " + 
@@ -167,14 +173,17 @@ class GenCo(Agent):
           - `retirement_pd` is in the future (not currently retired)
 
         Returns:
-           all_asset_list (list of ints): all asset IDs meeting the above criteria
+           all_asset_list (list of ints): all asset IDs meeting the above
+               criteria
         """
 
-        all_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
-                                     f"agent_id = {self.unique_id} AND " +
-                                     f"cancellation_pd > {self.model.current_pd} " +
-                                     f"AND retirement_pd > {self.model.current_pd}",
-                                     self.model.db)
+        all_asset_list = pd.read_sql(
+                             f"SELECT asset_id FROM assets WHERE " +
+                             f"agent_id = {self.unique_id} AND " +
+                             f"cancellation_pd > {self.model.current_pd} " +
+                             f"AND retirement_pd > {self.model.current_pd}",
+                             self.model.db
+                         )
         all_asset_list = list(all_asset_list["asset_id"])
         self.model.db.commit()
         return all_asset_list
@@ -210,14 +219,17 @@ class GenCo(Agent):
           - retirement_pd is in the future (not currently retired)
 
         Returns:
-           op_asset_list (list of ints): all asset IDs meeting the above criteria
+           op_asset_list (list of ints): all asset IDs meeting the 
+               above criteria
         """
 
-        op_asset_list = pd.read_sql(f"SELECT asset_id FROM assets WHERE " +
-                                    f"agent_id = {self.unique_id} AND " +
-                                    f"completion_pd <= {self.model.current_pd} " +
-                                    f"AND cancellation_pd > {self.model.current_pd} "
-                                    f"AND retirement_pd > {self.model.current_pd}",
-                                    self.model.db)
+        op_asset_list = pd.read_sql(
+                            f"SELECT asset_id FROM assets WHERE " +
+                            f"agent_id = {self.unique_id} AND " +
+                            f"completion_pd <= {self.model.current_pd} " +
+                            f"AND cancellation_pd > {self.model.current_pd} "
+                            f"AND retirement_pd > {self.model.current_pd}",
+                            self.model.db
+                        )
         op_asset_list = list(op_asset_list["asset_id"])
         return op_asset_list
