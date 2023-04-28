@@ -30,10 +30,18 @@ function set_up_run(CLI_args)
     # Load settings and file locations from the settings file
     settings = YAML.load_file(CLI_args["settings_file"])
 
-    settings = ABCEfunctions.set_up_local_paths(settings, CLI_args["abce_abs_path"])
+    settings = ABCEfunctions.set_up_local_paths(
+                   settings,
+                   CLI_args["abce_abs_path"]
+               )
 
     # File names
-    db_file = joinpath(pwd(), "outputs", settings["simulation"]["scenario_name"], settings["file_paths"]["db_file"])
+    db_file = joinpath(
+                  pwd(),
+                  "outputs",
+                  settings["simulation"]["scenario_name"],
+                  settings["file_paths"]["db_file"]
+              )
     C2N_specs_file = joinpath(
                          settings["file_paths"]["ABCE_abs_path"],
                          "inputs",
@@ -124,7 +132,8 @@ function run_agent_choice()
                        settings
                    )
 
-    # Extend the unserved demand data to match the total forecast period (constant projection)
+    # Extend the unserved demand data to match the total forecast period
+    #   (constant projection)
     total_demand = ABCEfunctions.get_net_demand(
                        db,
                        CLI_args["current_pd"],
