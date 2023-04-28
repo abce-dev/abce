@@ -32,7 +32,7 @@ def write_raw_db_to_excel(abce_model, settings):
 
     # Set up the path to the ultimate outputs directory
     out_file = Path(
-                   settings["file_paths"]["ABCE_abs_path"] /
+                   Path.cwd() /
                    "outputs" /
                    settings["simulation"]["scenario_name"] /
                    settings["file_paths"]["output_file"]
