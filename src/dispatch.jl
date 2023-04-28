@@ -197,7 +197,9 @@ end
 
 
 function scale_load(ts_data, peak_demand)
-    ts_data[:load_data][!, :Load] = ts_data[:load_data][!, :LoadShape] * peak_demand
+    ts_data[:load_data][!, :Load] = (ts_data[:load_data][!, :LoadShape]
+                                     * peak_demand
+                                    )
 
     return ts_data
 end
@@ -674,7 +676,11 @@ end
 
 function join_results_data_frames(all_gc_results, all_prices, repdays_data, all_year_portfolios, unit_specs)
     # Join in price data to all_gc_results
-    long_econ_results = innerjoin(all_gc_results, all_prices, on = [:y, :d, :h])
+    long_econ_results = innerjoin(
+                            all_gc_results,
+                            all_prices,
+                            on = [:y, :d, :h]
+                        )
 
     # Incorporate repdays probability data
     long_econ_results = innerjoin(
