@@ -175,6 +175,8 @@ def run_model():
 
     ppx.write_raw_db_to_excel(abce_model, settings)
 
+    ppx.postprocess_results(abce_model.db, settings)
+
 
 class ABCEFormatter(logging.Formatter):
     """ A custom log formatter for non-standard logging levels.
