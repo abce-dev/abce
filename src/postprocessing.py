@@ -167,7 +167,13 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
     fig = plt.figure(constrained_layout=True, dpi=250)
 
     # Add the data
-    portfolio.plot.bar(stacked=True, ax=fig.gca(), rot=0, color=unit_type_colors)
+    portfolio.plot.bar(
+        stacked=True,
+        ax=fig.gca(),
+        rot=0,
+        color=unit_type_colors,
+        edgecolor='black'
+    )
 
     # Add titles and axis labels
     fig.suptitle(title)
