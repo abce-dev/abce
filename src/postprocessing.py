@@ -69,7 +69,9 @@ def get_agent_list(db):
 def get_unit_specs(db):
     unit_specs_full = pd.read_sql_query("SELECT * FROM unit_specs", db)
 
-    unit_specs = unit_specs_full[["unit_type", "construction_duration", "capacity"]]
+    unit_specs = unit_specs_full[
+                     ["unit_type", "construction_duration", "capacity"]
+                 ]
 
     return unit_specs
 
