@@ -4,6 +4,7 @@ from pathlib import Path
 import yaml
 import sqlite3
 import matplotlib.pyplot as plt
+import logging
 
 def write_raw_db_to_excel(abce_model, settings):
     # Get the names of all database tables
@@ -66,11 +67,12 @@ def get_unit_specs(db):
     return unit_specs
 
 
-def get_agent_portfolio_profile(db, agent_id, unit_specs, horizon):
-    # Retrieve a long dataframe showing the agent's number of installed units
+def get_portfolio_profile(db, agent_id, unit_specs, horizon):
+    # Retrieve a long dataframe showing the number of installed units
     #   by type by year
     portfolios = pd.DataFrame()
 
+    # If the agent_id argument is specified, filter on that specific agent
     if agent_id == None:
         agent_filter = ""
     else:
@@ -126,24 +128,25 @@ def get_agent_portfolio_profile(db, agent_id, unit_specs, horizon):
     return portfolios
 
 
-def plot_agent_portfolio(settings, agent_id, agent_portfolio):
+def plot_portfolio_profile(settings, agent_id, portfolio):
     # Remove empty data columns
-    for column in list(agent_portfolio.columns):
-        if sum(agent_portfolio[column]) == 0:
-            agent_portfolio = agent_portfolio.drop(column, axis=1)
+    for column in list(portfolio.columns):
+        if sum(portfolio[column]) == 0:
+            portfolio = portfolio.drop(column, axis=1)
 
     # Set up the figure
     fig = plt.figure(constrained_layout=True, dpi=250)
 
     # Add the data
-    agent_portfolio.plot.bar(stacked=True, ax=fig.gca())
+    portfolio.plot.bar(stacked=True, ax=fig.gca())
 
-    # Add titles and axis labels
+    # Set up the figure title according to the agent_id specified
     if agent_id == None:
         title = "Total system portfolio evolution"
     else:
         title = f"Agent {agent_id} portfolio evolution"
 
+    # Add titles and axis labels
     fig.suptitle(title)
     fig.gca().set_ylabel("Installed capacity (MWe)")
 
@@ -160,36 +163,41 @@ def plot_agent_portfolio(settings, agent_id, agent_portfolio):
     )
 
 
+def postprocess_portfolios(db, settings, unit_specs, agent_id, horizon):
+    if agent_id == None:
+        msg = "total system portfolio"
+    else:
+        msg = f"agent {agent_id}'s portfolio"
+
+    logging.debug(f"Procesing data for {msg}...")
+    portfolio_profile = get_portfolio_profile(
+                            db,
+                            agent_id,
+                            unit_specs,
+                            horizon
+                        )
+
+    plot_portfolio_profile(settings, agent_id, portfolio_profile)
+    logging.debug(f"Plot for {msg} saved.")
+
+
 def postprocess_results(db, settings):
+    logging.info("Postprocessing results...")
+
+    # Get a list of all agent ids
     agent_list = get_agent_list(db)
 
+    # Set total horizon over which to retrieve portfolios
     horizon = set_horizon(settings, db)
 
+    # Get an subset of unit_specs columns
     unit_specs = get_unit_specs(db)
 
-    for agent_id in agent_list:
-        print(f"Processing data for agent {agent_id}...")
-        agent_portfolio = get_agent_portfolio_profile(
-                                         db,
-                                         agent_id,
-                                         unit_specs,
-                                         horizon
-                                     )
+    # Plot portfolio evolution for all agents, plus the overall system
+    for agent_id in agent_list + [None]:
+        postprocess_portfolios(db, settings, unit_specs, agent_id, horizon)
 
-        plot_agent_portfolio(settings, agent_id, agent_portfolio)
-        print(f"Plot for agent {agent_id} saved.")
-
-    # Plot total system evolution
-    print("Processing total system portfolio...")
-    system_portfolio = get_agent_portfolio_profile(
-                           db,
-                           None,
-                           unit_specs,
-                           horizon
-                       )
-
-    plot_agent_portfolio(settings, "Total system", system_portfolio)
-    print("System portfolio processed.")
+    logging.info("Postprocessing complete.")
 
 
 if __name__ == "__main__":
