@@ -28,7 +28,7 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-=================================================================================
+===============================================================================
 
 This code is borrowed from `pygenesys`
 https://github.com/arfc/pygenesys/blob/main/pygenesys/data/eia_data.py
@@ -119,7 +119,9 @@ def get_eia_generators(month=None, year=None):
         m = months[month_idx]
 
     elif (month is not None) and (year is not None):
-        logging.debug(f"Retrieving EIA Form 860m for {month.capitalize()} {year}")
+        logging.debug(
+            f"Retrieving EIA Form 860m for {month.capitalize()} {year}"
+        )
         m = month
         y = year
 
@@ -185,7 +187,9 @@ def get_region_techs(df, region):
             region_mask = df['Plant State'] == region.upper()
         else:
             raise ValueError(
-                f'Detected state abbreviation. Abbreviation {region} not found.')
+                f"Detected state abbreviation. " +
+                f"Abbreviation {region} not found."
+            )
     else:
         valid_county = (region.capitalize() in df['County'].values)
         if valid_county:
