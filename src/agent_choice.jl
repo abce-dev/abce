@@ -98,6 +98,13 @@ function run_agent_choice()
     # Read in some raw data from the database
     agent_params, unit_specs = get_raw_db_data(db, CLI_args)
 
+    unit_specs = ABCEfunctions.validate_project_data(
+        db,
+        settings,
+        unit_specs,
+        C2N_specs
+    )
+
     # Retrieve a list of the agent's currently-operating assets, grouped by
     #   type and mandatory retirement date
     grouped_agent_assets = ABCEfunctions.get_grouped_current_assets(
