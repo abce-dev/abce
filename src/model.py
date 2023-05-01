@@ -24,6 +24,7 @@ import logging
 from pathlib import Path
 from mesa import Agent, Model
 from mesa.time import RandomActivation
+
 # import nrelpy.atb as ATB
 
 # import local modules
@@ -34,11 +35,12 @@ from . import dispatch_ppx as dsp
 from . import input_data_management as idm
 
 import warnings
+
 warnings.filterwarnings("ignore")
 
 
 class GridModel(Model):
-    ''' A model with some number of GenCos. '''
+    """A model with some number of GenCos."""
 
     def __init__(self, settings, args):
         # Copy the command-line arguments as member data
@@ -53,11 +55,12 @@ class GridModel(Model):
         self.prepare_outputs_directory()
 
         # Initialize database for storing and managing all simulation data
-        self.db_file = (Path.cwd() / 
-                        "outputs" / 
-                        settings["simulation"]["scenario_name"] / 
-                        settings["file_paths"]["db_file"]
-                       )
+        self.db_file = (
+            Path.cwd()
+            / "outputs"
+            / settings["simulation"]["scenario_name"]
+            / settings["file_paths"]["db_file"]
+        )
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
 
         # Initialize all data
@@ -65,7 +68,7 @@ class GridModel(Model):
 
         # Create the local tmp/ directory inside the current working directory,
         #   if it doesn't already exist
-        tmp_dir_location = (Path.cwd() / "tmp")
+        tmp_dir_location = Path.cwd() / "tmp"
         Path(tmp_dir_location).mkdir(exist_ok=True)
 
         # If running A-LEAF, set up any necessary file paths
@@ -83,11 +86,7 @@ class GridModel(Model):
 
         # Create agents
         for agent_id, agent_params in self.agent_specs.items():
-            agent = GenCo(
-                agent_id,
-                self,
-                agent_params
-            )
+            agent = GenCo(agent_id, self, agent_params)
 
             # Initialize assets owned by this agent, and add them to
             #   the database
@@ -101,7 +100,6 @@ class GridModel(Model):
 
         # Make sure all pending database transactions are resolved
         self.db.commit()
-
 
     def load_all_data(self):
         # Retrieve the input data
@@ -119,26 +117,22 @@ class GridModel(Model):
         # Read agent specification data
         self.load_agent_specifications()
 
-
     def load_agent_specifications(self):
         # Read in the GenCo parameters data from file
         agent_specs_file_name = Path(
-            self.settings["file_paths"]["ABCE_abs_path"] /
-            self.settings["file_paths"]["agent_specifications_file"]
+            self.settings["file_paths"]["ABCE_abs_path"]
+            / self.settings["file_paths"]["agent_specifications_file"]
         )
         self.agent_specs = yaml.load(
-            open(
-                agent_specs_file_name,
-                'r'),
-            Loader=yaml.FullLoader)
-
+            open(agent_specs_file_name, "r"), Loader=yaml.FullLoader
+        )
 
     def prepare_outputs_directory(self):
         # Set up the output data path
         self.ABCE_output_data_path = (
-            Path(os.getcwd()) /
-            "outputs" /
-            self.settings["simulation"]["scenario_name"]
+            Path(os.getcwd())
+            / "outputs"
+            / self.settings["simulation"]["scenario_name"]
         )
 
         if not Path(self.ABCE_output_data_path).is_dir():
@@ -152,31 +146,28 @@ class GridModel(Model):
                 )
                 (Path(self.ABCE_output_data_path) / existing_file).unlink()
 
-
     def show_abce_header(self):
         logo_file = Path(
-                        self.settings["file_paths"]["ABCE_abs_path"] /
-                        "misc" /
-                        self.settings["file_paths"]["logo"]
-                    )
+            self.settings["file_paths"]["ABCE_abs_path"]
+            / "misc"
+            / self.settings["file_paths"]["logo"]
+        )
         with open(logo_file, "r") as logo:
             for line in logo.read().splitlines():
                 logging.log(self.settings["constants"]["vis_lvl"], line)
 
-
     def set_ALEAF_file_paths(self):
-        """ Set up all absolute paths to ALEAF and its input files, and
-              save them as member data.
+        """Set up all absolute paths to ALEAF and its input files, and
+        save them as member data.
         """
         # Set path to ALEAF outputs
         self.ALEAF_output_data_path = Path(
-            Path(os.environ["ALEAF_DIR"]) /
-            "output" /
-            self.settings["ALEAF"]["ALEAF_model_type"] /
-            self.settings["ALEAF"]["ALEAF_region"] /
-            f"scenario_1_{self.settings['simulation']['scenario_name']}"
+            Path(os.environ["ALEAF_DIR"])
+            / "output"
+            / self.settings["ALEAF"]["ALEAF_model_type"]
+            / self.settings["ALEAF"]["ALEAF_region"]
+            / f"scenario_1_{self.settings['simulation']['scenario_name']}"
         )
-
 
     def add_unit_specs_to_db(self):
         """
@@ -184,10 +175,11 @@ class GridModel(Model):
           database, then saves the table to the database.
         """
         # Reshape unit_specs into a dataframe
-        unit_specs = (pd.DataFrame.from_dict(self.unit_specs, orient="index")
-                                  .reset_index()
-                                  .rename(columns={"index": "unit_type"})
-                     )
+        unit_specs = (
+            pd.DataFrame.from_dict(self.unit_specs, orient="index")
+            .reset_index()
+            .rename(columns={"index": "unit_type"})
+        )
 
         # Retrieve the column-header schema for the 'unit_specs' table
         self.cur.execute("SELECT * FROM unit_specs")
@@ -198,12 +190,8 @@ class GridModel(Model):
 
         # Save the finalized unit specs data to the DB, and set the member data
         unit_specs.to_sql(
-            "unit_specs",
-            self.db,
-            if_exists="replace",
-            index=False)
-
-
+            "unit_specs", self.db, if_exists="replace", index=False
+        )
 
     def initialize_agent_retirement_schedule(self, agent):
         # Validate the number of retirements versus number of owned units
@@ -224,11 +212,11 @@ class GridModel(Model):
             #   of owned assets of this type
             if total_ret_units > num_units:
                 raise ValueError(
-                    f"Portfolio specification mismatch for agent " +
-                    f"#{agent.unique_id}: total owned {unit_type} units = " +
-                    f"{num_units}, but total specified {unit_type} " +
-                    f"retirements = {total_ret_units}."
-               )
+                    f"Portfolio specification mismatch for agent "
+                    + f"#{agent.unique_id}: total owned {unit_type} units = "
+                    + f"{num_units}, but total specified {unit_type} "
+                    + f"retirements = {total_ret_units}."
+                )
 
             # If there are any units with unspecified retirement dates, set
             #   their retirement date to a large number
@@ -238,10 +226,8 @@ class GridModel(Model):
                     num_units - total_ret_units
                 )
 
-
-
     def initialize_agent_assets(self, agent):
-        # Set up the agent's retirement schedule, and validate that the 
+        # Set up the agent's retirement schedule, and validate that the
         #   schedule of retirements is compatible with the agent's portfolio
         self.initialize_agent_retirement_schedule(agent)
 
@@ -265,16 +251,19 @@ class GridModel(Model):
                 cap_pmt = 0
 
                 # Set up all data values except for the asset id
-                asset_dict = {"agent_id": agent.unique_id,
-                              "unit_type": unit_type,
-                              "start_pd": self.settings["constants"]["time_before_start"],
-                              "completion_pd": 0,
-                              "cancellation_pd": self.settings["constants"]["distant_time"],
-                              "retirement_pd": int(retirement_pd),
-                              "total_capex": unit_capex,
-                              "cap_pmt": cap_pmt,
-                              "C2N_reserved": 0
-                             }
+                asset_dict = {
+                    "agent_id": agent.unique_id,
+                    "unit_type": unit_type,
+                    "start_pd": self.settings["constants"]["time_before_start"],
+                    "completion_pd": 0,
+                    "cancellation_pd": self.settings["constants"][
+                        "distant_time"
+                    ],
+                    "retirement_pd": int(retirement_pd),
+                    "total_capex": unit_capex,
+                    "cap_pmt": cap_pmt,
+                    "C2N_reserved": 0,
+                }
 
                 # For each asset in this block, create a dataframe record and
                 #   store it to the master_assets_df
@@ -284,12 +273,15 @@ class GridModel(Model):
                     asset_dict["asset_id"] = max(
                         ABCE.get_next_asset_id(
                             self.db,
-                            self.settings["constants"]["first_asset_id"]
+                            self.settings["constants"]["first_asset_id"],
                         ),
                         max(
                             master_assets_df["asset_id"],
-                            default=self.settings["constants"]["first_asset_id"]
-                        ) + 1
+                            default=self.settings["constants"][
+                                "first_asset_id"
+                            ],
+                        )
+                        + 1,
                     )
 
                     # Convert the dictionary to a dataframe format and save
@@ -300,53 +292,45 @@ class GridModel(Model):
         #   initialized, save the dataframe of all assets into the 'assets'
         #   DB table
         master_assets_df.to_sql(
-            "assets",
-            self.db,
-            if_exists="append",
-            index=False
+            "assets", self.db, if_exists="append", index=False
         )
 
         self.db.commit()
-
 
     def compute_total_capex_preexisting(self, unit_type):
         unit_cost_per_kW = self.unit_specs[unit_type]["overnight_capital_cost"]
         unit_capacity = self.unit_specs[unit_type]["capacity"]
 
-        total_capex = (unit_cost_per_kW 
-                       * unit_capacity 
-                       * self.settings["constants"]["MW2kW"]
-                      )
+        total_capex = (
+            unit_cost_per_kW
+            * unit_capacity
+            * self.settings["constants"]["MW2kW"]
+        )
 
         return total_capex
-
 
     def load_demand_data_to_db(self):
         # Load all-period demand data into the database
         demand_data_file = (
-            Path(self.settings["file_paths"]["ABCE_abs_path"]) /
-            self.settings["file_paths"]["demand_data_file"]
+            Path(self.settings["file_paths"]["ABCE_abs_path"])
+            / self.settings["file_paths"]["demand_data_file"]
         )
-        demand_df = (pd.read_csv(demand_data_file) 
-                     * self.settings["scenario"]["peak_demand"]
-                    )
+        demand_df = (
+            pd.read_csv(demand_data_file)
+            * self.settings["scenario"]["peak_demand"]
+        )
 
         # Create an expanded range of periods to backfill with demand_df data
         new_index = list(
-                        range(
-                            self.settings["demand"]["total_forecast_horizon"]
-                        )
-                    )
+            range(self.settings["demand"]["total_forecast_horizon"])
+        )
         demand_df = demand_df.reindex(new_index, method="ffill")
 
         # Save data to DB
         demand_df.to_sql(
-            "demand",
-            self.db,
-            if_exists="replace",
-            index_label="period")
+            "demand", self.db, if_exists="replace", index_label="period"
+        )
         self.db.commit()
-
 
     def load_model_parameters_to_db(self):
         # Load specific parameters specified in settings.yml to the database
@@ -355,10 +339,9 @@ class GridModel(Model):
 
         tax_rate = self.settings["system"]["tax_rate"]
         self.cur.execute(
-            f"INSERT INTO model_params VALUES ('tax_rate', {tax_rate})")
+            f"INSERT INTO model_params VALUES ('tax_rate', {tax_rate})"
+        )
         self.db.commit()
-
-
 
     def step(self, demo=False):
         """
@@ -379,10 +362,7 @@ class GridModel(Model):
 
         # Compute the scenario reduction results for this year
         ABCE.execute_scenario_reduction(
-            self.db,
-            self.current_pd,
-            self.settings,
-            self.unit_specs
+            self.db, self.current_pd, self.settings, self.unit_specs
         )
 
         # Close the database to avoid access problems in the Julia scope
@@ -394,7 +374,7 @@ class GridModel(Model):
 
         logging.log(
             self.settings["constants"]["vis_lvl"],
-            "\nAll agent turns are complete.\n"
+            "\nAll agent turns are complete.\n",
         )
 
         # Reopen the database connection, now that Julia execution is complete
@@ -416,44 +396,43 @@ class GridModel(Model):
         if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
             # Re-load the baseline A-LEAF data
             ALEAF_data = idm.load_data(
-                             Path(self.settings["ALEAF"]["ALEAF_data_file"])
-                         )
+                Path(self.settings["ALEAF"]["ALEAF_data_file"])
+            )
 
-            # Generate all three A-LEAF input files and save them to the 
+            # Generate all three A-LEAF input files and save them to the
             #   appropriate subdirectories in the A-LEAF top-level directory
             idm.create_ALEAF_files(
                 self.settings,
                 ALEAF_data,
                 self.unit_specs,
                 self.db,
-                self.current_pd
+                self.current_pd,
             )
 
             # Run A-LEAF
             logging.log(
-                self.settings["constants"]["vis_lvl"],
-                "Running A-LEAF..."
+                self.settings["constants"]["vis_lvl"], "Running A-LEAF..."
             )
-            run_script_path = (Path(os.environ["ALEAF_DIR"]) /
-                               "execute_ALEAF.jl")
+            run_script_path = Path(os.environ["ALEAF_DIR"]) / "execute_ALEAF.jl"
             ALEAF_env_path = Path(os.environ["ALEAF_DIR"]) / "."
-            ALEAF_sysimage_path = (Path(os.environ["ALEAF_DIR"]) /
-                                   "aleafSysimage.so")
-            aleaf_cmd = (f"julia --project={ALEAF_env_path} " +
-                         f"-J {ALEAF_sysimage_path} {run_script_path} " +
-                         f"{self.settings['ALEAF']['ALEAF_abs_path']}"
-                        )
+            ALEAF_sysimage_path = (
+                Path(os.environ["ALEAF_DIR"]) / "aleafSysimage.so"
+            )
+            aleaf_cmd = (
+                f"julia --project={ALEAF_env_path} "
+                + f"-J {ALEAF_sysimage_path} {run_script_path} "
+                + f"{self.settings['ALEAF']['ALEAF_abs_path']}"
+            )
 
             if self.args.verbosity < 2:
-                sp = subprocess.check_call(aleaf_cmd,
-                                           shell=True,
-                                           stdout=open(os.devnull, "wb"))
+                sp = subprocess.check_call(
+                    aleaf_cmd, shell=True, stdout=open(os.devnull, "wb")
+                )
             else:
                 sp = subprocess.check_call(aleaf_cmd, shell=True)
 
             self.save_ALEAF_outputs()
             self.process_ALEAF_dispatch_results()
-
 
     def display_step_header(self):
         if self.current_pd != 0:
@@ -461,10 +440,9 @@ class GridModel(Model):
         logging.log(self.settings["constants"]["vis_lvl"], "=" * 60)
         logging.log(
             self.settings["constants"]["vis_lvl"],
-            f"   Simulation step: {self.current_pd}"
+            f"   Simulation step: {self.current_pd}",
         )
         logging.log(self.settings["constants"]["vis_lvl"], "=" * 60)
-
 
     def show_round_updates(self):
         logging.debug("Updates to assets:")
@@ -474,24 +452,23 @@ class GridModel(Model):
             pd.read_sql("SELECT * FROM WIP_updates", self.db).tail(n=10)
         )
 
-
     def check_for_sysimage_file(self):
-        ABCE_sysimage_path = (Path(
-            self.settings["file_paths"]["ABCE_abs_path"]) /
-            "env" /
-            self.settings["file_paths"]["ABCE_sysimage_file"]
+        ABCE_sysimage_path = (
+            Path(self.settings["file_paths"]["ABCE_abs_path"])
+            / "env"
+            / self.settings["file_paths"]["ABCE_sysimage_file"]
         )
 
         has_ABCE_sysimage = True
 
         if not Path(ABCE_sysimage_path).exists():
             msg = (
-                f"No sysimage file found at {ABCE_sysimage_path}. " +
-                "Execution will proceed, but Julia may run extremely " +
-                "slowly. If you already have a sysimage file, please move " +
-                f"it to the filename {sysimage_path}. If you do not have a " +
-                "sysimage file, please run 'julia make_sysimage.jl " +
-                "--mode=abce' in this directory."
+                f"No sysimage file found at {ABCE_sysimage_path}. "
+                + "Execution will proceed, but Julia may run extremely "
+                + "slowly. If you already have a sysimage file, please move "
+                + f"it to the filename {sysimage_path}. If you do not have a "
+                + "sysimage file, please run 'julia make_sysimage.jl "
+                + "--mode=abce' in this directory."
             )
             logging.warn(msg)
             has_ABCE_sysimage = False
@@ -518,16 +495,17 @@ class GridModel(Model):
 
         # Retrieve a list of all ongoing WIP projects
         WIP_projects = pd.read_sql_query(
-            f"SELECT WIP_projects.*, assets.* " +
-            "FROM WIP_projects " +
-            "INNER JOIN assets " +
-            "ON WIP_projects.asset_id = assets.asset_id " +
-            "WHERE " +
-            f"assets.completion_pd > {self.current_pd} " +
-            f"AND assets.retirement_pd > {self.current_pd} " +
-            f"AND assets.cancellation_pd > {self.current_pd} " +
-            f"AND WIP_projects.period = {self.current_pd}",
-            self.db)
+            f"SELECT WIP_projects.*, assets.* "
+            + "FROM WIP_projects "
+            + "INNER JOIN assets "
+            + "ON WIP_projects.asset_id = assets.asset_id "
+            + "WHERE "
+            + f"assets.completion_pd > {self.current_pd} "
+            + f"AND assets.retirement_pd > {self.current_pd} "
+            + f"AND assets.cancellation_pd > {self.current_pd} "
+            + f"AND WIP_projects.period = {self.current_pd}",
+            self.db,
+        )
 
         # Create dataframe to hold all new capex_projections entries
         capex_cols = [
@@ -535,7 +513,8 @@ class GridModel(Model):
             "asset_id",
             "base_pd",
             "projected_pd",
-            "capex"]
+            "capex",
+        ]
         capex_updates = pd.DataFrame(columns=capex_cols)
 
         # Iterate through all WIP projects and project capex through the
@@ -549,28 +528,35 @@ class GridModel(Model):
                 getattr(row, "cum_construction_exp"),
                 getattr(row, "cum_construction_duration"),
                 getattr(row, "rcec"),
-                getattr(row, "rtec")
+                getattr(row, "rtec"),
             )
 
             for i in range(len(projected_capex)):
-                new_row = [agent_id,
-                           asset_id,
-                           self.current_pd,
-                           self.current_pd + i - 1,
-                           projected_capex[i]]
+                new_row = [
+                    agent_id,
+                    asset_id,
+                    self.current_pd,
+                    self.current_pd + i - 1,
+                    projected_capex[i],
+                ]
                 capex_updates.loc[len(capex_updates.index)] = new_row
 
         # Write the entire capex_cols dataframe to the capex_projections
         #   DB table
         capex_updates.to_sql(
-            "capex_projections",
-            self.db,
-            if_exists="append",
-            index=False)
+            "capex_projections", self.db, if_exists="append", index=False
+        )
 
         self.db.commit()
 
-    def project_capex(self, unit_type, cum_construction_exp, cum_construction_duration, rcec, rtec):
+    def project_capex(
+        self,
+        unit_type,
+        cum_construction_exp,
+        cum_construction_duration,
+        rcec,
+        rtec,
+    ):
         # For a given WIP project, project the sequence of annual capital
         #   expenditures until the project's expected completion
         # TODO: update with more specific methods for different project types
@@ -581,7 +567,6 @@ class GridModel(Model):
 
         return projected_capex
 
-
     def initialize_preexisting_instruments(self, fin_insts_updates):
         # Initialize the instrument ids
         inst_id = self.settings["financing"]["starting_instrument_id"]
@@ -590,43 +575,45 @@ class GridModel(Model):
             if not agent.inactive:
                 # Compute starting level of extant equity
                 if agent.debt_fraction != 0:
-                    starting_equity = (float(agent.starting_debt)
-                                       / agent.debt_fraction 
-                                       * (1 - agent.debt_fraction)
-                                      )
+                    starting_equity = (
+                        float(agent.starting_debt)
+                        / agent.debt_fraction
+                        * (1 - agent.debt_fraction)
+                    )
                 else:
                     starting_equity = agent.starting_debt
 
                 # Instantiate a debt record
-                debt_row = [agent.unique_id,
-                            inst_id,
-                            "debt",
-                            agent.unique_id,
-                            self.settings["constants"]["time_before_start"],
-                            float(agent.starting_debt),
-                            self.settings["financing"]["default_debt_term"],
-                            agent.cost_of_debt
-                           ]
+                debt_row = [
+                    agent.unique_id,
+                    inst_id,
+                    "debt",
+                    agent.unique_id,
+                    self.settings["constants"]["time_before_start"],
+                    float(agent.starting_debt),
+                    self.settings["financing"]["default_debt_term"],
+                    agent.cost_of_debt,
+                ]
 
                 fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
                 inst_id += 1
 
                 # Instantiate an equity record
-                equity_row = [agent.unique_id,
-                              inst_id,
-                              "equity",
-                              agent.unique_id,
-                              self.settings["constants"]["time_before_start"],
-                              starting_equity,
-                              self.settings["financing"]["default_equity_horizon"],
-                              agent.cost_of_equity
-                             ]
+                equity_row = [
+                    agent.unique_id,
+                    inst_id,
+                    "equity",
+                    agent.unique_id,
+                    self.settings["constants"]["time_before_start"],
+                    starting_equity,
+                    self.settings["financing"]["default_equity_horizon"],
+                    agent.cost_of_equity,
+                ]
 
                 fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
                 inst_id += 1
 
         return fin_insts_updates
-
 
     def update_financial_instrument_manifest(self):
         # Based on projected capital expenditures, project the total set of
@@ -640,9 +627,11 @@ class GridModel(Model):
         # Pull out all financial instruments which already exist (as of
         #   last period). All other entries will be overwritten
         fin_insts_updates = pd.read_sql_query(
-            (f"SELECT * FROM financial_instrument_manifest " +
-            f"WHERE pd_issued < {self.current_pd - 1}"),
-            self.db
+            (
+                f"SELECT * FROM financial_instrument_manifest "
+                + f"WHERE pd_issued < {self.current_pd - 1}"
+            ),
+            self.db,
         )
 
         self.db.commit()
@@ -654,16 +643,17 @@ class GridModel(Model):
         #   debt and equity for the agents
         if self.current_pd == 0:
             fin_insts_updates = self.initialize_preexisting_instruments(
-                                    fin_insts_updates
-                                )
+                fin_insts_updates
+            )
 
         # Get a list of all capex projections
         new_capex_instances = pd.read_sql_query(
-            (f"SELECT * FROM capex_projections " +
-             f"WHERE base_pd >= {self.current_pd} " +
-             f"AND projected_pd >= {self.current_pd-1}"
+            (
+                f"SELECT * FROM capex_projections "
+                + f"WHERE base_pd >= {self.current_pd} "
+                + f"AND projected_pd >= {self.current_pd-1}"
             ),
-            self.db
+            self.db,
         )
         inst_id = max(fin_insts_updates["instrument_id"]) + 1
         for i in range(len(new_capex_instances.index)):
@@ -676,28 +666,30 @@ class GridModel(Model):
             agent_equity_cost = self.agents[agent_id].cost_of_equity
 
             # Set up debt issuance for this project for this year
-            debt_row = [agent_id,                         # agent_id
-                        inst_id,                          # instrument_id
-                        "debt",                           # instrument_type
-                        asset_id,                         # asset_id
-                        pd_issued,                        # pd_issued
-                        total_qty * agent_debt_frac,      # initial_principal
-                        pd_issued + self.settings["financing"]["default_debt_term"],
-                        agent_debt_cost                   # rate
-                        ]
+            debt_row = [
+                agent_id,  # agent_id
+                inst_id,  # instrument_id
+                "debt",  # instrument_type
+                asset_id,  # asset_id
+                pd_issued,  # pd_issued
+                total_qty * agent_debt_frac,  # initial_principal
+                pd_issued + self.settings["financing"]["default_debt_term"],
+                agent_debt_cost,  # rate
+            ]
             fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
 
-
             # Set up equity issuance for this project for this year
-            equity_row = [agent_id,
-                          inst_id + 1,
-                          "equity",
-                          asset_id,
-                          pd_issued,
-                          total_qty * (1 - agent_debt_frac),
-                          pd_issued + self.settings["financing"]["default_equity_horizon"],
-                          agent_equity_cost
-                          ]
+            equity_row = [
+                agent_id,
+                inst_id + 1,
+                "equity",
+                asset_id,
+                pd_issued,
+                total_qty * (1 - agent_debt_frac),
+                pd_issued
+                + self.settings["financing"]["default_equity_horizon"],
+                agent_equity_cost,
+            ]
             fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
 
             inst_id = max(fin_insts_updates["instrument_id"]) + 1
@@ -707,17 +699,19 @@ class GridModel(Model):
             "financial_instrument_manifest",
             self.db,
             if_exists="append",
-            index=False)
+            index=False,
+        )
         self.db.commit()
 
     def update_financing_schedule(self):
         # Retrieve the current list of all forecasted financial instruments
         #   which are not past their maturity date
         all_fin_insts = pd.read_sql_query(
-            (f"SELECT * FROM financial_instrument_manifest " +
-             f"WHERE maturity_pd > {self.current_pd}"
+            (
+                f"SELECT * FROM financial_instrument_manifest "
+                + f"WHERE maturity_pd > {self.current_pd}"
             ),
-            self.db
+            self.db,
         )
 
         fin_sched_cols = [
@@ -727,7 +721,8 @@ class GridModel(Model):
             "projected_pd",
             "total_payment",
             "interest_payment",
-            "principal_payment"]
+            "principal_payment",
+        ]
         fin_sched_updates = pd.DataFrame(columns=fin_sched_cols)
 
         for i in range(len(all_fin_insts.index)):
@@ -737,8 +732,11 @@ class GridModel(Model):
             initial_principal = all_fin_insts.loc[i, "initial_principal"]
             rate = all_fin_insts.loc[i, "rate"]
             maturity_pd = all_fin_insts.loc[i, "maturity_pd"]
-            total_payment = rate * initial_principal / \
-                (1 - (1 + rate) ** (-1 * (maturity_pd - pd_issued)))
+            total_payment = (
+                rate
+                * initial_principal
+                / (1 - (1 + rate) ** (-1 * (maturity_pd - pd_issued)))
+            )
             remaining_principal = initial_principal
             for projected_pd in range(pd_issued, maturity_pd):
                 interest_payment = rate * remaining_principal
@@ -746,26 +744,25 @@ class GridModel(Model):
 
                 if projected_pd >= self.current_pd:
                     # Organize data and add to fin_sched_updates
-                    new_row = [inst_id,
-                               agent_id,
-                               self.current_pd,
-                               projected_pd,
-                               total_payment,
-                               interest_payment,
-                               principal_payment
-                               ]
-                    fin_sched_updates.loc[len(
-                        fin_sched_updates.index)] = new_row
+                    new_row = [
+                        inst_id,
+                        agent_id,
+                        self.current_pd,
+                        projected_pd,
+                        total_payment,
+                        interest_payment,
+                        principal_payment,
+                    ]
+                    fin_sched_updates.loc[
+                        len(fin_sched_updates.index)
+                    ] = new_row
 
                 # Update the amount of remaining principal
                 remaining_principal = remaining_principal - principal_payment
 
         fin_sched_updates.to_sql(
-            "financing_schedule",
-            self.db,
-            if_exists="append",
-            index=False)
-
+            "financing_schedule", self.db, if_exists="append", index=False
+        )
 
     def update_depreciation_projections(self):
         # Currently uses straight-line depreciation only
@@ -779,7 +776,8 @@ class GridModel(Model):
                 "base_pd",
                 "projected_pd",
                 "depreciation",
-                "beginning_book_value"]
+                "beginning_book_value",
+            ]
             dep_projections = pd.DataFrame(columns=dep_cols)
             for agent_id, agent in self.agents.items():
                 summary_asset_id = agent.unique_id
@@ -787,8 +785,9 @@ class GridModel(Model):
                 dep_horiz = self.settings["financing"]["depreciation_horizon"]
                 pd_dep = init_PPE / dep_horiz
                 for i in range(dep_horiz):
-                    beginning_book_value = init_PPE * \
-                        (dep_horiz - i) / dep_horiz
+                    beginning_book_value = (
+                        init_PPE * (dep_horiz - i) / dep_horiz
+                    )
                     new_row = [
                         agent_id,
                         summary_asset_id,
@@ -796,7 +795,8 @@ class GridModel(Model):
                         self.current_pd,
                         i,
                         pd_dep,
-                        beginning_book_value]
+                        beginning_book_value,
+                    ]
                     dep_projections.loc[len(dep_projections.index)] = new_row
         else:
             # Start by copying forward all entries related to previously-
@@ -807,12 +807,13 @@ class GridModel(Model):
             #   - the projected period is this period or later
             # Then simply change all `base_pd` values to the current period
             dep_projections = pd.read_sql_query(
-                (f"SELECT * FROM depreciation_projections " +
-                 f"WHERE base_pd = {self.current_pd-1} " +
-                 f"AND completion_pd < {self.current_pd} " +
-                 f"AND projected_pd >= {self.current_pd}"
+                (
+                    f"SELECT * FROM depreciation_projections "
+                    + f"WHERE base_pd = {self.current_pd-1} "
+                    + f"AND completion_pd < {self.current_pd} "
+                    + f"AND projected_pd >= {self.current_pd}"
                 ),
-                self.db
+                self.db,
             )
             dep_projections["base_pd"] = self.current_pd
 
@@ -822,20 +823,22 @@ class GridModel(Model):
             #   - new WIPs since last period
             # WIPs completed last period are NOT included in this section
             WIP_projects = pd.read_sql_query(
-                (f"SELECT * FROM WIP_projects " +
-                 f"WHERE period = {self.current_pd-1} AND rtec > 0"
+                (
+                    f"SELECT * FROM WIP_projects "
+                    + f"WHERE period = {self.current_pd-1} AND rtec > 0"
                 ),
-                self.db
+                self.db,
             )
 
             for row in WIP_projects.itertuples():
                 asset_id = getattr(row, "asset_id")
                 agent_id = getattr(row, "agent_id")
-                starting_pd = getattr(row, "period") + \
-                    math.ceil(round(getattr(row, "rtec"), 3))
-                asset_PPE = (getattr(row, "cum_construction_exp")
-                             + getattr(row, "rcec")
-                            )
+                starting_pd = getattr(row, "period") + math.ceil(
+                    round(getattr(row, "rtec"), 3)
+                )
+                asset_PPE = getattr(row, "cum_construction_exp") + getattr(
+                    row, "rcec"
+                )
                 dep_horiz = self.settings["financing"]["depreciation_horizon"]
                 pd_dep = asset_PPE / dep_horiz
                 for i in range(dep_horiz):
@@ -847,16 +850,14 @@ class GridModel(Model):
                         self.current_pd,
                         starting_pd + i,
                         pd_dep,
-                        book_value]
+                        book_value,
+                    ]
                     dep_projections.loc[len(dep_projections.index)] = new_row
 
         dep_projections.to_sql(
-            "depreciation_projections",
-            self.db,
-            if_exists="append",
-            index=False)
+            "depreciation_projections", self.db, if_exists="append", index=False
+        )
         self.db.commit()
-
 
     def save_ALEAF_outputs(self):
         # Copy all ALEAF output files to the output directory, with
@@ -865,18 +866,20 @@ class GridModel(Model):
             "dispatch_summary_OP",
             "expansion_result",
             "system_summary_OP",
-            "system_tech_summary_OP"]
+            "system_tech_summary_OP",
+        ]
         for outfile in files_to_save:
-            old_filename = (f"{self.settings['simulation']['scenario_name']}"+
-                            f"__{outfile}.csv"
-                           )
+            old_filename = (
+                f"{self.settings['simulation']['scenario_name']}"
+                + f"__{outfile}.csv"
+            )
             old_filepath = Path(self.ALEAF_output_data_path) / old_filename
-            new_filename = (f"{self.settings['simulation']['scenario_name']}"+
-                            f"__{outfile}__step_{self.current_pd}.csv"
-                           )
+            new_filename = (
+                f"{self.settings['simulation']['scenario_name']}"
+                + f"__{outfile}__step_{self.current_pd}.csv"
+            )
             new_filepath = Path(self.ABCE_output_data_path) / new_filename
             shutil.copy2(old_filepath, new_filepath)
-
 
     def process_ALEAF_dispatch_results(self):
         # Find and load the ALEAF dispatch file corresponding to the current
@@ -884,39 +887,39 @@ class GridModel(Model):
         fname_pattern = f"dispatch_summary_OP__step_{self.current_pd}"
         ALEAF_dsp_file = None
         for fname in os.listdir(Path(self.ABCE_output_data_path)):
-            if ("dispatch" in fname and "OP" in fname 
-                and f"{self.current_pd}" in fname):
+            if (
+                "dispatch" in fname
+                and "OP" in fname
+                and f"{self.current_pd}" in fname
+            ):
                 ALEAF_dsp_file = Path(self.ABCE_output_data_path) / fname
 
         # Get the number of units which are currently operational (needed for
         #   scaling dispatch results to a per-unit basis)
-        sql_query = (f"SELECT unit_type, COUNT(unit_type) FROM assets " +
-                         f"WHERE completion_pd <= {self.current_pd} " +
-                         f"AND retirement_pd > {self.current_pd} " +
-                         f"AND cancellation_pd > {self.current_pd} " +
-                         f"GROUP BY unit_type")
-        num_units = (pd.read_sql_query(
-                         sql_query,
-                         self.db,
-                         index_col="unit_type"
-                     ).rename(columns={"COUNT(unit_type)": "num_units"})
-                    ) 
+        sql_query = (
+            f"SELECT unit_type, COUNT(unit_type) FROM assets "
+            + f"WHERE completion_pd <= {self.current_pd} "
+            + f"AND retirement_pd > {self.current_pd} "
+            + f"AND cancellation_pd > {self.current_pd} "
+            + f"GROUP BY unit_type"
+        )
+        num_units = pd.read_sql_query(
+            sql_query, self.db, index_col="unit_type"
+        ).rename(columns={"COUNT(unit_type)": "num_units"})
 
         # Postprocess ALEAF dispatch results
         ALEAF_dsp_results = dsp.postprocess_dispatch(
-                                ALEAF_dsp_file,
-                                num_units,
-                                self.unit_specs
-                            )
+            ALEAF_dsp_file, num_units, self.unit_specs
+        )
         ALEAF_dsp_results["period"] = self.current_pd
-        ALEAF_dsp_results = (ALEAF_dsp_results.reset_index()
-                             .rename(columns={"index": "unit_type"})
-                            )
+        ALEAF_dsp_results = ALEAF_dsp_results.reset_index().rename(
+            columns={"index": "unit_type"}
+        )
 
         # Get list of column names for ordering
         cursor = self.db.cursor().execute(
-                     "SELECT * FROM ALEAF_dispatch_results"
-                 )
+            "SELECT * FROM ALEAF_dispatch_results"
+        )
         col_names = [description[0] for description in cursor.description]
 
         # Reorder ALEAF_dsp_results to match database
@@ -925,12 +928,8 @@ class GridModel(Model):
         logging.debug(ALEAF_dsp_results)
 
         ALEAF_dsp_results.to_sql(
-            "ALEAF_dispatch_results",
-            self.db,
-            if_exists="append",
-            index=False
+            "ALEAF_dispatch_results", self.db, if_exists="append", index=False
         )
-
 
     def update_WIP_projects(self):
         """
@@ -952,26 +951,29 @@ class GridModel(Model):
         # Get a list of all currently-active construction projects
         if self.current_pd == 0:
             WIP_projects = pd.read_sql(
-                "SELECT asset_id FROM assets WHERE " +
-                f"completion_pd > {self.current_pd} AND " +
-                f"cancellation_pd >= {self.current_pd}",
-                self.db)
+                "SELECT asset_id FROM assets WHERE "
+                + f"completion_pd > {self.current_pd} AND "
+                + f"cancellation_pd >= {self.current_pd}",
+                self.db,
+            )
         else:
             WIP_projects = pd.read_sql(
-                "SELECT asset_id FROM assets WHERE " +
-                f"completion_pd >= {self.current_pd} AND " +
-                f"cancellation_pd > {self.current_pd}",
-                self.db)
+                "SELECT asset_id FROM assets WHERE "
+                + f"completion_pd >= {self.current_pd} AND "
+                + f"cancellation_pd > {self.current_pd}",
+                self.db,
+            )
 
         # Update each project one at a time
         for asset_id in WIP_projects.asset_id:
             # Select this project's most recent data record
             project_data = pd.read_sql_query(
-                (f"SELECT * FROM WIP_projects " +
-                 f"WHERE asset_id = {asset_id} " +
-                 f"AND period = {self.current_pd-1}"
+                (
+                    f"SELECT * FROM WIP_projects "
+                    + f"WHERE asset_id = {asset_id} "
+                    + f"AND period = {self.current_pd-1}"
                 ),
-                self.db
+                self.db,
             )
 
             # Record the effects of authorized construction expenditures, and
@@ -980,8 +982,10 @@ class GridModel(Model):
 
             # If this period's authorized expenditures (ANPE) clear the RCEC,
             #   then the project is complete
-            if (project_data.loc[0, "rcec"] 
-                <= self.settings["constants"]["large_epsilon"]):
+            if (
+                project_data.loc[0, "rcec"]
+                <= self.settings["constants"]["large_epsilon"]
+            ):
                 # Record the project's completion period as the current period
                 self.record_completed_construction_project(project_data)
 
@@ -992,32 +996,29 @@ class GridModel(Model):
             #   database 'assets' table
             self.update_expected_completion_period(project_data)
 
-
     def record_completed_construction_project(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
 
         # Get asset record from assets
         asset_data = pd.read_sql_query(
-            f"SELECT * FROM assets WHERE asset_id = {asset_id}", self.db)
+            f"SELECT * FROM assets WHERE asset_id = {asset_id}", self.db
+        )
 
-       # Compute periodic sinking fund payments
+        # Compute periodic sinking fund payments
         unit_type = asset_data.loc[0, "unit_type"]
         unit_life = int(math.ceil(self.unit_specs[unit_type]["unit_life"]))
         capex_payment = 0
 
-        updates = {"completion_pd": self.current_pd,
-                   "retirement_pd": self.current_pd + unit_life,
-                   "total_capex": project_data.loc[0, "cum_construction_exp"],
-                   "cap_pmt": capex_payment
-                  }
+        updates = {
+            "completion_pd": self.current_pd,
+            "retirement_pd": self.current_pd + unit_life,
+            "total_capex": project_data.loc[0, "cum_construction_exp"],
+            "cap_pmt": capex_payment,
+        }
         filters = {"asset_id": asset_id}
 
         ABCE.update_DB_table_inplace(
-            self.db,
-            self.cur,
-            "assets",
-            to_update,
-            filters
+            self.db, self.cur, "assets", to_update, filters
         )
 
         # Commit changes to database
@@ -1026,16 +1027,16 @@ class GridModel(Model):
     def record_WIP_project_updates(self, project_data):
         # Update the 'WIP_projects' table with new RCEC/RTEC/ANPE values
         self.cur.execute(
-            "INSERT INTO WIP_projects VALUES " +
-            f"({project_data.asset_id.values[0]}, " +
-            f"{project_data.agent_id.values[0]}, " +
-            f"{self.current_pd}, " +
-            f"{project_data.cum_occ.values[0]}, " +
-            f"{project_data.rcec.values[0]}, " +
-            f"{project_data.cum_construction_duration.values[0]}, " +
-            f"{project_data.rtec.values[0]}, " +
-            f"{project_data.cum_construction_exp.values[0]}, " +
-            f"{project_data.anpe.values[0]})"
+            "INSERT INTO WIP_projects VALUES "
+            + f"({project_data.asset_id.values[0]}, "
+            + f"{project_data.agent_id.values[0]}, "
+            + f"{self.current_pd}, "
+            + f"{project_data.cum_occ.values[0]}, "
+            + f"{project_data.rcec.values[0]}, "
+            + f"{project_data.cum_construction_duration.values[0]}, "
+            + f"{project_data.rtec.values[0]}, "
+            + f"{project_data.cum_construction_exp.values[0]}, "
+            + f"{project_data.anpe.values[0]})"
         )
 
         # Save changes to the database
@@ -1053,17 +1054,17 @@ class GridModel(Model):
           asset_id (int): asset for which to compute total capex
 
         Returns:
-          total_capex (float): total capital expenditures up to the 
+          total_capex (float): total capital expenditures up to the
             present period
         """
 
-        total_capex = (pd.read_sql(
-                           (f"SELECT SUM(anpe) FROM WIP_projects " +
-                            f"WHERE asset_id = {asset_id}"
-                           ),
-                           self.db
-                       ).iloc[0, 0]
-                      )
+        total_capex = pd.read_sql(
+            (
+                f"SELECT SUM(anpe) FROM WIP_projects "
+                + f"WHERE asset_id = {asset_id}"
+            ),
+            self.db,
+        ).iloc[0, 0]
         return total_capex
 
     def compute_sinking_fund_payment(self, agent_id, total_capex, term):
@@ -1083,12 +1084,16 @@ class GridModel(Model):
             of the indicated amortization term
         """
 
-        agent_params = pd.read_sql("SELECT * FROM agent_params WHERE " +
-                                   f"agent_id = {agent_id}", self.db)
+        agent_params = pd.read_sql(
+            "SELECT * FROM agent_params WHERE " + f"agent_id = {agent_id}",
+            self.db,
+        )
 
-        wacc = (agent_params.debt_fraction * agent_params.cost_of_debt +
-                (1 - agent_params.debt_fraction) * agent_params.cost_of_equity)
-        cap_pmt = total_capex * wacc / (1 - (1 + wacc)**(-term))
+        wacc = (
+            agent_params.debt_fraction * agent_params.cost_of_debt
+            + (1 - agent_params.debt_fraction) * agent_params.cost_of_equity
+        )
+        cap_pmt = total_capex * wacc / (1 - (1 + wacc) ** (-term))
 
         # Convert cap_pmt from a single-entry Series to a scalar
         cap_pmt = cap_pmt[0]
@@ -1103,10 +1108,12 @@ class GridModel(Model):
         project_data.loc[0, "rcec"] -= project_data.loc[0, "anpe"]
 
         # Cumulative capital expenditures are increased by ANPE
-        project_data.loc[0, "cum_construction_exp"] += project_data.loc[0, "anpe"]
+        project_data.loc[0, "cum_construction_exp"] += project_data.loc[
+            0, "anpe"
+        ]
 
         # Project ANPE is reset to 0 after being expended
-        #project_data.loc[0, "anpe"] = 0
+        # project_data.loc[0, "anpe"] = 0
 
         return project_data
 
@@ -1119,7 +1126,7 @@ class GridModel(Model):
             self.cur,
             "assets",
             {"completion_pd": new_completion_pd},
-            {"asset_id": asset_id}
+            {"asset_id": asset_id},
         )
 
         self.db.commit()
@@ -1128,41 +1135,46 @@ class GridModel(Model):
         # Record newly-started WIP projects from the agents' decisions
         WIP_updates = pd.read_sql_query("SELECT * FROM WIP_updates", self.db)
         WIP_updates.to_sql(
-            "WIP_projects",
-            self.db,
-            if_exists="append",
-            index=False)
+            "WIP_projects", self.db, if_exists="append", index=False
+        )
         self.db.commit()
 
         # Record newly-started C2N WIP projects from the agents' decisions
         C2N_updates = pd.read_sql_query(
-            "SELECT * FROM WIP_C2N_updates", self.db)
+            "SELECT * FROM WIP_C2N_updates", self.db
+        )
         C2N_updates.to_sql("WIP_C2N", self.db, if_exists="append", index=False)
 
         # Record status updates to existing assets (i.e. retirements)
         # Convert asset_updates to a dict of dicts for convenience
         asset_updates = pd.read_sql_query(
-            "SELECT * FROM asset_updates", self.db)
+            "SELECT * FROM asset_updates", self.db
+        )
         for row_num in asset_updates.index:
-            new_record = asset_updates.loc[[
-                row_num]].copy().reset_index(drop=True)
+            new_record = (
+                asset_updates.loc[[row_num]].copy().reset_index(drop=True)
+            )
 
             orig_record = pd.read_sql_query(
-                (f"SELECT * FROM assets " +
-                 f"WHERE asset_id = {new_record.loc[0, 'asset_id']}"
+                (
+                    f"SELECT * FROM assets "
+                    + f"WHERE asset_id = {new_record.loc[0, 'asset_id']}"
                 ),
-                self.db
+                self.db,
             )
 
             if len(orig_record) == 0:
                 # The asset does not already exist and an entry must be added
                 # Ensure that completion and retirement periods are integers
                 new_record.at[0, "completion_pd"] = int(
-                    math.ceil(new_record.at[0, "completion_pd"]))
+                    math.ceil(new_record.at[0, "completion_pd"])
+                )
                 new_record.at[0, "retirement_pd"] = int(
-                    math.ceil(new_record.at[0, "retirement_pd"]))
+                    math.ceil(new_record.at[0, "retirement_pd"])
+                )
                 pd.DataFrame(new_record).to_sql(
-                    "assets", self.db, if_exists="append", index=False)
+                    "assets", self.db, if_exists="append", index=False
+                )
             else:
                 # The prior record must be overwritten
                 # Move the filtering data (asset and agent ids) into a separate
@@ -1175,11 +1187,7 @@ class GridModel(Model):
 
                 # Update the record in the DB table
                 ABCE.update_DB_table_inplace(
-                    self.db,
-                    self.cur,
-                    "assets",
-                    new_record,
-                    filters
+                    self.db, self.cur, "assets", new_record, filters
                 )
         self.db.commit()
 

@@ -5,12 +5,10 @@ import yaml
 import openpyxl
 from pathlib import Path
 
+
 def load_data(file_name):
     if Path(file_name).suffix in [".yml", ".yaml"]:
-        file_contents = yaml.load(
-                            open(file_name, "r"),
-                            Loader=yaml.FullLoader
-                        )
+        file_contents = yaml.load(open(file_name, "r"), Loader=yaml.FullLoader)
     elif Path(file_name).suffix == ".csv":
         file_contents = pd.read_csv(file_name)
 
@@ -20,17 +18,17 @@ def load_data(file_name):
 def process_system_portfolio(db, current_pd):
     # Retrieve the list of currently-operational assets by type
     system_portfolio = pd.read_sql_query(
-                           f"SELECT unit_type, COUNT(unit_type) FROM assets " +
-                           f"WHERE completion_pd <= {current_pd} AND " +
-                           f"retirement_pd > {current_pd} " +
-                           f"GROUP BY unit_type",
-                           db
-                       )
+        f"SELECT unit_type, COUNT(unit_type) FROM assets "
+        + f"WHERE completion_pd <= {current_pd} AND "
+        + f"retirement_pd > {current_pd} "
+        + f"GROUP BY unit_type",
+        db,
+    )
 
     # Rename the aggregation column to match the standard
     system_portfolio = system_portfolio.rename(
-                           columns={"COUNT(unit_type)": "num_units"}
-                       )
+        columns={"COUNT(unit_type)": "num_units"}
+    )
 
     return system_portfolio
 
@@ -39,14 +37,17 @@ def update_unit_specs_for_ALEAF(unit_specs_data, system_portfolio):
     # Separate out ATB_search_settings
     for unit_type, unit_type_data in unit_specs_data.items():
         if "ATB_search_settings" in unit_type_data.keys():
-            for ATB_key, ATB_value in unit_type_data["ATB_search_settings"].items():
+            for ATB_key, ATB_value in unit_type_data[
+                "ATB_search_settings"
+            ].items():
                 unit_type_data[f"ATB_{ATB_key}"] = ATB_value
 
     # Convert unit_specs data from dict to DataFrame
-    unit_specs = pd.DataFrame.from_dict(
-                     unit_specs_data,
-                     orient="index"
-                 ).reset_index().rename(columns={"index": "unit_type"})
+    unit_specs = (
+        pd.DataFrame.from_dict(unit_specs_data, orient="index")
+        .reset_index()
+        .rename(columns={"index": "unit_type"})
+    )
 
     # Sort unit_specs alphabetically to allow definitive TechX id ordering
     unit_specs = unit_specs.sort_values("unit_type")
@@ -74,10 +75,9 @@ def update_unit_specs_for_ALEAF(unit_specs_data, system_portfolio):
     unit_specs["ATB_Setting_ID"] = "ATB_ID_1"
 
     # Create the computed Emission column
-    unit_specs["Emission"] = (unit_specs["emissions_per_MMBTU"] 
-                              * unit_specs["heat_rate"] 
-                              / 1000
-                             )
+    unit_specs["Emission"] = (
+        unit_specs["emissions_per_MMBTU"] * unit_specs["heat_rate"] / 1000
+    )
 
     # Take care of the row-by-row operations
     unit_specs["Tech_ID"] = ""
@@ -98,11 +98,7 @@ def update_unit_specs_for_ALEAF(unit_specs_data, system_portfolio):
 
     # Pivot in num_units data from the system portfolio for convenience
     unit_specs = unit_specs.reset_index().rename(columns={"index": "unit_type"})
-    unit_specs = unit_specs.merge(
-                     system_portfolio,
-                     how="outer",
-                     on="unit_type"
-                 )
+    unit_specs = unit_specs.merge(system_portfolio, how="outer", on="unit_type")
 
     # Fill any NaNs with zeros
     unit_specs = unit_specs.fillna(0)
@@ -148,12 +144,14 @@ def create_ALEAF_unit_dataframes(unit_specs):
         "Commitment": "Commitment",
         "Integrality": "Integrality",
         "Emission": "Emission",
-        "Outages": "Outages"
+        "Outages": "Outages",
     }
 
-    gen_technology = unit_specs[
-                         list(gen_technology_cols.keys())
-                     ].copy().rename(columns=gen_technology_cols)
+    gen_technology = (
+        unit_specs[list(gen_technology_cols.keys())]
+        .copy()
+        .rename(columns=gen_technology_cols)
+    )
 
     gen_cols = {
         "GEN UID": "GEN UID",
@@ -167,7 +165,7 @@ def create_ALEAF_unit_dataframes(unit_specs):
         "capacity": "CAP",
         "MAXINVEST": "MAXINVEST",
         "MININVEST": "MININVEST",
-        "MINRET": "MINRET"
+        "MINRET": "MINRET",
     }
 
     gen = unit_specs[list(gen_cols.keys())].copy().rename(columns=gen_cols)
@@ -185,12 +183,14 @@ def create_ALEAF_unit_dataframes(unit_specs):
         "ATB_CRP": "CRP",
         "ATB_Scenario": "Scenario",
         "ATB_Year": "Year",
-        "ATB_ATB_year": "ATB Year"
+        "ATB_ATB_year": "ATB Year",
     }
 
-    ATB_settings = unit_specs[
-                       list(ATB_settings_cols.keys())
-                   ].copy().rename(columns=ATB_settings_cols)
+    ATB_settings = (
+        unit_specs[list(ATB_settings_cols.keys())]
+        .copy()
+        .rename(columns=ATB_settings_cols)
+    )
 
     return gen_technology, gen, ATB_settings
 
@@ -202,56 +202,42 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
     tabs_to_create = {
         "ALEAF Master Setup": {
             "ABCE_tab_name": "ALEAF_Master_setup",
-            "data": None
+            "data": None,
         },
-
-        "CPLEX Setting": {
-            "ABCE_tab_name": "CPLEX_settings",
-            "data": None
-        },
-
-        "GLPK Setting": {
-            "ABCE_tab_name": "GLPK_settings",
-            "data": None
-        },
-
-        "CBC Setting": {
-            "ABCE_tab_name": "CBC_settings",
-            "data": None
-        },
-
-        "Gurobi Setting": {
-            "ABCE_tab_name": "Gurobi_settings",
-            "data": None
-        },
-
-        "HiGHS Setting": {
-            "ABCE_tab_name": "HiGHS_settings",
-            "data": None
-        }
+        "CPLEX Setting": {"ABCE_tab_name": "CPLEX_settings", "data": None},
+        "GLPK Setting": {"ABCE_tab_name": "GLPK_settings", "data": None},
+        "CBC Setting": {"ABCE_tab_name": "CBC_settings", "data": None},
+        "Gurobi Setting": {"ABCE_tab_name": "Gurobi_settings", "data": None},
+        "HiGHS Setting": {"ABCE_tab_name": "HiGHS_settings", "data": None},
     }
 
     # Pull the ALEAF settings data into dictionaries
     for ALEAF_tab_name, tab_data in tabs_to_create.items():
-        tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data["ALEAF_Master"][tab_data["ABCE_tab_name"]]
+        tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data["ALEAF_Master"][
+            tab_data["ABCE_tab_name"]
+        ]
 
     # Pull the appropriate solver name from the settings file
-    tabs_to_create["ALEAF Master Setup"]["solver_name"] = settings["simulation"]["solver"]
+    tabs_to_create["ALEAF Master Setup"]["solver_name"] = settings[
+        "simulation"
+    ]["solver"]
 
     # Finalize the <solver> Setting tab data
     for solver_tab, tab_data in tabs_to_create.items():
         if solver_tab != "ALEAF Master Setup":
             # Set up metadata about solver settings
-            invalid_items = ["solver_setting_list",
-                             "num_solver_setting",
-                             "solver_direct_mode_flag"
-                            ]
+            invalid_items = [
+                "solver_setting_list",
+                "num_solver_setting",
+                "solver_direct_mode_flag",
+            ]
             solver_setting_list = ", ".join(
-                                      [parameter for parameter 
-                                       in tabs_to_create[solver_tab]["data"].keys()
-                                       if parameter not in invalid_items
-                                      ]
-                                  )
+                [
+                    parameter
+                    for parameter in tabs_to_create[solver_tab]["data"].keys()
+                    if parameter not in invalid_items
+                ]
+            )
 
             # Set up solver_direct_mode_flag: TRUE if CPLEX, FALSE otherwise
             mode_flag = "false"
@@ -262,7 +248,7 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
             solver_extra_items = {
                 "solver_direct_mode_flag": mode_flag,
                 "num_solver_setting": len(tabs_to_create[solver_tab]["data"]),
-                "solver_setting_list": solver_setting_list
+                "solver_setting_list": solver_setting_list,
             }
 
             for key, value in solver_extra_items.items():
@@ -270,78 +256,68 @@ def create_ALEAF_Master_file(ALEAF_data, settings):
                     tab_data["data"].update({key: value})
 
     # Construct the path to which this file should be written
-    output_path = (Path(os.environ["ALEAF_DIR"]) /
-                   "setting" /
-                   settings["ALEAF"]["ALEAF_master_settings_file"]
-                  )
+    output_path = (
+        Path(os.environ["ALEAF_DIR"])
+        / "setting"
+        / settings["ALEAF"]["ALEAF_master_settings_file"]
+    )
 
     # Write this file to the destination
     write_workbook_and_close("ALEAF_Master", tabs_to_create, output_path)
 
 
-def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, settings):
+def create_ALEAF_Master_LC_GEP_file(
+    ALEAF_data, gen_technology, ATB_settings, settings
+):
     tabs_to_create = {
-        "LC_GEP Setting": {
-            "ABCE_tab_name": "LC_GEP_settings",
-            "data": None
-        },
-
-        "Planning Design": {
-            "ABCE_tab_name": "planning_design",
-            "data": None
-        },
-
+        "LC_GEP Setting": {"ABCE_tab_name": "LC_GEP_settings", "data": None},
+        "Planning Design": {"ABCE_tab_name": "planning_design", "data": None},
         "Simulation Setting": {
             "ABCE_tab_name": "simulation_settings",
-            "data": None
+            "data": None,
         },
-
         "Simulation Configuration": {
             "ABCE_tab_name": "scenario_settings",
             "data": None,
-            "orient": "horizontal"
+            "orient": "horizontal",
         },
-
         "Gen Technology": {
             "ABCE_tab_name": "unit_specs",
-            "data": gen_technology
+            "data": gen_technology,
         },
-
         "File Path": {
             "ABCE_tab_name": "ALEAF_relative_file_paths",
-            "data": None
+            "data": None,
         },
-
         "Scenario Reduction Setting": {
             "ABCE_tab_name": "scenario_reduction_settings",
-            "data": None
+            "data": None,
         },
-
         "ATB Setting": {
             "ABCE_tab_name": "ATB_search_settings",
-            "data": ATB_settings
-        }
+            "data": ATB_settings,
+        },
     }
-
 
     for ALEAF_tab_name, tab_data in tabs_to_create.items():
         if not isinstance(tab_data["data"], pd.DataFrame):
-            tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data["ALEAF_Master_LC_GEP"][tab_data["ABCE_tab_name"]]
+            tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data[
+                "ALEAF_Master_LC_GEP"
+            ][tab_data["ABCE_tab_name"]]
 
     # Finalize tab data
     # Finalize "Planning Design" tab
     # Add extra items
     pd_data = tabs_to_create["Planning Design"]["data"]
     pd_extra_items = {
-        "targetyear_value": (pd_data["final_year_value"] 
-                             - pd_data["current_year_value"]
-                            ),
+        "targetyear_value": (
+            pd_data["final_year_value"] - pd_data["current_year_value"]
+        ),
         "load_increase_rate_value": 1,
-        "num_simulation_per_stage_value": ((pd_data["final_year_value"] 
-                                            - pd_data["current_year_value"]
-                                           ) 
-                                           / pd_data["numstages_value"]
-                                          )
+        "num_simulation_per_stage_value": (
+            (pd_data["final_year_value"] - pd_data["current_year_value"])
+            / pd_data["numstages_value"]
+        ),
     }
     tabs_to_create["Planning Design"]["data"].update(pd_extra_items)
 
@@ -351,8 +327,9 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
     }
     for key, value in items_to_rename.items():
         if value not in tabs_to_create["Planning Design"]["data"].keys():
-            tabs_to_create["Planning Design"]["data"][value] = tabs_to_create["Planning Design"]["data"].pop(key)
-
+            tabs_to_create["Planning Design"]["data"][value] = tabs_to_create[
+                "Planning Design"
+            ]["data"].pop(key)
 
     # Finalize "Simulation Setting" tab
     # Add extra items
@@ -364,18 +341,23 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
     # Rename items
     items_to_rename = {
         "capex_projection_flag": "capax_projection_flag",
-        "network_reduction_flag": "Network_reduction_flag"
+        "network_reduction_flag": "Network_reduction_flag",
     }
     for key, value in items_to_rename.items():
         if value not in tabs_to_create["Simulation Setting"]["data"].keys():
-            tabs_to_create["Simulation Setting"]["data"][value] = tabs_to_create["Simulation Setting"]["data"].pop(key)
-
+            tabs_to_create["Simulation Setting"]["data"][
+                value
+            ] = tabs_to_create["Simulation Setting"]["data"].pop(key)
 
     # Finalize "Simulation Configuration" tab
     # Add extra items
     sc_extra_items = {
-        "planning_reserve_margin_value": tabs_to_create["Planning Design"]["data"]["planning_reserve_margin_value"],
-        "load_increase_rate_value": tabs_to_create["Planning Design"]["data"]["load_increase_rate_value"]
+        "planning_reserve_margin_value": tabs_to_create["Planning Design"][
+            "data"
+        ]["planning_reserve_margin_value"],
+        "load_increase_rate_value": tabs_to_create["Planning Design"]["data"][
+            "load_increase_rate_value"
+        ],
     }
     tabs_to_create["Simulation Configuration"]["data"].update(sc_extra_items)
 
@@ -390,91 +372,79 @@ def create_ALEAF_Master_LC_GEP_file(ALEAF_data, gen_technology, ATB_settings, se
         "nuclear_PTC": "PTC_N",
         "wind_ITC": "ITC_W",
         "solar_ITC": "ITC_S",
-        "nuclear_ITC": "ITC_N"
+        "nuclear_ITC": "ITC_N",
     }
     for key, value in items_to_rename.items():
-        if value not in tabs_to_create["Simulation Configuration"]["data"].keys():
-            tabs_to_create["Simulation Configuration"]["data"][value] = tabs_to_create["Simulation Configuration"]["data"].pop(key)
-
+        if (
+            value
+            not in tabs_to_create["Simulation Configuration"]["data"].keys()
+        ):
+            tabs_to_create["Simulation Configuration"]["data"][
+                value
+            ] = tabs_to_create["Simulation Configuration"]["data"].pop(key)
 
     # Finalize "Scenario Reduction Setting" tab
     srs_data = tabs_to_create["Scenario Reduction Setting"]["data"]
-    data_sets = [srs_data["input_type_load_shape_flag"],
-                 srs_data["input_type_load_MWh_flag"],
-                 srs_data["input_type_wind_shape_flag"],
-                 srs_data["input_type_wind_MWh_flag"],
-                 srs_data["input_type_solar_shape_flag"],
-                 srs_data["input_type_solar_MWh_flag"],
-                 srs_data["input_type_net_load_MWh_flag"]
-                ]
+    data_sets = [
+        srs_data["input_type_load_shape_flag"],
+        srs_data["input_type_load_MWh_flag"],
+        srs_data["input_type_wind_shape_flag"],
+        srs_data["input_type_wind_MWh_flag"],
+        srs_data["input_type_solar_shape_flag"],
+        srs_data["input_type_solar_MWh_flag"],
+        srs_data["input_type_net_load_MWh_flag"],
+    ]
     num_data_sets = sum(1 for item in data_sets if item == "TRUE")
-    srs_extra_items = {
-        "num_data_set": num_data_sets
-    }
+    srs_extra_items = {"num_data_set": num_data_sets}
     tabs_to_create["Scenario Reduction Setting"]["data"].update(srs_extra_items)
 
     # Construct the path to which this file should be written
-    output_path = (Path(os.environ["ALEAF_DIR"]) /
-                   "setting" /
-                   settings["ALEAF"]["ALEAF_model_settings_file"]
-                  )
+    output_path = (
+        Path(os.environ["ALEAF_DIR"])
+        / "setting"
+        / settings["ALEAF"]["ALEAF_model_settings_file"]
+    )
 
     # Write this file to the destination
-    write_workbook_and_close(
-        "ALEAF_Master_LC_GEP",
-        tabs_to_create,
-        output_path
-    )
+    write_workbook_and_close("ALEAF_Master_LC_GEP", tabs_to_create, output_path)
 
 
 def create_ALEAF_portfolio_file(ALEAF_data, gen, settings):
     tabs_to_create = {
-        "case setting": {
-            "ABCE_tab_name": "grid_settings",
-            "data": None
-        },
-
-        "gen": {
-            "ABCE_tab_name": "system_portfolio",
-            "data": gen
-        },
-
-        "bus": {
-            "ABCE_tab_name": "buses",
-            "data": None,
-            "orient": "horizontal"
-        },
-
+        "case setting": {"ABCE_tab_name": "grid_settings", "data": None},
+        "gen": {"ABCE_tab_name": "system_portfolio", "data": gen},
+        "bus": {"ABCE_tab_name": "buses", "data": None, "orient": "horizontal"},
         "branch": {
             "ABCE_tab_name": "branch",
             "data": None,
-            "orient": "horizontal"
+            "orient": "horizontal",
         },
-
         "sub_area": {
             "ABCE_tab_name": "sub_area",
             "data": None,
-            "orient": "horizontal"
+            "orient": "horizontal",
         },
-
         "sub_area_mapping": {
             "ABCE_tab_name": "sub_area_mapping",
             "data": None,
-            "orient": "horizontal"
-        }
+            "orient": "horizontal",
+        },
     }
 
     for ALEAF_tab_name, tab_data in tabs_to_create.items():
         if not isinstance(tab_data["data"], pd.DataFrame):
-            tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data["ALEAF_portfolio"][tab_data["ABCE_tab_name"]]
+            tabs_to_create[ALEAF_tab_name]["data"] = ALEAF_data[
+                "ALEAF_portfolio"
+            ][tab_data["ABCE_tab_name"]]
 
     # Construct the path to which this file should be written
-    output_path = (Path(os.environ["ALEAF_DIR"]) /
-                   "data" /
-                   settings["ALEAF"]["ALEAF_model_type"] /
-                   settings["ALEAF"]["ALEAF_region"] /
-                   settings["ALEAF"]["ALEAF_portfolio_file"]
-                  )
+    output_path = (
+        Path(os.environ["ALEAF_DIR"])
+        / "data"
+        / settings["ALEAF"]["ALEAF_model_type"]
+        / settings["ALEAF"]["ALEAF_region"]
+        / settings["ALEAF"]["ALEAF_portfolio_file"]
+    )
 
     # Write this file to the destination
     write_workbook_and_close("ALEAF_ERCOT", tabs_to_create, output_path)
@@ -488,20 +458,19 @@ def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
             orient = "index"
             if "orient" in tab_data.keys():
                 if tab_data["orient"] == "horizontal":
-                    df = pd.DataFrame.from_dict(
-                             [tab_data["data"]]
-                         )
+                    df = pd.DataFrame.from_dict([tab_data["data"]])
                 elif tab_data["orient"] == "multiline_horizontal":
                     df = pd.DataFrame.from_dict(
-                             tab_data["data"],
-                             orient="index"
-                         )
+                        tab_data["data"], orient="index"
+                    )
             else:
-                df = (pd.DataFrame.from_dict(
-                          tab_data["data"],
-                          orient="index",
-                          columns=["Value"]
-                      ).reset_index().rename(columns={"index": "Setting"}))
+                df = (
+                    pd.DataFrame.from_dict(
+                        tab_data["data"], orient="index", columns=["Value"]
+                    )
+                    .reset_index()
+                    .rename(columns={"index": "Setting"})
+                )
 
             tabs_to_create[ALEAF_tab_name]["data"] = df
 
@@ -511,9 +480,7 @@ def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
     # Write all tabs to file
     for ALEAF_tab_name, tab_data in tabs_to_create.items():
         tab_data["data"].to_excel(
-            writer_object,
-            sheet_name = ALEAF_tab_name,
-            index=False
+            writer_object, sheet_name=ALEAF_tab_name, index=False
         )
 
     # Write all changes and close the file writer
@@ -533,27 +500,31 @@ def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
                     # If there are no eligibility criteria specified, the
                     #   policy applies to all units
                     is_eligible = True
-                elif ("unit_type" in policy_specs["eligibility"].keys() 
-                    and unit_type in policy_specs["eligibility"]["unit_type"]):
+                elif (
+                    "unit_type" in policy_specs["eligibility"].keys()
+                    and unit_type in policy_specs["eligibility"]["unit_type"]
+                ):
                     # Check to see if the unit's type is included in a list of
                     #   eligible unit types
                     is_eligible = True
                 else:
                     # Check for any other eligibility criteria
                     for criterion, value in policy_specs["eligibility"].items():
-                        if (criterion != "unit_type"
-                            and unit_type_data[criterion] == value):
+                        if (
+                            criterion != "unit_type"
+                            and unit_type_data[criterion] == value
+                        ):
                             is_eligible = True
 
                 if is_eligible:
                     if policy == "CTAX":
-                        policy_adj_per_MWh -= (unit_type_data["heat_rate"] 
-                                               * unit_type_data["emissions_per_MMBTU"] 
-                                               * policy_specs["qty"]
-                                              )
+                        policy_adj_per_MWh -= (
+                            unit_type_data["heat_rate"]
+                            * unit_type_data["emissions_per_MMBTU"]
+                            * policy_specs["qty"]
+                        )
                     elif policy == "PTC":
                         policy_adj_per_MWh += policy_specs["qty"]
-
 
     return policy_adj_per_MWh
 
@@ -566,16 +537,14 @@ def compute_unit_specs_cols(unit_specs, settings):
             unit_type_data["fuel_type"] = "none"
 
         # Add fuel cost per MWh column
-        unit_type_data["FC_per_MWh"] = (unit_type_data["FC_per_MMBTU"] 
-                                        * unit_type_data["heat_rate"]
-                                       )
+        unit_type_data["FC_per_MWh"] = (
+            unit_type_data["FC_per_MMBTU"] * unit_type_data["heat_rate"]
+        )
 
         # Add policy adjustment per MWh column
         unit_type_data["policy_adj_per_MWh"] = set_unit_type_policy_adjustment(
-                                                   unit_type,
-                                                   unit_type_data,
-                                                   settings
-                                               )
+            unit_type, unit_type_data, settings
+        )
 
         # Add C2N-related factors, with a default value of 0
         C2N_vals = ["cpp_ret_lead", "num_cpp_rets", "rev_head_start"]
@@ -588,11 +557,11 @@ def compute_unit_specs_cols(unit_specs, settings):
 
 def initialize_unit_specs(settings):
     unit_specs = load_data(
-                     Path(
-                         Path(__file__).parent.parent,
-                         settings["file_paths"]["unit_specs_data_file"]
-                     )
-                 )
+        Path(
+            Path(__file__).parent.parent,
+            settings["file_paths"]["unit_specs_data_file"],
+        )
+    )
 
     unit_specs = compute_unit_specs_cols(unit_specs, settings)
 
@@ -614,13 +583,8 @@ def create_ALEAF_files(settings, ALEAF_data, unit_specs_data, db, current_pd):
 
     # Create the ALEAF_Master_LC_GEP.xlsx file
     create_ALEAF_Master_LC_GEP_file(
-        ALEAF_data,
-        gen_technology,
-        ATB_settings,
-        settings
+        ALEAF_data, gen_technology, ATB_settings, settings
     )
 
     # Create the ALEAF_portfolio.xlsx file
     create_ALEAF_portfolio_file(ALEAF_data, gen, settings)
-
-

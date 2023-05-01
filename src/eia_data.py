@@ -43,18 +43,20 @@ import os
 import logging
 from datetime import date
 
-months = ['january',
-          'february',
-          'march',
-          'april',
-          'may',
-          'june',
-          'july',
-          'august',
-          'september',
-          'october',
-          'november',
-          'december']
+months = [
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+]
 
 
 def get_date():
@@ -63,7 +65,7 @@ def get_date():
     """
     today = date.today().strftime("%B %d, %Y")
 
-    today = today.split(' ')
+    today = today.split(" ")
 
     month = today[0]
     day = today[1]
@@ -93,21 +95,21 @@ def get_eia_generators(month=None, year=None):
         Holds the data from EIA form 860M
     """
     columns = [
-        'Entity ID',
-        'Entity Name',
-        'Plant Name',
-        'Sector',
-        'Plant State',
-        'Nameplate Capacity (MW)',
-        'Technology',
-        'Operating Year',
-        'Status',
-        'Balancing Authority Code',
-        'County'
+        "Entity ID",
+        "Entity Name",
+        "Plant Name",
+        "Sector",
+        "Plant State",
+        "Nameplate Capacity (MW)",
+        "Technology",
+        "Operating Year",
+        "Status",
+        "Balancing Authority Code",
+        "County",
     ]
 
     # initialize with invalid options
-    m = 'thermidor'
+    m = "thermidor"
     y = 2
 
     if (month is None) and (year is None):
@@ -125,36 +127,44 @@ def get_eia_generators(month=None, year=None):
         m = month
         y = year
 
-    elif ((month is None) or (year is None)):
+    elif (month is None) or (year is None):
 
         logging.debug(f"Month {month} / Year {year}")
         raise ValueError(("Please specify a month and a year."))
 
-    url = (f"https://www.eia.gov/electricity/data/eia860m/archive/xls/" +
-           f"{m}_generator{y}.xlsx")
+    url = (
+        f"https://www.eia.gov/electricity/data/eia860m/archive/xls/"
+        + f"{m}_generator{y}.xlsx"
+    )
 
     try:
-        logging.debug(f'Downloading from {url}\n')
-        df = pd.read_excel(url,
-                           sheet_name='Operating',
-                           skipfooter=2,
-                           skiprows=2,
-                           usecols=columns,
-                           index_col='Entity ID')
-        logging.debug('Download successful.')
+        logging.debug(f"Downloading from {url}\n")
+        df = pd.read_excel(
+            url,
+            sheet_name="Operating",
+            skipfooter=2,
+            skiprows=2,
+            usecols=columns,
+            index_col="Entity ID",
+        )
+        logging.debug("Download successful.")
     except BaseException:
-        logging.debug('Download failed. Trying different sheet format.')
+        logging.debug("Download failed. Trying different sheet format.")
         try:
-            df = pd.read_excel(url,
-                               sheet_name='Operating',
-                               skipfooter=2,
-                               skiprows=1,
-                               usecols=columns,
-                               index_col='Entity ID')
-            logging.debug('Download successful.')
+            df = pd.read_excel(
+                url,
+                sheet_name="Operating",
+                skipfooter=2,
+                skiprows=1,
+                usecols=columns,
+                index_col="Entity ID",
+            )
+            logging.debug("Download successful.")
         except ValueError:
-            fail_str = (f'Download failed. File not found' +
-                        f' for Month: {month} and Year: {year}')
+            fail_str = (
+                f"Download failed. File not found"
+                + f" for Month: {month} and Year: {year}"
+            )
             raise ValueError(fail_str)
 
     return df
@@ -182,21 +192,22 @@ def get_region_techs(df, region):
     """
     # filter by region
     if len(region) == 2:
-        valid_state = (region.upper() in df['Plant State'].values)
+        valid_state = region.upper() in df["Plant State"].values
         if valid_state:
-            region_mask = df['Plant State'] == region.upper()
+            region_mask = df["Plant State"] == region.upper()
         else:
             raise ValueError(
-                f"Detected state abbreviation. " +
-                f"Abbreviation {region} not found."
+                f"Detected state abbreviation. "
+                + f"Abbreviation {region} not found."
             )
     else:
-        valid_county = (region.capitalize() in df['County'].values)
+        valid_county = region.capitalize() in df["County"].values
         if valid_county:
-            region_mask = df['County'] == region.capitalize()
+            region_mask = df["County"] == region.capitalize()
         else:
             raise ValueError(
-                f'Detected county name. County name {region} not found.')
+                f"Detected county name. County name {region} not found."
+            )
 
     df = df[region_mask]
 
