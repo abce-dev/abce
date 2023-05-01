@@ -112,8 +112,7 @@ end
 function handle_annual_dispatch(
     settings,
     current_pd,
-    fc_pd,
-    all_year_system_portfolios,
+    system_portfolios,
     total_demand,
     ts_data,
     unit_specs,
@@ -126,7 +125,7 @@ function handle_annual_dispatch(
         @debug "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Select the current year's expected portfolio
-        year_portfolio = all_year_system_portfolios[y]
+        year_portfolio = system_portfolios[y]
 
         # Determine appropriate total demand for this year
         year_demand =
