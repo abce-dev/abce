@@ -44,13 +44,15 @@ def set_up_local_paths(settings):
     settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
 
     if settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
-    # Try to locate an environment variable to specify where A-LEAF is located
+        # Try to locate an environment variable to specify where A-LEAF is located
         try:
             settings["ALEAF"]["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
         except KeyError:
-            msg = ("The environment variable ALEAF_abs_path does not appear " +
-                   "to be set. Please make sure it points to the correct " +
-                   "directory.")
+            msg = (
+                "The environment variable ALEAF_abs_path does not appear "
+                + "to be set. Please make sure it points to the correct "
+                + "directory."
+            )
             logging.error(msg)
             raise
     else:
@@ -70,32 +72,34 @@ def cli_args():
        args (argparse object): populated namespace, with argument strings as
          attributes. Retrieve values with args.<argument_name>.
     """
-    parser = argparse.ArgumentParser(description='Run an ABCE simulation.')
+    parser = argparse.ArgumentParser(description="Run an ABCE simulation.")
     parser.add_argument(
-        "--force", "-f",
+        "--force",
+        "-f",
         action="store_true",
-        help="Agree to overwrite any existing DB files."
+        help="Agree to overwrite any existing DB files.",
     )
     parser.add_argument(
         "--settings_file",
         type=str,
         help="Absolute path to simulation settings file.",
-        default=Path(Path.cwd() / "settings.yml")
+        default=Path(Path.cwd() / "settings.yml"),
     )
     parser.add_argument(
         "--verbosity",
         choices=[0, 1, 2, 3],
         type=int,
-        help=("Verbosity of output during runtime. 0 = totally silent; " + 
-              "1 = minimal output; 2 = default output; 3 = full/debug output"
-             ),
-        default=2
+        help=(
+            "Verbosity of output during runtime. 0 = totally silent; "
+            + "1 = minimal output; 2 = default output; 3 = full/debug output"
+        ),
+        default=2,
     )
     parser.add_argument(
         "--demo",
         "-d",
         action="store_true",
-        help="Pause the simulation after each step until user presses a key."
+        help="Pause the simulation after each step until user presses a key.",
     )
     args = parser.parse_args()
     return args
@@ -139,11 +143,13 @@ def check_julia_environment(ABCE_abs_path):
     If either one is not found, run `make_julia_environment.jl` to
       automatically generate valid .toml files.
     """
-    if not ((Path(ABCE_abs_path) / "env" / "Manifest.toml").exists()
-            and (Path(ABCE_abs_path) / "env" / "Project.toml").exists()):
+    if not (
+        (Path(ABCE_abs_path) / "env" / "Manifest.toml").exists()
+        and (Path(ABCE_abs_path) / "env" / "Project.toml").exists()
+    ):
         julia_cmd = (
-            f"julia " +
-            f"{Path(ABCE_abs_path) / 'env' / 'make_julia_environment.jl'}"
+            f"julia "
+            + f"{Path(ABCE_abs_path) / 'env' / 'make_julia_environment.jl'}"
         )
 
         try:
@@ -151,8 +157,8 @@ def check_julia_environment(ABCE_abs_path):
             logging.info("Julia environment successfully created.\n\n")
         except subprocess.CalledProcessError:
             logging.error(
-                "Cannot proceed without a valid Julia environment. " +
-                "Terminating..."
+                "Cannot proceed without a valid Julia environment. "
+                + "Terminating..."
             )
             quit()
 
@@ -185,14 +191,14 @@ def run_model():
 
 
 class ABCEFormatter(logging.Formatter):
-    """ A custom log formatter for non-standard logging levels.
+    """A custom log formatter for non-standard logging levels.
 
-        This logger will handle graphical elements which should
-          be printed to the console on verbosity levels 1, 2, and 3,
-          but which shouldn't have any logger-style prefixes.
+    This logger will handle graphical elements which should
+      be printed to the console on verbosity levels 1, 2, and 3,
+      but which shouldn't have any logger-style prefixes.
 
-        This replicates the behavior of print statements, with the
-          verbosity-aware handling of logging.
+    This replicates the behavior of print statements, with the
+      verbosity-aware handling of logging.
     """
 
     vis_fmt = "%(msg)s"
@@ -221,5 +227,5 @@ class ABCEFormatter(logging.Formatter):
 
 
 # Run the model
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_model()

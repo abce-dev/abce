@@ -19,24 +19,23 @@ unit_type_colors = {
     "HTGR_C2N0_single": "#cb8ae9",
     "HTGR_C2N2_single": "#a50eec",
     "SFR_C2N0_single": "#ebf697",
-    "SFR_C2N3_single": "#c6e000"
+    "SFR_C2N3_single": "#c6e000",
 }
 
 
 def write_raw_db_to_excel(settings, db):
     # Get the names of all database tables
     db_tables = pd.read_sql_query(
-                    "SELECT name FROM sqlite_master WHERE type='table';",
-                     db
-                )
+        "SELECT name FROM sqlite_master WHERE type='table';", db
+    )
 
     # Set up the path to the ultimate outputs directory
     out_file = Path(
-                   Path.cwd() /
-                   "outputs" /
-                   settings["simulation"]["scenario_name"] /
-                   settings["file_paths"]["output_file"]
-               )
+        Path.cwd()
+        / "outputs"
+        / settings["simulation"]["scenario_name"]
+        / settings["file_paths"]["output_file"]
+    )
 
     # Write each table to a tab in the excel sheet
     with pd.ExcelWriter(out_file) as writer:
@@ -45,10 +44,7 @@ def write_raw_db_to_excel(settings, db):
             table = db_tables.loc[i, "name"]
 
             # Get table data
-            table_data = pd.read_sql_query(
-                             f"SELECT * FROM {table}",
-                             db
-                         )
+            table_data = pd.read_sql_query(f"SELECT * FROM {table}", db)
 
             # Write table data to excel tab
             table_data.to_excel(writer, sheet_name=table, engine="openpyxl")
@@ -57,6 +53,7 @@ def write_raw_db_to_excel(settings, db):
 ###############################################################################
 # Functions for postprocessing and plotting
 ###############################################################################
+
 
 def get_agent_list(db):
     # Get a list of all unique agent IDs
@@ -70,8 +67,8 @@ def get_unit_specs(db):
     unit_specs_full = pd.read_sql_query("SELECT * FROM unit_specs", db)
 
     unit_specs = unit_specs_full[
-                     ["unit_type", "construction_duration", "capacity"]
-                 ]
+        ["unit_type", "construction_duration", "capacity"]
+    ]
 
     return unit_specs
 
@@ -89,31 +86,32 @@ def get_portfolio_profile(settings, db, agent_id, unit_specs):
 
     # Set the total time horizon to num_steps + the construction duration of
     #   the fastest-to-build project
-    horizon = (min(unit_specs.construction_duration) 
-               + int(settings["simulation"]["num_steps"])
-               + 1
-              )
+    horizon = (
+        min(unit_specs.construction_duration)
+        + int(settings["simulation"]["num_steps"])
+        + 1
+    )
 
     # Read and process the portfolio for each year in the horizon
     for i in range(horizon):
         year_pf = pd.read_sql_query(
-                      f"SELECT unit_type, COUNT(unit_type) " +
-                      f"FROM assets WHERE " +
-                      agent_filter +
-                      f"completion_pd <= {i} AND " +
-                      f"retirement_pd > {i} AND " +
-                      f"cancellation_pd > {i} " +
-                       "GROUP BY unit_type",
-                      db
-                  )
+            f"SELECT unit_type, COUNT(unit_type) "
+            + f"FROM assets WHERE "
+            + agent_filter
+            + f"completion_pd <= {i} AND "
+            + f"retirement_pd > {i} AND "
+            + f"cancellation_pd > {i} "
+            + "GROUP BY unit_type",
+            db,
+        )
 
-        # Pivot the dataframe to long format 
+        # Pivot the dataframe to long format
         year_pf = pd.pivot_table(
-                      year_pf,
-                      values="COUNT(unit_type)",
-                      index="unit_type",
-                      aggfunc=np.sum
-                  )
+            year_pf,
+            values="COUNT(unit_type)",
+            index="unit_type",
+            aggfunc=np.sum,
+        )
 
         # Merge in the shortened unit_specs data
         year_pf = year_pf.merge(unit_specs, how="outer", on="unit_type")
@@ -132,15 +130,12 @@ def get_portfolio_profile(settings, db, agent_id, unit_specs):
             portfolios = pd.concat([portfolios, year_pf])
 
     # Compute total capacity
-    portfolios["total_capacity"] = (portfolios["num_units"] 
-                                    * portfolios["capacity"]
-                                   )
+    portfolios["total_capacity"] = (
+        portfolios["num_units"] * portfolios["capacity"]
+    )
     portfolios = pd.pivot_table(
-                     portfolios,
-                     values="total_capacity",
-                     index="year",
-                     columns=["unit_type"]
-                 )
+        portfolios, values="total_capacity", index="year", columns=["unit_type"]
+    )
 
     return portfolios
 
@@ -168,7 +163,7 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
         ax=fig.gca(),
         rot=0,
         color=unit_type_colors,
-        edgecolor='black'
+        edgecolor="black",
     )
 
     # Add titles and axis labels
@@ -176,15 +171,11 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
     fig.gca().set_ylabel("Installed capacity (MWe)")
 
     # Move the legend outside of the chart area
-    plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+    plt.legend(loc="center left", bbox_to_anchor=(1.0, 0.5))
 
     # Save the figure
     fig.get_figure().savefig(
-        Path(
-            "outputs",
-            settings["simulation"]["scenario_name"],
-            filename
-        )
+        Path("outputs", settings["simulation"]["scenario_name"], filename)
     )
 
 
@@ -196,11 +187,8 @@ def postprocess_portfolios(db, settings, unit_specs, agent_id):
 
     logging.debug(f"Procesing data for {msg}...")
     portfolio_profile = get_portfolio_profile(
-                            settings,
-                            db,
-                            agent_id,
-                            unit_specs
-                        )
+        settings, db, agent_id, unit_specs
+    )
 
     plot_portfolio_profile(settings, agent_id, portfolio_profile)
     logging.debug(f"Plot for {msg} saved.")
@@ -230,6 +218,3 @@ if __name__ == "__main__":
     settings = yaml.load(open("../settings.yml", "r"), Loader=yaml.FullLoader)
     db = sqlite3.connect("../outputs/ABCE_ERCOT_allC2N/abce_db.db")
     postprocess_results(db, settings)
-
-
-
