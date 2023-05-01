@@ -38,20 +38,24 @@ function get_CL_args()
         help = "absolute path to the settings file"
         required = false
         default = joinpath(pwd(), "settings.yml")
+
         "--agent_id"
         help = "unique ID of the agent"
         required = true
         arg_type = Int
+
         "--current_pd"
         help = "current ABCE time period"
         required = true
         arg_type = Int
+
         "--verbosity"
         help = "level of output logged to the console"
         required = false
         arg_type = Int
         range_tester = x -> x in [0, 1, 2, 3]
         default = 1
+
         "--abce_abs_path"
         help = "absolute path to the top-level ABCE directory"
         required = true
@@ -153,14 +157,10 @@ function get_grouped_current_assets(db, pd, agent_id)
     #   <status>_pd == "the first period where this asset has status <status>"
     cmd = string(
         "SELECT asset_id, unit_type, retirement_pd, C2N_reserved ",
-        "FROM assets WHERE agent_id = ",
-        agent_id,
-        " AND completion_pd <= ",
-        pd,
-        " AND cancellation_pd > ",
-        pd,
-        " AND retirement_pd > ",
-        pd,
+        "FROM assets WHERE agent_id = ", agent_id,
+        " AND completion_pd <= ", pd,
+        " AND cancellation_pd > ", pd,
+        " AND retirement_pd > ", pd,
     )
 
     asset_list = DBInterface.execute(db, cmd) |> DataFrame
@@ -555,11 +555,11 @@ function populate_PA_pro_formas(
         current_PA = filter(:uid => x -> x == uid, PA_uids)[1, :]
 
         # Retrieve relevant unit type specs for convenience
-        unit_type_data =
-            filter(:unit_type => x -> x == current_PA[:unit_type], unit_specs)[
-                1,
-                :,
-            ]
+        unit_type_data = filter(
+            :unit_type => 
+                x -> x == current_PA[:unit_type],
+            unit_specs
+            )[1, :]
 
         # If this is a potential new construction project, compute series
         #   related to construction costs
@@ -655,13 +655,7 @@ function create_FS_dict(data, fc_pd, num_lags; mode = "new_xtr")
             end
 
             unit_name = string(
-                data[i, :unit_type],
-                "_",
-                project_type,
-                "_",
-                ret_pd,
-                "_lag-",
-                j,
+                data[i, :unit_type], "_", project_type, "_", ret_pd, "_lag-", j
             )
 
             unit_FS = DataFrame(
