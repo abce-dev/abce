@@ -1,8 +1,8 @@
 simulation:
   scenario_name: "ABCE_ERCOT"
   solver: "CPLEX"
-  num_steps: 10
-  annual_dispatch_engine: ALEAF
+  num_steps: 1
+  annual_dispatch_engine: none
   C2N_assumption: baseline
 
 scenario:
@@ -48,8 +48,8 @@ file_paths:
   ABCE_sysimage_file: "abceSysimage.so"
   db_file: "abce_db.db"
   demand_data_file: "inputs/demand_data.csv"
-#  agent_specifications_file: "inputs/single_agent_testing.yml"
-  agent_specifications_file: "inputs/agent_specifications.yml"
+  agent_specifications_file: "inputs/single_agent_testing.yml"
+#  agent_specifications_file: "inputs/agent_specifications.yml"
   output_file: "outputs.xlsx"
   unit_specs_data_file: "inputs/unit_specs.yml"
   logo: "abce.txt"
