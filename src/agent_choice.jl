@@ -30,23 +30,21 @@ function set_up_run(CLI_args)
     # Load settings and file locations from the settings file
     settings = YAML.load_file(CLI_args["settings_file"])
 
-    settings = ABCEfunctions.set_up_local_paths(
-                   settings,
-                   CLI_args["abce_abs_path"]
-               )
+    settings =
+        ABCEfunctions.set_up_local_paths(settings, CLI_args["abce_abs_path"])
 
     # File names
     db_file = joinpath(
-                  pwd(),
-                  "outputs",
-                  settings["simulation"]["scenario_name"],
-                  settings["file_paths"]["db_file"]
-              )
+        pwd(),
+        "outputs",
+        settings["simulation"]["scenario_name"],
+        settings["file_paths"]["db_file"],
+    )
     C2N_specs_file = joinpath(
-                         settings["file_paths"]["ABCE_abs_path"],
-                         "inputs",
-                         "C2N_project_definitions.yml"
-                     )
+        settings["file_paths"]["ABCE_abs_path"],
+        "inputs",
+        "C2N_project_definitions.yml",
+    )
 
     # Load the database
     db = ABCEfunctions.load_db(db_file)
@@ -85,7 +83,7 @@ function process_results(settings, CLI_args, m, db, PA_uids, unit_specs)
         unit_specs,
         db,
         CLI_args["current_pd"],
-        CLI_args["agent_id"]
+        CLI_args["agent_id"],
     )
 end
 
@@ -103,100 +101,100 @@ function run_agent_choice()
     # Retrieve a list of the agent's currently-operating assets, grouped by
     #   type and mandatory retirement date
     grouped_agent_assets = ABCEfunctions.get_grouped_current_assets(
-                               db,
-                               CLI_args["current_pd"],
-                               CLI_args["agent_id"]
-                           )
+        db,
+        CLI_args["current_pd"],
+        CLI_args["agent_id"],
+    )
 
     # Ensure that forecast horizon is long enough to accommodate the end of life
     #   for the most long-lived possible unit
     fc_pd = ABCEfunctions.set_forecast_period(
-                unit_specs,
-                settings["agent_opt"]["num_future_periods_considered"]
-            )
+        unit_specs,
+        settings["agent_opt"]["num_future_periods_considered"],
+    )
 
     # Retrieve the year-by-year system generation portfolio based on currently
     #   available data
     system_portfolios = Dispatch.get_system_portfolios(
-                            db,
-                            CLI_args["current_pd"],
-                            fc_pd,
-                            unit_specs
-                        )
+        db,
+        CLI_args["current_pd"],
+        fc_pd,
+        unit_specs,
+    )
 
     # Load the demand data
     total_demand = ABCEfunctions.get_demand_forecast(
-                       db,
-                       CLI_args["current_pd"],
-                       fc_pd,
-                       settings
-                   )
+        db,
+        CLI_args["current_pd"],
+        fc_pd,
+        settings,
+    )
 
     # Extend the unserved demand data to match the total forecast period
     #   (constant projection)
     total_demand = ABCEfunctions.get_net_demand(
-                       db,
-                       CLI_args["current_pd"],
-                       fc_pd,
-                       total_demand,
-                       system_portfolios,
-                       unit_specs
-                   )
+        db,
+        CLI_args["current_pd"],
+        fc_pd,
+        total_demand,
+        system_portfolios,
+        unit_specs,
+    )
 
     # Use the agent's internal dispatch forecast generator to project dispatch
     #   results in the system over the forecast horizon
     long_econ_results = Dispatch.execute_dispatch_economic_projection(
-                            db,
-                            settings,
-                            CLI_args["current_pd"],
-                            fc_pd,
-                            total_demand,
-                            unit_specs,
-                            system_portfolios
-                        )
+        db,
+        settings,
+        CLI_args["current_pd"],
+        fc_pd,
+        total_demand,
+        unit_specs,
+        system_portfolios,
+    )
 
     # Set up all available project alternatives, including computing marginal
     #   NPV for all potential projects (new construction and retirements)
     PA_uids, PA_fs_dict = ABCEfunctions.set_up_project_alternatives(
-                              settings,
-                              unit_specs,
-                              grouped_agent_assets,
-                              fc_pd,
-                              agent_params,
-                              db,
-                              CLI_args["current_pd"],
-                              long_econ_results,
-                              C2N_specs
-                          )
+        settings,
+        unit_specs,
+        grouped_agent_assets,
+        fc_pd,
+        agent_params,
+        db,
+        CLI_args["current_pd"],
+        long_econ_results,
+        C2N_specs,
+    )
 
     # Update the agent's baseline projected financial statements, to use in
     #   the decision optimization model
     agent_fs = ABCEfunctions.update_agent_financial_statement(
-                   settings,
-                   CLI_args["agent_id"],
-                   db,
-                   unit_specs,
-                   CLI_args["current_pd"],
-                   fc_pd,
-                   long_econ_results
-               )
+        settings,
+        CLI_args["agent_id"],
+        db,
+        unit_specs,
+        CLI_args["current_pd"],
+        fc_pd,
+        long_econ_results,
+    )
 
     # Set up the agent's decision optimization model
     m = ABCEfunctions.set_up_model(
-            settings,
-            PA_uids,
-            PA_fs_dict,
-            total_demand,
-            grouped_agent_assets,
-            agent_params,
-            unit_specs,
-            CLI_args["current_pd"],
-            system_portfolios,
-            db,
-            CLI_args["agent_id"],
-            agent_fs,
-            fc_pd
-        )
+        settings,
+        PA_uids,
+        PA_fs_dict,
+        total_demand,
+        grouped_agent_assets,
+        agent_params,
+        unit_specs,
+        CLI_args["current_pd"],
+        system_portfolios,
+        db,
+        CLI_args["agent_id"],
+        agent_fs,
+        fc_pd,
+    )
 
     # Solve the model
     optimize!(m)
@@ -207,5 +205,3 @@ end
 
 
 run_agent_choice()
-
-

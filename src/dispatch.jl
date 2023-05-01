@@ -5,45 +5,54 @@ using Requires, Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS
 
 # Initialize this module, with CPLEX as an optional library if available
 function __init__()
-    @require CPLEX="a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
+    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
 end
 
 
-function execute_dispatch_economic_projection(db, settings, current_pd, fc_pd, total_demand, unit_specs, all_year_system_portfolios)
+function execute_dispatch_economic_projection(
+    db,
+    settings,
+    current_pd,
+    fc_pd,
+    total_demand,
+    unit_specs,
+    all_year_system_portfolios,
+)
     @debug string(
-              "Running the dispatch simulation for ",
-              settings["dispatch"]["num_dispatch_years"],
-              " years..."
-          )
+        "Running the dispatch simulation for ",
+        settings["dispatch"]["num_dispatch_years"],
+        " years...",
+    )
 
     # Set up all timeseries data
     ts_data = load_ts_data(
-                  joinpath(settings["file_paths"]["ABCE_abs_path"],
-                           "inputs",
-                           "ALEAF_inputs"
-                  ),
-                  settings["dispatch"]["num_repdays"]
-              )
+        joinpath(
+            settings["file_paths"]["ABCE_abs_path"],
+            "inputs",
+            "ALEAF_inputs",
+        ),
+        settings["dispatch"]["num_repdays"],
+    )
 
     all_gc_results, all_price_results = handle_annual_dispatch(
-                                            settings,
-                                            current_pd,
-                                            fc_pd,
-                                            all_year_system_portfolios,
-                                            total_demand,
-                                            ts_data,
-                                            unit_specs
-                                        )
+        settings,
+        current_pd,
+        fc_pd,
+        all_year_system_portfolios,
+        total_demand,
+        ts_data,
+        unit_specs,
+    )
 
     long_econ_results = postprocess_results(
-                            all_gc_results,
-                            all_price_results,
-                            ts_data[:repdays_data],
-                            all_year_system_portfolios,
-                            unit_specs,
-                            current_pd,
-                            fc_pd
-                        )
+        all_gc_results,
+        all_price_results,
+        ts_data[:repdays_data],
+        all_year_system_portfolios,
+        unit_specs,
+        current_pd,
+        fc_pd,
+    )
 
     return long_econ_results
 end
@@ -54,17 +63,19 @@ function get_system_portfolios(db, start_year, fc_pd, unit_specs)
     @debug "Setting up dispatch portfolios..."
     system_portfolios = Dict()
 
-    for y = start_year:start_year+fc_pd
+    for y = start_year:(start_year + fc_pd)
         # Retrieve annual system portfolios
-        system_portfolio = DBInterface.execute(
-                               db,
-                               string("SELECT unit_type, COUNT(unit_type) ",
-                                      "FROM assets WHERE completion_pd <= $y ",
-                                      "AND retirement_pd > $y ",
-                                      "AND cancellation_pd > $y ",
-                                      "GROUP BY unit_type"
-                               )
-                           ) |> DataFrame
+        system_portfolio =
+            DBInterface.execute(
+                db,
+                string(
+                    "SELECT unit_type, COUNT(unit_type) ",
+                    "FROM assets WHERE completion_pd <= $y ",
+                    "AND retirement_pd > $y ",
+                    "AND cancellation_pd > $y ",
+                    "GROUP BY unit_type",
+                ),
+            ) |> DataFrame
 
         # Clean up column names in the portfolio dataframes
         rename!(system_portfolio, Symbol("COUNT(unit_type)") => :num_units)
@@ -77,34 +88,40 @@ function get_system_portfolios(db, start_year, fc_pd, unit_specs)
 end
 
 
-function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_portfolios, total_demand, ts_data, unit_specs)
+function handle_annual_dispatch(
+    settings,
+    current_pd,
+    fc_pd,
+    all_year_system_portfolios,
+    total_demand,
+    ts_data,
+    unit_specs,
+)
     all_gc_results = set_up_gc_results_df()
     all_prices = set_up_prices_df()
 
     # Run the annual dispatch for the user-specified number of dispatch years
-    for y = current_pd:current_pd + settings["dispatch"]["num_dispatch_years"]
+    for y = current_pd:(current_pd + settings["dispatch"]["num_dispatch_years"])
         @debug "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Select the current year's expected portfolio
         year_portfolio = all_year_system_portfolios[y]
 
         # Determine appropriate total demand for this year
-        year_demand = filter(
-                          :period => ((pd) -> pd == y),
-                          total_demand
-                      )[1, :real_demand]
+        year_demand =
+            filter(:period => ((pd) -> pd == y), total_demand)[1, :real_demand]
 
         # Set up and run the dispatch simulation for this year
         # This function updates all_gc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
         results = run_annual_dispatch(
-                      settings,
-                      y,
-                      year_portfolio,
-                      year_demand,
-                      ts_data,
-                      unit_specs
-                  )
+            settings,
+            y,
+            year_portfolio,
+            year_demand,
+            ts_data,
+            unit_specs,
+        )
 
         # Save new generation, commitment, and price results
         all_gc_results = vcat(all_gc_results, results[:new_gc_results])
@@ -116,15 +133,18 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
             break
         end
 
-        if ((results[:total_ENS] > settings["system"]["max_total_ENS"])
-             && (y == current_pd))
-            msg = string("In the upcoming dispatch year, the system is ",
-                         "projected to experience a total energy shortage ",
-                         "which exceeds the maximum allowed level of energy ",
-                         "not served (ENS). The system portfolio is likely ",
-                         "in an unsalvageable state of supply insufficiency ",
-                         "in the immediate term. The run will now terminate."
-                  )
+        if (
+            (results[:total_ENS] > settings["system"]["max_total_ENS"]) &&
+            (y == current_pd)
+        )
+            msg = string(
+                "In the upcoming dispatch year, the system is ",
+                "projected to experience a total energy shortage ",
+                "which exceeds the maximum allowed level of energy ",
+                "not served (ENS). The system portfolio is likely ",
+                "in an unsalvageable state of supply insufficiency ",
+                "in the immediate term. The run will now terminate.",
+            )
             throw(ErrorException(msg))
         end
 
@@ -132,9 +152,10 @@ function handle_annual_dispatch(settings, current_pd, fc_pd, all_year_system_por
 
     # If no years ran correctly, throw an error and exit
     if size(all_gc_results)[1] == 0
-        msg = string("No dispatch simulations could be run. Re-check ",
-                     "your inputs."
-              )
+        msg = string(
+            "No dispatch simulations could be run. Re-check ",
+            "your inputs.",
+        )
         throw(ErrorException(msg))
     end
 
@@ -145,61 +166,49 @@ end
 
 function load_ts_data(ts_file_dir, num_repdays)
     # Load the time-series demand and VRE data into dataframes
-    load_data = CSV.read(
-                    joinpath(ts_file_dir, "timeseries_load_hourly.csv"),
-                    DataFrame
-                )
-    wind_data = CSV.read(
-                    joinpath(ts_file_dir, "timeseries_wind_hourly.csv"),
-                    DataFrame
-                )
-    solar_data = CSV.read(
-                     joinpath(ts_file_dir, "timeseries_pv_hourly.csv"),
-                     DataFrame
-                 )
-    repdays_data = CSV.read(
-                       joinpath(ts_file_dir, "repDays_$num_repdays.csv"),
-                       DataFrame
-                   )
+    load_data =
+        CSV.read(joinpath(ts_file_dir, "timeseries_load_hourly.csv"), DataFrame)
+    wind_data =
+        CSV.read(joinpath(ts_file_dir, "timeseries_wind_hourly.csv"), DataFrame)
+    solar_data =
+        CSV.read(joinpath(ts_file_dir, "timeseries_pv_hourly.csv"), DataFrame)
+    repdays_data =
+        CSV.read(joinpath(ts_file_dir, "repDays_$num_repdays.csv"), DataFrame)
 
-    ts_data = Dict(:load_data => load_data,
-                   :wind_data => wind_data,
-                   :solar_data => solar_data,
-                   :repdays_data => repdays_data)
+    ts_data = Dict(
+        :load_data => load_data,
+        :wind_data => wind_data,
+        :solar_data => solar_data,
+        :repdays_data => repdays_data,
+    )
 
     return ts_data
 end
 
 function set_up_gc_results_df()
     all_gc_results = DataFrame(
-                         y = Int[],
-                         d = Int[],
-                         h = Int[],
-                         unit_type = String[],
-                         gen = Float64[],
-                         commit = Int[]
-                     )
+        y = Int[],
+        d = Int[],
+        h = Int[],
+        unit_type = String[],
+        gen = Float64[],
+        commit = Int[],
+    )
 
     return all_gc_results
 end
 
 
 function set_up_prices_df()
-    all_prices = DataFrame(
-                     y = Int[],
-                     d = Int[],
-                     h = Int[],
-                     price = Float64[]
-                 )
+    all_prices = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
 
     return all_prices
 end
 
 
 function scale_load(ts_data, peak_demand)
-    ts_data[:load_data][!, :Load] = (ts_data[:load_data][!, :LoadShape]
-                                     * peak_demand
-                                    )
+    ts_data[:load_data][!, :Load] =
+        (ts_data[:load_data][!, :LoadShape] * peak_demand)
 
     return ts_data
 end
@@ -208,7 +217,8 @@ end
 function set_up_load_repdays(ts_data)
     load_repdays = DataFrame()
     for day in ts_data[:repdays_data][!, :Day]
-        load_repdays[!, Symbol(day)] = ts_data[:load_data][(24*day + 1):(24*(day + 1)), :Load]
+        load_repdays[!, Symbol(day)] =
+            ts_data[:load_data][(24 * day + 1):(24 * (day + 1)), :Load]
     end
 
     ts_data[:load_repdays] = load_repdays
@@ -226,25 +236,27 @@ function scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
     # If either wind or solar has 0 installed capacity, set its entire time
     #   series to 0.0
     if !isempty(filter(:unit_type => x -> x == "wind", year_portfolio))
-        ts_data[:wind_data][!, :wind] = (ts_data[:wind_data][!, :WindShape]
-                                         * filter(
-                                               :unit_type => x -> x == "wind",
-                                               year_portfolio
-                                           )[1, :num_units]
-                                         * wind_specs[:capacity]
-                                        )
+        ts_data[:wind_data][!, :wind] = (
+            ts_data[:wind_data][!, :WindShape] *
+            filter(:unit_type => x -> x == "wind", year_portfolio)[
+                1,
+                :num_units,
+            ] *
+            wind_specs[:capacity]
+        )
     else
         ts_data[:wind_data][!, :wind] .= 0.0
     end
 
     if !isempty(filter(:unit_type => x -> x == "solar", year_portfolio))
-        ts_data[:solar_data][!, :solar] = (ts_data[:solar_data][!, :SolarShape]
-                                           * filter(
-                                                 :unit_type => x -> x == "solar",
-                                                 year_portfolio
-                                             )[1, :num_units]
-                                           * solar_specs[:capacity]
-                                          )
+        ts_data[:solar_data][!, :solar] = (
+            ts_data[:solar_data][!, :SolarShape] *
+            filter(:unit_type => x -> x == "solar", year_portfolio)[
+                1,
+                :num_units,
+            ] *
+            solar_specs[:capacity]
+        )
     else
         ts_data[:solar_data][!, :solar] .= 0.0
     end
@@ -258,8 +270,10 @@ function set_up_wind_solar_repdays(ts_data)
     solar_repdays = DataFrame()
 
     for day in ts_data[:repdays_data][!, :Day]
-        wind_repdays[!, Symbol(day)] = ts_data[:wind_data][(24 * day + 1):(24 * (day + 1)), :wind]
-        solar_repdays[!, Symbol(day)] = ts_data[:solar_data][(24 * day + 1):(24 * (day + 1)), :solar]
+        wind_repdays[!, Symbol(day)] =
+            ts_data[:wind_data][(24 * day + 1):(24 * (day + 1)), :wind]
+        solar_repdays[!, Symbol(day)] =
+            ts_data[:solar_data][(24 * day + 1):(24 * (day + 1)), :solar]
     end
 
     ts_data[:wind_repdays] = wind_repdays
@@ -280,16 +294,16 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
     wind_index = 0
     solar_index = 0
     if !isempty(filter(:unit_type => x -> x == "wind", portfolio_specs))
-        wind_index = filter(
-                         :unit_type => x -> x == "wind",
-                         portfolio_specs
-                     )[1, :unit_index]
+        wind_index = filter(:unit_type => x -> x == "wind", portfolio_specs)[
+            1,
+            :unit_index,
+        ]
     end
     if !isempty(filter(:unit_type => x -> x == "solar", portfolio_specs))
-        solar_index = filter(
-                          :unit_type => x -> x == "solar",
-                          portfolio_specs
-                      )[1, :unit_index]
+        solar_index = filter(:unit_type => x -> x == "solar", portfolio_specs)[
+            1,
+            :unit_index,
+        ]
     end
 
     # Helpful named constants
@@ -332,7 +346,7 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
     # Total generation per hour must be greater than or equal to the demand
     @constraint(
         m,
-        mkt_equil[k=1:num_days, j=1:num_hours],
+        mkt_equil[k = 1:num_days, j = 1:num_hours],
         sum(g[i, k, j] for i = 1:num_units) + s[k, j] >= load_repdays[j, k]
     )
 
@@ -356,19 +370,19 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
                 for j = 1:num_hours
                     @constraint(
                         m,
-                        g[i, k, j] <= (c[i, k, j] 
-                                       .* portfolio_specs[i, :capacity]
-                                       .* portfolio_specs[i, :capacity_factor]
-                                       .* portfolio_specs[i, :max_PL]
-                                      )
+                        g[i, k, j] <= (
+                            c[i, k, j] .* portfolio_specs[i, :capacity] .*
+                            portfolio_specs[i, :capacity_factor] .*
+                            portfolio_specs[i, :max_PL]
+                        )
                     )
                     @constraint(
                         m,
-                        g[i, k, j] >= (c[i, k, j] 
-                                       .* portfolio_specs[i, :capacity]
-                                       .* portfolio_specs[i, :capacity_factor]
-                                       .* portfolio_specs[i, :min_PL]
-                                      )
+                        g[i, k, j] >= (
+                            c[i, k, j] .* portfolio_specs[i, :capacity] .*
+                            portfolio_specs[i, :capacity_factor] .*
+                            portfolio_specs[i, :min_PL]
+                        )
                     )
                 end
             end
@@ -391,25 +405,27 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
     # Ramping constraints
     for i = 1:num_units
         for k = 1:num_days
-            for j = 1:num_hours-1
+            for j = 1:(num_hours - 1)
                 # Ramp-up constraint
                 @constraint(
                     m,
-                    (g[i, k, j+1] - g[i, k, j] <=
-                        c[i, k, j+1]
-                        .* portfolio_specs[i, :ramp_up_limit]
-                         * portfolio_specs[i, :capacity]
-                         * portfolio_specs[i, :capacity_factor]
+                    (
+                        g[i, k, j + 1] - g[i, k, j] <=
+                        c[i, k, j + 1] .* portfolio_specs[i, :ramp_up_limit] *
+                        portfolio_specs[i, :capacity] *
+                        portfolio_specs[i, :capacity_factor]
                     )
                 )
                 # Ramp-down constraint
                 @constraint(
                     m,
-                    (g[i, k, j+1] - g[i, k, j] >= 
-                        (-1) * c[i, k, j+1]
-                        * portfolio_specs[i, :ramp_down_limit]
-                        * portfolio_specs[i, :capacity]
-                        * portfolio_specs[i, :capacity_factor]
+                    (
+                        g[i, k, j + 1] - g[i, k, j] >=
+                        (-1) *
+                        c[i, k, j + 1] *
+                        portfolio_specs[i, :ramp_down_limit] *
+                        portfolio_specs[i, :capacity] *
+                        portfolio_specs[i, :capacity_factor]
                     )
                 )
             end
@@ -423,20 +439,20 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
         Min,
         sum(
             sum(
-                sum(g[i, k, j] + ENS_penalty * s[k, j]
-                for j = 1:num_hours)
-            for k = 1:num_days)
-            .* (portfolio_specs[i, :VOM] 
-                + portfolio_specs[i, :FC_per_MWh] 
-                - portfolio_specs[i, :policy_adj_per_MWh])
-        for i = 1:num_units)
+                sum(g[i, k, j] + ENS_penalty * s[k, j] for j = 1:num_hours) for
+                k = 1:num_days
+            ) .* (
+                portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] -
+                portfolio_specs[i, :policy_adj_per_MWh]
+            ) for i = 1:num_units
+        )
     )
 
     return m, portfolio_specs
 end
 
 
-function solve_model(model; model_type="integral")
+function solve_model(model; model_type = "integral")
     if model_type == "integral"
         # Optimize!
         optimize!(model)
@@ -475,12 +491,14 @@ function assemble_gc_results(y, gen_qty, c, portfolio_specs)
     for k = 1:size(c)[2]            # num_days
         for j = 1:size(c)[3]        # num_hours
             for i = 1:size(c)[1]    # num_units
-                line = (y = y,
-                        d = k,
-                        h = j,
-                        unit_type = portfolio_specs[i, :unit_type],
-                        gen = gen_qty[i, k, j],
-                        commit = round(Int, c[i, k, j]))
+                line = (
+                    y = y,
+                    d = k,
+                    h = j,
+                    unit_type = portfolio_specs[i, :unit_type],
+                    gen = gen_qty[i, k, j],
+                    commit = round(Int, c[i, k, j]),
+                )
                 push!(new_gc_results, line)
             end
         end
@@ -513,16 +531,12 @@ end
 function propagate_all_results(all_gc_results, all_prices, current_pd, end_year)
     final_dispatched_year = maximum(all_gc_results[!, :y])
 
-    final_year_gc = filter(
-                        :y => x -> x == final_dispatched_year,
-                        all_gc_results
-                    )
-    final_year_prices = filter(
-                            :y => x -> x == final_dispatched_year,
-                            all_prices
-                        )
+    final_year_gc =
+        filter(:y => x -> x == final_dispatched_year, all_gc_results)
+    final_year_prices =
+        filter(:y => x -> x == final_dispatched_year, all_prices)
 
-    for y = final_dispatched_year+1:current_pd+end_year-1
+    for y = (final_dispatched_year + 1):(current_pd + end_year - 1)
         # Copy the final_year_gc results forward, updating the year
         next_year_gc = deepcopy(final_year_gc)
         next_year_gc[!, :y] .= y
@@ -544,7 +558,14 @@ function propagate_all_results(all_gc_results, all_prices, current_pd, end_year)
 end
 
 
-function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, unit_specs)
+function run_annual_dispatch(
+    settings,
+    y,
+    year_portfolio,
+    peak_demand,
+    ts_data,
+    unit_specs,
+)
     # Scale the load data to the PD value for this year
     ts_data = scale_load(ts_data, peak_demand)
 
@@ -559,12 +580,8 @@ function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, 
     ts_data = set_up_wind_solar_repdays(ts_data)
 
     @debug "Setting up optimization model..."
-    m, portfolio_specs = set_up_model(
-                             settings,
-                             ts_data,
-                             year_portfolio,
-                             unit_specs
-                         )
+    m, portfolio_specs =
+        set_up_model(settings, ts_data, year_portfolio, unit_specs)
 
     @debug "Optimization model set up."
     @debug string("Solving repday dispatch for year ", y, "...")
@@ -588,12 +605,7 @@ function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, 
 
     if status == "OPTIMAL"
         # Save the generation and commitment results from the integral problem
-        new_gc_results = assemble_gc_results(
-                             y, 
-                             gen_qty,
-                             c,
-                             portfolio_specs
-                         )
+        new_gc_results = assemble_gc_results(y, gen_qty, c, portfolio_specs)
 
         # Set up a relaxed-integrality version of this model, to allow
         #   retrieval of dual values for the mkt_equil constraint
@@ -603,14 +615,14 @@ function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, 
         # Solve the relaxed-integrality model to compute the shadow prices
         m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
         new_prices = reshape_shadow_prices(
-                         shadow_price.(m_copy[:mkt_equil]),   # shadow prices
-                         y,
-                         settings
-                     )
+            shadow_price.(m_copy[:mkt_equil]),   # shadow prices
+            y,
+            settings,
+        )
 
         # Determine the total level of energy not served (ENS) for this
         #   dispatch result
-        total_ENS = sum(sum(s[k, j] for k=1:size(s)[1]) for j = 1:size(s)[2])
+        total_ENS = sum(sum(s[k, j] for k = 1:size(s)[1]) for j = 1:size(s)[2])
 
         @debug "Year $y dispatch run complete."
         run_next_year = true
@@ -623,11 +635,12 @@ function run_annual_dispatch(settings, y, year_portfolio, peak_demand, ts_data, 
         total_ENS = nothing
     end
 
-    results = Dict(:new_gc_results => new_gc_results,
-                   :new_prices => new_prices,
-                   :run_next_year => run_next_year,
-                   :total_ENS => total_ENS
-              )
+    results = Dict(
+        :new_gc_results => new_gc_results,
+        :new_prices => new_prices,
+        :run_next_year => run_next_year,
+        :total_ENS => total_ENS,
+    )
 
     return results
 
@@ -635,18 +648,10 @@ end
 
 
 function save_raw_results(all_prices, all_gc_results)
-    pfile = joinpath(
-                pwd(),
-                "tmp",
-                "price_results.csv"
-            )
+    pfile = joinpath(pwd(), "tmp", "price_results.csv")
     CSV.write(pfile, all_prices)
 
-    gcfile = joinpath(
-                 pwd(),
-                 "tmp",
-                 "./gc_results.csv"
-             )
+    gcfile = joinpath(pwd(), "tmp", "./gc_results.csv")
     CSV.write(gcfile, all_gc_results)
 end
 
@@ -663,7 +668,7 @@ function combine_and_extend_year_portfolios(system_portfolios, forecast_end_pd)
 
     # Extend dispatch results by assuming no change after last dispatch year
     last_dispatch_year = maximum([key for key in keys(system_portfolios)])
-    for i = last_dispatch_year+1:forecast_end_pd
+    for i = (last_dispatch_year + 1):forecast_end_pd
         df = system_portfolios[length(keys(system_portfolios))]
         df[!, :y] .= i
         append!(all_year_portfolios, df)
@@ -674,42 +679,36 @@ function combine_and_extend_year_portfolios(system_portfolios, forecast_end_pd)
 end
 
 
-function join_results_data_frames(all_gc_results, all_prices, repdays_data, all_year_portfolios, unit_specs)
+function join_results_data_frames(
+    all_gc_results,
+    all_prices,
+    repdays_data,
+    all_year_portfolios,
+    unit_specs,
+)
     # Join in price data to all_gc_results
-    long_econ_results = innerjoin(
-                            all_gc_results,
-                            all_prices,
-                            on = [:y, :d, :h]
-                        )
+    long_econ_results = innerjoin(all_gc_results, all_prices, on = [:y, :d, :h])
 
     # Incorporate repdays probability data
     long_econ_results = innerjoin(
-                            long_econ_results,
-                            select(repdays_data, [:index, :Probability]),
-                            on = [:d => :index]
-                        )
+        long_econ_results,
+        select(repdays_data, [:index, :Probability]),
+        on = [:d => :index],
+    )
 
     # Join in limited unit_specs data to compute some cash flows
     long_econ_results = innerjoin(
-                           long_econ_results,
-                           select(
-                               unit_specs,
-                               [:unit_type,
-                                :capacity,
-                                :VOM,
-                                :FC_per_MWh,
-                                :policy_adj_per_MWh
-                               ]
-                           ),
-                           on = :unit_type
-                       )
+        long_econ_results,
+        select(
+            unit_specs,
+            [:unit_type, :capacity, :VOM, :FC_per_MWh, :policy_adj_per_MWh],
+        ),
+        on = :unit_type,
+    )
 
     # Join in unit number data to long_rev_results
-    long_econ_results = innerjoin(
-                           long_econ_results,
-                           all_year_portfolios,
-                           on = [:y, :unit_type]
-                       )
+    long_econ_results =
+        innerjoin(long_econ_results, all_year_portfolios, on = [:y, :unit_type])
 
     return long_econ_results
 
@@ -720,36 +719,41 @@ function compute_per_unit_cash_flows(long_econ_results)
     # Calculate revenues
     transform!(
         long_econ_results,
-        [:gen, :price, :Probability, :num_units]
-          => ((gen, price, prob, num_units) 
-               -> gen .* price .* prob .* 365 ./ num_units)
-          => :annualized_rev_per_unit)
+        [:gen, :price, :Probability, :num_units] =>
+            (
+                (gen, price, prob, num_units) ->
+                    gen .* price .* prob .* 365 ./ num_units
+            ) => :annualized_rev_per_unit,
+    )
 
     # Calculate VOM
     transform!(
         long_econ_results,
-        [:gen, :VOM, :Probability, :num_units]
-          => ((gen, VOM, prob, num_units)
-               -> gen .* VOM .* prob .* 365 ./ num_units)
-          => :annualized_VOM_per_unit
+        [:gen, :VOM, :Probability, :num_units] =>
+            (
+                (gen, VOM, prob, num_units) ->
+                    gen .* VOM .* prob .* 365 ./ num_units
+            ) => :annualized_VOM_per_unit,
     )
 
     # Calculate fuel cost
     transform!(
         long_econ_results,
-        [:gen, :FC_per_MWh, :Probability, :num_units]
-          => ((gen, fc, prob, num_units)
-               -> gen .* fc .* prob .* 365 ./ num_units)
-          => :annualized_FC_per_unit
+        [:gen, :FC_per_MWh, :Probability, :num_units] =>
+            (
+                (gen, fc, prob, num_units) ->
+                    gen .* fc .* prob .* 365 ./ num_units
+            ) => :annualized_FC_per_unit,
     )
 
     # Calculate policy adjustment
     transform!(
         long_econ_results,
-        [:gen, :policy_adj_per_MWh, :Probability, :num_units]
-          => ((gen, adj, prob, num_units) 
-               -> gen .* adj .* prob .* 365 ./ num_units)
-          => :annualized_policy_adj_per_unit
+        [:gen, :policy_adj_per_MWh, :Probability, :num_units] =>
+            (
+                (gen, adj, prob, num_units) ->
+                    gen .* adj .* prob .* 365 ./ num_units
+            ) => :annualized_policy_adj_per_unit,
     )
 
     for col in eachcol(long_econ_results)
@@ -759,34 +763,38 @@ function compute_per_unit_cash_flows(long_econ_results)
 
     return long_econ_results
 
-end 
+end
 
 
-function postprocess_results(all_gc_results, all_prices, repdays_data, all_year_system_portfolios, unit_specs, current_pd, fc_pd)
+function postprocess_results(
+    all_gc_results,
+    all_prices,
+    repdays_data,
+    all_year_system_portfolios,
+    unit_specs,
+    current_pd,
+    fc_pd,
+)
     # Propagate the results dataframes out to the end of the projection horizon
     # Assume no change after the last modeled year
-    all_gc_results, all_prices = propagate_all_results(
-                                     all_gc_results,
-                                     all_prices,
-                                     current_pd,
-                                     fc_pd
-                                 )
+    all_gc_results, all_prices =
+        propagate_all_results(all_gc_results, all_prices, current_pd, fc_pd)
 
     # Get a single long dataframe with unit numbers by type for each year
     all_year_portfolios = combine_and_extend_year_portfolios(
-                              all_year_system_portfolios,
-                              current_pd + fc_pd
-                          )
+        all_year_system_portfolios,
+        current_pd + fc_pd,
+    )
 
     # Join in relevant data to create a single master dataframe suitable for
     #   a variety of column-wise operations
     long_econ_results = join_results_data_frames(
-                            all_gc_results,
-                            all_prices,
-                            repdays_data,
-                            all_year_portfolios,
-                            unit_specs
-                        )
+        all_gc_results,
+        all_prices,
+        repdays_data,
+        all_year_portfolios,
+        unit_specs,
+    )
 
     # Compute cash flows on a per-unit basis: revenue, VOM, fuel cost, and
     #   policy adjustment
