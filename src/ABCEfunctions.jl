@@ -937,7 +937,7 @@ function forecast_unit_revenue_and_gen(
     ALEAF_dispatch_results =
         DBInterface.execute(db, "SELECT * FROM ALEAF_dispatch_results") |>
         DataFrame
-    ALEAF_dispatch_results, wtd_hist_revs, wtd_hist_gens =
+    ALEAF_results =
         average_historical_ALEAF_results(settings, ALEAF_dispatch_results)
 
     # Compute the unit's total generation for each period, in kWh
@@ -948,7 +948,7 @@ function forecast_unit_revenue_and_gen(
         unit_fs,
         lag,
         long_econ_results,
-        wtd_hist_gens;
+        ALEAF_results["wtd_hist_gens"];
         mode = mode,
         orig_ret_pd = orig_ret_pd,
     )
@@ -962,7 +962,7 @@ function forecast_unit_revenue_and_gen(
         unit_fs,
         lag,
         long_econ_results,
-        wtd_hist_revs;
+        ALEAF_results["wtd_hist_revs"];
         mode = mode,
         orig_ret_pd = orig_ret_pd,
     )
