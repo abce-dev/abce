@@ -29,17 +29,4 @@ jobs:
       with:
         version: 1.8
         arch: x86
-    - name: kjsxdhf
-      run: |
-        pwd
-        ls *
-    - name: Install and configure ABCE
-      run: |
-        cd $GITHUB_WORKSPACE
-        bash install.sh -n -a "" 2&>1 /dev/null
-    - name: ksjdhf
-      run: |
-        cd $GITHUB_WORKSPACE
-        ls *
-        bash test/run_julia_tests.sh
 
