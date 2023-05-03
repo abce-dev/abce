@@ -350,6 +350,32 @@ def create_ALEAF_Master_LC_GEP_file(
             ] = tabs_to_create["Simulation Setting"]["data"].pop(key)
 
     # Finalize "Simulation Configuration" tab
+    # Update existing data items
+    # Update peak demand
+    tabs_to_create["Simulation Configuration"]["data"]["peak_demand"] = settings["scenario"]["peak_demand"]
+
+    # Update policies
+    if "policies" in settings["scenario"].keys():
+        for policy, policy_data in settings["scenario"]["policies"].items():
+            if policy_data["enabled"]:
+                qty = policy_data["qty"]
+                if "PTC" in policy and "unit_type" in policy_data["eligibility"].keys():
+                    if "wind" in policy_data["eligibility"]["unit_type"]:
+                        tabs_to_create["Simulation Configuration"]["data"]["wind_PTC"] = qty
+                    if "solar" in policy_data["eligibility"]["unit_type"]:
+                        tabs_to_create["Simulation Configuration"]["data"]["solar_PTC"] = qty
+                    if "nuclear" in policy_data["eligibility"]["unit_type"]:
+                        tabs_to_create["Simulation Configuration"]["data"]["nuclear_PTC"] = qty
+                if "ITC" in policy and "unit_type" in policy_data["eligibility"].keys():
+                    if "wind" in policy_data["eligibility"]["unit_type"]:
+                        tabs_to_create["Simulation Configuration"]["data"]["wind_ITC"] = qty
+                    if "solar" in policy_data["eligibility"]["unit_type"]:
+                        tabs_to_create["Simulation Configuration"]["data"]["solar_ITC"] = qty
+                    if "nuclear" in policy_data["eligibility"]["unit_type"]:
+                        tabs_to_create["Simulation Configuration"]["data"]["nuclear_ITC"] = qty
+                if "CTAX" in policy:
+                    tabs_to_create["Simulation Configuration"]["data"]["CTAX"] = qty
+
     # Add extra items
     sc_extra_items = {
         "planning_reserve_margin_value": tabs_to_create["Planning Design"][
