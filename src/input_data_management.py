@@ -373,7 +373,7 @@ def create_ALEAF_Master_LC_GEP_file(
                         tabs_to_create["Simulation Configuration"]["data"][
                             "solar_PTC"
                         ] = qty
-                    if "nuclear" in policy_data["eligibility"]["unit_type"]:
+                    if "conventional_nuclear" in policy_data["eligibility"]["unit_type"]:
                         tabs_to_create["Simulation Configuration"]["data"][
                             "nuclear_PTC"
                         ] = qty
@@ -395,7 +395,7 @@ def create_ALEAF_Master_LC_GEP_file(
                         ] = qty
                 if "CTAX" in policy:
                     tabs_to_create["Simulation Configuration"]["data"][
-                        "CTAX"
+                        "carbon_tax"
                     ] = qty
 
     # Add extra items
