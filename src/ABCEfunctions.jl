@@ -373,7 +373,7 @@ function get_net_demand(
                      total_eff_cap = Float64[]
                  )
 
-    for i = pd:pd+maximum(keys(system_portfolios))
+    for i = pd:maximum(keys(system_portfolios))
         year_portfolio = innerjoin(
             system_portfolios[i],
             unit_specs,
