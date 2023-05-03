@@ -365,15 +365,20 @@ def create_ALEAF_Master_LC_GEP_file(
                     "PTC" in policy
                     and "unit_type" in policy_data["eligibility"].keys()
                 ):
-                    if "wind" in policy_data["eligibility"]["unit_type"]:
+                    eligible_types = policy_data["eligibility"]["unit_type"]
+                    if any("wind" in unit_type for unit_type in eligible_types):
                         tabs_to_create["Simulation Configuration"]["data"][
                             "wind_PTC"
                         ] = qty
-                    if "solar" in policy_data["eligibility"]["unit_type"]:
+                    if any(
+                        "solar" in unit_type for unit_type in eligible_types
+                    ):
                         tabs_to_create["Simulation Configuration"]["data"][
                             "solar_PTC"
                         ] = qty
-                    if "conventional_nuclear" in policy_data["eligibility"]["unit_type"]:
+                    if any(
+                        "nuclear" in unit_type for unit_type in eligible_types
+                    ):
                         tabs_to_create["Simulation Configuration"]["data"][
                             "nuclear_PTC"
                         ] = qty
@@ -381,15 +386,19 @@ def create_ALEAF_Master_LC_GEP_file(
                     "ITC" in policy
                     and "unit_type" in policy_data["eligibility"].keys()
                 ):
-                    if "wind" in policy_data["eligibility"]["unit_type"]:
+                    if any("wind" in unit_type for unit_type in eligible_types):
                         tabs_to_create["Simulation Configuration"]["data"][
                             "wind_ITC"
                         ] = qty
-                    if "solar" in policy_data["eligibility"]["unit_type"]:
+                    if any(
+                        "solar" in unit_type for unit_type in eligible_types
+                    ):
                         tabs_to_create["Simulation Configuration"]["data"][
                             "solar_ITC"
                         ] = qty
-                    if "nuclear" in policy_data["eligibility"]["unit_type"]:
+                    if any(
+                        "nuclear" in unit_type for unit_type in eligible_types
+                    ):
                         tabs_to_create["Simulation Configuration"]["data"][
                             "nuclear_ITC"
                         ] = qty
