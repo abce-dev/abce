@@ -466,13 +466,13 @@ function set_up_project_alternatives(
     long_econ_results,
     C2N_specs,
 )
-    PA_uids = create_PA_unique_ids(settings, unit_specs, asset_counts)
+    PA_summaries = create_PA_summaries(settings, unit_specs, asset_counts)
 
-    PA_fs_dict = create_PA_pro_formas(PA_uids, fc_pd)
+    PA_fs_dict = create_PA_pro_formas(PA_summaries, fc_pd)
 
-    PA_uids, PA_fs_dict = populate_PA_pro_formas(
+    PA_summaries, PA_fs_dict = populate_PA_pro_formas(
         settings,
-        PA_uids,
+        PA_summaries,
         PA_fs_dict,
         unit_specs,
         fc_pd,
@@ -483,12 +483,12 @@ function set_up_project_alternatives(
         C2N_specs,
     )
 
-    return PA_uids, PA_fs_dict
+    return PA_summaries, PA_fs_dict
 
 end
 
-function create_PA_unique_ids(settings, unit_specs, asset_counts)
-    PA_uids = DataFrame(
+function create_PA_summaries(settings, unit_specs, asset_counts)
+    PA_summaries = DataFrame(
         unit_type = String[],
         project_type = String[],
         lag = Int64[],
@@ -516,7 +516,7 @@ function create_PA_unique_ids(settings, unit_specs, asset_counts)
 
         for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
             push!(
-                PA_uids,
+                PA_summaries,
                 [unit_type project_type lag nothing uid NPV allowed]
             )
             uid += 1
@@ -536,20 +536,20 @@ function create_PA_unique_ids(settings, unit_specs, asset_counts)
         for ret_pd in ret_pds
             for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
                 row = [unit_type project_type lag ret_pd uid NPV allowed]
-                push!(PA_uids, row)
+                push!(PA_summaries, row)
                 uid += 1
             end
         end
     end
 
-    return PA_uids
+    return PA_summaries
 
 end
 
 
-function create_PA_pro_formas(PA_uids, fc_pd)
+function create_PA_pro_formas(PA_summaries, fc_pd)
     PA_fs_dict = Dict()
-    for uid in PA_uids[!, :uid]
+    for uid in PA_summaries[!, :uid]
         PA_fs_dict[uid] = DataFrame(
             year = 1:fc_pd,
             capex = zeros(fc_pd),
@@ -568,7 +568,7 @@ end
 
 function populate_PA_pro_formas(
     settings,
-    PA_uids,
+    PA_summaries,
     PA_fs_dict,
     unit_specs,
     fc_pd,
@@ -578,9 +578,9 @@ function populate_PA_pro_formas(
     long_econ_results,
     C2N_specs,
 )
-    for uid in PA_uids[!, :uid]
+    for uid in PA_summaries[!, :uid]
         # Retrieve current project alternative definition for convenience
-        current_PA = filter(:uid => x -> x == uid, PA_uids)[1, :]
+        current_PA = filter(:uid => x -> x == uid, PA_summaries)[1, :]
 
         # Retrieve relevant unit type specs for convenience
         unit_type_data = filter(
@@ -670,11 +670,11 @@ function populate_PA_pro_formas(
         CSV.write(file_name, PA_fs_dict[uid])
 
         # Save the NPV result
-        filter(:uid => x -> x == uid, PA_uids, view = true)[1, :NPV] = FCF_NPV
+        filter(:uid => x -> x == uid, PA_summaries, view = true)[1, :NPV] = FCF_NPV
 
     end
 
-    return PA_uids, PA_fs_dict
+    return PA_summaries, PA_fs_dict
 
 end
 
@@ -1540,7 +1540,7 @@ Returns:
 """
 function set_up_model(
     settings,
-    PA_uids,
+    PA_summaries,
     PA_fs_dict,
     total_demand,
     asset_counts,
@@ -1560,8 +1560,8 @@ function set_up_model(
     m = create_model_with_optimizer(settings)
 
     # Parameter names
-    num_alternatives = size(PA_uids)[1]
-    num_time_periods = size(PA_fs_dict[PA_uids[1, :uid]])[1]
+    num_alternatives = size(PA_summaries)[1]
+    num_time_periods = size(PA_fs_dict[PA_summaries[1, :uid]])[1]
 
     # Set up variables
     # Number of units of each type to build: must be Integer
@@ -1571,32 +1571,32 @@ function set_up_model(
     #   contribution per alternative type
     marg_gen = zeros(num_alternatives, num_time_periods)
     marg_eff_cap = zeros(num_alternatives, num_time_periods)
-    for i = 1:size(PA_uids)[1]
+    for i = 1:size(PA_summaries)[1]
         for j = 1:num_time_periods
             # Marginal generation in kWh
             marg_gen[i, j] = (
-                PA_fs_dict[PA_uids[i, :uid]][j, :gen] /
+                PA_fs_dict[PA_summaries[i, :uid]][j, :gen] /
                 settings["constants"]["MW2kW"]
             )
             # Convert total anticipated marginal generation to an effective
             #   nameplate capacity and save to the appropriate entry in the
             #   marginal generation array
             unit_type_data = filter(
-                :unit_type => x -> x == PA_uids[i, :unit_type],
+                :unit_type => x -> x == PA_summaries[i, :unit_type],
                 unit_specs,
             )
 
-            if PA_uids[i, :project_type] == "new_xtr"
+            if PA_summaries[i, :project_type] == "new_xtr"
                 op_start =
-                    PA_uids[i, :lag] + unit_type_data[1, :construction_duration]
+                    PA_summaries[i, :lag] + unit_type_data[1, :construction_duration]
                 if j > op_start
                     marg_eff_cap[i, j] = (
                         unit_type_data[1, :capacity] *
                         unit_type_data[1, :capacity_factor]
                     )
                 end
-            elseif PA_uids[i, :project_type] == "retirement"
-                if (j > PA_uids[i, :lag]) && (j <= PA_uids[i, :ret_pd])
+            elseif PA_summaries[i, :project_type] == "retirement"
+                if (j > PA_summaries[i, :lag]) && (j <= PA_summaries[i, :ret_pd])
                     marg_eff_cap[i, j] = (
                         (-1) *
                         unit_type_data[1, :capacity] *
@@ -1608,14 +1608,14 @@ function set_up_model(
     end
 
     # Record which elements take effect immediately
-    PA_uids[!, :current] .= 0
-    for i = 1:size(PA_uids)[1]
-        if PA_uids[i, :project_type] == "retirement"
-            PA_uids[i, :current] = 1
+    PA_summaries[!, :current] .= 0
+    for i = 1:size(PA_summaries)[1]
+        if PA_summaries[i, :project_type] == "retirement"
+            PA_summaries[i, :current] = 1
         elseif (
-            (PA_uids[i, :project_type] == "new_xtr") && (PA_uids[i, :lag] == 0)
+            (PA_summaries[i, :project_type] == "new_xtr") && (PA_summaries[i, :lag] == 0)
         )
-            PA_uids[i, :current] = 1
+            PA_summaries[i, :current] = 1
         end
     end
 
@@ -1645,7 +1645,7 @@ function set_up_model(
         end
         @constraint(
             m,
-            transpose(u .* PA_uids[:, :current]) * marg_eff_cap[:, i] >=
+            transpose(u .* PA_summaries[:, :current]) * marg_eff_cap[:, i] >=
             (total_eff_cap - pd_total_demand) * margin
         )
 
@@ -1657,8 +1657,8 @@ function set_up_model(
     marg_int = zeros(num_alternatives, num_time_periods)
     marg_div = zeros(num_alternatives, num_time_periods)
     marg_FCF = zeros(num_alternatives, num_time_periods)
-    for i = 1:size(PA_uids)[1]
-        project = PA_fs_dict[PA_uids[i, :uid]]
+    for i = 1:size(PA_summaries)[1]
+        project = PA_fs_dict[PA_summaries[i, :uid]]
         for j = 1:num_time_periods
             # Retrieve the marginal value of interest
             # Scale to units of $B
@@ -1690,18 +1690,18 @@ function set_up_model(
     end
 
     # Enforce the user-specified maximum number of new construction/retirement
-    #   projects by type per period, and the :allowed field in PA_uids
+    #   projects by type per period, and the :allowed field in PA_summaries
     for i = 1:num_alternatives
-        if PA_uids[i, :project_type] == "new_xtr"
+        if PA_summaries[i, :project_type] == "new_xtr"
             @constraint(
                 m,
                 u[i] .<=
-                convert(Int64, PA_uids[i, :allowed]) .*
+                convert(Int64, PA_summaries[i, :allowed]) .*
                 settings["agent_opt"]["max_type_newbuilds_per_pd"]
             )
-        elseif PA_uids[i, :project_type] == "retirement"
-            unit_type = PA_uids[i, :unit_type]
-            ret_pd = PA_uids[i, :ret_pd]
+        elseif PA_summaries[i, :project_type] == "retirement"
+            unit_type = PA_summaries[i, :unit_type]
+            ret_pd = PA_summaries[i, :ret_pd]
             asset_count = filter(
                 [:unit_type, :retirement_pd] =>
                     (x, y) -> x == unit_type && y == ret_pd,
@@ -1711,7 +1711,7 @@ function set_up_model(
                 :count,
             ]
             max_retirement = (
-                convert(Int64, PA_uids[i, :allowed]) .* min(
+                convert(Int64, PA_summaries[i, :allowed]) .* min(
                     asset_count,
                     settings["agent_opt"]["max_type_rets_per_pd"],
                 )
@@ -1738,17 +1738,17 @@ function set_up_model(
     # This matrix has one long row for each retiring-asset category,
     #   with 1's in each element where the corresponding element of u[] is
     #   one of these units
-    ret_summation_matrix = zeros(size(retireable_asset_counts)[1], size(PA_uids)[1])
+    ret_summation_matrix = zeros(size(retireable_asset_counts)[1], size(PA_summaries)[1])
     for i = 1:size(retireable_asset_counts)[1]
-        for j = 1:size(PA_uids)[1]
+        for j = 1:size(PA_summaries)[1]
             if (
-                (PA_uids[j, :project_type] == "retirement") &
+                (PA_summaries[j, :project_type] == "retirement") &
                 (
-                    PA_uids[j, :unit_type] ==
+                    PA_summaries[j, :unit_type] ==
                     retireable_asset_counts[i, :unit_type]
                 ) &
                 (
-                    PA_uids[j, :ret_pd] ==
+                    PA_summaries[j, :ret_pd] ==
                     retireable_asset_counts[i, :retirement_pd]
                 )
             )
@@ -1771,19 +1771,19 @@ function set_up_model(
     # Set up the coal retirements of matrix, to ensure that the total "pool"
     #   of coal plants available for retirement is respected across the entire
     #   visible horizon
-    coal_retirements = zeros(size(PA_uids)[1], 10)
+    coal_retirements = zeros(size(PA_summaries)[1], 10)
     planned_coal_units_operating = DataFrame(pd = Int64[], num_units = Int64[])
 
-    for i = 1:size(PA_uids)[1]
+    for i = 1:size(PA_summaries)[1]
         # Mark all of the direct coal retirements in the matrix
-        if (PA_uids[i, :project_type] == "retirement") && (PA_uids[i, :unit_type] == "coal")
-            coal_retirements[i, PA_uids[i, :lag]+1] = 1
+        if (PA_summaries[i, :project_type] == "retirement") && (PA_summaries[i, :unit_type] == "coal")
+            coal_retirements[i, PA_summaries[i, :lag]+1] = 1
         end
 
         # Mark all of the C2N-forced coal retirements in the matrix
-        if occursin("C2N", PA_uids[i, :unit_type])
-            unit_type_data = filter(:unit_type => ((ut) -> ut == PA_uids[i, :unit_type]), unit_specs)
-            target_coal_ret_pd = PA_uids[i, :lag] + unit_type_data[1, :cpp_ret_lead] + 1
+        if occursin("C2N", PA_summaries[i, :unit_type])
+            unit_type_data = filter(:unit_type => ((ut) -> ut == PA_summaries[i, :unit_type]), unit_specs)
+            target_coal_ret_pd = PA_summaries[i, :lag] + unit_type_data[1, :cpp_ret_lead] + 1
             if target_coal_ret_pd <= size(coal_retirements)[2]
                 coal_retirements[i, target_coal_ret_pd] = 1
             end
@@ -1820,7 +1820,7 @@ function set_up_model(
         m,
         Max,
         (
-            profit_lamda * (transpose(u) * PA_uids[!, :NPV]) +
+            profit_lamda * (transpose(u) * PA_summaries[!, :NPV]) +
             credit_rating_lamda * (
                 sum(agent_fs[1:cr_horizon, :FCF]) / 1e9 +
                 sum(transpose(u) * marg_FCF[:, 1:cr_horizon]) +
@@ -1842,7 +1842,7 @@ end
 
 
 ### Postprocessing
-function finalize_results_dataframe(m, PA_uids)
+function finalize_results_dataframe(m, PA_summaries)
     # Check solve status of model
     status = string(termination_status.(m))
 
@@ -1852,10 +1852,10 @@ function finalize_results_dataframe(m, PA_uids)
     else
         # If the model did not solve to optimality, the agent does nothing. Return
         #   a vector of all zeroes instead.
-        unit_qty = zeros(Int64, size(PA_uids)[1])
+        unit_qty = zeros(Int64, size(PA_summaries)[1])
     end
 
-    all_results = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
+    all_results = hcat(PA_summaries, DataFrame(units_to_execute = unit_qty))
 
     return all_results
 end
