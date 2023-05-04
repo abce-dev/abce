@@ -386,6 +386,7 @@ def create_ALEAF_Master_LC_GEP_file(
                     "ITC" in policy
                     and "unit_type" in policy_data["eligibility"].keys()
                 ):
+                    eligible_types = policy_data["eligibility"]["unit_type"]
                     if any("wind" in unit_type for unit_type in eligible_types):
                         tabs_to_create["Simulation Configuration"]["data"][
                             "wind_ITC"
