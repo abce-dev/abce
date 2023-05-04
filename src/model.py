@@ -1018,7 +1018,7 @@ class GridModel(Model):
         filters = {"asset_id": asset_id}
 
         ABCE.update_DB_table_inplace(
-            self.db, self.cur, "assets", to_update, filters
+            self.db, self.cur, "assets", updates, filters
         )
 
         # Commit changes to database
