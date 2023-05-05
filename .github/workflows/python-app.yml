@@ -17,11 +17,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/abce-dev/abce:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.docker_maintenance }}
-      options: --user root
+      image: ghcr.io/biegelk/abce:latest
 
     steps:
     - uses: actions/checkout@v3
