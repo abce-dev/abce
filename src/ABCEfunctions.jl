@@ -468,7 +468,12 @@ function set_up_project_alternatives(
 )
     PA_summaries = create_PA_summaries(settings, unit_specs, asset_counts)
 
-    PA_subprojects = create_PA_subprojects(unit_specs, PA_summaries, fc_pd)
+    PA_subprojects = Dict()
+
+    for PA in eachrow(PA_summaries)
+        # Create a vector of subprojects for this project alternative
+        PA_subprojects[PA.uid] = create_PA_subprojects(unit_specs, PA, fc_pd)
+    end
 
     PA_fs_dict = create_PA_pro_formas(PA_summaries, fc_pd)
 
@@ -549,45 +554,65 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
 end
 
 
-function create_PA_subprojects(unit_specs, PA_summaries, fc_pd)
-    PA_subprojects = Dict()
+function create_PA_subprojects(unit_specs, PA, fc_pd)
+    # Initialize the metadata and empty financial statements for all
+    #   subprojects for this project alternative
+    subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
 
-    for PA in eachrow(PA_summaries)
-        # Create a vector to store the subprojects for this project
-        #   alternative
-        subprojects = []
-
-        # Create the principal subproject and add it to the vector
-        subproject = create_subproject(fc_pd, PA.unit_type, PA.project_type, PA.lag, PA.ret_pd)
-        push!(subprojects, subproject)
-
-        # If the current project alternative is a new coal-to-nuclear
-        #   conversion project, add a second subproject to represent the coal
-        #   unit retirement
-        if occursin("C2N", PA.unit_type)
-            # Retrieve coal retirement scheduling information from the 
-            #   unit_specs dataframe
-            unit_type_data = filter(:unit_type => x -> x == PA.unit_type, unit_specs)[1, :]
-            construction_duration = unit_type_data["construction_duration"]
-            cpp_ret_lead = unit_type_data["cpp_ret_lead"]
-
-            coal_retirement = create_subproject(fc_pd, "coal", "retirement", PA.lag, PA.lag + construction_duration - cpp_ret_lead)
-
-            # Add the subproject to the subprojects vector
-            push!(subprojects, coal_retirement)
-        end
-
-        # Add all of this project alternative's subprojects to the
-        #   PA_subprojects dictionary
-        PA_subprojects[PA.uid] = subprojects
+    for subproject in subprojects
+        subproject["financial_statement"] = forecast_subproject_financials(
+            subproject,
+            fc_pd
+        )
     end
 
-    return PA_subprojects
+    return subprojects
 end
 
 
-function create_subproject(fc_pd, unit_type, project_type, lag, ret_pd)
-    # Create a sub-dictionary for the primary subproject
+function initialize_subprojects(unit_specs, PA, fc_pd)
+    # Create a vector to store the subprojects for this project
+    #   alternative
+    subprojects = []
+
+    # Create the principal subproject and add it to the vector
+    subproject = Dict(
+        "unit_type" => PA.unit_type,
+        "project_type" => "retirement",
+        "lag" => PA.lag,
+        "ret_pd" => PA.ret_pd,
+    )
+    push!(subprojects, subproject)
+
+    # If the current project alternative is a new coal-to-nuclear
+    #   conversion project, add a second subproject to represent the coal
+    #   unit retirement
+    if occursin("C2N", PA.unit_type)
+        # Retrieve coal retirement scheduling information from the 
+        #   unit_specs dataframe
+        unit_type_data = filter(
+            :unit_type => x -> x == PA.unit_type, unit_specs
+        )[1, :]
+        construction_duration = unit_type_data["construction_duration"]
+        cpp_ret_lead = unit_type_data["cpp_ret_lead"]
+
+        coal_retirement = Dict(
+            "unit_type" => "coal",
+            "project_type" => "retirement",
+            "lag" => PA.lag,
+            "ret_pd" => PA.lag + construction_duration - cpp_ret_lead,
+        )
+
+        # Add the subproject to the subprojects vector
+        push!(subprojects, coal_retirement)
+    end
+
+    return subprojects
+end
+
+
+function forecast_subproject_financials(subproject, fc_pd)
+    # Create a blank DataFrame for the subproject's financial statement
     subproject_fs = DataFrame(
         year = 1:fc_pd,
         capex = zeros(fc_pd),
@@ -603,17 +628,7 @@ function create_subproject(fc_pd, unit_type, project_type, lag, ret_pd)
         policy_adj = zeros(fc_pd),
     )
 
-    # Create a dictionary to contain all of the subproject metadata and its
-    #   financial statement
-    subproject = Dict(
-        "unit_type" => unit_type,
-        "project_type" => project_type,
-        "lag" => lag,
-        "ret_pd" => ret_pd,
-        "financial_statement" => subproject_fs,
-    )
-
-    return subproject
+    return subproject_fs
 end
 
 
