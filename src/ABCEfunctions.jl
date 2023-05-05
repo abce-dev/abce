@@ -472,7 +472,7 @@ function set_up_project_alternatives(
 
     for PA in eachrow(PA_summaries)
         # Create a vector of subprojects for this project alternative
-        PA_subprojects[PA.uid] = create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs)
+        PA_subprojects[PA.uid] = create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs, agent_params)
     end
 
     PA_fs_dict = create_PA_pro_formas(PA_summaries, fc_pd)
@@ -554,7 +554,7 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
 end
 
 
-function create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs)
+function create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs, agent_params)
     # Initialize the metadata and empty financial statements for all
     #   subprojects for this project alternative
     subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
@@ -563,7 +563,7 @@ function create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, 
         # Retrieve unit type data for convenience
         unit_type_data = filter(:unit_type => x -> x == subproject["unit_type"], unit_specs)[1, :]
         subproject["financial_statement"] = forecast_subproject_financials(
-            settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs
+            settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs, agent_params
         )
     end
 
@@ -612,7 +612,7 @@ function initialize_subprojects(unit_specs, PA, fc_pd)
 end
 
 
-function forecast_subproject_financials(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs)
+function forecast_subproject_financials(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs, agent_params)
     # Create a blank DataFrame for the subproject's financial statement
     subproject_fs = DataFrame(
         year = 1:fc_pd,
@@ -630,10 +630,15 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
     )
 
     if subproject["project_type"] == "new_xtr"
+        # Add capital expenditures projection
         subproject_fs[!, :capex] = forecast_capex(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs)
+
+        # Set up the time-series of outstanding debt based on this
+        #   construction expenditure profile
+        subproject_fs[!, :remaining_debt_principal] = forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fc_pd, subproject_fs)
     end
 
-    println(first(subproject, 8))
+    println(first(subproject_fs, 8))
 
     return subproject_fs
 end
@@ -974,6 +979,23 @@ function set_initial_debt_principal_series(
         unit_fs[i, :remaining_debt_principal] =
             (sum(unit_fs[1:i, :capex]) * agent_params[1, :debt_fraction])
     end
+end
+
+
+function forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fc_pd, subproject_fs)
+    duration = convert(Int64, unit_type_data[:construction_duration])
+
+    debt_timeline = zeros(duration)
+    for i = 1:duration
+        debt_timeline[i] = sum(subproject_fs[1:i, :capex]) * agent_params[1, :debt_fraction]
+    end
+
+    head_zeros = zeros(subproject["lag"])
+    tail_zeros = zeros(fc_pd - subproject["lag"] - size(debt_timeline)[1])
+
+    debt_column = vcat(head_zeros, debt_timeline, tail_zeros)
+
+    return debt_column
 end
 
 
