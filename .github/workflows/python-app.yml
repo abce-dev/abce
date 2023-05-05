@@ -16,8 +16,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    container: ghcr.io/abce-dev/abce:latest
+    container:
+      image: ghcr.io/abce-dev/abce:latest
 
     steps:
     - uses: actions/checkout@v3
