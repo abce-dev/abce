@@ -6,10 +6,10 @@ echo "Running julia tests..."
 
 # Use testSysimage.so if available
 if [[ -f "$test_dir/testSysimage.so" ]]; then
-    julia --project="$abce_dir/env" -J "$test_dir/testSysimage.so" "$test_dir/test_julia.jl"
+    julia --project="$ABCE_ENV" -J "$test_dir/testSysimage.so" "$test_dir/test_julia.jl"
     rc=$?
 else
-    julia --project="$abce_dir/env" "$test_dir/test_julia.jl"
+    julia --project="$ABCE_ENV" "$test_dir/test_julia.jl"
     rc=$?
 fi
 
