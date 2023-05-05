@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/abce-dev/abce:latest
+      options: --user root
 
     steps:
     - uses: actions/checkout@v3
