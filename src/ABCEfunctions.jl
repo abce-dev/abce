@@ -472,7 +472,7 @@ function set_up_project_alternatives(
 
     for PA in eachrow(PA_summaries)
         # Create a vector of subprojects for this project alternative
-        PA_subprojects[PA.uid] = create_PA_subprojects(unit_specs, PA, fc_pd)
+        PA_subprojects[PA.uid] = create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs)
     end
 
     PA_fs_dict = create_PA_pro_formas(PA_summaries, fc_pd)
@@ -554,15 +554,16 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
 end
 
 
-function create_PA_subprojects(unit_specs, PA, fc_pd)
+function create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs)
     # Initialize the metadata and empty financial statements for all
     #   subprojects for this project alternative
     subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
 
     for subproject in subprojects
+        # Retrieve unit type data for convenience
+        unit_type_data = filter(:unit_type => x -> x == subproject["unit_type"], unit_specs)[1, :]
         subproject["financial_statement"] = forecast_subproject_financials(
-            subproject,
-            fc_pd
+            settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs
         )
     end
 
@@ -578,7 +579,7 @@ function initialize_subprojects(unit_specs, PA, fc_pd)
     # Create the principal subproject and add it to the vector
     subproject = Dict(
         "unit_type" => PA.unit_type,
-        "project_type" => "retirement",
+        "project_type" => PA.project_type,
         "lag" => PA.lag,
         "ret_pd" => PA.ret_pd,
     )
@@ -611,7 +612,7 @@ function initialize_subprojects(unit_specs, PA, fc_pd)
 end
 
 
-function forecast_subproject_financials(subproject, fc_pd)
+function forecast_subproject_financials(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs)
     # Create a blank DataFrame for the subproject's financial statement
     subproject_fs = DataFrame(
         year = 1:fc_pd,
@@ -628,7 +629,44 @@ function forecast_subproject_financials(subproject, fc_pd)
         policy_adj = zeros(fc_pd),
     )
 
+    if subproject["project_type"] == "new_xtr"
+        subproject_fs[!, :capex] = forecast_capex(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs)
+    end
+
+    println(first(subproject, 8))
+
     return subproject_fs
+end
+
+
+function forecast_capex(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs)
+    if occursin("C2N", subproject["unit_type"])
+        capex_timeline, activity_schedule = project_C2N_capex(
+            db,
+            settings,
+            unit_type_data,
+            subproject["lag"],
+            fc_pd,
+            current_pd,
+            C2N_specs,
+        )
+        capex_timeline = capex_timeline[!, :total_capex]
+    else
+        capex_per_pd = (
+            unit_type_data[:overnight_capital_cost] *
+            unit_type_data[:capacity] *
+            settings["constants"]["MW2kW"] /
+            unit_type_data[:construction_duration]
+        )
+        capex_timeline = ones(convert(Int64, unit_type_data[:construction_duration])) * capex_per_pd
+    end
+
+    head_zeros = zeros(subproject["lag"])
+    tail_zeros = zeros(fc_pd - subproject["lag"] - size(capex_timeline)[1])
+
+    capex_column = vcat(head_zeros, capex_timeline, tail_zeros)
+
+    return capex_column
 end
 
 
