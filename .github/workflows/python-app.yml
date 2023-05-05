@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/abce-dev/abce:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.docker_maintenance }}
       options: --user root
 
     steps:
