@@ -1,7 +1,9 @@
 include("./test.jl")
 include("../src/dispatch.jl")
 
-using .sTest, .Dispatch, YAML, DataFrames, CSV
+using .sTest, .Dispatch, YAML, DataFrames, CSV, Pkg
+
+Pkg.instantiate()
 
 function test_reshape_shadow_prices(shadow_prices, check_reshaped_shadow_prices, y, settings)
     reshaped_shadow_prices = Dispatch.reshape_shadow_prices(
