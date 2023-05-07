@@ -1,34 +1,14 @@
-using Pkg
+using Pkg, Logging, DelimitedFiles, ArgParse
 
-julia_pkg_list = [
-    "ArgParse",
-    "CPLEX",
-    "CSV",
-    "Conda",
-    "DataFrames",
-    "FileIO",
-    "GLPK",
-    "HDF5",
-    "Infiltrator",
-    "Ipopt",
-    "JLD2",
-    "JSON",
-    "JuMP",
-    "LinearAlgebra",
-    "Logging",
-    "MathOptInterface",
-    "Memento",
-    "PackageCompiler",
-    "PowerModels",
-    "PyCall",
-    "Requires",
-    "SQLite",
-    "Tables",
-    "XLSX",
-    "YAML",
-    "Cbc",
-    "HiGHS"
-]
+s = ArgParseSettings()
+@add_arg_table s begin
+    "--reqs_file"
+    help = "relative path to the julia reqirements file"
+    required = false
+    default = joinpath(pwd(), "julia_requirements.csv")
+end
+
+CL_args = parse_args(s)
 
 # Initialize a dictionary to track any problems arising in the process
 problems = Dict()
@@ -45,11 +25,13 @@ end
 # Activate local environment
 Pkg.activate(".")
 
+# Get the list of packages to set up
+julia_pkg_list = readdlm(CL_args["reqs_file"], String)
+
 # Add all Julia packages to the environment, and ensure they are all built
-for i=1:size(julia_pkg_list)[1]
-    pkg = julia_pkg_list[i]
+for pkg in julia_pkg_list
     try
-        @info string("Adding ", pkg)
+        @info "Adding $pkg"
         Pkg.add(pkg)
         Pkg.build(pkg)
     catch e
@@ -69,8 +51,7 @@ using Conda
 req_file = joinpath(@__DIR__, "requirements.txt")
 open(req_file, "r") do filehandle
     conda_list = readlines(filehandle)
-    for i=1:size(conda_list)[1]
-        cpkg = conda_list[i]
+    for cpkg in conda_list
         @info "Adding $cpkg"
         try
             Conda.add(cpkg)
@@ -98,3 +79,4 @@ else
     end
 end
 
+Pkg.instantiate()
