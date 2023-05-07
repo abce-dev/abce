@@ -1,4 +1,9 @@
-using Pkg, Logging, DelimitedFiles, ArgParse
+using Pkg, Logging, DelimitedFiles
+
+Pkg.add("ArgParse")
+Pkg.build("ArgParse")
+
+using ArgParse
 
 s = ArgParseSettings()
 @add_arg_table s begin
