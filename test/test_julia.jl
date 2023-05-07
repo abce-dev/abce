@@ -1,5 +1,4 @@
 using Pkg
-Pkg.instantiate()
 
 include("./test.jl")
 include("../src/dispatch.jl")
