@@ -1,4 +1,5 @@
 using Pkg, Logging, DelimitedFiles
+Pkg.instantiate()
 
 Pkg.add("ArgParse")
 Pkg.build("ArgParse")
@@ -8,9 +9,9 @@ using ArgParse
 s = ArgParseSettings()
 @add_arg_table s begin
     "--reqs_file"
-    help = "relative path to the julia reqirements file"
+    help = "absolute path to the julia reqirements file"
     required = false
-    default = joinpath(pwd(), "julia_requirements.csv")
+    default = joinpath(ENV["ABCE_ENV"], "julia_requirements.csv")
 end
 
 CL_args = parse_args(s)
@@ -84,4 +85,3 @@ else
     end
 end
 
-Pkg.instantiate()
