@@ -33,22 +33,25 @@ ENV PATH="$PATH:/home/julia-1.8.2/bin"
 RUN mkdir /home/abce_env
 WORKDIR /home/abce_env
 
+ENV ABCE_ENV="/home/abce_env"
+
 # Bring the python pip requirements file into the docker image scope
 COPY ./requirements.txt .
 
 # Install required python packages
 RUN pip install -r ./requirements.txt
 
-# Bring the julia environment setup script into the docker image scope
+# Bring the julia environment setup script and package requirements file
+#   into the docker image scope
 COPY ./make_julia_environment.jl .
+COPY ./julia_reqs_minimal.csv .
 
 # Run the julia installation script to set up the julia package environment
-RUN julia make_julia_environment.jl
+RUN julia make_julia_environment.jl --reqs_file=./julia_reqs_minimal.csv
 
 # Set up environment variables
 ENV ABCE_DIR="/home/abce"
 ENV ALEAF_DIR=""
-ENV ABCE_ENV="/home/abce_env"
 
 WORKDIR /home
 
