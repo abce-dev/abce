@@ -661,6 +661,12 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
             deepcopy(subproject_fs),
         )
 
+        # Forecast the depreciation schedule
+        subproject_fs = forecast_depreciation(
+            settings,
+            deepcopy(subproject_fs),
+        )
+
         println(first(subproject_fs, 10))
     end
 
@@ -1007,14 +1013,22 @@ function set_initial_debt_principal_series(
 end
 
 
-function forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fs_copy)
+function get_capex_end(fs_copy)
     # Find the end of the capex accumulation period
-    capex_end = 0
+    capex_end = nothing
     for i = 1:size(fs_copy)[1]
         if (fs_copy[i, "capex"]) != 0 && (fs_copy[i+1, "capex"] == 0)
             capex_end = i
         end
     end
+
+    return capex_end
+end
+
+
+function forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fs_copy)
+    # Find the end of the capex accumulation period
+    capex_end = get_capex_end(fs_copy)
 
     # Compute a rolling sum of accumulated debt principal
     debt_timeline = zeros(capex_end)
@@ -1037,12 +1051,7 @@ function forecast_debt_schedule(agent_params, unit_type_data, subproject, fs_cop
     principal = maximum(fs_copy[!, :capex])
 
     # Find the end of the capex accumulation
-    capex_end = 0
-    for i = 1:size(fs_copy)[1]
-        if (fs_copy[i, "capex"]) != 0 && (fs_copy[i+1, "capex"] == 0)
-            capex_end = i
-        end
-    end
+    capex_end = get_capex_end(fs_copy)
 
     # Compute the constant recurring payment into the sinking fund
     pmt = agent_params[1, :cost_of_debt] * principal / (1 - (1 + agent_params[1, :cost_of_debt])^(-unit_type_data[:unit_life]))
@@ -1066,6 +1075,20 @@ function forecast_debt_schedule(agent_params, unit_type_data, subproject, fs_cop
         if i != fin_end
             fs_copy[i+1, :remaining_debt_principal] = fs_copy[i, :remaining_debt_principal] - fs_copy[i, :interest_payment]
         end
+    end
+
+    return fs_copy
+end
+
+
+function forecast_depreciation(settings, fs_copy)
+    capex_end = get_capex_end(fs_copy)
+    total_capex = sum(fs_copy[!, :capex])
+
+    dep_end = min(size(fs_copy)[1], capex_end + settings["financing"]["depreciation_horizon"])
+
+    for i=capex_end+1:dep_end
+        fs_copy[i, :depreciation] = total_capex / settings["financing"]["depreciation_horizon"]
     end
 
     return fs_copy
