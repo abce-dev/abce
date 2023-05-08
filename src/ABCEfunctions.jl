@@ -634,11 +634,28 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
 
     if subproject["project_type"] == "new_xtr"
         # Add capital expenditures projection
-        subproject_fs[!, :capex] = forecast_capex(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs)
+        subproject_fs = forecast_capex(
+            settings, 
+            db,
+            unit_type_data,
+            subproject,
+            fc_pd,
+            current_pd,
+            C2N_specs,
+            deepcopy(subproject_fs),
+        )
 
         # Set up the time-series of outstanding debt based on this
         #   construction expenditure profile
-        subproject_fs[!, :remaining_debt_principal] = forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fc_pd, subproject_fs)
+        subproject_fs = forecast_construction_debt_principal(
+            unit_type_data, 
+            subproject,
+            agent_params,
+            deepcopy(subproject_fs),
+        )
+
+        # Forecast the debt repayment schedule
+        subproject_fs = forecast_debt_schedule(agent_params, subproject_fs)
     end
 
     println(first(subproject_fs, 8))
@@ -647,14 +664,14 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
 end
 
 
-function forecast_capex(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs)
+function forecast_capex(settings, db, unit_type_data, subproject, current_pd, C2N_specs, fs_copy)
     if occursin("C2N", subproject["unit_type"])
         capex_timeline, activity_schedule = project_C2N_capex(
             db,
             settings,
             unit_type_data,
             subproject["lag"],
-            fc_pd,
+            size(fs_copy)[1],
             current_pd,
             C2N_specs,
         )
@@ -670,11 +687,11 @@ function forecast_capex(settings, db, unit_type_data, subproject, fc_pd, current
     end
 
     head_zeros = zeros(subproject["lag"])
-    tail_zeros = zeros(fc_pd - subproject["lag"] - size(capex_timeline)[1])
+    tail_zeros = zeros(size(fs_copy)[1] - subproject["lag"] - size(capex_timeline)[1])
 
-    capex_column = vcat(head_zeros, capex_timeline, tail_zeros)
+    fs_copy[!, :capex] = vcat(head_zeros, capex_timeline, tail_zeros)
 
-    return capex_column
+    return fs_copy
 end
 
 
@@ -985,25 +1002,33 @@ function set_initial_debt_principal_series(
 end
 
 
-function forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fc_pd, subproject_fs)
+function forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fc_pd, fs_copy)
     # Find the end of the capex accumulation period
     capex_end = 0
-    for i = 1:size(subproject_fs)[1]
-        if (subproject_fs[i, "capex"]) != 0 && (subproject_fs[i+1, "capex"] == 0)
+    for i = 1:size(fs_copy)[1]
+        if (fs_copy[i, "capex"]) != 0 && (fs_copy[i+1, "capex"] == 0)
             capex_end = i
         end
     end
 
+    # Compute a rolling sum of accumulated debt principal
     debt_timeline = zeros(capex_end)
     for i = 1:capex_end
-        debt_timeline[i] = sum(subproject_fs[1:i, :capex]) * agent_params[1, :debt_fraction]
+        debt_timeline[i] = sum(fs_copy[1:i, :capex]) * agent_params[1, :debt_fraction]
     end
 
-    tail_zeros = zeros(fc_pd - capex_end)
+    # Pad the rest of the series with zeros (will be populated later)
+    tail_zeros = zeros(size(fs_copy)[1] - capex_end)
 
-    debt_column = vcat(debt_timeline, tail_zeros)
+    # Add an appropriate column to the dataframe
+    fs_copy[!, :remaining_debt_principal] = vcat(debt_timeline, tail_zeros)
 
-    return debt_column
+    return fs_copy
+end
+
+
+function forecast_debt_schedule(agent_params, fs_copy)
+
 end
 
 
