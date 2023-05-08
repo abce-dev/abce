@@ -562,6 +562,9 @@ function create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, 
     for subproject in subprojects
         # Retrieve unit type data for convenience
         unit_type_data = filter(:unit_type => x -> x == subproject["unit_type"], unit_specs)[1, :]
+
+        # Forecast financial results for each subproject within this project
+        #   alternative
         subproject["financial_statement"] = forecast_subproject_financials(
             settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs, agent_params
         )
@@ -983,17 +986,22 @@ end
 
 
 function forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fc_pd, subproject_fs)
-    duration = convert(Int64, unit_type_data[:construction_duration])
+    # Find the end of the capex accumulation period
+    capex_end = 0
+    for i = 1:size(subproject_fs)[1]
+        if (subproject_fs[i, "capex"]) != 0 && (subproject_fs[i+1, "capex"] == 0)
+            capex_end = i
+        end
+    end
 
-    debt_timeline = zeros(duration)
-    for i = 1:duration
+    debt_timeline = zeros(capex_end)
+    for i = 1:capex_end
         debt_timeline[i] = sum(subproject_fs[1:i, :capex]) * agent_params[1, :debt_fraction]
     end
 
-    head_zeros = zeros(subproject["lag"])
-    tail_zeros = zeros(fc_pd - subproject["lag"] - size(debt_timeline)[1])
+    tail_zeros = zeros(fc_pd - capex_end)
 
-    debt_column = vcat(head_zeros, debt_timeline, tail_zeros)
+    debt_column = vcat(debt_timeline, tail_zeros)
 
     return debt_column
 end
