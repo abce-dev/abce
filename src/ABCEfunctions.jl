@@ -1095,6 +1095,13 @@ function forecast_depreciation(settings, fs_copy)
 end
 
 
+function forecast_generation(dispatch_results, ALEAF_historical_results, fs_copy)
+
+
+
+end
+
+
 """
     generate_prime_movers(unit_type_data, unit_fs, lag, d)
 
@@ -1180,11 +1187,7 @@ function forecast_unit_revenue_and_gen(
     end
 
     # Load past years' dispatch results from A-LEAF
-    ALEAF_dispatch_results =
-        DBInterface.execute(db, "SELECT * FROM ALEAF_dispatch_results") |>
-        DataFrame
-    ALEAF_results =
-        average_historical_ALEAF_results(settings, ALEAF_dispatch_results)
+    ALEAF_results = average_historical_ALEAF_results(settings, db)
 
     # Compute the unit's total generation for each period, in kWh
     compute_total_generation(
@@ -1216,9 +1219,13 @@ function forecast_unit_revenue_and_gen(
 end
 
 
-function average_historical_ALEAF_results(settings, ALEAF_dispatch_results)
+function average_historical_ALEAF_results(settings, db)
     wtd_hist_revs = nothing
     wtd_hist_gens = nothing
+
+    ALEAF_dispatch_results =
+        DBInterface.execute(db, "SELECT * FROM ALEAF_dispatch_results") |>
+        DataFrame
 
     if size(ALEAF_dispatch_results)[1] != 0
         # Get a list of all unique years in the dataframe
