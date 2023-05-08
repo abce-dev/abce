@@ -639,7 +639,6 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
             db,
             unit_type_data,
             subproject,
-            fc_pd,
             current_pd,
             C2N_specs,
             deepcopy(subproject_fs),
@@ -655,10 +654,16 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
         )
 
         # Forecast the debt repayment schedule
-        subproject_fs = forecast_debt_schedule(agent_params, subproject_fs)
+        subproject_fs = forecast_debt_schedule(
+            agent_params,
+            unit_type_data,
+            subproject,
+            deepcopy(subproject_fs),
+        )
+
+        println(first(subproject_fs, 10))
     end
 
-    println(first(subproject_fs, 8))
 
     return subproject_fs
 end
@@ -1002,7 +1007,7 @@ function set_initial_debt_principal_series(
 end
 
 
-function forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fc_pd, fs_copy)
+function forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fs_copy)
     # Find the end of the capex accumulation period
     capex_end = 0
     for i = 1:size(fs_copy)[1]
@@ -1027,8 +1032,43 @@ function forecast_construction_debt_principal(unit_type_data, subproject, agent_
 end
 
 
-function forecast_debt_schedule(agent_params, fs_copy)
+function forecast_debt_schedule(agent_params, unit_type_data, subproject, fs_copy)
+    # Retrieve maximum debt level as the principal
+    principal = maximum(fs_copy[!, :capex])
 
+    # Find the end of the capex accumulation
+    capex_end = 0
+    for i = 1:size(fs_copy)[1]
+        if (fs_copy[i, "capex"]) != 0 && (fs_copy[i+1, "capex"] == 0)
+            capex_end = i
+        end
+    end
+
+    # Compute the constant recurring payment into the sinking fund
+    pmt = agent_params[1, :cost_of_debt] * principal / (1 - (1 + agent_params[1, :cost_of_debt])^(-unit_type_data[:unit_life]))
+
+    # The end of the schedule is the sooner of the end of the financial
+    #   statement or the end of the unit's life
+    fin_end = convert(
+        Int64,
+        min(
+            size(fs_copy)[1],
+            subproject["lag"] + unit_type_data[:construction_duration] + unit_type_data[:unit_life]
+        )
+    )
+
+    # Seed post-construction financing series
+    fs_copy[capex_end+1, :remaining_debt_principal] = fs_copy[capex_end, :remaining_debt_principal]
+
+    for i=capex_end+1:fin_end
+        fs_copy[i, :debt_payment] = pmt
+        fs_copy[i, :interest_payment] = fs_copy[i, :remaining_debt_principal] * agent_params[1, :cost_of_debt]
+        if i != fin_end
+            fs_copy[i+1, :remaining_debt_principal] = fs_copy[i, :remaining_debt_principal] - fs_copy[i, :interest_payment]
+        end
+    end
+
+    return fs_copy
 end
 
 
