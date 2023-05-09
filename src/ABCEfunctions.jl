@@ -667,7 +667,7 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
             deepcopy(subproject_fs),
         )
 
-        println(first(subproject_fs, 10))
+        #println(first(subproject_fs, 10))
     end
 
 
@@ -1095,9 +1095,23 @@ function forecast_depreciation(settings, fs_copy)
 end
 
 
-function forecast_generation(dispatch_results, ALEAF_historical_results, fs_copy)
+function forecast_generation(subproject, unit_type_data, dispatch_results, ALEAF_historical_results, fs_copy)
+    mode = subproject["project_type"]
 
+    # Get historical ALEAF results for this unit type
 
+    # Get projected dispatch results for this unit type
+
+    if subproject["project_type"] == "new_xtr"
+        # Record marginal additional generation
+        series_start = get_capex_end(fs_copy)
+        series_end = min(size(fs_copy)[1], series_start + unit_type_data[:unit_life])
+
+    elseif subproject["project_type"] == "retirement"
+        # Record foregone generation as the negative of the projection
+        series_start = subproject["lag"] + 1
+        series_end = subproject["original_ret_pd"]
+    end
 
 end
 
