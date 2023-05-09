@@ -196,7 +196,7 @@ abce_tables = {
         ("revenue", "real"),
         ("VOM", "real"),
         ("FOM", "real"),
-        ("fuel_costs", "real"),
+        ("fuel_cost", "real"),
         ("EBITDA", "real"),
         ("depreciation", "real"),
         ("EBIT", "real"),

@@ -2396,23 +2396,12 @@ function update_agent_financial_statement(
     unit_specs,
     current_pd,
     fc_pd,
-    long_econ_results,
+    dispatch_results,
 )
+    # Filter out any dispatch results extending beyond the forecast period
+    dispatch_results = filter(:y => y -> y <= current_pd + fc_pd, dispatch_results)
+
     # Retrieve horizontally-abbreviated dataframes
-    short_econ_results = select(
-        long_econ_results,
-        [
-            :unit_type,
-            :y,
-            :d,
-            :h,
-            :gen,
-            :annualized_rev_per_unit,
-            :annualized_VOM_per_unit,
-            :annualized_FC_per_unit,
-            :annualized_policy_adj_per_unit,
-        ],
-    )
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])
 
     # Retrieve the agent's complete portfolio forecast
@@ -2421,88 +2410,66 @@ function update_agent_financial_statement(
 
     # Inner join the year's portfolio with financial pivot
     fin_results = innerjoin(
-        short_econ_results,
+        dispatch_results,
         agent_portfolio_forecast,
         on = [:y, :unit_type],
     )
 
-    # Fill in total revenue
-    transform!(
-        fin_results,
-        [
-            :annualized_rev_per_unit,
-            :annualized_policy_adj_per_unit,
-            :num_units,
-        ] => ((rev, adj, num_units) -> (rev .+ adj) .* num_units) => :total_rev,
-    )
+    # Compute total quantities based on agent's number of owned units
+    transform!(fin_results, [:qty, :num_units] => ((qty, num_units) -> qty .* num_units) => :total_qty)
+    fin_results = select(fin_results, [:y, :unit_type, :dispatch_result, :total_qty])
 
-    # Fill in total VOM
-    transform!(
-        fin_results,
-        [:annualized_VOM_per_unit, :num_units] =>
-            ((VOM, num_units) -> VOM .* num_units) => :total_VOM,
-    )
+    # Add in FOM data for all unit types
+    fin_results = add_FOM(settings, fin_results, agent_portfolio_forecast, short_unit_specs)
 
-    # Fill in total fuel costs
-    transform!(
-        fin_results,
-        [:annualized_FC_per_unit, :num_units] =>
-            ((FC, num_units) -> FC .* num_units) => :total_FC,
-    )
+    # Create the financial statement with unit types aggregated
+    agent_fs = unstack(fin_results, :y, :dispatch_result, :total_qty)
+    rename!(agent_fs, :y => :projected_pd)
+    agent_fs[!, :base_pd] .= current_pd
 
-    # Create the annualized results dataframe so far
-    results_pivot = combine(
-        groupby(fin_results, :y),
-        [:total_rev, :total_VOM, :total_FC] .=> sum;
-        renamecols = false,
-    )
+    # Add in scheduled financing factors: depreciation, interest payments, and capex
+    agent_fs = compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
 
-    # If the agent is projected to reach zero installed capacity within the 
-    #   forecast period, pad the results_pivot with zeros until the
-    #   end of the forecast period
-    if size(results_pivot)[1] < fc_pd
-        y_start = maximum(results_pivot[!, :y]) + 1
-        pad_length = fc_pd - size(results_pivot)[1]
-
-        pad_df = DataFrame(
-            y = y_start:(y_start + pad_length - 1),
-            total_rev = zeros(Int64, pad_length),
-            total_VOM = zeros(Int64, pad_length),
-            total_FC = zeros(Int64, pad_length),
-        )
-
-        results_pivot = vcat(results_pivot, pad_df)
+    # Replace missing values with 0s
+    for col in names(agent_fs)
+        agent_fs[!, col] = coalesce.(agent_fs[!, col], 0)
     end
 
-    fs = DataFrame(
-        base_pd = ones(Int64, fc_pd) .* current_pd,
-        projected_pd = current_pd:(current_pd + fc_pd - 1),
-        revenue = results_pivot[!, :total_rev],
-        VOM = results_pivot[!, :total_VOM],
-        fuel_costs = results_pivot[!, :total_FC],
-    )
+    # Propagate out accounting line items (EBITDA through FCF)
+    agent_fs = compute_accounting_line_items(db, agent_fs)
 
+    println(agent_fs)
+
+    # Save the dataframe to the database
+    save_agent_fs!(agent_fs, agent_id, db)
+
+    return agent_fs
+
+
+end
+
+
+function add_FOM(settings, fin_results, agent_portfolio_forecast, short_unit_specs)
     # Fill in total FOM
     # Inner join the FOM table with the agent portfolios
-    FOM_df =
-        innerjoin(agent_portfolio_forecast, short_unit_specs, on = :unit_type)
-    transform!(
-        FOM_df,
-        [:FOM, :num_units] =>
-            (
-                (FOM, num_units) ->
-                    FOM .* num_units .* settings["constants"]["MW2kW"]
-            ) => :total_FOM,
-    )
+    FOM_df = innerjoin(agent_portfolio_forecast, short_unit_specs, on = :unit_type)
+    transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* settings["constants"]["MW2kW"]) => :total_FOM)
 
-    FOM_df = select(
-        combine(groupby(FOM_df, :y), :total_FOM => sum; renamecols = false),
-        [:y, :total_FOM],
-    )
-    rename!(FOM_df, :y => :projected_pd, :total_FOM => :FOM)
+    # Restructure the FOM dataframe to match the other results
+    FOM_df = combine(groupby(FOM_df, [:y, :unit_type]), [:num_units, :total_FOM] .=> sum; renamecols = false)
+    rename!(FOM_df, :total_FOM => :total_qty)
+    FOM_df[!, :dispatch_result] .= "FOM"
+    FOM_df = select(FOM_df, [:y, :unit_type, :dispatch_result, :total_qty])
 
-    fs = innerjoin(fs, FOM_df, on = :projected_pd)
+    # Combine the FOM dataframe into the other financial results from dispatch
+    fin_results = vcat(fin_results, FOM_df)
+    fin_results = combine(groupby(fin_results, [:y, :dispatch_result]), :total_qty => sum; renamecols = false)
 
+    return fin_results
+end
+
+
+function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
     # Fill in total depreciation
     total_pd_depreciation =
         DBInterface.execute(
@@ -2542,41 +2509,41 @@ function update_agent_financial_statement(
         ) |> DataFrame
 
     # Join the scheduled columns to the financial statement
-    fs = leftjoin(fs, total_pd_depreciation, on = :projected_pd)
-    fs = leftjoin(fs, total_pd_interest, on = :projected_pd)
-    fs = leftjoin(fs, total_pd_capex, on = :projected_pd)
+    agent_fs = leftjoin(agent_fs, total_pd_depreciation, on = :projected_pd)
+    agent_fs = leftjoin(agent_fs, total_pd_interest, on = :projected_pd)
+    agent_fs = leftjoin(agent_fs, total_pd_capex, on = :projected_pd)
 
     # Standardize column names
     rename!(
-        fs,
+        agent_fs,
         Symbol("SUM(depreciation)") => :depreciation,
         Symbol("SUM(interest_payment)") => :interest_payment,
         Symbol("SUM(capex)") => :capex,
     )
 
-    # Replace missing values with 0s
-    fs[!, :depreciation] = coalesce.(fs[!, :depreciation], 0)
-    fs[!, :interest_payment] = coalesce.(fs[!, :interest_payment], 0)
-    fs[!, :capex] = coalesce.(fs[!, :capex], 0)
+    return agent_fs
+end
 
 
+
+function compute_accounting_line_items(db, agent_fs)
     ### Computed FS quantities
     # EBITDA
     transform!(
-        fs,
-        [:revenue, :VOM, :FOM, :fuel_costs] =>
-            ((rev, VOM, FOM, FC) -> (rev - VOM - FOM - FC)) => :EBITDA,
+        agent_fs,
+        [:revenue, :VOM, :FOM, :fuel_cost, :policy_adj] =>
+            ((rev, VOM, FOM, FC, pol) -> (rev - VOM - FOM - FC + pol)) => :EBITDA,
     )
 
     # EBIT
     transform!(
-        fs,
+        agent_fs,
         [:EBITDA, :depreciation] => ((EBITDA, dep) -> (EBITDA - dep)) => :EBIT,
     )
 
     # EBT
     transform!(
-        fs,
+        agent_fs,
         [:EBIT, :interest_payment] =>
             ((EBIT, interest) -> EBIT - interest) => :EBT,
     )
@@ -2595,28 +2562,24 @@ function update_agent_financial_statement(
     tax_rate = tax_rate[1, :value]
 
     # Compute actual tax paid
-    transform!(fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_paid)
+    transform!(agent_fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_paid)
 
     # Net Income
     transform!(
-        fs,
+        agent_fs,
         [:EBT, :tax_paid] => ((EBT, tax) -> (EBT - tax)) => :Net_Income,
     )
 
     # Free Cash Flow
     transform!(
-        fs,
+        agent_fs,
         [:Net_Income, :depreciation, :capex] =>
             ((NI, dep, capex) -> NI + dep - capex) => :FCF,
     )
 
-    # Save the dataframe to the database
-    save_agent_fs!(fs, agent_id, db)
-
-    return fs
-
-
+    return agent_fs
 end
+
 
 
 function save_agent_fs!(fs, agent_id, db)

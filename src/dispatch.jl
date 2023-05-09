@@ -793,11 +793,11 @@ function summarize_dispatch_results(long_econ_results)
 
     dispatch_results = combine(groupby(dispatch_results, [:y, :unit_type]), [:annualized_gen_per_unit, :annualized_rev_per_unit, :annualized_VOM_per_unit, :annualized_FC_per_unit, :annualized_policy_adj_per_unit] .=> sum)
 
-    rename!(dispatch_results, :annualized_gen_per_unit_sum => :generation, :annualized_rev_per_unit_sum => :revenue, :annualized_VOM_per_unit_sum => :VOM, :annualized_FC_per_unit_sum => :FC, :annualized_policy_adj_per_unit_sum => :policy_adj)
+    rename!(dispatch_results, :annualized_gen_per_unit_sum => :generation, :annualized_rev_per_unit_sum => :revenue, :annualized_VOM_per_unit_sum => :VOM, :annualized_FC_per_unit_sum => :fuel_cost, :annualized_policy_adj_per_unit_sum => :policy_adj)
 
-    dispatch_results = stack(dispatch_results, [:generation, :revenue, :VOM, :FC, :policy_adj])
+    dispatch_results = stack(dispatch_results, [:generation, :revenue, :VOM, :fuel_cost, :policy_adj])
 
-    rename(dispatch_results, :variable => :dispatch_result, :value => :qty)
+    rename!(dispatch_results, :variable => :dispatch_result, :value => :qty)
 
     return dispatch_results
 end
@@ -839,7 +839,7 @@ function postprocess_results(
 
     dispatch_results = summarize_dispatch_results(long_econ_results)
 
-    return long_econ_results
+    return long_econ_results, dispatch_results
 
 end
 
