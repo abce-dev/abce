@@ -465,6 +465,7 @@ function set_up_project_alternatives(
     current_pd,
     long_econ_results,
     C2N_specs,
+    dispatch_results,
 )
     PA_summaries = create_PA_summaries(settings, unit_specs, asset_counts)
 
@@ -472,7 +473,7 @@ function set_up_project_alternatives(
 
     for PA in eachrow(PA_summaries)
         # Create a vector of subprojects for this project alternative
-        PA_subprojects[PA.uid] = create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs, agent_params)
+        PA_subprojects[PA.uid] = create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs, agent_params, dispatch_results)
     end
 
     PA_fs_dict = create_PA_pro_formas(PA_summaries, fc_pd)
@@ -554,10 +555,13 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
 end
 
 
-function create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs, agent_params)
+function create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs, agent_params, dispatch_results)
     # Initialize the metadata and empty financial statements for all
     #   subprojects for this project alternative
     subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
+
+    # Retrieve historical ALEAF dispatch results data
+    ALEAF_results, ALEAF_dispatch_results = average_historical_ALEAF_results(settings, db)
 
     for subproject in subprojects
         # Retrieve unit type data for convenience
@@ -566,7 +570,7 @@ function create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, 
         # Forecast financial results for each subproject within this project
         #   alternative
         subproject["financial_statement"] = forecast_subproject_financials(
-            settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs, agent_params
+            settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs, agent_params, dispatch_results, ALEAF_dispatch_results
         )
     end
 
@@ -615,7 +619,7 @@ function initialize_subprojects(unit_specs, PA, fc_pd)
 end
 
 
-function forecast_subproject_financials(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs, agent_params)
+function forecast_subproject_financials(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs, agent_params, dispatch_results, ALEAF_dispatch_results)
     # Create a blank DataFrame for the subproject's financial statement
     subproject_fs = DataFrame(
         year = 1:fc_pd,
@@ -626,9 +630,9 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
         depreciation = zeros(fc_pd),
         generation = zeros(fc_pd),
         revenue = zeros(fc_pd),
-        VOM_cost = zeros(fc_pd),
-        FOM_cost = zeros(fc_pd),
+        VOM = zeros(fc_pd),
         fuel_cost = zeros(fc_pd),
+        FOM = zeros(fc_pd),
         policy_adj = zeros(fc_pd),
     )
 
@@ -667,8 +671,18 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
             deepcopy(subproject_fs),
         )
 
-        #println(first(subproject_fs, 10))
     end
+
+    # Forecast all operational results for this subproject: generation,
+    #   revenue, all cost types, policy adjustments
+    subproject_fs = forecast_subproject_operations(
+        settings,
+        subproject,
+        unit_type_data,
+        dispatch_results,
+        ALEAF_dispatch_results,
+        deepcopy(subproject_fs),
+    )
 
 
     return subproject_fs
@@ -1095,23 +1109,62 @@ function forecast_depreciation(settings, fs_copy)
 end
 
 
-function forecast_generation(subproject, unit_type_data, dispatch_results, ALEAF_historical_results, fs_copy)
+function forecast_subproject_operations(settings, subproject, unit_type_data, dispatch_results, ALEAF_dispatch_results, fs_copy)
     mode = subproject["project_type"]
+    hist_wt = settings["dispatch"]["hist_wt"]
+    data_to_get = ["generation", "revenue", "VOM", "fuel_cost", "FOM"]
 
     # Get historical ALEAF results for this unit type
+    ALEAF_dispatch_results = filter(:unit_type => unit_type -> unit_type == subproject["unit_type"], ALEAF_dispatch_results)
 
     # Get projected dispatch results for this unit type
+    ABCE_dispatch_results = filter(:unit_type => unit_type -> unit_type == subproject["unit_type"], dispatch_results)
 
+    # Set up timeline start/end and value sign based on project type
     if subproject["project_type"] == "new_xtr"
         # Record marginal additional generation
         series_start = get_capex_end(fs_copy)
-        series_end = min(size(fs_copy)[1], series_start + unit_type_data[:unit_life])
-
+        series_end = convert(Int64, round(min(size(fs_copy)[1], series_start + unit_type_data[:unit_life]), digits=3))
+        sign = 1
     elseif subproject["project_type"] == "retirement"
         # Record foregone generation as the negative of the projection
-        series_start = subproject["lag"] + 1
-        series_end = subproject["original_ret_pd"]
+        series_start = convert(Int64, subproject["lag"] + 1)
+        series_end = convert(Int64, subproject["ret_pd"])
+        sign = -1
     end
+
+    # Update the operations results data in the subproject's financial statement
+    for i=series_start:series_end
+        for data_type in data_to_get
+            # Get the corresponding data value for the year i from the ABCE
+            #   dispatch projection
+            if i in ABCE_dispatch_results[!, :y]
+                ABCE_data_value = filter([:y, :dispatch_result] => (y, disp_res) -> (y == i) && (disp_res == data_type), ABCE_dispatch_results)
+                ABCE_data_value = ABCE_data_value[1, :qty]
+            else
+                last_dispatch_year = maximum(filter(:unit_type => unit_type -> unit_type == subproject["unit_type"], ABCE_dispatch_results)[!, :y])
+                ABCE_data_value = filter([:y, :dispatch_result] => (y, disp_res) -> (y == last_dispatch_year) && (disp_res == data_type), ABCE_dispatch_results)
+                ABCE_data_value = ABCE_data_value[1, :qty]
+            end
+
+            # Get the corresponding cumulative historical estimate from the 
+            #   A-LEAF aggregated dispatch histories
+            if size(ALEAF_dispatch_results)[1] > 0
+                ALEAF_data_value = sum(ALEAF_dispatch_results[!, Symbol(string("wtd_", data_type))])
+                hist_wt = settings["dispatch"]["hist_wt"]
+            else
+                # If this unit type does not appear in the A-LEAF historical 
+                #   results, rely only on the ABCE dispatch forecast
+                ALEAF_data_value = 0
+                hist_wt = 0
+            end
+
+            # Save the signed value into the financial statement
+            fs_copy[i, Symbol(data_type)] = sign * ABCE_data_value * (1 - hist_wt) + sign * ALEAF_data_value * (hist_wt)
+        end
+    end
+
+    return fs_copy
 
 end
 
@@ -1201,7 +1254,7 @@ function forecast_unit_revenue_and_gen(
     end
 
     # Load past years' dispatch results from A-LEAF
-    ALEAF_results = average_historical_ALEAF_results(settings, db)
+    ALEAF_results, ALEAF_dispatch_results = average_historical_ALEAF_results(settings, db)
 
     # Compute the unit's total generation for each period, in kWh
     compute_total_generation(
@@ -1211,7 +1264,7 @@ function forecast_unit_revenue_and_gen(
         unit_fs,
         lag,
         long_econ_results,
-        ALEAF_results["wtd_hist_gens"];
+        ALEAF_results["wtd_hist_gen"];
         mode = mode,
         orig_ret_pd = orig_ret_pd,
     )
@@ -1234,9 +1287,6 @@ end
 
 
 function average_historical_ALEAF_results(settings, db)
-    wtd_hist_revs = nothing
-    wtd_hist_gens = nothing
-
     ALEAF_dispatch_results =
         DBInterface.execute(db, "SELECT * FROM ALEAF_dispatch_results") |>
         DataFrame
@@ -1253,44 +1303,21 @@ function average_historical_ALEAF_results(settings, db)
         # Add a column with the diminishing historical weighting factor
         transform!(
             ALEAF_dispatch_results,
-            [:period] => ((pd) -> c ./ (1 + hist_decay) .^ pd) => :hist_wt,
+            [:period] => ((pd) -> c ./ (1 + hist_decay) .^ pd) => :hist_wt_coeffs,
         )
 
-        # Get weighted total revenue and generation
-        transform!(
-            ALEAF_dispatch_results,
-            [:total_rev, :hist_wt] =>
-                ((rev, wt) -> rev .* hist_decay) => :wtd_total_rev,
-        )
-        transform!(
-            ALEAF_dispatch_results,
-            [:gen_total, :hist_wt] =>
-                ((gen, wt) -> gen .* hist_decay) => :wtd_total_gen,
-        )
+        # Weight the data columns
+        data_to_weight = ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
 
-        wtd_hist_revs = unstack(
-            select(ALEAF_dispatch_results, [:unit_type, :wtd_total_rev]),
-            :unit_type,
-            :wtd_total_rev,
-            combine = sum,
-        )
-
-        wtd_hist_gens = unstack(
-            select(ALEAF_dispatch_results, [:unit_type, :wtd_total_gen]),
-            :unit_type,
-            :wtd_total_gen,
-            combine = sum,
-        )
-
+        for data_type in data_to_weight
+            transform!(ALEAF_dispatch_results, [Symbol(data_type), :hist_wt_coeffs] => ((rev, wt) -> rev .* wt) => Symbol(string("wtd_", data_type)))
+        end
     end
 
-    hist_results = Dict(
-                       "wtd_hist_revs" => wtd_hist_revs,
-                       "wtd_hist_gens" => wtd_hist_gens
-                   )
+    # Set up dummy data
+    ALEAF_results = Dict("wtd_hist_revs" => nothing, "wtd_hist_gen" => nothing)
 
-
-    return hist_results
+    return ALEAF_results, ALEAF_dispatch_results
 
 end
 
@@ -2438,8 +2465,6 @@ function update_agent_financial_statement(
     # Propagate out accounting line items (EBITDA through FCF)
     agent_fs = compute_accounting_line_items(db, agent_fs)
 
-    println(agent_fs)
-
     # Save the dataframe to the database
     save_agent_fs!(agent_fs, agent_id, db)
 
@@ -2523,7 +2548,6 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
 
     return agent_fs
 end
-
 
 
 function compute_accounting_line_items(db, agent_fs)
