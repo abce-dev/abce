@@ -34,6 +34,7 @@ done
 abce_dir=$( dirname -- $( readlink -f -- "$0"; ) )
 echo "\$ABCE_DIR will be set to $abce_dir"
 export ABCE_DIR=$abce_dir
+export ABCE_ENV="$ABCE_DIR/env"
 
 # Set up ALEAF_DIR
 # If specified by a command-line argument, don't prompt the user for the

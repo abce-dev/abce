@@ -143,12 +143,10 @@ class GenCo(Agent):
             )
             sysimage_cmd = f"-J {sysimage_path}"
 
-        local_project = Path(
-            self.model.settings["file_paths"]["ABCE_abs_path"] / "env"
-        )
+        julia_env = Path(os.getenv("ABCE_ENV"))
 
         julia_cmd = (
-            f"julia --project={local_project} "
+            f"julia --project={julia_env} "
             + f"{sysimage_cmd} {agent_choice_path} "
             + f"--current_pd={self.model.current_pd} "
             + f"--agent_id={self.unique_id} "

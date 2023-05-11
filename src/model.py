@@ -454,8 +454,7 @@ class GridModel(Model):
 
     def check_for_sysimage_file(self):
         ABCE_sysimage_path = (
-            Path(self.settings["file_paths"]["ABCE_abs_path"])
-            / "env"
+            Path(os.getenv("ABCE_ENV"))
             / self.settings["file_paths"]["ABCE_sysimage_file"]
         )
 
