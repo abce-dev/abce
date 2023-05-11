@@ -45,6 +45,7 @@ function execute_dispatch_economic_projection(
     )
 
     long_econ_results = postprocess_results(
+        settings,
         all_gc_results,
         all_price_results,
         ts_data[:repdays_data],
@@ -788,15 +789,21 @@ function compute_per_unit_cash_flows(long_econ_results)
 end
 
 
-function summarize_dispatch_results(long_econ_results)
+function summarize_dispatch_results(settings, unit_specs, long_econ_results)
     dispatch_results = deepcopy(long_econ_results)
 
     dispatch_results = combine(groupby(dispatch_results, [:y, :unit_type]), [:annualized_gen_per_unit, :annualized_rev_per_unit, :annualized_VOM_per_unit, :annualized_FC_per_unit, :annualized_policy_adj_per_unit] .=> sum)
 
     rename!(dispatch_results, :annualized_gen_per_unit_sum => :generation, :annualized_rev_per_unit_sum => :revenue, :annualized_VOM_per_unit_sum => :VOM, :annualized_FC_per_unit_sum => :fuel_cost, :annualized_policy_adj_per_unit_sum => :policy_adj)
 
-    dispatch_results = stack(dispatch_results, [:generation, :revenue, :VOM, :fuel_cost, :policy_adj])
+    # Pivot in FOM data
+    FOM_data = select(unit_specs, [:unit_type, :FOM, :capacity])
+    dispatch_results = leftjoin(dispatch_results, FOM_data, on = :unit_type)
+    transform!(dispatch_results, [:FOM, :capacity] => ((FOM, cap) -> FOM .* cap .* settings["constants"]["MW2kW"]) => :FOM)
+    select!(dispatch_results, Not(:capacity))
 
+    # Put the data into a long format for easier filtering
+    dispatch_results = stack(dispatch_results, [:generation, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj])
     rename!(dispatch_results, :variable => :dispatch_result, :value => :qty)
 
     return dispatch_results
@@ -804,6 +811,7 @@ end
 
 
 function postprocess_results(
+    settings,
     all_gc_results,
     all_prices,
     repdays_data,
@@ -837,7 +845,7 @@ function postprocess_results(
     #   policy adjustment
     long_econ_results = compute_per_unit_cash_flows(long_econ_results)
 
-    dispatch_results = summarize_dispatch_results(long_econ_results)
+    dispatch_results = summarize_dispatch_results(settings, unit_specs, long_econ_results)
 
     return long_econ_results, dispatch_results
 
