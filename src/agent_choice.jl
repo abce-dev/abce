@@ -184,6 +184,7 @@ function run_agent_choice()
         CLI_args["current_pd"],
         fc_pd,
         dispatch_results,
+        agent_params,
     )
 
     # Set up the agent's decision optimization model
