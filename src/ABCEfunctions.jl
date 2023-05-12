@@ -623,6 +623,7 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
     # Create a blank DataFrame for the subproject's financial statement
     subproject_fs = DataFrame(
         year = 1:fc_pd,
+        weight = zeros(fc_pd),
         capex = zeros(fc_pd),
         remaining_debt_principal = zeros(fc_pd),
         debt_payment = zeros(fc_pd),
@@ -635,6 +636,10 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
         FOM = zeros(fc_pd),
         policy_adj = zeros(fc_pd),
     )
+
+    # Compute the series of DCF weights
+    wacc = agent_params[1, :cost_of_debt] * agent_params[1, :debt_fraction] + agent_params[1, :cost_of_equity] * (1 - agent_params[1, :debt_fraction])
+    transform!(subproject_fs, [:year] => ((yr) -> 1 ./ (1 .+ wacc) .^ (yr .- 1)) => :weight)
 
     if subproject["project_type"] == "new_xtr"
         # Add capital expenditures projection
@@ -684,7 +689,11 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
         deepcopy(subproject_fs),
     )
 
-    subproject_fs = compute_accounting_line_items(db, deepcopy(subproject_fs), agent_params)
+    subproject_fs = compute_accounting_line_items(
+        db,
+        deepcopy(subproject_fs),
+        agent_params
+    )
 
     return subproject_fs
 end
