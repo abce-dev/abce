@@ -684,6 +684,7 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
         deepcopy(subproject_fs),
     )
 
+    subproject_fs = compute_accounting_line_items(db, deepcopy(subproject_fs), agent_params)
 
     return subproject_fs
 end
@@ -2424,6 +2425,7 @@ function update_agent_financial_statement(
     current_pd,
     fc_pd,
     dispatch_results,
+    agent_params,
 )
     # Filter out any dispatch results extending beyond the forecast period
     dispatch_results = filter(:y => y -> y <= current_pd + fc_pd, dispatch_results)
@@ -2463,7 +2465,7 @@ function update_agent_financial_statement(
     end
 
     # Propagate out accounting line items (EBITDA through FCF)
-    agent_fs = compute_accounting_line_items(db, agent_fs)
+    agent_fs = compute_accounting_line_items(db, agent_fs, agent_params)
 
     # Save the dataframe to the database
     save_agent_fs!(agent_fs, agent_id, db)
@@ -2550,7 +2552,7 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
 end
 
 
-function compute_accounting_line_items(db, agent_fs)
+function compute_accounting_line_items(db, agent_fs, agent_params)
     ### Computed FS quantities
     # EBITDA
     transform!(
@@ -2600,6 +2602,12 @@ function compute_accounting_line_items(db, agent_fs)
         [:Net_Income, :depreciation, :capex] =>
             ((NI, dep, capex) -> NI + dep - capex) => :FCF,
     )
+
+    # Net FCF
+    agent_id = agent_params[1, "agent_id"]
+    cost_of_equity = DBInterface.execute(db, "SELECT cost_of_equity FROM agent_params WHERE agent_id = $agent_id") |> DataFrame
+    cost_of_equity = cost_of_equity[1, :cost_of_equity]
+    transform!(agent_fs, :FCF => ((fcf) -> fcf .* (1 .- cost_of_equity)) => :Net_FCF)
 
     return agent_fs
 end
