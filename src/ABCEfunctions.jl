@@ -468,28 +468,23 @@ function set_up_project_alternatives(
     dispatch_results,
 )
     PA_summaries = create_PA_summaries(settings, unit_specs, asset_counts)
+    PA_fs_dict = Dict()
 
+    # Create the 
     PA_subprojects = Dict()
 
     for PA in eachrow(PA_summaries)
         # Create a vector of subprojects for this project alternative
         PA_subprojects[PA.uid] = create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs, agent_params, dispatch_results)
+
+        # Create an aggregated financial statement for this project alternative
+        #   based on its subprojects
+        PA_fs_dict[PA.uid] = create_PA_aggregated_fs(PA_subprojects[PA.uid])
+
+        # Compute the project alternative's overall NPV based on its
+        #   subprojects' financial statements
+        PA.NPV = compute_PA_NPV(PA_fs_dict[PA.uid])
     end
-
-    PA_fs_dict = create_PA_pro_formas(PA_summaries, fc_pd)
-
-    PA_summaries, PA_fs_dict = populate_PA_pro_formas(
-        settings,
-        PA_summaries,
-        PA_fs_dict,
-        unit_specs,
-        fc_pd,
-        agent_params,
-        db,
-        current_pd,
-        long_econ_results,
-        C2N_specs,
-    )
 
     return PA_summaries, PA_fs_dict
 
@@ -1139,7 +1134,7 @@ function forecast_subproject_operations(settings, subproject, unit_type_data, di
     elseif subproject["project_type"] == "retirement"
         # Record foregone generation as the negative of the projection
         series_start = convert(Int64, subproject["lag"] + 1)
-        series_end = convert(Int64, subproject["ret_pd"])
+        series_end = convert(Int64, min(size(fs_copy)[1], subproject["ret_pd"]))
         sign = -1
     end
 
@@ -1176,6 +1171,33 @@ function forecast_subproject_operations(settings, subproject, unit_type_data, di
 
     return fs_copy
 
+end
+
+
+function create_PA_aggregated_fs(subprojects)
+    # Initialize the project alternative's financial statement with the 
+    #   data from the first subproject
+    PA_aggregated_fs = deepcopy(subprojects[1]["financial_statement"])
+
+    # If other subprojects are present, add them in
+    cols_to_collect = names(PA_aggregated_fs, Not([:year, :weight]))
+    for subproject in deleteat!(subprojects, 1)
+        for col in cols_to_collect
+            PA_aggregated_fs[!, col] .+= subproject["financial_statement"][!, col]
+        end
+    end
+
+    return PA_aggregated_fs
+end
+
+
+function compute_PA_NPV(fs_copy)
+    NPV = 0
+
+    transform!(fs_copy, [:net_FCF, :weight] => ((net_FCF, wt) -> net_FCF .* wt) => :wtd_net_FCF)
+    NPV += sum(fs_copy[!, :wtd_net_FCF])
+
+    return NPV
 end
 
 
@@ -1874,7 +1896,7 @@ function set_up_model(
         for j = 1:num_time_periods
             # Marginal generation in kWh
             marg_gen[i, j] = (
-                PA_fs_dict[PA_summaries[i, :uid]][j, :gen] /
+                PA_fs_dict[PA_summaries[i, :uid]][j, :generation] /
                 settings["constants"]["MW2kW"]
             )
             # Convert total anticipated marginal generation to an effective
@@ -2616,7 +2638,7 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
     agent_id = agent_params[1, "agent_id"]
     cost_of_equity = DBInterface.execute(db, "SELECT cost_of_equity FROM agent_params WHERE agent_id = $agent_id") |> DataFrame
     cost_of_equity = cost_of_equity[1, :cost_of_equity]
-    transform!(agent_fs, :FCF => ((fcf) -> fcf .* (1 .- cost_of_equity)) => :Net_FCF)
+    transform!(agent_fs, :FCF => ((fcf) -> fcf .* (1 .- cost_of_equity)) => :net_FCF)
 
     return agent_fs
 end
