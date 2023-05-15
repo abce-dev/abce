@@ -150,7 +150,7 @@ function run_agent_choice()
 
     # Use the agent's internal dispatch forecast generator to project dispatch
     #   results in the system over the forecast horizon
-    long_econ_results, dispatch_results = Dispatch.execute_dispatch_economic_projection(
+    dispatch_results = Dispatch.execute_dispatch_economic_projection(
         db,
         settings,
         fc_pd,
@@ -169,7 +169,6 @@ function run_agent_choice()
         agent_params,
         db,
         CLI_args["current_pd"],
-        long_econ_results,
         C2N_specs,
         dispatch_results,
     )

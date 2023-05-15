@@ -463,7 +463,6 @@ function set_up_project_alternatives(
     agent_params,
     db,
     current_pd,
-    long_econ_results,
     C2N_specs,
     dispatch_results,
 )

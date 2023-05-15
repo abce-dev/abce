@@ -847,7 +847,7 @@ function postprocess_results(
 
     dispatch_results = summarize_dispatch_results(settings, unit_specs, long_econ_results)
 
-    return long_econ_results, dispatch_results
+    return dispatch_results
 
 end
 
