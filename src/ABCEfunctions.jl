@@ -815,7 +815,7 @@ end
 
 function forecast_debt_schedule(agent_params, unit_type_data, subproject, fs_copy)
     # Retrieve maximum debt level as the principal
-    principal = maximum(fs_copy[!, :capex])
+    principal = maximum(fs_copy[!, :remaining_debt_principal])
 
     # Find the end of the capex accumulation
     capex_end = get_capex_end(fs_copy)
