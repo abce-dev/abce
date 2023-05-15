@@ -137,9 +137,13 @@ def compute_per_unit_results(agg_dsp_pivot):
 
     # Get per-unit costs and policy incentive/penalty impacts
     dsp_pivot_PU["var_costs"] = dsp_pivot_PU["VOM"] * dsp_pivot_PU["generation"]
-    dsp_pivot_PU["fuel_cost"] = dsp_pivot_PU["FC_per_MWh"] * dsp_pivot_PU["generation"]
+    dsp_pivot_PU["fuel_cost"] = (
+        dsp_pivot_PU["FC_per_MWh"] * dsp_pivot_PU["generation"]
+    )
     dsp_pivot_PU["FOM"] = dsp_pivot_PU["FOM"] * dsp_pivot_PU["capacity"] * 1000
-    dsp_pivot_PU["policy_adj"] = dsp_pivot_PU["policy_adj_per_MWh"] * dsp_pivot_PU["generation"]
+    dsp_pivot_PU["policy_adj"] = (
+        dsp_pivot_PU["policy_adj_per_MWh"] * dsp_pivot_PU["generation"]
+    )
 
     return dsp_pivot_PU
 

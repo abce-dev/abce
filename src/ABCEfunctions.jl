@@ -99,10 +99,10 @@ function set_up_local_paths(settings, abce_abs_path)
             settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]
         catch LoadError
             @error string(
-                       "The environment variable ALEAF_abs_path does not ",
-                       "appear to be set. Please make sure it points to ",
-                       "the correct directory."
-                   )
+                "The environment variable ALEAF_abs_path does not ",
+                "appear to be set. Please make sure it points to ",
+                "the correct directory.",
+            )
         end
     else
         settings["file_paths"]["ALEAF_abs_path"] = "NULL_PATH"
@@ -116,9 +116,8 @@ end
 function validate_project_data(db, settings, unit_specs, C2N_specs)
     for unit_type in unit_specs[!, :unit_type]
         if occursin("C2N", unit_type)
-            unit_type_data = filter(:unit_type => x -> x == unit_type,
-                                    unit_specs
-                             )[1, :]
+            unit_type_data =
+                filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
 
             # Dummy data for schedule retrieval
             lag = 0
@@ -132,10 +131,13 @@ function validate_project_data(db, settings, unit_specs, C2N_specs)
                 lag,
                 fc_pd,
                 current_pd,
-                C2N_specs
+                C2N_specs,
             )
 
-            unit_specs[(unit_specs.unit_type .== unit_type), :construction_duration] .= size(capex_tl)[1]
+            unit_specs[
+                (unit_specs.unit_type.==unit_type),
+                :construction_duration,
+            ] .= size(capex_tl)[1]
         end
     end
 
@@ -195,10 +197,14 @@ function get_grouped_current_assets(db, pd, agent_id)
     #   <status>_pd == "the first period where this asset has status <status>"
     cmd = string(
         "SELECT asset_id, unit_type, retirement_pd, C2N_reserved ",
-        "FROM assets WHERE agent_id = ", agent_id,
-        " AND completion_pd <= ", pd,
-        " AND cancellation_pd > ", pd,
-        " AND retirement_pd > ", pd,
+        "FROM assets WHERE agent_id = ",
+        agent_id,
+        " AND completion_pd <= ",
+        pd,
+        " AND cancellation_pd > ",
+        pd,
+        " AND retirement_pd > ",
+        pd,
     )
 
     asset_list = DBInterface.execute(db, cmd) |> DataFrame
@@ -243,8 +249,7 @@ function project_demand_flat(visible_demand, fc_pd)
     known_pd = size(visible_demand)[1]
     demand = DataFrame(demand = zeros(Float64, convert(Int64, fc_pd)))
     demand[1:known_pd, :total_demand] .= visible_demand[!, :total_demand]
-    demand[(known_pd + 1):fc_pd, :total_demand] .=
-        demand[known_pd, :total_demand]
+    demand[(known_pd+1):fc_pd, :total_demand] .= demand[known_pd, :total_demand]
     return demand
 end
 
@@ -253,7 +258,7 @@ function project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
     total_demand = deepcopy(visible_demand)
     prev_pd = visible_demand[size(visible_demand)[1], :period]
     prev_real_demand = last(visible_demand[!, :real_demand])
-    for i = (prev_pd + 1):fc_pd
+    for i = (prev_pd+1):fc_pd
         next_real_demand =
             (prev_real_demand * (1 + term_demand_gr)^(i - prev_pd - 1))
         push!(total_demand, [i, next_real_demand])
@@ -281,7 +286,7 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
 
     # Create suitable arrays for x (including intercept) and y
     num_obs = size(visible_demand)[1] + size(demand_history)[1]
-    x = hcat(ones(num_obs), [i for i = 0:(num_obs - 1)])
+    x = hcat(ones(num_obs), [i for i = 0:(num_obs-1)])
     if size(demand_history)[1] == 0
         y = visible_demand[:, :demand]
     else
@@ -300,18 +305,25 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
     # If there isn't enough demand history to fulfill the desired projection
     #   window, take a weighted average of the computed beta with the known
     #   historical beta
-    beta[2] = ((beta[2] * size(y)[1] 
-                + settings["demand"]["historical_demand_growth_rate"] 
-                  * (demand_projection_window - size(y)[1])
-               ) / demand_projection_window
-              )
+    beta[2] = (
+        (
+            beta[2] * size(y)[1] +
+            settings["demand"]["historical_demand_growth_rate"] *
+            (demand_projection_window - size(y)[1])
+        ) / demand_projection_window
+    )
 
     # Project future demand
     proj_horiz = fc_pd - size(visible_demand)[1]
     x_proj = hcat(
-                 ones(proj_horiz),
-                 [i for i=size(visible_demand)[1]+size(demand_history)[1]+1:fc_pd+size(demand_history)[1]]
-             )
+        ones(proj_horiz),
+        [
+            i for i =
+                size(visible_demand)[1]+size(demand_history)[1]+1:fc_pd+size(
+                    demand_history,
+                )[1]
+        ],
+    )
     y_log_proj = x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2]
     y_proj = exp.(x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2])
 
@@ -373,17 +385,11 @@ function get_net_demand(
 
     vals = (pd, pd)
 
-    total_caps = DataFrame(
-                     period = Int64[],
-                     total_eff_cap = Float64[]
-                 )
+    total_caps = DataFrame(period = Int64[], total_eff_cap = Float64[])
 
     for i = pd:maximum(keys(system_portfolios))
-        year_portfolio = innerjoin(
-            system_portfolios[i],
-            unit_specs,
-            on = :unit_type,
-        )
+        year_portfolio =
+            innerjoin(system_portfolios[i], unit_specs, on = :unit_type)
         transform!(
             year_portfolio,
             [:num_units, :capacity, :capacity_factor] =>
@@ -474,7 +480,17 @@ function set_up_project_alternatives(
 
     for PA in eachrow(PA_summaries)
         # Create a vector of subprojects for this project alternative
-        PA_subprojects[PA.uid] = create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs, agent_params, dispatch_results)
+        PA_subprojects[PA.uid] = create_PA_subprojects(
+            settings,
+            db,
+            unit_specs,
+            PA,
+            fc_pd,
+            current_pd,
+            C2N_specs,
+            agent_params,
+            dispatch_results,
+        )
 
         # Create an aggregated financial statement for this project alternative
         #   based on its subprojects
@@ -520,7 +536,7 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
         for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
             push!(
                 PA_summaries,
-                [unit_type project_type lag nothing uid NPV allowed]
+                [unit_type project_type lag nothing uid NPV allowed],
             )
             uid += 1
         end
@@ -534,7 +550,10 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
             [:unit_type, :C2N_reserved] =>
                 ((x, reserved) -> (x == unit_type) && (reserved == 0)),
             asset_counts,
-        )[!, :retirement_pd,]
+        )[
+            !,
+            :retirement_pd,
+        ]
 
         for ret_pd in ret_pds
             for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
@@ -550,22 +569,46 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
 end
 
 
-function create_PA_subprojects(settings, db, unit_specs, PA, fc_pd, current_pd, C2N_specs, agent_params, dispatch_results)
+function create_PA_subprojects(
+    settings,
+    db,
+    unit_specs,
+    PA,
+    fc_pd,
+    current_pd,
+    C2N_specs,
+    agent_params,
+    dispatch_results,
+)
     # Initialize the metadata and empty financial statements for all
     #   subprojects for this project alternative
     subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
 
     # Retrieve historical ALEAF dispatch results data
-    ALEAF_results, ALEAF_dispatch_results = average_historical_ALEAF_results(settings, db)
+    ALEAF_results, ALEAF_dispatch_results =
+        average_historical_ALEAF_results(settings, db)
 
     for subproject in subprojects
         # Retrieve unit type data for convenience
-        unit_type_data = filter(:unit_type => x -> x == subproject["unit_type"], unit_specs)[1, :]
+        unit_type_data =
+            filter(:unit_type => x -> x == subproject["unit_type"], unit_specs)[
+                1,
+                :,
+            ]
 
         # Forecast financial results for each subproject within this project
         #   alternative
         subproject["financial_statement"] = forecast_subproject_financials(
-            settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs, agent_params, dispatch_results, ALEAF_dispatch_results
+            settings,
+            db,
+            unit_type_data,
+            subproject,
+            fc_pd,
+            current_pd,
+            C2N_specs,
+            agent_params,
+            dispatch_results,
+            ALEAF_dispatch_results,
         )
     end
 
@@ -593,9 +636,8 @@ function initialize_subprojects(unit_specs, PA, fc_pd)
     if occursin("C2N", PA.unit_type)
         # Retrieve coal retirement scheduling information from the 
         #   unit_specs dataframe
-        unit_type_data = filter(
-            :unit_type => x -> x == PA.unit_type, unit_specs
-        )[1, :]
+        unit_type_data =
+            filter(:unit_type => x -> x == PA.unit_type, unit_specs)[1, :]
         construction_duration = unit_type_data["construction_duration"]
         cpp_ret_lead = unit_type_data["cpp_ret_lead"]
 
@@ -614,7 +656,18 @@ function initialize_subprojects(unit_specs, PA, fc_pd)
 end
 
 
-function forecast_subproject_financials(settings, db, unit_type_data, subproject, fc_pd, current_pd, C2N_specs, agent_params, dispatch_results, ALEAF_dispatch_results)
+function forecast_subproject_financials(
+    settings,
+    db,
+    unit_type_data,
+    subproject,
+    fc_pd,
+    current_pd,
+    C2N_specs,
+    agent_params,
+    dispatch_results,
+    ALEAF_dispatch_results,
+)
     # Create a blank DataFrame for the subproject's financial statement
     subproject_fs = DataFrame(
         year = 1:fc_pd,
@@ -633,13 +686,18 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
     )
 
     # Compute the series of DCF weights
-    wacc = agent_params[1, :cost_of_debt] * agent_params[1, :debt_fraction] + agent_params[1, :cost_of_equity] * (1 - agent_params[1, :debt_fraction])
-    transform!(subproject_fs, [:year] => ((yr) -> 1 ./ (1 .+ wacc) .^ (yr .- 1)) => :weight)
+    wacc =
+        agent_params[1, :cost_of_debt] * agent_params[1, :debt_fraction] +
+        agent_params[1, :cost_of_equity] * (1 - agent_params[1, :debt_fraction])
+    transform!(
+        subproject_fs,
+        [:year] => ((yr) -> 1 ./ (1 .+ wacc) .^ (yr .- 1)) => :weight,
+    )
 
     if subproject["project_type"] == "new_xtr"
         # Add capital expenditures projection
         subproject_fs = forecast_capex(
-            settings, 
+            settings,
             db,
             unit_type_data,
             subproject,
@@ -651,7 +709,7 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
         # Set up the time-series of outstanding debt based on this
         #   construction expenditure profile
         subproject_fs = forecast_construction_debt_principal(
-            unit_type_data, 
+            unit_type_data,
             subproject,
             agent_params,
             deepcopy(subproject_fs),
@@ -666,10 +724,7 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
         )
 
         # Forecast the depreciation schedule
-        subproject_fs = forecast_depreciation(
-            settings,
-            deepcopy(subproject_fs),
-        )
+        subproject_fs = forecast_depreciation(settings, deepcopy(subproject_fs))
 
     end
 
@@ -684,17 +739,22 @@ function forecast_subproject_financials(settings, db, unit_type_data, subproject
         deepcopy(subproject_fs),
     )
 
-    subproject_fs = compute_accounting_line_items(
-        db,
-        deepcopy(subproject_fs),
-        agent_params
-    )
+    subproject_fs =
+        compute_accounting_line_items(db, deepcopy(subproject_fs), agent_params)
 
     return subproject_fs
 end
 
 
-function forecast_capex(settings, db, unit_type_data, subproject, current_pd, C2N_specs, fs_copy)
+function forecast_capex(
+    settings,
+    db,
+    unit_type_data,
+    subproject,
+    current_pd,
+    C2N_specs,
+    fs_copy,
+)
     if occursin("C2N", subproject["unit_type"])
         capex_timeline, activity_schedule = project_C2N_capex(
             db,
@@ -713,11 +773,14 @@ function forecast_capex(settings, db, unit_type_data, subproject, current_pd, C2
             settings["constants"]["MW2kW"] /
             unit_type_data[:construction_duration]
         )
-        capex_timeline = ones(convert(Int64, unit_type_data[:construction_duration])) * capex_per_pd
+        capex_timeline =
+            ones(convert(Int64, unit_type_data[:construction_duration])) *
+            capex_per_pd
     end
 
     head_zeros = zeros(subproject["lag"])
-    tail_zeros = zeros(size(fs_copy)[1] - subproject["lag"] - size(capex_timeline)[1])
+    tail_zeros =
+        zeros(size(fs_copy)[1] - subproject["lag"] - size(capex_timeline)[1])
 
     fs_copy[!, :capex] = vcat(head_zeros, capex_timeline, tail_zeros)
 
@@ -792,14 +855,20 @@ function get_capex_end(fs_copy)
 end
 
 
-function forecast_construction_debt_principal(unit_type_data, subproject, agent_params, fs_copy)
+function forecast_construction_debt_principal(
+    unit_type_data,
+    subproject,
+    agent_params,
+    fs_copy,
+)
     # Find the end of the capex accumulation period
     capex_end = get_capex_end(fs_copy)
 
     # Compute a rolling sum of accumulated debt principal
     debt_timeline = zeros(capex_end)
     for i = 1:capex_end
-        debt_timeline[i] = sum(fs_copy[1:i, :capex]) * agent_params[1, :debt_fraction]
+        debt_timeline[i] =
+            sum(fs_copy[1:i, :capex]) * agent_params[1, :debt_fraction]
     end
 
     # Pad the rest of the series with zeros (will be populated later)
@@ -812,7 +881,12 @@ function forecast_construction_debt_principal(unit_type_data, subproject, agent_
 end
 
 
-function forecast_debt_schedule(agent_params, unit_type_data, subproject, fs_copy)
+function forecast_debt_schedule(
+    agent_params,
+    unit_type_data,
+    subproject,
+    fs_copy,
+)
     # Retrieve maximum debt level as the principal
     principal = maximum(fs_copy[!, :remaining_debt_principal])
 
@@ -820,7 +894,9 @@ function forecast_debt_schedule(agent_params, unit_type_data, subproject, fs_cop
     capex_end = get_capex_end(fs_copy)
 
     # Compute the constant recurring payment into the sinking fund
-    pmt = agent_params[1, :cost_of_debt] * principal / (1 - (1 + agent_params[1, :cost_of_debt])^(-unit_type_data[:unit_life]))
+    pmt =
+        agent_params[1, :cost_of_debt] * principal /
+        (1 - (1 + agent_params[1, :cost_of_debt])^(-unit_type_data[:unit_life]))
 
     # The end of the schedule is the sooner of the end of the financial
     #   statement or the end of the unit's life
@@ -828,18 +904,25 @@ function forecast_debt_schedule(agent_params, unit_type_data, subproject, fs_cop
         Int64,
         min(
             size(fs_copy)[1],
-            subproject["lag"] + unit_type_data[:construction_duration] + unit_type_data[:unit_life]
-        )
+            subproject["lag"] +
+            unit_type_data[:construction_duration] +
+            unit_type_data[:unit_life],
+        ),
     )
 
     # Seed post-construction financing series
-    fs_copy[capex_end+1, :remaining_debt_principal] = fs_copy[capex_end, :remaining_debt_principal]
+    fs_copy[capex_end+1, :remaining_debt_principal] =
+        fs_copy[capex_end, :remaining_debt_principal]
 
-    for i=capex_end+1:fin_end
+    for i = capex_end+1:fin_end
         fs_copy[i, :debt_payment] = pmt
-        fs_copy[i, :interest_payment] = fs_copy[i, :remaining_debt_principal] * agent_params[1, :cost_of_debt]
+        fs_copy[i, :interest_payment] =
+            fs_copy[i, :remaining_debt_principal] *
+            agent_params[1, :cost_of_debt]
         if i != fin_end
-            fs_copy[i+1, :remaining_debt_principal] = fs_copy[i, :remaining_debt_principal] - fs_copy[i, :interest_payment]
+            fs_copy[i+1, :remaining_debt_principal] =
+                fs_copy[i, :remaining_debt_principal] -
+                fs_copy[i, :interest_payment]
         end
     end
 
@@ -851,32 +934,59 @@ function forecast_depreciation(settings, fs_copy)
     capex_end = get_capex_end(fs_copy)
     total_capex = sum(fs_copy[!, :capex])
 
-    dep_end = min(size(fs_copy)[1], capex_end + settings["financing"]["depreciation_horizon"])
+    dep_end = min(
+        size(fs_copy)[1],
+        capex_end + settings["financing"]["depreciation_horizon"],
+    )
 
-    for i=capex_end+1:dep_end
-        fs_copy[i, :depreciation] = total_capex / settings["financing"]["depreciation_horizon"]
+    for i = capex_end+1:dep_end
+        fs_copy[i, :depreciation] =
+            total_capex / settings["financing"]["depreciation_horizon"]
     end
 
     return fs_copy
 end
 
 
-function forecast_subproject_operations(settings, subproject, unit_type_data, dispatch_results, ALEAF_dispatch_results, fs_copy)
+function forecast_subproject_operations(
+    settings,
+    subproject,
+    unit_type_data,
+    dispatch_results,
+    ALEAF_dispatch_results,
+    fs_copy,
+)
     mode = subproject["project_type"]
     hist_wt = settings["dispatch"]["hist_wt"]
-    data_to_get = ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
+    data_to_get =
+        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
 
     # Get historical ALEAF results for this unit type
-    ALEAF_dispatch_results = filter(:unit_type => unit_type -> unit_type == subproject["unit_type"], ALEAF_dispatch_results)
+    ALEAF_dispatch_results = filter(
+        :unit_type => unit_type -> unit_type == subproject["unit_type"],
+        ALEAF_dispatch_results,
+    )
 
     # Get projected dispatch results for this unit type
-    ABCE_dispatch_results = filter(:unit_type => unit_type -> unit_type == subproject["unit_type"], dispatch_results)
+    ABCE_dispatch_results = filter(
+        :unit_type => unit_type -> unit_type == subproject["unit_type"],
+        dispatch_results,
+    )
 
     # Set up timeline start/end and value sign based on project type
     if subproject["project_type"] == "new_xtr"
         # Record marginal additional generation
         series_start = get_capex_end(fs_copy) + 1
-        series_end = convert(Int64, round(min(size(fs_copy)[1], series_start + unit_type_data[:unit_life]), digits=3))
+        series_end = convert(
+            Int64,
+            round(
+                min(
+                    size(fs_copy)[1],
+                    series_start + unit_type_data[:unit_life],
+                ),
+                digits = 3,
+            ),
+        )
         sign = 1
     elseif subproject["project_type"] == "retirement"
         # Record foregone generation as the negative of the projection
@@ -886,23 +996,49 @@ function forecast_subproject_operations(settings, subproject, unit_type_data, di
     end
 
     # Update the operations results data in the subproject's financial statement
-    for i=series_start:series_end
+    for i = series_start:series_end
         for data_type in data_to_get
             # Get the corresponding data value for the year i from the ABCE
             #   dispatch projection
             if i in ABCE_dispatch_results[!, :y]
-                ABCE_data_value = filter([:y, :dispatch_result] => (y, disp_res) -> (y == i) && (disp_res == data_type), ABCE_dispatch_results)
+                ABCE_data_value = filter(
+                    [:y, :dispatch_result] =>
+                        (y, disp_res) ->
+                            (y == i) && (disp_res == data_type),
+                    ABCE_dispatch_results,
+                )
                 ABCE_data_value = ABCE_data_value[1, :qty]
             else
-                last_dispatch_year = maximum(filter(:unit_type => unit_type -> unit_type == subproject["unit_type"], ABCE_dispatch_results)[!, :y])
-                ABCE_data_value = filter([:y, :dispatch_result] => (y, disp_res) -> (y == last_dispatch_year) && (disp_res == data_type), ABCE_dispatch_results)
+                last_dispatch_year = maximum(
+                    filter(
+                        :unit_type =>
+                            unit_type ->
+                                unit_type == subproject["unit_type"],
+                        ABCE_dispatch_results,
+                    )[
+                        !,
+                        :y,
+                    ],
+                )
+                ABCE_data_value = filter(
+                    [:y, :dispatch_result] =>
+                        (y, disp_res) ->
+                            (y == last_dispatch_year) &&
+                                (disp_res == data_type),
+                    ABCE_dispatch_results,
+                )
                 ABCE_data_value = ABCE_data_value[1, :qty]
             end
 
             # Get the corresponding cumulative historical estimate from the 
             #   A-LEAF aggregated dispatch histories
             if size(ALEAF_dispatch_results)[1] > 0
-                ALEAF_data_value = sum(ALEAF_dispatch_results[!, Symbol(string("wtd_", data_type))])
+                ALEAF_data_value = sum(
+                    ALEAF_dispatch_results[
+                        !,
+                        Symbol(string("wtd_", data_type)),
+                    ],
+                )
                 hist_wt = settings["dispatch"]["hist_wt"]
             else
                 # If this unit type does not appear in the A-LEAF historical 
@@ -912,7 +1048,9 @@ function forecast_subproject_operations(settings, subproject, unit_type_data, di
             end
 
             # Save the signed value into the financial statement
-            fs_copy[i, Symbol(data_type)] = sign * ABCE_data_value * (1 - hist_wt) + sign * ALEAF_data_value * (hist_wt)
+            fs_copy[i, Symbol(data_type)] =
+                sign * ABCE_data_value * (1 - hist_wt) +
+                sign * ALEAF_data_value * (hist_wt)
         end
     end
 
@@ -930,7 +1068,8 @@ function create_PA_aggregated_fs(subprojects)
     cols_to_collect = names(PA_aggregated_fs, Not([:year, :weight]))
     for subproject in deleteat!(subprojects, 1)
         for col in cols_to_collect
-            PA_aggregated_fs[!, col] .+= subproject["financial_statement"][!, col]
+            PA_aggregated_fs[!, col] .+=
+                subproject["financial_statement"][!, col]
         end
     end
 
@@ -941,7 +1080,10 @@ end
 function compute_PA_NPV(fs_copy)
     NPV = 0
 
-    transform!(fs_copy, [:net_FCF, :weight] => ((net_FCF, wt) -> net_FCF .* wt) => :wtd_net_FCF)
+    transform!(
+        fs_copy,
+        [:net_FCF, :weight] => ((net_FCF, wt) -> net_FCF .* wt) => :wtd_net_FCF,
+    )
     NPV += sum(fs_copy[!, :wtd_net_FCF])
 
     return NPV
@@ -965,14 +1107,21 @@ function average_historical_ALEAF_results(settings, db)
         # Add a column with the diminishing historical weighting factor
         transform!(
             ALEAF_dispatch_results,
-            [:period] => ((pd) -> c ./ (1 + hist_decay) .^ pd) => :hist_wt_coeffs,
+            [:period] =>
+                ((pd) -> c ./ (1 + hist_decay) .^ pd) => :hist_wt_coeffs,
         )
 
         # Weight the data columns
-        data_to_weight = ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
+        data_to_weight =
+            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
 
         for data_type in data_to_weight
-            transform!(ALEAF_dispatch_results, [Symbol(data_type), :hist_wt_coeffs] => ((rev, wt) -> rev .* wt) => Symbol(string("wtd_", data_type)))
+            transform!(
+                ALEAF_dispatch_results,
+                [Symbol(data_type), :hist_wt_coeffs] =>
+                    ((rev, wt) -> rev .* wt) =>
+                        Symbol(string("wtd_", data_type)),
+            )
         end
     end
 
@@ -1069,7 +1218,8 @@ function set_up_model(
 
             if PA_summaries[i, :project_type] == "new_xtr"
                 op_start =
-                    PA_summaries[i, :lag] + unit_type_data[1, :construction_duration]
+                    PA_summaries[i, :lag] +
+                    unit_type_data[1, :construction_duration]
                 if j > op_start
                     marg_eff_cap[i, j] = (
                         unit_type_data[1, :capacity] *
@@ -1077,7 +1227,8 @@ function set_up_model(
                     )
                 end
             elseif PA_summaries[i, :project_type] == "retirement"
-                if (j > PA_summaries[i, :lag]) && (j <= PA_summaries[i, :ret_pd])
+                if (j > PA_summaries[i, :lag]) &&
+                   (j <= PA_summaries[i, :ret_pd])
                     marg_eff_cap[i, j] = (
                         (-1) *
                         unit_type_data[1, :capacity] *
@@ -1094,7 +1245,8 @@ function set_up_model(
         if PA_summaries[i, :project_type] == "retirement"
             PA_summaries[i, :current] = 1
         elseif (
-            (PA_summaries[i, :project_type] == "new_xtr") && (PA_summaries[i, :lag] == 0)
+            (PA_summaries[i, :project_type] == "new_xtr") &&
+            (PA_summaries[i, :lag] == 0)
         )
             PA_summaries[i, :current] = 1
         end
@@ -1219,7 +1371,8 @@ function set_up_model(
     # This matrix has one long row for each retiring-asset category,
     #   with 1's in each element where the corresponding element of u[] is
     #   one of these units
-    ret_summation_matrix = zeros(size(retireable_asset_counts)[1], size(PA_summaries)[1])
+    ret_summation_matrix =
+        zeros(size(retireable_asset_counts)[1], size(PA_summaries)[1])
     for i = 1:size(retireable_asset_counts)[1]
         for j = 1:size(PA_summaries)[1]
             if (
@@ -1257,14 +1410,19 @@ function set_up_model(
 
     for i = 1:size(PA_summaries)[1]
         # Mark all of the direct coal retirements in the matrix
-        if (PA_summaries[i, :project_type] == "retirement") && (PA_summaries[i, :unit_type] == "coal")
+        if (PA_summaries[i, :project_type] == "retirement") &&
+           (PA_summaries[i, :unit_type] == "coal")
             coal_retirements[i, PA_summaries[i, :lag]+1] = 1
         end
 
         # Mark all of the C2N-forced coal retirements in the matrix
         if occursin("C2N", PA_summaries[i, :unit_type])
-            unit_type_data = filter(:unit_type => ((ut) -> ut == PA_summaries[i, :unit_type]), unit_specs)
-            target_coal_ret_pd = PA_summaries[i, :lag] + unit_type_data[1, :cpp_ret_lead] + 1
+            unit_type_data = filter(
+                :unit_type => ((ut) -> ut == PA_summaries[i, :unit_type]),
+                unit_specs,
+            )
+            target_coal_ret_pd =
+                PA_summaries[i, :lag] + unit_type_data[1, :cpp_ret_lead] + 1
             if target_coal_ret_pd <= size(coal_retirements)[2]
                 coal_retirements[i, target_coal_ret_pd] = 1
             end
@@ -1272,11 +1430,15 @@ function set_up_model(
 
     end
 
-    for i=1:size(coal_retirements)[2]
+    for i = 1:size(coal_retirements)[2]
         num_units = 0
 
         # Get number of planned coal units operating during this period
-        coal_ops = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE unit_type = 'coal' AND C2N_reserved = 0 AND agent_id = $agent_id AND completion_pd <= $i AND retirement_pd >= $i AND cancellation_pd >= $i GROUP BY unit_type") |> DataFrame
+        coal_ops =
+            DBInterface.execute(
+                db,
+                "SELECT unit_type, COUNT(unit_type) FROM assets WHERE unit_type = 'coal' AND C2N_reserved = 0 AND agent_id = $agent_id AND completion_pd <= $i AND retirement_pd >= $i AND cancellation_pd >= $i GROUP BY unit_type",
+            ) |> DataFrame
         if size(coal_ops)[1] > 0
             num_units = coal_ops[1, "COUNT(unit_type)"]
         end
@@ -1286,9 +1448,17 @@ function set_up_model(
     end
 
     # Constrain rolling total of coal retirements
-    for i=1:size(coal_retirements)[2]
-        @constraint(m, sum(transpose(u) * coal_retirements[:, i]) <= planned_coal_units_operating[i, :num_units])
-        @constraint(m, sum(sum(transpose(u) * coal_retirements[:, j]) for j = 1:i) <= planned_coal_units_operating[1, :num_units])
+    for i = 1:size(coal_retirements)[2]
+        @constraint(
+            m,
+            sum(transpose(u) * coal_retirements[:, i]) <=
+            planned_coal_units_operating[i, :num_units]
+        )
+        @constraint(
+            m,
+            sum(sum(transpose(u) * coal_retirements[:, j]) for j = 1:i) <=
+            planned_coal_units_operating[1, :num_units]
+        )
     end
 
     # Create the objective function 
@@ -1549,7 +1719,8 @@ function record_asset_retirements(
             ) |> DataFrame
 
         # Set the number of units to execute
-        units_to_execute = unit_type_specs["num_cpp_rets"] * result[:units_to_execute]
+        units_to_execute =
+            unit_type_specs["num_cpp_rets"] * result[:units_to_execute]
 
     end
 
@@ -1586,7 +1757,7 @@ end
 function get_agent_portfolio_forecast(agent_id, db, current_pd, fc_pd)
     agent_portfolios = DataFrame()
     # Retrieve the agent's projected portfolios
-    for y = current_pd:(current_pd + fc_pd)
+    for y = current_pd:(current_pd+fc_pd)
         agent_portfolio =
             DBInterface.execute(
                 db,
@@ -1619,7 +1790,8 @@ function update_agent_financial_statement(
     agent_params,
 )
     # Filter out any dispatch results extending beyond the forecast period
-    dispatch_results = filter(:y => y -> y <= current_pd + fc_pd, dispatch_results)
+    dispatch_results =
+        filter(:y => y -> y <= current_pd + fc_pd, dispatch_results)
 
     # Retrieve horizontally-abbreviated dataframes
     short_unit_specs = select(unit_specs, [:unit_type, :FOM])
@@ -1636,11 +1808,21 @@ function update_agent_financial_statement(
     )
 
     # Compute total quantities based on agent's number of owned units
-    transform!(fin_results, [:qty, :num_units] => ((qty, num_units) -> qty .* num_units) => :total_qty)
-    fin_results = select(fin_results, [:y, :unit_type, :dispatch_result, :total_qty])
+    transform!(
+        fin_results,
+        [:qty, :num_units] =>
+            ((qty, num_units) -> qty .* num_units) => :total_qty,
+    )
+    fin_results =
+        select(fin_results, [:y, :unit_type, :dispatch_result, :total_qty])
 
     # Add in FOM data for all unit types
-    fin_results = add_FOM(settings, fin_results, agent_portfolio_forecast, short_unit_specs)
+    fin_results = add_FOM(
+        settings,
+        fin_results,
+        agent_portfolio_forecast,
+        short_unit_specs,
+    )
 
     # Create the financial statement with unit types aggregated
     agent_fs = unstack(fin_results, :y, :dispatch_result, :total_qty)
@@ -1648,7 +1830,8 @@ function update_agent_financial_statement(
     agent_fs[!, :base_pd] .= current_pd
 
     # Add in scheduled financing factors: depreciation, interest payments, and capex
-    agent_fs = compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
+    agent_fs =
+        compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
 
     # Replace missing values with 0s
     for col in names(agent_fs)
@@ -1667,21 +1850,42 @@ function update_agent_financial_statement(
 end
 
 
-function add_FOM(settings, fin_results, agent_portfolio_forecast, short_unit_specs)
+function add_FOM(
+    settings,
+    fin_results,
+    agent_portfolio_forecast,
+    short_unit_specs,
+)
     # Fill in total FOM
     # Inner join the FOM table with the agent portfolios
-    FOM_df = innerjoin(agent_portfolio_forecast, short_unit_specs, on = :unit_type)
-    transform!(FOM_df, [:FOM, :num_units] => ((FOM, num_units) -> FOM .* num_units .* settings["constants"]["MW2kW"]) => :total_FOM)
+    FOM_df =
+        innerjoin(agent_portfolio_forecast, short_unit_specs, on = :unit_type)
+    transform!(
+        FOM_df,
+        [:FOM, :num_units] =>
+            (
+                (FOM, num_units) ->
+                    FOM .* num_units .* settings["constants"]["MW2kW"]
+            ) => :total_FOM,
+    )
 
     # Restructure the FOM dataframe to match the other results
-    FOM_df = combine(groupby(FOM_df, [:y, :unit_type]), [:num_units, :total_FOM] .=> sum; renamecols = false)
+    FOM_df = combine(
+        groupby(FOM_df, [:y, :unit_type]),
+        [:num_units, :total_FOM] .=> sum;
+        renamecols = false,
+    )
     rename!(FOM_df, :total_FOM => :total_qty)
     FOM_df[!, :dispatch_result] .= "FOM"
     FOM_df = select(FOM_df, [:y, :unit_type, :dispatch_result, :total_qty])
 
     # Combine the FOM dataframe into the other financial results from dispatch
     fin_results = vcat(fin_results, FOM_df)
-    fin_results = combine(groupby(fin_results, [:y, :dispatch_result]), :total_qty => sum; renamecols = false)
+    fin_results = combine(
+        groupby(fin_results, [:y, :dispatch_result]),
+        :total_qty => sum;
+        renamecols = false,
+    )
 
     return fin_results
 end
@@ -1749,7 +1953,8 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
     transform!(
         agent_fs,
         [:revenue, :VOM, :FOM, :fuel_cost, :policy_adj] =>
-            ((rev, VOM, FOM, FC, pol) -> (rev - VOM - FOM - FC + pol)) => :EBITDA,
+            ((rev, VOM, FOM, FC, pol) -> (rev - VOM - FOM - FC + pol)) =>
+                :EBITDA,
     )
 
     # EBIT
@@ -1796,9 +2001,16 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
 
     # Net FCF
     agent_id = agent_params[1, "agent_id"]
-    cost_of_equity = DBInterface.execute(db, "SELECT cost_of_equity FROM agent_params WHERE agent_id = $agent_id") |> DataFrame
+    cost_of_equity =
+        DBInterface.execute(
+            db,
+            "SELECT cost_of_equity FROM agent_params WHERE agent_id = $agent_id",
+        ) |> DataFrame
     cost_of_equity = cost_of_equity[1, :cost_of_equity]
-    transform!(agent_fs, :FCF => ((fcf) -> fcf .* (1 .- cost_of_equity)) => :net_FCF)
+    transform!(
+        agent_fs,
+        :FCF => ((fcf) -> fcf .* (1 .- cost_of_equity)) => :net_FCF,
+    )
 
     return agent_fs
 end

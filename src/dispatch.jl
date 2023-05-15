@@ -33,7 +33,8 @@ function execute_dispatch_economic_projection(
         settings["dispatch"]["num_repdays"],
     )
 
-    system_portfolios = fill_portfolios_missing_units(system_portfolios, unit_specs)
+    system_portfolios =
+        fill_portfolios_missing_units(system_portfolios, unit_specs)
 
     all_gc_results, all_price_results = handle_annual_dispatch(
         settings,
@@ -64,10 +65,10 @@ function get_system_portfolios(db, settings, start_year, unit_specs)
     @debug "Setting up dispatch portfolios..."
     system_portfolios = Dict()
 
-    end_year = (start_year
-                + convert(Int64, settings["dispatch"]["num_dispatch_years"])
-                - 1
-               )
+    end_year = (
+        start_year +
+        convert(Int64, settings["dispatch"]["num_dispatch_years"]) - 1
+    )
 
     for y = start_year:end_year
         # Retrieve annual system portfolios
@@ -97,7 +98,7 @@ function fill_portfolios_missing_units(system_portfolios, unit_specs)
     # Ensure that at least 1 unit of every type in unit_specs is represented in
     #   every year of the system portfolio, by adding 1 instance of missing
     #   unit types.
-    for y=minimum(keys(system_portfolios)):maximum(keys(system_portfolios))
+    for y = minimum(keys(system_portfolios)):maximum(keys(system_portfolios))
         for unit_type in unit_specs[!, :unit_type]
             if !in(unit_type, system_portfolios[y][!, :unit_type])
                 push!(system_portfolios[y], (unit_type, 1))
@@ -121,7 +122,7 @@ function handle_annual_dispatch(
     all_prices = set_up_prices_df()
 
     # Run the annual dispatch for the user-specified number of dispatch years
-    for y = current_pd:current_pd + settings["dispatch"]["num_dispatch_years"] - 1
+    for y = current_pd:current_pd+settings["dispatch"]["num_dispatch_years"]-1
         @debug "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Select the current year's expected portfolio
@@ -238,7 +239,7 @@ function set_up_load_repdays(ts_data)
     load_repdays = DataFrame()
     for day in ts_data[:repdays_data][!, :Day]
         load_repdays[!, Symbol(day)] =
-            ts_data[:load_data][(24 * day + 1):(24 * (day + 1)), :Load]
+            ts_data[:load_data][(24*day+1):(24*(day+1)), :Load]
     end
 
     ts_data[:load_repdays] = load_repdays
@@ -291,9 +292,9 @@ function set_up_wind_solar_repdays(ts_data)
 
     for day in ts_data[:repdays_data][!, :Day]
         wind_repdays[!, Symbol(day)] =
-            ts_data[:wind_data][(24 * day + 1):(24 * (day + 1)), :wind]
+            ts_data[:wind_data][(24*day+1):(24*(day+1)), :wind]
         solar_repdays[!, Symbol(day)] =
-            ts_data[:solar_data][(24 * day + 1):(24 * (day + 1)), :solar]
+            ts_data[:solar_data][(24*day+1):(24*(day+1)), :solar]
     end
 
     ts_data[:wind_repdays] = wind_repdays
@@ -425,13 +426,13 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
     # Ramping constraints
     for i = 1:num_units
         for k = 1:num_days
-            for j = 1:(num_hours - 1)
+            for j = 1:(num_hours-1)
                 # Ramp-up constraint
                 @constraint(
                     m,
                     (
-                        g[i, k, j + 1] - g[i, k, j] <=
-                        c[i, k, j + 1] .* portfolio_specs[i, :ramp_up_limit] *
+                        g[i, k, j+1] - g[i, k, j] <=
+                        c[i, k, j+1] .* portfolio_specs[i, :ramp_up_limit] *
                         portfolio_specs[i, :capacity] *
                         portfolio_specs[i, :capacity_factor]
                     )
@@ -440,9 +441,9 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
                 @constraint(
                     m,
                     (
-                        g[i, k, j + 1] - g[i, k, j] >=
+                        g[i, k, j+1] - g[i, k, j] >=
                         (-1) *
-                        c[i, k, j + 1] *
+                        c[i, k, j+1] *
                         portfolio_specs[i, :ramp_down_limit] *
                         portfolio_specs[i, :capacity] *
                         portfolio_specs[i, :capacity_factor]
@@ -556,7 +557,7 @@ function propagate_all_results(all_gc_results, all_prices, current_pd, end_year)
     final_year_prices =
         filter(:y => x -> x == final_dispatched_year, all_prices)
 
-    for y = (final_dispatched_year + 1):(current_pd + end_year - 1)
+    for y = (final_dispatched_year+1):(current_pd+end_year-1)
         # Copy the final_year_gc results forward, updating the year
         next_year_gc = deepcopy(final_year_gc)
         next_year_gc[!, :y] .= y
@@ -737,7 +738,12 @@ end
 
 function compute_per_unit_cash_flows(long_econ_results)
     # Calculate generation
-    transform!(long_econ_results, [:gen, :Probability, :num_units] => ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) => :annualized_gen_per_unit)
+    transform!(
+        long_econ_results,
+        [:gen, :Probability, :num_units] =>
+            ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) =>
+                :annualized_gen_per_unit,
+    )
 
     # Calculate revenues
     transform!(
@@ -792,18 +798,42 @@ end
 function summarize_dispatch_results(settings, unit_specs, long_econ_results)
     dispatch_results = deepcopy(long_econ_results)
 
-    dispatch_results = combine(groupby(dispatch_results, [:y, :unit_type]), [:annualized_gen_per_unit, :annualized_rev_per_unit, :annualized_VOM_per_unit, :annualized_FC_per_unit, :annualized_policy_adj_per_unit] .=> sum)
+    dispatch_results = combine(
+        groupby(dispatch_results, [:y, :unit_type]),
+        [
+            :annualized_gen_per_unit,
+            :annualized_rev_per_unit,
+            :annualized_VOM_per_unit,
+            :annualized_FC_per_unit,
+            :annualized_policy_adj_per_unit,
+        ] .=> sum,
+    )
 
-    rename!(dispatch_results, :annualized_gen_per_unit_sum => :generation, :annualized_rev_per_unit_sum => :revenue, :annualized_VOM_per_unit_sum => :VOM, :annualized_FC_per_unit_sum => :fuel_cost, :annualized_policy_adj_per_unit_sum => :policy_adj)
+    rename!(
+        dispatch_results,
+        :annualized_gen_per_unit_sum => :generation,
+        :annualized_rev_per_unit_sum => :revenue,
+        :annualized_VOM_per_unit_sum => :VOM,
+        :annualized_FC_per_unit_sum => :fuel_cost,
+        :annualized_policy_adj_per_unit_sum => :policy_adj,
+    )
 
     # Pivot in FOM data
     FOM_data = select(unit_specs, [:unit_type, :FOM, :capacity])
     dispatch_results = leftjoin(dispatch_results, FOM_data, on = :unit_type)
-    transform!(dispatch_results, [:FOM, :capacity] => ((FOM, cap) -> FOM .* cap .* settings["constants"]["MW2kW"]) => :FOM)
+    transform!(
+        dispatch_results,
+        [:FOM, :capacity] =>
+            ((FOM, cap) -> FOM .* cap .* settings["constants"]["MW2kW"]) =>
+                :FOM,
+    )
     select!(dispatch_results, Not(:capacity))
 
     # Put the data into a long format for easier filtering
-    dispatch_results = stack(dispatch_results, [:generation, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj])
+    dispatch_results = stack(
+        dispatch_results,
+        [:generation, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj],
+    )
     rename!(dispatch_results, :variable => :dispatch_result, :value => :qty)
 
     return dispatch_results
@@ -845,7 +875,8 @@ function postprocess_results(
     #   policy adjustment
     long_econ_results = compute_per_unit_cash_flows(long_econ_results)
 
-    dispatch_results = summarize_dispatch_results(settings, unit_specs, long_econ_results)
+    dispatch_results =
+        summarize_dispatch_results(settings, unit_specs, long_econ_results)
 
     return dispatch_results
 

@@ -98,12 +98,8 @@ function run_agent_choice()
     agent_params, unit_specs = get_raw_db_data(db, CLI_args)
 
     # Ensure all C2N projects have a valid construction duration
-    unit_specs = ABCEfunctions.validate_project_data(
-        db,
-        settings,
-        unit_specs,
-        C2N_specs
-    )
+    unit_specs =
+        ABCEfunctions.validate_project_data(db, settings, unit_specs, C2N_specs)
 
     # Retrieve a list of the agent's currently-operating assets, grouped by
     #   type and mandatory retirement date
