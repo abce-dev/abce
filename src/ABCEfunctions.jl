@@ -876,7 +876,7 @@ function forecast_subproject_operations(settings, subproject, unit_type_data, di
     # Set up timeline start/end and value sign based on project type
     if subproject["project_type"] == "new_xtr"
         # Record marginal additional generation
-        series_start = get_capex_end(fs_copy)
+        series_start = get_capex_end(fs_copy) + 1
         series_end = convert(Int64, round(min(size(fs_copy)[1], series_start + unit_type_data[:unit_life]), digits=3))
         sign = 1
     elseif subproject["project_type"] == "retirement"
