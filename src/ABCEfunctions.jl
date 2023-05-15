@@ -480,6 +480,7 @@ function set_up_project_alternatives(
         # Create an aggregated financial statement for this project alternative
         #   based on its subprojects
         PA_fs_dict[PA.uid] = create_PA_aggregated_fs(PA_subprojects[PA.uid])
+        #CSV.write(joinpath("tmp", string(PA["unit_type"], "_", PA["project_type"], "_", PA["lag"], ".csv")), PA_fs_dict[PA.uid])
 
         # Compute the project alternative's overall NPV based on its
         #   subprojects' financial statements
@@ -864,7 +865,7 @@ end
 function forecast_subproject_operations(settings, subproject, unit_type_data, dispatch_results, ALEAF_dispatch_results, fs_copy)
     mode = subproject["project_type"]
     hist_wt = settings["dispatch"]["hist_wt"]
-    data_to_get = ["generation", "revenue", "VOM", "fuel_cost", "FOM"]
+    data_to_get = ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
 
     # Get historical ALEAF results for this unit type
     ALEAF_dispatch_results = filter(:unit_type => unit_type -> unit_type == subproject["unit_type"], ALEAF_dispatch_results)
