@@ -132,7 +132,7 @@
 205:
     debt_fraction: 0.5
     cost_of_debt: 0.04
-    cost_of_equity: 0.07
+    cost_of_equity: 0.1
     starting_debt: 500000000
     starting_PPE:  200000000
     starting_portfolio:
