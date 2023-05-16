@@ -331,7 +331,7 @@ def process_system_summary(ss_file_list, output_dir, scenario_name):
             ss_df = df
         # Append each file's data to the main df
         else:
-            ss_df = ss_df.append(df)
+            ss_df = pd.concat([ss_df, df])
 
     return ss_df
 

@@ -25,8 +25,6 @@ from pathlib import Path
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 
-# import nrelpy.atb as ATB
-
 # import local modules
 from .agent import GenCo
 from . import ABCEfunctions as ABCE
@@ -34,9 +32,6 @@ from . import seed_creator as sc
 from . import dispatch_ppx as dsp
 from . import input_data_management as idm
 
-import warnings
-
-warnings.filterwarnings("ignore")
 
 
 class GridModel(Model):
@@ -286,7 +281,7 @@ class GridModel(Model):
 
                     # Convert the dictionary to a dataframe format and save
                     new_record = pd.DataFrame(asset_dict, index=[0])
-                    master_assets_df = master_assets_df.append(new_record)
+                    master_assets_df = pd.concat([master_assets_df, new_record])
 
         # Once all assets from all unit types for this agent have had records
         #   initialized, save the dataframe of all assets into the 'assets'
