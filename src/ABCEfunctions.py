@@ -48,7 +48,7 @@ def get_next_asset_id(db, suggested_next_id):
     return next_id
 
 
-def execute_scenario_reduction(db, current_pd, settings, unit_specs):
+def execute_scenario_reduction(args, db, current_pd, settings, unit_specs):
     # Get the number of wind and solar units to allow computation of net
     #   demand
     current_portfolio = pd.read_sql_query(
@@ -72,19 +72,20 @@ def execute_scenario_reduction(db, current_pd, settings, unit_specs):
     ).iloc[0, 0]
 
     # Set up directory locations
-    init_data_dir = os.path.join(
-        settings["file_paths"]["ABCE_abs_path"], "inputs", "ALEAF_inputs"
+    ts_data_dir = os.path.join(
+        args.inputs_path,
+        "ts_data"
     )
 
     temp_data_dir = os.path.join(
-        settings["file_paths"]["ABCE_abs_path"],
-        "inputs",
-        "ALEAF_inputs",
+        args.inputs_path,
+        "ts_data",
         "scenario_reduction_tmp",
     )
 
     output_dir = os.path.join(
-        settings["file_paths"]["ABCE_abs_path"], "inputs", "ALEAF_inputs"
+        args.inputs_path,
+        "ts_data",
     )
 
     plot_output_dir = os.path.join(output_dir, "sr_plots")
@@ -93,7 +94,7 @@ def execute_scenario_reduction(db, current_pd, settings, unit_specs):
         time_resolution="hourly",
         num_scenarios_list=[settings["dispatch"]["num_repdays"]],
         generate_input_data_flag=True,
-        data_location_timeseries=init_data_dir,
+        data_location_timeseries=ts_data_dir,
         data_input_path=temp_data_dir,
         data_output_path=output_dir,
         plot_output_path=plot_output_dir,

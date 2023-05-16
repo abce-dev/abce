@@ -613,12 +613,10 @@ def compute_unit_specs_cols(unit_specs, settings):
     return unit_specs
 
 
-def initialize_unit_specs(settings):
+def initialize_unit_specs(settings, args):
     unit_specs = load_data(
-        Path(
-            Path(__file__).parent.parent,
-            settings["file_paths"]["unit_specs_data_file"],
-        )
+        Path(args.inputs_path)
+        / settings["file_paths"]["unit_specs_data_file"]
     )
 
     unit_specs = compute_unit_specs_cols(unit_specs, settings)

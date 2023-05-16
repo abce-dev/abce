@@ -10,9 +10,9 @@ end
 
 
 function execute_dispatch_economic_projection(
+    CLI_args,
     db,
     settings,
-    current_pd,
     fc_pd,
     total_demand,
     unit_specs,
@@ -27,9 +27,8 @@ function execute_dispatch_economic_projection(
     # Set up all timeseries data
     ts_data = load_ts_data(
         joinpath(
-            settings["file_paths"]["ABCE_abs_path"],
-            "inputs",
-            "ALEAF_inputs",
+            CLI_args["inputs_path"],
+            "ts_data",
         ),
         settings["dispatch"]["num_repdays"],
     )
@@ -38,7 +37,7 @@ function execute_dispatch_economic_projection(
 
     all_gc_results, all_price_results = handle_annual_dispatch(
         settings,
-        current_pd,
+        CLI_args["current_pd"],
         system_portfolios,
         total_demand,
         ts_data,
@@ -51,7 +50,7 @@ function execute_dispatch_economic_projection(
         ts_data[:repdays_data],
         system_portfolios,
         unit_specs,
-        current_pd,
+        CLI_args["current_pd"],
         fc_pd,
     )
 

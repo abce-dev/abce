@@ -86,6 +86,12 @@ def cli_args():
         default=Path(Path.cwd() / "settings.yml"),
     )
     parser.add_argument(
+        "--inputs_path",
+        type=str,
+        help="Relative path to the input files (aside from settings.yml).",
+        default=Path(Path.cwd() / "inputs")
+    )
+    parser.add_argument(
         "--verbosity",
         choices=[0, 1, 2, 3],
         type=int,

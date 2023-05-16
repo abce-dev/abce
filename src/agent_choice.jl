@@ -41,8 +41,7 @@ function set_up_run(CLI_args)
         settings["file_paths"]["db_file"],
     )
     C2N_specs_file = joinpath(
-        settings["file_paths"]["ABCE_abs_path"],
-        "inputs",
+        CLI_args["inputs_path"],
         "C2N_project_definitions.yml",
     )
 
@@ -152,9 +151,9 @@ function run_agent_choice()
     # Use the agent's internal dispatch forecast generator to project dispatch
     #   results in the system over the forecast horizon
     long_econ_results = Dispatch.execute_dispatch_economic_projection(
+        CLI_args,
         db,
         settings,
-        CLI_args["current_pd"],
         fc_pd,
         total_demand,
         unit_specs,
