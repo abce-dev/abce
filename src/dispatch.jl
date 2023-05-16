@@ -122,7 +122,8 @@ function handle_annual_dispatch(
     all_prices = set_up_prices_df()
 
     # Run the annual dispatch for the user-specified number of dispatch years
-    for y = current_pd:current_pd+settings["dispatch"]["num_dispatch_years"]-1
+    for y =
+        current_pd:(current_pd + settings["dispatch"]["num_dispatch_years"] - 1)
         @debug "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Select the current year's expected portfolio
@@ -239,7 +240,7 @@ function set_up_load_repdays(ts_data)
     load_repdays = DataFrame()
     for day in ts_data[:repdays_data][!, :Day]
         load_repdays[!, Symbol(day)] =
-            ts_data[:load_data][(24*day+1):(24*(day+1)), :Load]
+            ts_data[:load_data][(24 * day + 1):(24 * (day + 1)), :Load]
     end
 
     ts_data[:load_repdays] = load_repdays
@@ -292,9 +293,9 @@ function set_up_wind_solar_repdays(ts_data)
 
     for day in ts_data[:repdays_data][!, :Day]
         wind_repdays[!, Symbol(day)] =
-            ts_data[:wind_data][(24*day+1):(24*(day+1)), :wind]
+            ts_data[:wind_data][(24 * day + 1):(24 * (day + 1)), :wind]
         solar_repdays[!, Symbol(day)] =
-            ts_data[:solar_data][(24*day+1):(24*(day+1)), :solar]
+            ts_data[:solar_data][(24 * day + 1):(24 * (day + 1)), :solar]
     end
 
     ts_data[:wind_repdays] = wind_repdays
@@ -426,13 +427,13 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
     # Ramping constraints
     for i = 1:num_units
         for k = 1:num_days
-            for j = 1:(num_hours-1)
+            for j = 1:(num_hours - 1)
                 # Ramp-up constraint
                 @constraint(
                     m,
                     (
-                        g[i, k, j+1] - g[i, k, j] <=
-                        c[i, k, j+1] .* portfolio_specs[i, :ramp_up_limit] *
+                        g[i, k, j + 1] - g[i, k, j] <=
+                        c[i, k, j + 1] .* portfolio_specs[i, :ramp_up_limit] *
                         portfolio_specs[i, :capacity] *
                         portfolio_specs[i, :capacity_factor]
                     )
@@ -441,9 +442,9 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
                 @constraint(
                     m,
                     (
-                        g[i, k, j+1] - g[i, k, j] >=
+                        g[i, k, j + 1] - g[i, k, j] >=
                         (-1) *
-                        c[i, k, j+1] *
+                        c[i, k, j + 1] *
                         portfolio_specs[i, :ramp_down_limit] *
                         portfolio_specs[i, :capacity] *
                         portfolio_specs[i, :capacity_factor]
@@ -557,7 +558,7 @@ function propagate_all_results(all_gc_results, all_prices, current_pd, end_year)
     final_year_prices =
         filter(:y => x -> x == final_dispatched_year, all_prices)
 
-    for y = (final_dispatched_year+1):(current_pd+end_year-1)
+    for y = (final_dispatched_year + 1):(current_pd + end_year - 1)
         # Copy the final_year_gc results forward, updating the year
         next_year_gc = deepcopy(final_year_gc)
         next_year_gc[!, :y] .= y
@@ -689,7 +690,7 @@ function combine_and_extend_year_portfolios(system_portfolios, forecast_end_pd)
 
     # Extend dispatch results by assuming no change after last dispatch year
     last_dispatch_year = maximum([key for key in keys(system_portfolios)])
-    for i = last_dispatch_year+1:forecast_end_pd
+    for i = (last_dispatch_year + 1):forecast_end_pd
         df = system_portfolios[last_dispatch_year]
         df[!, :y] .= i
         append!(all_year_portfolios, df)

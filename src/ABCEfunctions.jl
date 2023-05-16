@@ -135,7 +135,7 @@ function validate_project_data(db, settings, unit_specs, C2N_specs)
             )
 
             unit_specs[
-                (unit_specs.unit_type.==unit_type),
+                (unit_specs.unit_type .== unit_type),
                 :construction_duration,
             ] .= size(capex_tl)[1]
         end
@@ -249,7 +249,8 @@ function project_demand_flat(visible_demand, fc_pd)
     known_pd = size(visible_demand)[1]
     demand = DataFrame(demand = zeros(Float64, convert(Int64, fc_pd)))
     demand[1:known_pd, :total_demand] .= visible_demand[!, :total_demand]
-    demand[(known_pd+1):fc_pd, :total_demand] .= demand[known_pd, :total_demand]
+    demand[(known_pd + 1):fc_pd, :total_demand] .=
+        demand[known_pd, :total_demand]
     return demand
 end
 
@@ -258,7 +259,7 @@ function project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
     total_demand = deepcopy(visible_demand)
     prev_pd = visible_demand[size(visible_demand)[1], :period]
     prev_real_demand = last(visible_demand[!, :real_demand])
-    for i = (prev_pd+1):fc_pd
+    for i = (prev_pd + 1):fc_pd
         next_real_demand =
             (prev_real_demand * (1 + term_demand_gr)^(i - prev_pd - 1))
         push!(total_demand, [i, next_real_demand])
@@ -286,7 +287,7 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
 
     # Create suitable arrays for x (including intercept) and y
     num_obs = size(visible_demand)[1] + size(demand_history)[1]
-    x = hcat(ones(num_obs), [i for i = 0:(num_obs-1)])
+    x = hcat(ones(num_obs), [i for i = 0:(num_obs - 1)])
     if size(demand_history)[1] == 0
         y = visible_demand[:, :demand]
     else
@@ -319,9 +320,9 @@ function project_demand_exp_fitted(visible_demand, db, pd, fc_pd, settings)
         ones(proj_horiz),
         [
             i for i =
-                size(visible_demand)[1]+size(demand_history)[1]+1:fc_pd+size(
+                (size(visible_demand)[1] + size(demand_history)[1] + 1):(fc_pd + size(
                     demand_history,
-                )[1]
+                )[1])
         ],
     )
     y_log_proj = x_proj[:, 1] .* beta[1] + x_proj[:, 2] .* beta[2]
@@ -846,7 +847,7 @@ function get_capex_end(fs_copy)
     # Find the end of the capex accumulation period
     capex_end = nothing
     for i = 1:size(fs_copy)[1]
-        if (fs_copy[i, "capex"]) != 0 && (fs_copy[i+1, "capex"] == 0)
+        if (fs_copy[i, "capex"]) != 0 && (fs_copy[i + 1, "capex"] == 0)
             capex_end = i
         end
     end
@@ -911,16 +912,16 @@ function forecast_debt_schedule(
     )
 
     # Seed post-construction financing series
-    fs_copy[capex_end+1, :remaining_debt_principal] =
+    fs_copy[capex_end + 1, :remaining_debt_principal] =
         fs_copy[capex_end, :remaining_debt_principal]
 
-    for i = capex_end+1:fin_end
+    for i = (capex_end + 1):fin_end
         fs_copy[i, :debt_payment] = pmt
         fs_copy[i, :interest_payment] =
             fs_copy[i, :remaining_debt_principal] *
             agent_params[1, :cost_of_debt]
         if i != fin_end
-            fs_copy[i+1, :remaining_debt_principal] =
+            fs_copy[i + 1, :remaining_debt_principal] =
                 fs_copy[i, :remaining_debt_principal] -
                 fs_copy[i, :interest_payment]
         end
@@ -939,7 +940,7 @@ function forecast_depreciation(settings, fs_copy)
         capex_end + settings["financing"]["depreciation_horizon"],
     )
 
-    for i = capex_end+1:dep_end
+    for i = (capex_end + 1):dep_end
         fs_copy[i, :depreciation] =
             total_capex / settings["financing"]["depreciation_horizon"]
     end
@@ -1412,7 +1413,7 @@ function set_up_model(
         # Mark all of the direct coal retirements in the matrix
         if (PA_summaries[i, :project_type] == "retirement") &&
            (PA_summaries[i, :unit_type] == "coal")
-            coal_retirements[i, PA_summaries[i, :lag]+1] = 1
+            coal_retirements[i, PA_summaries[i, :lag] + 1] = 1
         end
 
         # Mark all of the C2N-forced coal retirements in the matrix
@@ -1757,7 +1758,7 @@ end
 function get_agent_portfolio_forecast(agent_id, db, current_pd, fc_pd)
     agent_portfolios = DataFrame()
     # Retrieve the agent's projected portfolios
-    for y = current_pd:(current_pd+fc_pd)
+    for y = current_pd:(current_pd + fc_pd)
         agent_portfolio =
             DBInterface.execute(
                 db,

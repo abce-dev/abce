@@ -127,7 +127,7 @@ function project_capex_profile(
     # Set up the timeline of expenditures
     max_horizon = fc_pd
     capex_tl = DataFrame(
-        year = base_pd:(base_pd+fc_pd-1),
+        year = base_pd:(base_pd + fc_pd - 1),
         cpp_dnd = zeros(fc_pd),
         cpp_nrc = zeros(fc_pd),
         cpp_wr = zeros(fc_pd),
@@ -533,7 +533,7 @@ function convert_to_annual_capex_schedule(capex_activity_schedule)
                 min(i + 1, subset[j, :state_end]) -
                 max(i, subset[j, :state_start])
             )
-            capex_tl[i-start_pd+1, :total_capex] +=
+            capex_tl[i - start_pd + 1, :total_capex] +=
                 (duration_in_i * subset[j, :unscaled_capex])
         end
     end
