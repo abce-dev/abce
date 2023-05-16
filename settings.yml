@@ -112,5 +112,5 @@ ALEAF:
   ALEAF_region: "ERCOT"
   ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
   ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
-  ALEAF_data_file: "inputs/ALEAF_settings.yml"
+  ALEAF_data_file: "ALEAF_settings.yml"
 
