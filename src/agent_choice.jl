@@ -98,12 +98,8 @@ function run_agent_choice()
     agent_params, unit_specs = get_raw_db_data(db, CLI_args)
 
     # Ensure all C2N projects have a valid construction duration
-    unit_specs = ABCEfunctions.validate_project_data(
-        db,
-        settings,
-        unit_specs,
-        C2N_specs
-    )
+    unit_specs =
+        ABCEfunctions.validate_project_data(db, settings, unit_specs, C2N_specs)
 
     # Retrieve a list of the agent's currently-operating assets, grouped by
     #   type and mandatory retirement date
@@ -150,7 +146,7 @@ function run_agent_choice()
 
     # Use the agent's internal dispatch forecast generator to project dispatch
     #   results in the system over the forecast horizon
-    long_econ_results = Dispatch.execute_dispatch_economic_projection(
+    dispatch_results = Dispatch.execute_dispatch_economic_projection(
         CLI_args,
         db,
         settings,
@@ -170,8 +166,8 @@ function run_agent_choice()
         agent_params,
         db,
         CLI_args["current_pd"],
-        long_econ_results,
         C2N_specs,
+        dispatch_results,
     )
 
     # Update the agent's baseline projected financial statements, to use in
@@ -183,7 +179,8 @@ function run_agent_choice()
         unit_specs,
         CLI_args["current_pd"],
         fc_pd,
-        long_econ_results,
+        dispatch_results,
+        agent_params,
     )
 
     # Set up the agent's decision optimization model

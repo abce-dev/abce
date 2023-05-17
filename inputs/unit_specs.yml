@@ -10,7 +10,7 @@ wind:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 0.0    # MWh/MMBTU
+  heat_rate: 0.0    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.0
@@ -44,7 +44,7 @@ solar:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 0.0    # MWh/MMBTU
+  heat_rate: 0.0    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.0
@@ -79,7 +79,7 @@ coal:
   no_load_cost: 0.0
   start_up_cost: 131  # $/MW, cold start
   shut_down_cost: 10.15  # $/MW, non-fuel startup costs
-  heat_rate: 10.583    # MWh/MMBTU
+  heat_rate: 10.583    # MMBTU/MWh
   ramp_up_limit: 0.3    # % PL/hr
   ramp_down_limit: 0.3  # % PL/hr
   max_regulation: 0.1
@@ -114,7 +114,7 @@ ngcc:
   no_load_cost: 0.0
   start_up_cost: 1.53  # $/MW
   shut_down_cost: 0.0  # $/MW, non-fuel start-up costs
-  heat_rate: 6.401    # MWh/MMBTU
+  heat_rate: 6.401    # MMBTU/MWh
   ramp_up_limit: 0.6    # % PL/hr
   ramp_down_limit: 0.6  # % PL/hr
   max_regulation: 0.25
@@ -149,7 +149,7 @@ ngct:
   no_load_cost: 0.0
   start_up_cost: 3.04   # $/MW
   shut_down_cost: 0.95  # $/MW, non-fuel start-up costs
-  heat_rate: 9.515    # MWh/MMBTU
+  heat_rate: 9.515    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.42
@@ -184,7 +184,7 @@ conventional_nuclear:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 10.608    # MWh/MMBTU
+  heat_rate: 10.608    # MMBTU/MWh
   ramp_up_limit: 0.0    # % PL/hr
   ramp_down_limit: 0.0  # % PL/hr
   max_regulation: 0.0
@@ -219,7 +219,7 @@ advanced_nuclear:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 10.608    # MWh/MMBTU
+  heat_rate: 10.608    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.0
@@ -254,7 +254,7 @@ PWR_C2N0_single:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 10.608    # MWh/MMBTU
+  heat_rate: 10.608    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.0
@@ -290,7 +290,7 @@ PWR_C2N1_single:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 10.608    # MWh/MMBTU
+  heat_rate: 10.608    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.0
@@ -326,7 +326,7 @@ HTGR_C2N0_single:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 10.608    # MWh/MMBTU
+  heat_rate: 10.608    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.0
@@ -362,7 +362,7 @@ HTGR_C2N2_single:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 10.608    # MWh/MMBTU
+  heat_rate: 10.608    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.0
@@ -398,7 +398,7 @@ SFR_C2N0_single:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 10.608    # MWh/MMBTU
+  heat_rate: 10.608    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.0
@@ -434,7 +434,7 @@ SFR_C2N3_single:
   no_load_cost: 0.0
   start_up_cost: 0.0
   shut_down_cost: 0.0
-  heat_rate: 10.608    # MWh/MMBTU
+  heat_rate: 10.608    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
   max_regulation: 0.0

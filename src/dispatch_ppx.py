@@ -126,7 +126,9 @@ def compute_per_unit_results(agg_dsp_pivot):
             agg_dsp_pivot[f"{service}_rev"] / agg_dsp_pivot["num_units"]
         )
 
-    dsp_pivot_PU["total_rev"] = (
+    dsp_pivot_PU["generation"] = dsp_pivot_PU["gen_total"]
+
+    dsp_pivot_PU["revenue"] = (
         dsp_pivot_PU["gen_rev"]
         + dsp_pivot_PU["reg_rev"]
         + dsp_pivot_PU["spin_rev"]
@@ -134,27 +136,13 @@ def compute_per_unit_results(agg_dsp_pivot):
     )
 
     # Get per-unit costs and policy incentive/penalty impacts
-    dsp_pivot_PU["var_costs"] = (
-        dsp_pivot_PU["VOM"] + dsp_pivot_PU["FC_per_MWh"]
-    ) * dsp_pivot_PU["gen_total"]
-    dsp_pivot_PU["fixed_costs"] = (
-        dsp_pivot_PU["FOM"] * dsp_pivot_PU["capacity"] * 1000
+    dsp_pivot_PU["var_costs"] = dsp_pivot_PU["VOM"] * dsp_pivot_PU["generation"]
+    dsp_pivot_PU["fuel_cost"] = (
+        dsp_pivot_PU["FC_per_MWh"] * dsp_pivot_PU["generation"]
     )
-    dsp_pivot_PU["total_policy_adj"] = (
-        dsp_pivot_PU["policy_adj_per_MWh"] * dsp_pivot_PU["gen_total"]
-    )
-
-    # Get total per-unit costs
-    dsp_pivot_PU["total_costs"] = (
-        dsp_pivot_PU["var_costs"] + dsp_pivot_PU["fixed_costs"]
-    )
-    dsp_pivot_PU["total_rev_w_policy"] = (
-        dsp_pivot_PU["total_rev"] + dsp_pivot_PU["total_policy_adj"]
-    )
-
-    # Get total operating profit
-    dsp_pivot_PU["op_profit"] = (
-        dsp_pivot_PU["total_rev"] - dsp_pivot_PU["total_costs"]
+    dsp_pivot_PU["FOM"] = dsp_pivot_PU["FOM"] * dsp_pivot_PU["capacity"] * 1000
+    dsp_pivot_PU["policy_adj"] = (
+        dsp_pivot_PU["policy_adj_per_MWh"] * dsp_pivot_PU["generation"]
     )
 
     return dsp_pivot_PU
@@ -163,7 +151,7 @@ def compute_per_unit_results(agg_dsp_pivot):
 def downselect_dispatch_econ_results(dsp_pivot_PU):
     final_dsp_results = dsp_pivot_PU[
         [
-            "gen_total",
+            "generation",
             "reg_total",
             "spin_total",
             "nspin_total",
@@ -171,12 +159,11 @@ def downselect_dispatch_econ_results(dsp_pivot_PU):
             "reg_rev",
             "spin_rev",
             "nspin_rev",
-            "total_rev",
-            "var_costs",
-            "fixed_costs",
-            "total_costs",
-            "total_policy_adj",
-            "op_profit",
+            "revenue",
+            "VOM",
+            "fuel_cost",
+            "FOM",
+            "policy_adj",
         ]
     ].copy(deep=True)
 
