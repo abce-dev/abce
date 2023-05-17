@@ -46,35 +46,21 @@ class GridModel(Model):
         if self.args.verbosity >= 2:
             self.show_abce_header()
 
-        # Check ./outputs/ dir and clear out old files
+        # Check the outputs dir and clear out old files
         self.prepare_outputs_directory()
 
-        # Initialize database for storing and managing all simulation data
-        self.db_file = (
-            Path.cwd()
-            / "outputs"
-            / settings["simulation"]["scenario_name"]
-            / settings["file_paths"]["db_file"]
-        )
-        self.db, self.cur = sc.create_database(self.db_file, self.args.force)
+        # Initialize the database in the outputs directory
+        self.initialize_database()
 
         # Initialize all data
         self.load_all_data()
 
-        # Create the local tmp/ directory inside the current working directory,
-        #   if it doesn't already exist
-        tmp_dir_location = Path.cwd() / "tmp"
-        Path(tmp_dir_location).mkdir(exist_ok=True)
+        # Ensure a tmp directory exists inside the current working directory
+        self.ensure_tmp_dir_exists()
 
         # If running A-LEAF, set up any necessary file paths
         if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
             self.set_ALEAF_file_paths()
-
-        # Initialize the model one time step before the true start date
-        self.current_pd = self.settings["constants"]["time_before_start"]
-
-        # Define a dictionary to hold all agents for easier indexing
-        self.agents = {}
 
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
@@ -98,7 +84,7 @@ class GridModel(Model):
 
     def load_all_data(self):
         # Retrieve the input data
-        self.unit_specs = idm.initialize_unit_specs(self.settings)
+        self.unit_specs = idm.initialize_unit_specs(self.settings, self.args)
 
         # Save unit_specs to the database
         self.add_unit_specs_to_db()
@@ -112,10 +98,17 @@ class GridModel(Model):
         # Read agent specification data
         self.load_agent_specifications()
 
+        # Initialize the model one time step before the true start date
+        self.current_pd = self.settings["constants"]["time_before_start"]
+
+        # Define a dictionary to hold all agents for easier indexing
+        self.agents = {}
+
+
     def load_agent_specifications(self):
         # Read in the GenCo parameters data from file
         agent_specs_file_name = Path(
-            self.settings["file_paths"]["ABCE_abs_path"]
+            Path(self.args.inputs_path)
             / self.settings["file_paths"]["agent_specifications_file"]
         )
         self.agent_specs = yaml.load(
@@ -140,6 +133,23 @@ class GridModel(Model):
                     f"Deleting file {existing_file} from the output directory"
                 )
                 (Path(self.ABCE_output_data_path) / existing_file).unlink()
+
+
+    def initialize_database(self):
+        # Initialize database for storing and managing all simulation data
+        self.db_file = (
+            self.ABCE_output_data_path
+            / self.settings["file_paths"]["db_file"]
+        )
+        self.db, self.cur = sc.create_database(self.db_file, self.args.force)
+
+
+    def ensure_tmp_dir_exists(self):
+        # Create the local tmp/ directory inside the current working directory,
+        #   if it doesn't already exist
+        tmp_dir_location = Path.cwd() / "tmp"
+        Path(tmp_dir_location).mkdir(exist_ok=True)
+
 
     def show_abce_header(self):
         logo_file = Path(
@@ -307,7 +317,7 @@ class GridModel(Model):
     def load_demand_data_to_db(self):
         # Load all-period demand data into the database
         demand_data_file = (
-            Path(self.settings["file_paths"]["ABCE_abs_path"])
+            Path(self.args.inputs_path)
             / self.settings["file_paths"]["demand_data_file"]
         )
         demand_df = (
@@ -357,7 +367,7 @@ class GridModel(Model):
 
         # Compute the scenario reduction results for this year
         ABCE.execute_scenario_reduction(
-            self.db, self.current_pd, self.settings, self.unit_specs
+            self.args, self.db, self.current_pd, self.settings, self.unit_specs
         )
 
         # Close the database to avoid access problems in the Julia scope
@@ -391,7 +401,8 @@ class GridModel(Model):
         if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
             # Re-load the baseline A-LEAF data
             ALEAF_data = idm.load_data(
-                Path(self.settings["ALEAF"]["ALEAF_data_file"])
+                Path(self.args.inputs_path)
+                / self.settings["ALEAF"]["ALEAF_data_file"]
             )
 
             # Generate all three A-LEAF input files and save them to the
@@ -460,7 +471,7 @@ class GridModel(Model):
                 f"No sysimage file found at {ABCE_sysimage_path}. "
                 + "Execution will proceed, but Julia may run extremely "
                 + "slowly. If you already have a sysimage file, please move "
-                + f"it to the filename {sysimage_path}. If you do not have a "
+                + f"it to the filename {ABCE_sysimage_path}. If you do not have a "
                 + "sysimage file, please run 'julia make_sysimage.jl "
                 + "--mode=abce' in this directory."
             )

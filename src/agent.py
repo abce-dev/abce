@@ -152,6 +152,7 @@ class GenCo(Agent):
             + f"--agent_id={self.unique_id} "
             + f"--verbosity={self.model.args.verbosity} "
             + f"--settings_file={self.model.args.settings_file} "
+            + f"--inputs_path={self.model.args.inputs_path} "
             + f"--abce_abs_path={self.model.settings['file_paths']['ABCE_abs_path']}"
         )
 

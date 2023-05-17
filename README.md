@@ -164,7 +164,9 @@ run from the top level of the local `abce` directory. This command can accept se
 
     * 3: maximally verbose, showing results of many calculations and all DEBUG-level messages
 
-  * `--settings_file=<user_file>`: specify the desired settings file with relative path `<user_file>`. Default: `./settings.yml`
+  * `--settings_file=<user_file>`: specify the desired settings file with relative or absolute path `<user_file>`. Default: `./settings.yml`
+
+  * `--inputs_path=<user_inputs_dir>`: specify the location of input files, with either a relative or absolute path. Relative path will be relative to the directory from which ABCE is run, not necessarily the directory where the ABCE source code is saved. Default: `./inputs/`
 
   * `-d`: "demo" mode, pauses execution at the end of each time step to allow the user to review printed outputs
 
@@ -178,27 +180,15 @@ The input files required to run ABCE are as follows:
 
  * `inputs/`:
 
+   * `agent_specifications.yml`: definitions for the agents: financial parameters, starting portfolios by unit type, and mandatory retirement dates for owned units
+
    * `C2N_project_definitions.yml`: contains project activity cost and schedule information for coal-to-nuclear projects
 
    * `demand_data.csv`: normalized peak demand levels per simulated year (used to scale the `peak_demand` parameter)
 
-   * `gc_params.yml`: financial parameters which define the agents (GenCos)
+   * `unit_specs.yml`: construction and operations cost and parameter data for all possible unit types in the model
 
-   * `portfolio_retirement_specification.csv`: user-defined mandatory retirement dates for generation units. Any unit without an entry in this file is never forced to retire (though they can be voluntarily retired).
-
-   * `<region>_portfolios.csv`: ownership breakdown by generator type and by agent. Totals MUST match totals in `ALEAF_<region>.xlsx`
-
-   * `unit_specs_abce_supplemental.csv`: some unit specification data not accounted for in the A-LEAF input format, like unit life
-
-   * `inputs/ALEAF_inputs/`:
-
-     * `ALEAF_Master.xlsx`: contains basic solver settings for A-LEAF. Should never need to be updated by the average user.
-
-     * `ALEAF_Master_LC_GEP.xlsx`: The most important tab is the `Gen Technology` tab, which contains the base operational and cost specifications for all generation units. Users should make certain to update this tab according to their desired parameters. The other tabs can either be left as-is, or are better updated by setting values in `settings.yml`.
-
-     * `ALEAF_<region>.xlsx`: The only important tab is the `gen` tab. Users should update this to reflect the desired total portfolio composition, as set previously in `<region>_portfolios.csv`.
-
-     * `ATBe.csv`: The database for the NREL Annual Technology Baseline 2020. Should never be updated.
+   * `inputs/ts_data/`:
 
      * `timeseries_<quantity>_hourly.csv`: hourly timeseries data for each of the following quantities in the system:
 
@@ -222,64 +212,11 @@ The[ Workflow and Template Toolkit for Simulations (`watts`)](https://github.com
 
 ## Testing
 
-### Python Unit Tests
+### Julia Unit Tests
 
-Python tests may be run with `pytest` in the top-level directory.
+Julia tests may be run with the following command from within the `test/` directory:
 
-### Integration Tests
-
-These tests run a complete scenario to verify a working installation.
-
-#### HiGHS Solver
-The HiGHS solver is an open-source solver competitive with commercial solvers and much faster than common open-source solvers such as `GLPK` and `Cbc`. To run the `HiGHS` test case:
-
-```bash
-$ python run.py -f --settings-file=./test/highs_settings.yml
-```
-This command should produce the following output.
-```bash
->>>(base) C:\Users\samgd\Research\argonne\abce>python run.py -f
-Using ATB Year 2020
-Existing file at C:\Users\samgd\Research\argonne\abce\solver_test.db deleted.       
-Creating a new database file at C:\Users\samgd\Research\argonne\abce\solver_test.db.
-Database created in file 'C:\Users\samgd\Research\argonne\abce\solver_test.db'.
-using specified value: 3
-using specified value: 140
-WARNING:root:No match (or multiple matches) found for unit type Wind; setting unit_specs value for Fuel to 0.
-WARNING:root:No match (or multiple matches) found for unit type Solar; setting unit_specs value for Fuel to 0.
-WARNING:root:No sysimage file found at C:\Users\samgd\Research\argonne\abce\dispatch.so. Execution will proceed, but the dispatch
-sub-module may run extremely slowly. If you already have a dispatch sysimage file, please move it to the filename 
-{dispatch_sysimage_path}. If you do not have a dispatch sysimage file, please run 'julia make_sysimage.jl --mode=dispatch' in this 
-directory.
-Start ALEAF scenario reduction algorithm!
-==== DONE ! ================================
-Agent #202 is taking its turn...
-[ Info: Solver is `highs`
-Agent #202's turn is complete.
-
-Agent #201 is taking its turn...
-[ Info: Solver is `highs`
-Agent #201's turn is complete.
-
-
-All agent turns are complete.
-
-Table of all assets:
-Start ALEAF scenario reduction algorithm!
-==== DONE ! ================================
-Agent #201 is taking its turn...
-[ Info: Solver is `highs`
-Agent #201's turn is complete.
-
-Agent #202 is taking its turn...
-[ Info: Solver is `highs`
-Agent #202's turn is complete.
-
-
-All agent turns are complete.
-
-Table of all assets:
-```
+`bash run_julia_tests.sh`
 
 
 ## License

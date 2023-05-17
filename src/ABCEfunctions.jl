@@ -39,6 +39,11 @@ function get_CL_args()
         required = false
         default = joinpath(pwd(), "settings.yml")
 
+        "--inputs_path"
+        help = "relative path to the input files (aside from settings.yml)"
+        required = false
+        default = joinpath(pwd(), "inputs")
+
         "--agent_id"
         help = "unique ID of the agent"
         required = true

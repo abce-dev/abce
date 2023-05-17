@@ -176,12 +176,6 @@ if [[ ! -f "${RC_FILE}" ]]; then
     touch "${RC_FILE}"
 fi
 
-# Create an associative array to allow looping over ABCE environment variables
-env_vars=( "ABCE_DIR=$abce_dir" "ALEAF_DIR=$aleaf_dir" )
-for var in "${env_vars[@]}"; do
-    echo "export $var" >> "${RC_FILE}"
-done
-
 # Update or append values for each environment variable in the rc file
 echo "Updating environment variables in ${RC_FILE}"
 
@@ -190,11 +184,9 @@ echo "#==============================================================" >> "${RC_
 echo "# ABCE configuration" >> "${RC_FILE}"
 echo "#   Delete this block to remove undesired side effects (e.g. Julia version update)" >> "${RC_FILE}"
 echo "#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - " >> "${RC_FILE}"
-
-for var_name in "${!env_vars[@]}";
-do
-    echo "export ${var_name}=${env_vars[$var_name]}" >> "${RC_FILE}"
-done
+echo "export \$ABCE_DIR=$abce_dir" >> "${RC_FILE}"
+echo "export \$ALEAF_DIR=$aleaf_dir" >> "${RC_FILE}"
+echo "export \$ABCE_ENV=$abce_dir/env" >> "${RC_FILE}"
 
 # Ensure that julia-1.8.2 is added to the $PATH such that the `julia` command
 #   invokes julia-1.8.2 instead of any other version that may be present
