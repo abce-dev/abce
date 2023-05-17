@@ -58,7 +58,7 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
    `cd examples/single_agent_example`
 
-    If you have CPLEX installed, update the `settings.yml` file in that directory to indicate "CPLEX" as the solver.
+   If you have CPLEX installed, update the `settings.yml` file in that directory to indicate "CPLEX" as the solver.
 
     Then run the example case:
 
@@ -95,13 +95,13 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 9. Test the installation using one of the examples:
 
-   `cd examples/single_agent_example`
+   `cd examples\single_agent_example`
 
     If you have CPLEX installed, update the `settings.yml` file in that directory to indicate "CPLEX" as the solver.
 
     Then run the example case:
 
-   `python ../../run.py --settings_file=./settings.yml --inputs_path=.`
+   `python ..\..\run.py --settings_file=.\settings.yml --inputs_path=.`
 
 10. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file from within the `abce/env` directory.
 
