@@ -54,9 +54,15 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
    `bash ./install.sh`
 
-10. Test it out by running the following within your `abce` directory:
+10. Test the installation using one of the examples:
 
-   `python run.py -f`
+   `cd examples/single_agent_example`
+
+    If you have CPLEX installed, update the `settings.yml` file in that directory to indicate "CPLEX" as the solver.
+
+    Then run the example case:
+
+   `python ../../run.py --settings_file=./settings.yml --inputs_path=.`
 
 11. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
 
@@ -87,11 +93,17 @@ abce is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 8. Set the `ABCE_DIR` environment variable to the absolute path to your `abce` repo (e.g. `C:\Users\myname\abce`)
 
-9. Test it out by running the following within your `abce` directory:
+9. Test the installation using one of the examples:
 
-   `python run.py -f`
+   `cd examples/single_agent_example`
 
-10. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
+    If you have CPLEX installed, update the `settings.yml` file in that directory to indicate "CPLEX" as the solver.
+
+    Then run the example case:
+
+   `python ../../run.py --settings_file=./settings.yml --inputs_path=.`
+
+10. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file from within the `abce/env` directory.
 
    `julia make_sysimage.jl`
 
