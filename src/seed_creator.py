@@ -1,6 +1,6 @@
-# A script to create (or delete and recreate) the base ABCE database file
-
 ##########################################################################
+# Copyright 2023 Argonne National Laboratory
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##########################################################################
+
+# A script to create (or delete and recreate) the base ABCE database file
 
 import sqlite3
 import os
