@@ -40,6 +40,12 @@ CPLEX:
 If you have CPLEX installed, change the `simulation: solver` setting in 
   `settings.yml` to CPLEX. This will speed up execution considerably.
 
+-------
+A-LEAF:
+-------
+If you have A-LEAF installed, change the `simulation: annual_dispatch_engine`
+  setting in `settings.yml` to ALEAF.
+
 ----------
 Verbosity:
 ----------
