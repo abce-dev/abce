@@ -471,7 +471,7 @@ class GridModel(Model):
                 f"No sysimage file found at {ABCE_sysimage_path}. "
                 + "Execution will proceed, but Julia may run extremely "
                 + "slowly. If you already have a sysimage file, please move "
-                + f"it to the filename {sysimage_path}. If you do not have a "
+                + f"it to the filename {ABCE_sysimage_path}. If you do not have a "
                 + "sysimage file, please run 'julia make_sysimage.jl "
                 + "--mode=abce' in this directory."
             )
