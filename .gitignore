@@ -18,6 +18,7 @@ copies/
 inputs/deprecated
 inputs/ALEAF_inputs/backups
 inputs/ALEAF_inputs/scenario_reduction_tmp
+inputs/ts_data/scenario_reduction_tmp
 /*.csv
 repDays*.csv
 tmp/
@@ -27,3 +28,4 @@ inputs/ERCOT_inputs
 inputs/IL_inputs
 inputs/C2N_inputs
 test/norun
+.github/workflows/inactive
