@@ -177,7 +177,7 @@ if [[ ! -f "${RC_FILE}" ]]; then
 fi
 
 # Create an associative array to allow looping over ABCE environment variables
-env_vars=( "ABCE_DIR=$abce_dir" "ALEAF_DIR=$aleaf_dir" )
+env_vars=( "ABCE_DIR=$abce_dir" "ALEAF_DIR=$aleaf_dir" "ABCE_ENV=$abce_dir/env" )
 for var in "${env_vars[@]}"; do
     echo "export $var" >> "${RC_FILE}"
 done
