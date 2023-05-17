@@ -1,8 +1,8 @@
 simulation:
   scenario_name: "ABCE_single_agent_example"
-  solver: "CPLEX"
+  solver: "HiGHS"
   num_steps: 2
-  annual_dispatch_engine: ALEAF
+  annual_dispatch_engine: none
   C2N_assumption: baseline
 
 scenario:
