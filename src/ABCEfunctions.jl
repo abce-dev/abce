@@ -2038,12 +2038,14 @@ function save_agent_fs!(fs, agent_id, db)
     # Reorder the agent fs to match the DB table
     fs = select(fs, fs_col_order)
 
+    # Set up the SQL "(?, ?, ... , ?)" string of correct length
+    fill_tuple = string("(", repeat("?, ", size(fs_col_order)[1] - 1), "?)")
+
     for row in Tuple.(eachrow(fs))
         DBInterface.execute(
             db,
             string(
-                "INSERT INTO agent_financial_statements VALUES ",
-                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO agent_financial_statements VALUES $fill_tuple"
             ),
             row,
         )
