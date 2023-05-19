@@ -1085,9 +1085,9 @@ function compute_PA_NPV(fs_copy)
 
     transform!(
         fs_copy,
-        [:net_FCF, :weight] => ((net_FCF, wt) -> net_FCF .* wt) => :wtd_net_FCF,
+        [:RCF, :weight] => ((RCF, wt) -> RCF .* wt) => :wtd_RCF,
     )
-    NPV += sum(fs_copy[!, :wtd_net_FCF])
+    NPV += sum(fs_copy[!, :wtd_RCF])
 
     return NPV
 end
@@ -1895,8 +1895,22 @@ end
 
 
 function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
+    # Fill in total capex
+    capex_ts =
+        DBInterface.execute(
+            db,
+            string(
+                "SELECT projected_pd, SUM(capex) ",
+                "FROM capex_projections ",
+                "WHERE agent_id = $agent_id ",
+                "AND base_pd = $current_pd GROUP BY projected_pd",
+            ),
+        ) |> DataFrame
+
+    remaining_debt_principal_ts = compute_debt_principal_ts(db, agent_id, current_pd)
+
     # Fill in total depreciation
-    total_pd_depreciation =
+    depreciation_ts =
         DBInterface.execute(
             db,
             string(
@@ -1909,7 +1923,7 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
         ) |> DataFrame
 
     # Fill in total interest payments
-    total_pd_interest =
+    interest_payment_ts =
         DBInterface.execute(
             db,
             string(
@@ -1921,32 +1935,45 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
             ),
         ) |> DataFrame
 
-    # Fill in total capex
-    total_pd_capex =
-        DBInterface.execute(
-            db,
-            string(
-                "SELECT projected_pd, SUM(capex) ",
-                "FROM capex_projections ",
-                "WHERE agent_id = $agent_id ",
-                "AND base_pd = $current_pd GROUP BY projected_pd",
-            ),
-        ) |> DataFrame
-
     # Join the scheduled columns to the financial statement
-    agent_fs = leftjoin(agent_fs, total_pd_depreciation, on = :projected_pd)
-    agent_fs = leftjoin(agent_fs, total_pd_interest, on = :projected_pd)
-    agent_fs = leftjoin(agent_fs, total_pd_capex, on = :projected_pd)
+    agent_fs = leftjoin(agent_fs, capex_ts, on = :projected_pd)
+    agent_fs = leftjoin(agent_fs, remaining_debt_principal_ts, on = :projected_pd)
+    agent_fs = leftjoin(agent_fs, depreciation_ts, on = :projected_pd)
+    agent_fs = leftjoin(agent_fs, interest_payment_ts, on = :projected_pd)
 
     # Standardize column names
     rename!(
         agent_fs,
+        Symbol("SUM(capex)") => :capex,
         Symbol("SUM(depreciation)") => :depreciation,
         Symbol("SUM(interest_payment)") => :interest_payment,
-        Symbol("SUM(capex)") => :capex,
     )
 
     return agent_fs
+end
+
+
+function compute_debt_principal_ts(db, agent_id, current_pd)
+    # Get debt principal repayments by year
+    principal_payments = DBInterface.execute(db, string("SELECT projected_pd, SUM(principal_payment) FROM financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd")) |> DataFrame
+    rename!(principal_payments, Symbol("SUM(principal_payment)") => :principal_payment)
+
+    # Get cumulative debt issued by year
+    # Get the list of all debt instruments issued by this agent
+    inst_manifest = DBInterface.execute(db, string("SELECT * FROM financial_instrument_manifest WHERE agent_id = $agent_id AND instrument_type='debt'")) |> DataFrame
+
+    debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
+
+    for y=current_pd:maximum(principal_payments[!, :projected_pd])
+        debt_by_year = filter(:pd_issued => pd -> pd <= y, inst_manifest)
+        cum_debt = sum(debt_by_year[!, :initial_principal])
+        push!(debt_principal_ts, [y, cum_debt])
+    end
+
+    debt_principal_ts = outerjoin(debt_principal_ts, principal_payments, on = :projected_pd)
+    transform!(debt_principal_ts, [:remaining_debt_principal, :principal_payment] => ((rem_prin, prin_pmt) -> rem_prin - prin_pmt) => :remaining_debt_principal)
+
+    return debt_principal_ts
 end
 
 
@@ -2002,7 +2029,7 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
             ((NI, dep, capex) -> NI + dep - capex) => :FCF,
     )
 
-    # Net FCF
+    # Dividends and Retained Cash Flow
     agent_id = agent_params[1, "agent_id"]
     cost_of_equity =
         DBInterface.execute(
@@ -2010,9 +2037,10 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
             "SELECT cost_of_equity FROM agent_params WHERE agent_id = $agent_id",
         ) |> DataFrame
     cost_of_equity = cost_of_equity[1, :cost_of_equity]
+    transform!(agent_fs, :FCF => ((fcf) -> fcf .* cost_of_equity) => :dividends)
     transform!(
         agent_fs,
-        :FCF => ((fcf) -> fcf .* (1 .- cost_of_equity)) => :net_FCF,
+        [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :RCF,
     )
 
     return agent_fs
@@ -2038,12 +2066,14 @@ function save_agent_fs!(fs, agent_id, db)
     # Reorder the agent fs to match the DB table
     fs = select(fs, fs_col_order)
 
+    # Set up the SQL "(?, ?, ... , ?)" string of correct length
+    fill_tuple = string("(", repeat("?, ", size(fs_col_order)[1] - 1), "?)")
+
     for row in Tuple.(eachrow(fs))
         DBInterface.execute(
             db,
             string(
-                "INSERT INTO agent_financial_statements VALUES ",
-                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO agent_financial_statements VALUES $fill_tuple"
             ),
             row,
         )
