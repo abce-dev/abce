@@ -1958,7 +1958,6 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
     principal_payments = DBInterface.execute(db, string("SELECT projected_pd, SUM(principal_payment) FROM financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd")) |> DataFrame
     rename!(principal_payments, Symbol("SUM(principal_payment)") => :principal_payment)
 
-
     # Get cumulative debt issued by year
     # Get the list of all debt instruments issued by this agent
     inst_manifest = DBInterface.execute(db, string("SELECT * FROM financial_instrument_manifest WHERE agent_id = $agent_id AND instrument_type='debt'")) |> DataFrame
@@ -1971,7 +1970,7 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
         push!(debt_principal_ts, [y, cum_debt])
     end
 
-    debt_principal_ts = leftjoin(debt_principal_ts, principal_payments, on = :projected_pd)
+    debt_principal_ts = outerjoin(debt_principal_ts, principal_payments, on = :projected_pd)
     transform!(debt_principal_ts, [:remaining_debt_principal, :principal_payment] => ((rem_prin, prin_pmt) -> rem_prin - prin_pmt) => :remaining_debt_principal)
 
     return debt_principal_ts
