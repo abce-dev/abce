@@ -498,7 +498,7 @@ function set_up_project_alternatives(
         # Create an aggregated financial statement for this project alternative
         #   based on its subprojects
         PA_fs_dict[PA.uid] = create_PA_aggregated_fs(PA_subprojects[PA.uid])
-        #CSV.write(joinpath("tmp", string(PA["unit_type"], "_", PA["project_type"], "_", PA["lag"], ".csv")), PA_fs_dict[PA.uid])
+        CSV.write(joinpath("tmp", string(PA["unit_type"], "_", PA["project_type"], "_", PA["lag"], ".csv")), PA_fs_dict[PA.uid])
 
         # Compute the project alternative's overall NPV based on its
         #   subprojects' financial statements
@@ -1291,8 +1291,8 @@ function set_up_model(
     #   per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
     marg_int = zeros(num_alternatives, num_time_periods)
-    marg_div = zeros(num_alternatives, num_time_periods)
     marg_FCF = zeros(num_alternatives, num_time_periods)
+    marg_RCF = zeros(num_alternatives, num_time_periods)
     for i = 1:size(PA_summaries)[1]
         project = PA_fs_dict[PA_summaries[i, :uid]]
         for j = 1:num_time_periods
@@ -1300,11 +1300,8 @@ function set_up_model(
             # Scale to units of $B
             marg_debt[i, j] = project[j, :remaining_debt_principal] / 1e9
             marg_int[i, j] = project[j, :interest_payment] / 1e9
-            marg_div[i, j] = (
-                project[j, :remaining_debt_principal] *
-                agent_params[1, :cost_of_equity] / 1e9
-            )
             marg_FCF[i, j] = project[j, :FCF] / 1e9
+            marg_RCF[i, j] = project[j, :FCF] / 1e9 * (1 - agent_params[1, :cost_of_equity])
         end
     end
 
@@ -1312,6 +1309,7 @@ function set_up_model(
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
     for i = 1:6
+        # Interest coverage ratio >= 4.2
         @constraint(
             m,
             (
@@ -1323,6 +1321,13 @@ function set_up_model(
                 )
             ) >= 0
         )
+
+        # RCF / debt >= 0.2
+        @constraint(
+            m,
+            (agent_fs[i, :RCF] / 1e9 + sum(u .* marg_RCF[:, i])) - 0.2 * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+        )
+
     end
 
     # Enforce the user-specified maximum number of new construction/retirement
