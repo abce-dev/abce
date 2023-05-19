@@ -1322,11 +1322,14 @@ function set_up_model(
             ) >= 0
         )
 
-        # RCF / debt >= 0.2
+        # RCF / debt >= 0.15
         @constraint(
             m,
-            (agent_fs[i, :RCF] / 1e9 + sum(u .* marg_RCF[:, i])) - 0.2 * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+            (agent_fs[i, :RCF] / 1e9 + sum(u .* marg_RCF[:, i])) - 0.15 * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
         )
+
+
+
 
     end
 
