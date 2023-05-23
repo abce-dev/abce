@@ -96,8 +96,11 @@ agent_opt:
   cap_increase_margin: 0.02
   profit_lamda: 1.0          # Note: only the ratio between the lamdas matters
   credit_rating_lamda: 0.1
-  cr_horizon: 6
+  fin_metric_horizon: 6
   int_bound: 5.0
+  icr_floor: 4.2
+  fcf_debt_floor: 0.2
+  re_debt_floor: 0.15
   use_expanded_fin_constraints: True
 
 financing:

@@ -1308,14 +1308,14 @@ function set_up_model(
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
-    for i = 1:6
+    for i = 1:settings["agent_opt"]["fin_metric_horizon"]
         # Interest coverage ratio >= 4.2
         @constraint(
             m,
             (
                 agent_fs[i, :FCF] / 1e9 +
                 sum(u .* marg_FCF[:, i]) +
-                (1 - 4.2) * (
+                (1 - settings["agent_opt"]["icr_floor"]) * (
                     agent_fs[i, :interest_payment] / 1e9 +
                     sum(u .* marg_int[:, i])
                 )
@@ -1324,17 +1324,17 @@ function set_up_model(
     end
 
     if settings["agent_opt"]["use_expanded_fin_constraints"]
-        for i = 1:6
+        for i = 1:settings["agent_opt"]["fin_metric_horizon"]
             # FCF / debt > 0.2
             @constraint(
                 m,
-                (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - 0.2 * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+                (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - settings["agent_opt"]["fcf_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
             )
 
             # RCF / debt >= 0.15
             @constraint(
                 m,
-                (agent_fs[i, :RCF] / 1e9 + sum(u .* marg_RCF[:, i])) - 0.15 * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+                (agent_fs[i, :RCF] / 1e9 + sum(u .* marg_RCF[:, i])) - settings["agent_opt"]["re_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
             )
         end
     end
@@ -1481,7 +1481,7 @@ function set_up_model(
     # Create the objective function 
     profit_lamda = settings["agent_opt"]["profit_lamda"] / 1e9
     credit_rating_lamda = settings["agent_opt"]["credit_rating_lamda"]
-    cr_horizon = settings["agent_opt"]["cr_horizon"]
+    fin_metric_horizon = settings["agent_opt"]["fin_metric_horizon"]
     int_bound = settings["agent_opt"]["int_bound"]
 
     @objective(
@@ -1490,13 +1490,13 @@ function set_up_model(
         (
             profit_lamda * (transpose(u) * PA_summaries[!, :NPV]) +
             credit_rating_lamda * (
-                sum(agent_fs[1:cr_horizon, :FCF]) / 1e9 +
-                sum(transpose(u) * marg_FCF[:, 1:cr_horizon]) +
-                sum(agent_fs[1:cr_horizon, :interest_payment]) / 1e9 +
-                sum(transpose(u) * marg_int[:, 1:cr_horizon]) -
+                sum(agent_fs[1:fin_metric_horizon, :FCF]) / 1e9 +
+                sum(transpose(u) * marg_FCF[:, 1:fin_metric_horizon]) +
+                sum(agent_fs[1:fin_metric_horizon, :interest_payment]) / 1e9 +
+                sum(transpose(u) * marg_int[:, 1:fin_metric_horizon]) -
                 (int_bound) * (
-                    sum(agent_fs[1:cr_horizon, :interest_payment]) / 1e9 +
-                    sum(transpose(u) * marg_int[:, 1:cr_horizon])
+                    sum(agent_fs[1:fin_metric_horizon, :interest_payment]) / 1e9 +
+                    sum(transpose(u) * marg_int[:, 1:fin_metric_horizon])
                 )
             )
         )
