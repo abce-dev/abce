@@ -208,10 +208,10 @@ abce_tables = {
         ("interest_payment", "real"),
         ("EBT", "real"),
         ("tax_paid", "real"),
-        ("Net_Income", "real"),
+        ("net_income", "real"),
         ("FCF", "real"),
         ("dividends", "real"),
-        ("RCF", "real"),
+        ("retained_earnings", "real"),
     ],
     "agent_decisions": [
         ("agent_id", "integer", "PRIMARY KEY"),

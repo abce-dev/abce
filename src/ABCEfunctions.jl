@@ -1085,9 +1085,9 @@ function compute_PA_NPV(fs_copy)
 
     transform!(
         fs_copy,
-        [:RCF, :weight] => ((RCF, wt) -> RCF .* wt) => :wtd_RCF,
+        [:retained_earnings, :weight] => ((retained_earnings, wt) -> retained_earnings .* wt) => :wtd_retained_earnings,
     )
-    NPV += sum(fs_copy[!, :wtd_RCF])
+    NPV += sum(fs_copy[!, :wtd_retained_earnings])
 
     return NPV
 end
@@ -1292,7 +1292,7 @@ function set_up_model(
     marg_debt = zeros(num_alternatives, num_time_periods)
     marg_int = zeros(num_alternatives, num_time_periods)
     marg_FCF = zeros(num_alternatives, num_time_periods)
-    marg_RCF = zeros(num_alternatives, num_time_periods)
+    marg_retained_earnings = zeros(num_alternatives, num_time_periods)
     for i = 1:size(PA_summaries)[1]
         project = PA_fs_dict[PA_summaries[i, :uid]]
         for j = 1:num_time_periods
@@ -1301,7 +1301,7 @@ function set_up_model(
             marg_debt[i, j] = project[j, :remaining_debt_principal] / 1e9
             marg_int[i, j] = project[j, :interest_payment] / 1e9
             marg_FCF[i, j] = project[j, :FCF] / 1e9
-            marg_RCF[i, j] = project[j, :FCF] / 1e9 * (1 - agent_params[1, :cost_of_equity])
+            marg_retained_earnings[i, j] = project[j, :FCF] / 1e9 * (1 - agent_params[1, :cost_of_equity])
         end
     end
 
@@ -1331,10 +1331,10 @@ function set_up_model(
                 (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - settings["agent_opt"]["fcf_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
             )
 
-            # RCF / debt >= 0.15
+            # retained_earnings / debt >= 0.15
             @constraint(
                 m,
-                (agent_fs[i, :RCF] / 1e9 + sum(u .* marg_RCF[:, i])) - settings["agent_opt"]["re_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+                (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) - settings["agent_opt"]["re_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
             )
         end
     end
@@ -2033,13 +2033,13 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
     # Net Income
     transform!(
         agent_fs,
-        [:EBT, :tax_paid] => ((EBT, tax) -> (EBT - tax)) => :Net_Income,
+        [:EBT, :tax_paid] => ((EBT, tax) -> (EBT - tax)) => :net_income,
     )
 
     # Free Cash Flow
     transform!(
         agent_fs,
-        [:Net_Income, :depreciation, :capex] =>
+        [:net_income, :depreciation, :capex] =>
             ((NI, dep, capex) -> NI + dep - capex) => :FCF,
     )
 
@@ -2054,7 +2054,7 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
     transform!(agent_fs, :FCF => ((fcf) -> fcf .* cost_of_equity) => :dividends)
     transform!(
         agent_fs,
-        [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :RCF,
+        [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :retained_earnings,
     )
 
     return agent_fs
