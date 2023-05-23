@@ -498,7 +498,7 @@ function set_up_project_alternatives(
         # Create an aggregated financial statement for this project alternative
         #   based on its subprojects
         PA_fs_dict[PA.uid] = create_PA_aggregated_fs(PA_subprojects[PA.uid])
-        #CSV.write(joinpath("tmp", string(PA["unit_type"], "_", PA["project_type"], "_", PA["lag"], ".csv")), PA_fs_dict[PA.uid])
+        CSV.write(joinpath("tmp", string(PA["unit_type"], "_", PA["project_type"], "_", PA["lag"], ".csv")), PA_fs_dict[PA.uid])
 
         # Compute the project alternative's overall NPV based on its
         #   subprojects' financial statements
@@ -1085,9 +1085,9 @@ function compute_PA_NPV(fs_copy)
 
     transform!(
         fs_copy,
-        [:RCF, :weight] => ((RCF, wt) -> RCF .* wt) => :wtd_RCF,
+        [:retained_earnings, :weight] => ((retained_earnings, wt) -> retained_earnings .* wt) => :wtd_retained_earnings,
     )
-    NPV += sum(fs_copy[!, :wtd_RCF])
+    NPV += sum(fs_copy[!, :wtd_retained_earnings])
 
     return NPV
 end
@@ -1291,8 +1291,8 @@ function set_up_model(
     #   per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
     marg_int = zeros(num_alternatives, num_time_periods)
-    marg_div = zeros(num_alternatives, num_time_periods)
     marg_FCF = zeros(num_alternatives, num_time_periods)
+    marg_retained_earnings = zeros(num_alternatives, num_time_periods)
     for i = 1:size(PA_summaries)[1]
         project = PA_fs_dict[PA_summaries[i, :uid]]
         for j = 1:num_time_periods
@@ -1300,29 +1300,43 @@ function set_up_model(
             # Scale to units of $B
             marg_debt[i, j] = project[j, :remaining_debt_principal] / 1e9
             marg_int[i, j] = project[j, :interest_payment] / 1e9
-            marg_div[i, j] = (
-                project[j, :remaining_debt_principal] *
-                agent_params[1, :cost_of_equity] / 1e9
-            )
             marg_FCF[i, j] = project[j, :FCF] / 1e9
+            marg_retained_earnings[i, j] = project[j, :FCF] / 1e9 * (1 - agent_params[1, :cost_of_equity])
         end
     end
 
 
     # Prevent the agent from reducing its credit metrics below Moody's Baa
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
-    for i = 1:6
+    for i = 1:settings["agent_opt"]["fin_metric_horizon"]
+        # Interest coverage ratio >= 4.2
         @constraint(
             m,
             (
                 agent_fs[i, :FCF] / 1e9 +
                 sum(u .* marg_FCF[:, i]) +
-                (1 - 4.2) * (
+                (1 - settings["agent_opt"]["icr_floor"]) * (
                     agent_fs[i, :interest_payment] / 1e9 +
                     sum(u .* marg_int[:, i])
                 )
             ) >= 0
         )
+    end
+
+    if settings["agent_opt"]["use_expanded_fin_constraints"]
+        for i = 1:settings["agent_opt"]["fin_metric_horizon"]
+            # FCF / debt > 0.2
+            @constraint(
+                m,
+                (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - settings["agent_opt"]["fcf_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+            )
+
+            # retained_earnings / debt >= 0.15
+            @constraint(
+                m,
+                (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) - settings["agent_opt"]["re_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+            )
+        end
     end
 
     # Enforce the user-specified maximum number of new construction/retirement
@@ -1467,7 +1481,7 @@ function set_up_model(
     # Create the objective function 
     profit_lamda = settings["agent_opt"]["profit_lamda"] / 1e9
     credit_rating_lamda = settings["agent_opt"]["credit_rating_lamda"]
-    cr_horizon = settings["agent_opt"]["cr_horizon"]
+    fin_metric_horizon = settings["agent_opt"]["fin_metric_horizon"]
     int_bound = settings["agent_opt"]["int_bound"]
 
     @objective(
@@ -1476,13 +1490,13 @@ function set_up_model(
         (
             profit_lamda * (transpose(u) * PA_summaries[!, :NPV]) +
             credit_rating_lamda * (
-                sum(agent_fs[1:cr_horizon, :FCF]) / 1e9 +
-                sum(transpose(u) * marg_FCF[:, 1:cr_horizon]) +
-                sum(agent_fs[1:cr_horizon, :interest_payment]) / 1e9 +
-                sum(transpose(u) * marg_int[:, 1:cr_horizon]) -
+                sum(agent_fs[1:fin_metric_horizon, :FCF]) / 1e9 +
+                sum(transpose(u) * marg_FCF[:, 1:fin_metric_horizon]) +
+                sum(agent_fs[1:fin_metric_horizon, :interest_payment]) / 1e9 +
+                sum(transpose(u) * marg_int[:, 1:fin_metric_horizon]) -
                 (int_bound) * (
-                    sum(agent_fs[1:cr_horizon, :interest_payment]) / 1e9 +
-                    sum(transpose(u) * marg_int[:, 1:cr_horizon])
+                    sum(agent_fs[1:fin_metric_horizon, :interest_payment]) / 1e9 +
+                    sum(transpose(u) * marg_int[:, 1:fin_metric_horizon])
                 )
             )
         )
@@ -2019,13 +2033,13 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
     # Net Income
     transform!(
         agent_fs,
-        [:EBT, :tax_paid] => ((EBT, tax) -> (EBT - tax)) => :Net_Income,
+        [:EBT, :tax_paid] => ((EBT, tax) -> (EBT - tax)) => :net_income,
     )
 
     # Free Cash Flow
     transform!(
         agent_fs,
-        [:Net_Income, :depreciation, :capex] =>
+        [:net_income, :depreciation, :capex] =>
             ((NI, dep, capex) -> NI + dep - capex) => :FCF,
     )
 
@@ -2040,7 +2054,7 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
     transform!(agent_fs, :FCF => ((fcf) -> fcf .* cost_of_equity) => :dividends)
     transform!(
         agent_fs,
-        [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :RCF,
+        [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :retained_earnings,
     )
 
     return agent_fs
