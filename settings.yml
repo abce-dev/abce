@@ -98,6 +98,7 @@ agent_opt:
   credit_rating_lamda: 0.1
   cr_horizon: 6
   int_bound: 5.0
+  use_expanded_fin_constraints: True
 
 financing:
   default_debt_term: 30
