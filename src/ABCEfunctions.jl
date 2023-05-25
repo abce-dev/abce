@@ -925,7 +925,7 @@ function forecast_debt_schedule(
         if i != fin_end
             fs_copy[i + 1, :remaining_debt_principal] =
                 fs_copy[i, :remaining_debt_principal] -
-                fs_copy[i, :interest_payment]
+                (fs_copy[i, :debt_payment] - fs_copy[i, :interest_payment])
         end
     end
 
