@@ -645,7 +645,6 @@ function initialize_subprojects(unit_specs, PA, fc_pd)
 
         # Set the coal retirement period, depending on whether the project is
         #   greenfield or brownfield
-        println(PA.unit_type)
         if occursin("C2N0", PA.unit_type)
             lag = PA.lag + construction_duration - 1
             ret_pd = 12
@@ -1429,10 +1428,14 @@ function set_up_model(
         )
     end
 
-    # Set up the coal retirements of matrix, to ensure that the total "pool"
+    # Set the maximum lookahead for coal retirements to be after the latest
+    #   possible coal unit retirement from any project alternative
+    coal_horizon = convert(Int64, ceil(round(maximum(PA_summaries[!, :lag]) + maximum(unit_specs[!, :construction_duration]) + 2, digits=3)))
+
+    # Set up the coal retirements matrix, to ensure that the total "pool"
     #   of coal plants available for retirement is respected across the entire
     #   visible horizon
-    coal_retirements = zeros(size(PA_summaries)[1], 10)
+    coal_retirements = zeros(size(PA_summaries)[1], coal_horizon)
     planned_coal_units_operating = DataFrame(pd = Int64[], num_units = Int64[])
 
     for i = 1:size(PA_summaries)[1]
