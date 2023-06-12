@@ -642,13 +642,22 @@ function initialize_subprojects(unit_specs, PA, fc_pd)
         unit_type_data =
             filter(:unit_type => x -> x == PA.unit_type, unit_specs)[1, :]
         construction_duration = unit_type_data["construction_duration"]
-        cpp_ret_lead = unit_type_data["cpp_ret_lead"]
+
+        # Set the coal retirement period, depending on whether the project is
+        #   greenfield or brownfield
+        if occursin("C2N0", PA.unit_type)
+            lag = PA.lag + construction_duration - 1
+            ret_pd = 12
+        else
+            lag = PA.lag + unit_type_data["cpp_ret_lead"]
+            ret_pd = 12
+        end
 
         coal_retirement = Dict(
             "unit_type" => "coal",
             "project_type" => "retirement",
-            "lag" => PA.lag,
-            "ret_pd" => PA.lag + construction_duration - cpp_ret_lead,
+            "lag" => lag,
+            "ret_pd" => ret_pd,
         )
 
         # Add the subproject to the subprojects vector
@@ -1419,10 +1428,14 @@ function set_up_model(
         )
     end
 
-    # Set up the coal retirements of matrix, to ensure that the total "pool"
+    # Set the maximum lookahead for coal retirements to be after the latest
+    #   possible coal unit retirement from any project alternative
+    coal_horizon = convert(Int64, ceil(round(maximum(PA_summaries[!, :lag]) + maximum(unit_specs[!, :construction_duration]) + 2, digits=3)))
+
+    # Set up the coal retirements matrix, to ensure that the total "pool"
     #   of coal plants available for retirement is respected across the entire
     #   visible horizon
-    coal_retirements = zeros(size(PA_summaries)[1], 10)
+    coal_retirements = zeros(size(PA_summaries)[1], coal_horizon)
     planned_coal_units_operating = DataFrame(pd = Int64[], num_units = Int64[])
 
     for i = 1:size(PA_summaries)[1]
@@ -1437,9 +1450,15 @@ function set_up_model(
             unit_type_data = filter(
                 :unit_type => ((ut) -> ut == PA_summaries[i, :unit_type]),
                 unit_specs,
-            )
-            target_coal_ret_pd =
-                PA_summaries[i, :lag] + unit_type_data[1, :cpp_ret_lead] + 1
+            )[1, :]
+
+            if occursin("C2N0", PA_summaries[i, :unit_type])
+                target_coal_ret_pd = convert(Int64, PA_summaries[i, :lag] + ceil(round(unit_type_data[:construction_duration], digits=3))) + 1
+            else
+                target_coal_ret_pd =
+                    convert(Int64, PA_summaries[i, :lag] + ceil(round(unit_type_data[:cpp_ret_lead], digits=3))) + 1
+            end
+
             if target_coal_ret_pd <= size(coal_retirements)[2]
                 coal_retirements[i, target_coal_ret_pd] = 1
             end
@@ -1711,14 +1730,27 @@ function record_asset_retirements(
         # Determine the period in which the coal units must retire
         unit_type_specs =
             filter(:unit_type => x -> x == result[:unit_type], unit_specs)[1, :]
-        new_ret_pd = (
-            current_pd +
-            result[:lag] +
-            convert(
+
+        if occursin("C2N0", result[:unit_type])
+            new_ret_pd = convert(
                 Int64,
-                ceil(round(unit_type_specs[:cpp_ret_lead], digits = 3)),
+                (
+                    current_pd +
+                    result[:lag] + 
+                    unit_type_specs[:construction_duration]
+                )
             )
-        )
+        else
+            new_ret_pd = convert(
+                Int64, 
+                (
+                    current_pd +
+                    result[:lag] +
+                    ceil(round(unit_type_specs[:cpp_ret_lead], digits = 3))
+                )
+            )
+        end
+
         C2N_reserved = 0
 
         # Generate a list of coal units which will still be operational by
