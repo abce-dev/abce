@@ -55,8 +55,6 @@ def set_up_local_paths(settings):
             )
             logging.error(msg)
             raise
-    else:
-        settings["ALEAF"]["ALEAF_abs_path"] = Path("NULL_PATH")
 
     return settings
 
