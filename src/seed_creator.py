@@ -212,6 +212,10 @@ abce_tables = {
         ("FCF", "real"),
         ("dividends", "real"),
         ("retained_earnings", "real"),
+        ("ICR", "real"),
+        ("FCF_debt_ratio", "real"),
+        ("RE_debt_ratio", "real"),
+        ("moodys_score", "real"),
     ],
     "agent_decisions": [
         ("agent_id", "integer", "PRIMARY KEY"),

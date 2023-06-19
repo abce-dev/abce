@@ -185,10 +185,6 @@ function run_agent_choice()
         agent_params,
     )
 
-    # Determine whether the agent currently falls into the investment or
-    #   speculative grades
-    credit_grade = ABCEfunctions.check_agent_credit_grade(settings, deepcopy(agent_fs))
-
     # Set up the agent's decision optimization model
     m = ABCEfunctions.set_up_model(
         settings,
@@ -204,7 +200,6 @@ function run_agent_choice()
         CLI_args["agent_id"],
         agent_fs,
         fc_pd,
-        credit_grade=credit_grade
     )
 
     # Solve the model
