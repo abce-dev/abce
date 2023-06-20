@@ -46,7 +46,7 @@ for dfile in files_to_delete
 end
 
 # Activate local environment
-Pkg.activate(".")
+Pkg.activate(ENV["ABCE_ENV"])
 
 # Get the list of packages to set up
 julia_pkg_list = readdlm(CL_args["reqs_file"], String)
