@@ -39,9 +39,10 @@ problems = Dict()
 # Delete preexisting .toml files to avoid contamination
 files_to_delete = ["Manifest.toml", "Project.toml"]
 for dfile in files_to_delete
-    if isfile(abspath(dfile))
-        rm(abspath(dfile))
-        @info "Removed file $dfile"
+    full_file = joinpath(ENV["ABCE_ENV"], dfile)
+    if isfile(full_file)
+        rm(full_file)
+        @info "Removed file $full_file"
    end
 end
 
