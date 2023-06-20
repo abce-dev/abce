@@ -200,9 +200,9 @@ echo "#==============================================================" >> "${RC_
 echo "# ABCE configuration" >> "${RC_FILE}"
 echo "#   Delete this block to remove undesired side effects (e.g. Julia version update)" >> "${RC_FILE}"
 echo "#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - " >> "${RC_FILE}"
-echo "export \$ABCE_DIR=$abce_dir" >> "${RC_FILE}"
-echo "export \$ALEAF_DIR=$aleaf_dir" >> "${RC_FILE}"
-echo "export \$ABCE_ENV=$abce_dir/env" >> "${RC_FILE}"
+echo "export ABCE_DIR=$abce_dir" >> "${RC_FILE}"
+echo "export ALEAF_DIR=$aleaf_dir" >> "${RC_FILE}"
+echo "export ABCE_ENV=$abce_dir/env" >> "${RC_FILE}"
 
 # Ensure that julia-1.8.2 is added to the $PATH such that the `julia` command
 #   invokes julia-1.8.2 instead of any other version that may be present
