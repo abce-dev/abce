@@ -39,14 +39,15 @@ problems = Dict()
 # Delete preexisting .toml files to avoid contamination
 files_to_delete = ["Manifest.toml", "Project.toml"]
 for dfile in files_to_delete
-    if isfile(abspath(dfile))
-        rm(abspath(dfile))
-        @info "Removed file $dfile"
+    full_file = joinpath(ENV["ABCE_ENV"], dfile)
+    if isfile(full_file)
+        rm(full_file)
+        @info "Removed file $full_file"
    end
 end
 
 # Activate local environment
-Pkg.activate(".")
+Pkg.activate(ENV["ABCE_ENV"])
 
 # Get the list of packages to set up
 julia_pkg_list = readdlm(CL_args["reqs_file"], String)
