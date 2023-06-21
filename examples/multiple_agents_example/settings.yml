@@ -1,18 +1,18 @@
 simulation:
-  scenario_name: "ABCE_multiple_agents_example"
+  scenario_name: "ABCE_example_multiple_agents"
   solver: "HiGHS"
   num_steps: 2
-  annual_dispatch_engine: ALEAF
+  annual_dispatch_engine: none
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 78000
+  peak_demand: 75000
   policies:
     CTAX:
       enabled: False
       qty: 0  # $/t CO2
     PTC:
-      enabled: True
+      enabled: False
       eligibility:
         unit_type:
           - conventional_nuclear
@@ -52,6 +52,7 @@ file_paths:
   ABCE_sysimage_file: "abceSysimage.so"
   db_file: "abce_db.db"
   demand_data_file: "demand_data.csv"
+#  agent_specifications_file: "single_agent_testing.yml"
   agent_specifications_file: "agent_specifications.yml"
   output_file: "outputs.xlsx"
   unit_specs_data_file: "unit_specs.yml"
@@ -95,8 +96,12 @@ agent_opt:
   cap_increase_margin: 0.02
   profit_lamda: 1.0          # Note: only the ratio between the lamdas matters
   credit_rating_lamda: 0.1
-  cr_horizon: 6
+  fin_metric_horizon: 6
   int_bound: 5.0
+  icr_floor: 4.2
+  fcf_debt_floor: 0.2
+  re_debt_floor: 0.15
+  use_expanded_fin_constraints: True
 
 financing:
   default_debt_term: 30
