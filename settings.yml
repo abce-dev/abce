@@ -1,15 +1,15 @@
 simulation:
-  scenario_name: "ABCE_ERCOT_PWRC2N"
+  scenario_name: "ABCE_run"
   solver: "CPLEX"
   num_steps: 1
   annual_dispatch_engine: none
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 80000
+  peak_demand: 75000
   policies:
     CTAX:
-      enabled: True
+      enabled: False
       qty: 0  # $/t CO2
     PTC:
       enabled: True
@@ -98,10 +98,9 @@ agent_opt:
   credit_rating_lamda: 0.1
   fin_metric_horizon: 6
   int_bound: 5.0
-  icr_floor: 4.2
-  fcf_debt_floor: 0.2
-  re_debt_floor: 0.15
-  use_expanded_fin_constraints: True
+  icr_floor: 1.0
+  fcf_debt_floor: 0.05
+  re_debt_floor: 0.03
 
 financing:
   default_debt_term: 30

@@ -17,7 +17,7 @@
 module ABCEfunctions
 
 using ArgParse,
-    Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS
+    Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS, Statistics
 
 # Use CPLEX if available
 function __init__()
@@ -1145,6 +1145,68 @@ function average_historical_ALEAF_results(settings, db)
 end
 
 
+function compute_moodys_score(icr, fcf_debt, re_debt)
+    icr_wt = 0.1
+    fcf_debt_wt = 0.2
+    re_debt_wt = 0.1
+
+    icr_score = 0
+    if icr >= 18
+        icr_score = 1
+    elseif icr >= 13
+        icr_score = 3
+    elseif icr >= 8
+        icr_score = 6
+    elseif icr >= 4.2
+        icr_score = 9
+    elseif icr >= 2.8
+        icr_score = 12
+    elseif icr >= 1
+        icr_score = 15
+    else
+        icr_score = 18
+    end
+
+    fcf_debt_score = 0
+    if fcf_debt >= 0.9
+        fcf_debt_score = 1
+    elseif fcf_debt >= 0.6
+        fcf_debt_score = 3
+    elseif fcf_debt >= 0.35
+        fcf_debt_score = 6
+    elseif fcf_debt >= 0.2
+        fcf_debt_score = 9
+    elseif fcf_debt >= 0.12
+        fcf_debt_score = 12
+    elseif fcf_debt >= 0.05
+        fcf_debt_score = 15
+    else
+        fcf_debt_score = 18
+    end
+
+    re_debt_score = 0
+    if re_debt >= 0.6
+        re_debt_score = 1
+    elseif re_debt >= 0.45
+        re_debt_score = 3
+    elseif re_debt >= 0.25
+        re_debt_score = 6
+    elseif re_debt >= 0.15
+        re_debt_score = 9
+    elseif re_debt >= 0.08
+        re_debt_score = 12
+    elseif re_debt >= 0.03
+        re_debt_score = 15
+    else
+        re_debt_score = 18
+    end
+
+    score = (icr_wt * icr_score + fcf_debt_wt * fcf_debt_score + re_debt_wt * re_debt_score) / (icr_wt + fcf_debt_wt + re_debt_wt)
+
+    return score
+end
+
+
 #####
 # JuMP optimization model initialization
 #####
@@ -1193,7 +1255,7 @@ function set_up_model(
     db,
     agent_id,
     agent_fs,
-    fc_pd,
+    fc_pd;
 )
     # Create the model object
     @debug "Setting up model..."
@@ -1315,10 +1377,10 @@ function set_up_model(
     end
 
 
-    # Prevent the agent from reducing its credit metrics below Moody's Baa
+    # Prevent the agent from reducing its credit metrics below Moody's B
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
     for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-        # Interest coverage ratio >= 4.2
+        # Interest coverage ratio
         @constraint(
             m,
             (
@@ -1330,22 +1392,18 @@ function set_up_model(
                 )
             ) >= 0
         )
-    end
 
-    if settings["agent_opt"]["use_expanded_fin_constraints"]
-        for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-            # FCF / debt > 0.2
-            @constraint(
-                m,
-                (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - settings["agent_opt"]["fcf_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
-            )
+        # FCF / debt
+        @constraint(
+            m,
+            (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - settings["agent_opt"]["fcf_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+        )
 
-            # retained_earnings / debt >= 0.15
-            @constraint(
-                m,
-                (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) - settings["agent_opt"]["re_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
-            )
-        end
+        # Retained earnings / debt
+        @constraint(
+            m,
+            (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) - settings["agent_opt"]["re_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+        )
     end
 
     # Enforce the user-specified maximum number of new construction/retirement
@@ -1498,10 +1556,17 @@ function set_up_model(
     end
 
     # Create the objective function 
-    profit_lamda = settings["agent_opt"]["profit_lamda"] / 1e9
-    credit_rating_lamda = settings["agent_opt"]["credit_rating_lamda"]
     fin_metric_horizon = settings["agent_opt"]["fin_metric_horizon"]
     int_bound = settings["agent_opt"]["int_bound"]
+
+    # Average credit rating over the horizon
+    avg_cr = mean(agent_fs[1:fin_metric_horizon, :moodys_score])
+    cr_adj = 10.5 / avg_cr
+
+    # Set relative valuation-vs-credit metrics priority, depending on current
+    #   credit grade
+    profit_lamda = settings["agent_opt"]["profit_lamda"] / 1e9 * cr_adj
+    credit_rating_lamda = settings["agent_opt"]["credit_rating_lamda"] / cr_adj
 
     @objective(
         m,
@@ -1890,6 +1955,8 @@ function update_agent_financial_statement(
     # Propagate out accounting line items (EBITDA through FCF)
     agent_fs = compute_accounting_line_items(db, agent_fs, agent_params)
 
+    agent_fs = compute_credit_indicator_scores(agent_fs)
+
     # Save the dataframe to the database
     save_agent_fs!(agent_fs, agent_id, db)
 
@@ -2075,7 +2142,7 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
             ((NI, dep, capex) -> NI + dep - capex) => :FCF,
     )
 
-    # Dividends and Retained Cash Flow
+    # Dividends and Retained Earnings
     agent_id = agent_params[1, "agent_id"]
     cost_of_equity =
         DBInterface.execute(
@@ -2088,6 +2155,23 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
         agent_fs,
         [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :retained_earnings,
     )
+
+    return agent_fs
+end
+
+function compute_credit_indicator_scores(agent_fs)
+    # Credit ratings indicators
+    # Compute ICR metric column
+    transform!(agent_fs, [:interest_payment, :FCF] => ((int, fcf) -> (fcf .+ int) ./ int) => :ICR)
+
+    # Compute FCF-to-debt metric column
+    transform!(agent_fs, [:remaining_debt_principal, :FCF] => ((debt, fcf) -> fcf ./ debt) => :FCF_debt_ratio)
+
+    # Compute retained earnings-to-debt metric column
+    transform!(agent_fs, [:remaining_debt_principal, :retained_earnings] => ((debt, re) -> re ./ debt) => :RE_debt_ratio)
+
+    # Compute scaled Moody's indicator score from metrics
+    transform!(agent_fs, [:ICR, :FCF_debt_ratio, :RE_debt_ratio] => ((icr, fcf_debt, re_debt) -> compute_moodys_score.(icr, fcf_debt, re_debt)) => :moodys_score)
 
     return agent_fs
 end
