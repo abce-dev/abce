@@ -2231,23 +2231,34 @@ end
 function display_agent_choice_results(CLI_args, m, all_results)
     status = string(termination_status.(m))
     @debug "Model termination status: $status"
+    println("=== Results: ===")
 
     agent_id = CLI_args["agent_id"]
 
     if CLI_args["verbosity"] == 2
-        if status == "OPTIMAL"
-            units_to_execute = filter(:units_to_execute => u -> u > 0, all_results)
+        msg = nothing
+        units_to_execute = nothing
 
-            if size(units_to_execute)[1] == 0
-                @info "Agent $agent_id's optimal decision is to take no actions this turn."
+        if status == "OPTIMAL"
+            results = filter(:units_to_execute => u -> u > 0, all_results)
+
+            if size(results)[1] == 0
+                msg = "Agent $agent_id's optimal decision is to take no actions this turn."
             else
-                @info "Project alternatives to execute:"
-                @info filter(:units_to_execute => u -> u > 0, all_results)
+                msg = "Project alternatives to execute:"
+                units_to_execute = results
             end
         else
-            @info "No feasible solution found for the decision optimization problem."
-            @info "Agent $agent_id will take no actions this turn."
+            msg = "No feasible solution found for the decision optimization problem.\nAgent $agent_id will take no actions this turn."
         end
+
+        if msg != nothing
+            @info msg
+        end
+        if units_to_execute != nothing
+            @info units_to_execute
+        end
+
     elseif CLI_args["verbosity"] == 3
         @debug "Alternatives to execute:"
         @debug all_results
