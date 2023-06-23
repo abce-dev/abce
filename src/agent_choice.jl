@@ -74,7 +74,7 @@ function process_results(settings, CLI_args, m, db, PA_uids, unit_specs)
     all_results = ABCEfunctions.finalize_results_dataframe(m, PA_uids)
 
     # Display the results
-    ABCEfunctions.display_agent_choice_results(CLI_args, all_results)
+    ABCEfunctions.display_agent_choice_results(CLI_args, m, all_results)
 
     # Save newly-selected project alternatives happening in the current period
     #   to the database
