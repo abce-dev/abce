@@ -2228,10 +2228,37 @@ function save_agent_decisions(db, agent_id, decision_df)
 end
 
 
-function display_agent_choice_results(CLI_args, all_results)
+function display_agent_choice_results(CLI_args, m, all_results)
+    status = string(termination_status.(m))
+    @debug "Model termination status: $status"
+    println("=== Results: ===")
+
+    agent_id = CLI_args["agent_id"]
+
     if CLI_args["verbosity"] == 2
-        @info "Project alternatives to execute:"
-        @info filter(:units_to_execute => u -> u > 0, all_results)
+        msg = nothing
+        units_to_execute = nothing
+
+        if status == "OPTIMAL"
+            results = filter(:units_to_execute => u -> u > 0, all_results)
+
+            if size(results)[1] == 0
+                msg = "Agent $agent_id's optimal decision is to take no actions this turn."
+            else
+                msg = "Project alternatives to execute:"
+                units_to_execute = results
+            end
+        else
+            msg = "No feasible solution found for the decision optimization problem.\nAgent $agent_id will take no actions this turn."
+        end
+
+        if msg != nothing
+            @info msg
+        end
+        if units_to_execute != nothing
+            @info units_to_execute
+        end
+
     elseif CLI_args["verbosity"] == 3
         @debug "Alternatives to execute:"
         @debug all_results

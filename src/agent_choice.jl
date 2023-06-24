@@ -74,7 +74,7 @@ function process_results(settings, CLI_args, m, db, PA_uids, unit_specs)
     all_results = ABCEfunctions.finalize_results_dataframe(m, PA_uids)
 
     # Display the results
-    ABCEfunctions.display_agent_choice_results(CLI_args, all_results)
+    ABCEfunctions.display_agent_choice_results(CLI_args, m, all_results)
 
     # Save newly-selected project alternatives happening in the current period
     #   to the database
@@ -90,6 +90,8 @@ end
 
 
 function run_agent_choice()
+    @info "Setting up data..."
+
     # Read in the command-line arguments
     CLI_args = ABCEfunctions.get_CL_args()
 
@@ -148,6 +150,7 @@ function run_agent_choice()
 
     # Use the agent's internal dispatch forecast generator to project dispatch
     #   results in the system over the forecast horizon
+    @info "Simulating future market dispatch..."
     dispatch_results = Dispatch.execute_dispatch_economic_projection(
         CLI_args,
         db,
@@ -160,6 +163,7 @@ function run_agent_choice()
 
     # Set up all available project alternatives, including computing marginal
     #   NPV for all potential projects (new construction and retirements)
+    @info "Setting up all project alternatives..."
     PA_uids, PA_fs_dict = ABCEfunctions.set_up_project_alternatives(
         settings,
         unit_specs,
@@ -174,6 +178,7 @@ function run_agent_choice()
 
     # Update the agent's baseline projected financial statements, to use in
     #   the decision optimization model
+    @debug "Updating the agent's financial statements..."
     agent_fs = ABCEfunctions.update_agent_financial_statement(
         settings,
         CLI_args["agent_id"],
@@ -186,6 +191,7 @@ function run_agent_choice()
     )
 
     # Set up the agent's decision optimization model
+    @info "Setting up the agent's decision optimization problem..."
     m = ABCEfunctions.set_up_model(
         settings,
         PA_uids,
@@ -203,9 +209,11 @@ function run_agent_choice()
     )
 
     # Solve the model
+    @info "Solving optimization problem..."
     optimize!(m)
 
     # Process the model outputs
+    @debug "Postprocessing model results..."
     process_results(settings, CLI_args, m, db, PA_uids, unit_specs)
 end
 
