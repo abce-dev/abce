@@ -122,30 +122,52 @@ function run_agent_choice()
 
     # Retrieve the year-by-year system generation portfolio based on currently
     #   available data
-    system_portfolios = Dispatch.get_system_portfolios(
+    system_portfolios = ABCEfunctions.get_portfolio_forecast(
         db,
         settings,
         CLI_args["current_pd"],
         unit_specs,
     )
+
+    adj_system_portfolios = ABCEfunctions.fill_portfolios_missing_units(
+        CLI_args["current_pd"],
+        deepcopy(system_portfolios),
+        unit_specs,
+    )
+
+    adj_system_portfolios = ABCEfunctions.compute_derated_capacities(
+        settings,
+        CLI_args["current_pd"],
+        adj_system_portfolios,
+        unit_specs,
+    )
+
+    # Retrieve the year-by-year projected portfolio for the current agent
+    agent_portfolios = ABCEfunctions.get_portfolio_forecast(
+        db,
+        settings,
+        CLI_args["current_pd"],
+        unit_specs,
+        agent_id=CLI_args["agent_id"],
+    )
+
+    agent_portfolios = ABCEfunctions.compute_derated_capacities(settings, CLI_args["current_pd"], agent_portfolios, unit_specs)
 
     # Load the demand data
-    total_demand = ABCEfunctions.get_demand_forecast(
+    demand_forecast = ABCEfunctions.get_demand_forecast(
         db,
         CLI_args["current_pd"],
         fc_pd,
         settings,
     )
 
-    # Extend the unserved demand data to match the total forecast period
-    #   (constant projection)
-    total_demand = ABCEfunctions.get_net_demand(
-        db,
+    adj_system_portfolios = ABCEfunctions.forecast_balance_of_market_investment(
+        adj_system_portfolios,
+        agent_portfolios,
+        agent_params,
         CLI_args["current_pd"],
-        fc_pd,
-        total_demand,
-        system_portfolios,
-        unit_specs,
+        settings,
+        demand_forecast,
     )
 
     # Use the agent's internal dispatch forecast generator to project dispatch
@@ -156,9 +178,9 @@ function run_agent_choice()
         db,
         settings,
         fc_pd,
-        total_demand,
+        demand_forecast,
         unit_specs,
-        system_portfolios,
+        adj_system_portfolios,
     )
 
     # Set up all available project alternatives, including computing marginal
@@ -196,12 +218,12 @@ function run_agent_choice()
         settings,
         PA_uids,
         PA_fs_dict,
-        total_demand,
+        demand_forecast,
         grouped_agent_assets,
         agent_params,
         unit_specs,
         CLI_args["current_pd"],
-        system_portfolios,
+        adj_system_portfolios,
         db,
         CLI_args["agent_id"],
         agent_fs,

@@ -50,8 +50,8 @@ function execute_dispatch_economic_projection(
         settings["dispatch"]["num_repdays"],
     )
 
-    system_portfolios =
-        fill_portfolios_missing_units(system_portfolios, unit_specs)
+#    system_portfolios =
+#        fill_portfolios_missing_units(system_portfolios, unit_specs)
 
     all_gc_results, all_price_results = handle_annual_dispatch(
         settings,
@@ -326,7 +326,7 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
     # Create joined portfolio-unit_specs dataframe, to ensure consistent
     #   accounting for units which are actually present and consistent
     #   unit ordering
-    portfolio_specs = innerjoin(unit_specs, year_portfolio, on = :unit_type)
+    portfolio_specs = innerjoin(unit_specs, year_portfolio, on = :unit_type, makeunique=true)
     portfolio_specs[!, :unit_index] = 1:size(portfolio_specs)[1]
 
     # Set up wind_index and solar_index for easy filtering later
@@ -394,7 +394,7 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
     for i = 1:num_units
         for k = 1:num_days
             for j = 1:num_hours
-                @constraint(m, c[i, k, j] <= portfolio_specs[i, :num_units])
+                @constraint(m, c[i, k, j] <= portfolio_specs[i, :esc_num_units])
             end
         end
     end
@@ -747,7 +747,7 @@ function join_results_data_frames(
 
     # Join in unit number data to long_rev_results
     long_econ_results =
-        innerjoin(long_econ_results, all_year_portfolios, on = [:y, :unit_type])
+        innerjoin(long_econ_results, all_year_portfolios, on = [:y, :unit_type], makeunique=true)
 
     return long_econ_results
 
