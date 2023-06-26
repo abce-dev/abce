@@ -495,8 +495,6 @@ function forecast_balance_of_market_investment(adj_system_portfolios, agent_port
         transform!(adj_system_portfolios[y], [:total_escalated_capacity, :capacity_factor] => ((cap, cf) -> cap .* cf) => :total_esc_derated_capacity)
 
         transform!(adj_system_portfolios[y], [:total_escalated_capacity, :capacity] => ((total_cap, cap) -> ceil.(total_cap ./cap)) => :esc_num_units)
-
-        println(adj_system_portfolios[y])
     end
 
     return adj_system_portfolios
