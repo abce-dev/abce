@@ -483,26 +483,32 @@ function forecast_balance_of_market_investment(adj_system_portfolios, agent_port
 
         adj_system_portfolios[y] = coalesce.(outerjoin(adj_system_portfolios[y], apf, on = :unit_type), 0)
 
+        transform!(adj_system_portfolios[y], [:total_capacity, :capacity_factor] => ((cap, cf) -> cap .* cf) => :total_derated_capacity)
         transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((sys_cap, agent_cap) -> sys_cap - agent_cap) => :bom_total_capacity)
 
-        current_demand = filter(:period => x -> x == current_pd, demand_forecast)[1, :total_demand]
-        forecasted_demand = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
+        transform!(adj_system_portfolios[y], [:total_capacity, :bom_total_capacity] => ((total_cap, bom_cap) -> bom_cap ./ total_cap) => :my)
 
-        transform!(adj_system_portfolios[y], [:bom_total_capacity, :real] => ((bdr, real) -> bdr .* (1 .+ (forecasted_demand ./ current_demand .- 1) .* real)) => :bom_escalated_cap)
+        d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
+        c_y = sum(adj_system_portfolios[y][!, :total_derated_capacity])
 
-        transform!(adj_system_portfolios[y], [:bom_escalated_cap, :agent_total_capacity] => ((bom, agent) -> bom + agent) => :total_escalated_capacity)
+        d_0 = filter(:period => x -> x == current_pd, demand_forecast)[1, :total_demand]
+        c_0 = sum(adj_system_portfolios[current_pd][!, :total_derated_capacity])
 
-        transform!(adj_system_portfolios[y], [:total_escalated_capacity, :capacity_factor] => ((cap, cf) -> cap .* cf) => :total_esc_derated_capacity)
 
-        transform!(adj_system_portfolios[y], [:total_escalated_capacity, :capacity] => ((total_cap, cap) -> ceil.(total_cap ./cap)) => :esc_num_units)
+        if c_y / d_y < c_0 / d_0
+            transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :real] => ((c_iy, my, cf, real) -> c_iy .+ real .* (my ./ cf .* (c_iy ./ c_y) .* (d_y .* c_0 ./ d_0 .- c_y))) => :total_esc_der_capacity)
+        else
+            adj_system_portfolios[y][!, :total_esc_der_capacity] .= adj_system_portfolios[y][!, :total_derated_capacity]
+        end
+
+        transform!(adj_system_portfolios[y], [:total_esc_der_capacity, :capacity_factor] => ((c_iy, cf) -> c_iy ./ cf) => :total_esc_capacity)
+
+        transform!(adj_system_portfolios[y], [:total_esc_capacity, :capacity] => ((total_esc_cap, cap) -> ceil.(total_esc_cap ./cap)) => :esc_num_units)
     end
 
     return adj_system_portfolios
 
 end
-
-
-
 
 
 function get_next_asset_id(db)
@@ -1423,7 +1429,7 @@ function set_up_model(
         sufficiency =
             filter(:period => x -> x == current_pd + i - 1, total_demand)
         pd_total_demand = sufficiency[1, :total_demand]
-        total_eff_cap = sum(adj_system_portfolios[current_pd + i][!, :total_esc_derated_capacity])
+        total_eff_cap = sum(adj_system_portfolios[current_pd + i][!, :total_esc_der_capacity])
 
         # Enforce different capacity assurance requirements based on extant
         #   reserve margin
