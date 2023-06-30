@@ -462,7 +462,7 @@ function forecast_balance_of_market_investment(adj_system_portfolios, agent_port
         adj_system_portfolios[y] = coalesce.(outerjoin(adj_system_portfolios[y], apf, on = :unit_type), 0)
 
         transform!(adj_system_portfolios[y], [:total_capacity, :capacity_factor] => ((cap, cf) -> cap .* cf) => :total_derated_capacity)
-        transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((sys_cap, agent_cap) -> (sys_cap - agent_cap) ./ total_cap) => :my)
+        transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((total_cap, agent_cap) -> (total_cap - agent_cap) ./ total_cap) => :my)
 
         d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
         c_y = sum(adj_system_portfolios[y][!, :total_derated_capacity])
