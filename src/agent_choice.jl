@@ -135,13 +135,6 @@ function run_agent_choice()
         unit_specs,
     )
 
-    adj_system_portfolios = ABCEfunctions.compute_derated_capacities(
-        settings,
-        CLI_args["current_pd"],
-        adj_system_portfolios,
-        unit_specs,
-    )
-
     # Retrieve the year-by-year projected portfolio for the current agent
     agent_portfolios = ABCEfunctions.get_portfolio_forecast(
         db,
@@ -150,8 +143,6 @@ function run_agent_choice()
         unit_specs,
         agent_id=CLI_args["agent_id"],
     )
-
-    agent_portfolios = ABCEfunctions.compute_derated_capacities(settings, CLI_args["current_pd"], agent_portfolios, unit_specs)
 
     # Load the demand data
     demand_forecast = ABCEfunctions.get_demand_forecast(
