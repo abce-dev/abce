@@ -224,6 +224,58 @@ end
 #####
 # Preprocessing
 #####
+function get_portfolio_forecast(db, settings, current_pd, unit_specs; agent_id=nothing)
+    # Retrieve the year-by-year projected portfolio for the system or
+    #   current agent
+
+    # If an agent id has been supplied, use "agent mode"; otherwise,
+    #   "system mode"
+    mode = "system"
+    sql_filter = ""
+
+    if agent_id != nothing
+        mode = "agent"
+        sql_filter = " AND agent_id = $agent_id "
+    end
+
+    @debug "Retrieving $mode portfolio forecast..."
+    portfolios_dict = Dict()
+
+    end_year = (current_pd + convert(Int64, settings["dispatch"]["num_dispatch_years"]) - 1)
+
+    # Retrieve only the necessary unit_specs columns
+    brief_unit_specs = unit_specs[!, [:unit_type, :capacity, :capacity_factor]]
+
+    for y = current_pd:end_year
+        # Retrieve annual portfolios
+        sql_command = string(
+            "SELECT unit_type, COUNT(unit_type) FROM assets ",
+            "WHERE completion_pd <= $y AND retirement_PD > $y ",
+            "AND cancellation_pd > $y ",
+            sql_filter,
+            "GROUP BY unit_type"
+       )
+
+        portfolios_dict[y] = DBInterface.execute(db, sql_command) |> DataFrame
+
+        # Tidy up column names
+        rename!(portfolios_dict[y], Symbol("COUNT(unit_type)") => :num_units)
+
+        # Add a column to indicate real vs fictitious units
+        portfolios_dict[y][!, :real] = ones(size(portfolios_dict[y])[1])
+
+        # Join in the unit specs data for existing units
+        portfolios_dict[y] = innerjoin(portfolios_dict[y], brief_unit_specs, on = :unit_type)
+
+        # Compute total capacity
+        transform!(portfolios_dict[y], [:num_units, :capacity] => ((num_units, cap) -> num_units .* cap) => :total_capacity)
+    end
+
+    return portfolios_dict
+
+end
+
+
 function extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
     mode = settings["demand"]["demand_projection_mode"]
     if mode == "flat"
@@ -374,44 +426,64 @@ function get_demand_forecast(db, pd, fc_pd, settings)
 end
 
 
-function get_net_demand(
-    db,
-    pd,
-    fc_pd,
-    demand_forecast,
-    system_portfolios,
-    unit_specs,
-)
-    # Calculate the amount of forecasted net demand in future periods
-    installed_cap_forecast =
-        DataFrame(period = Int64[], derated_capacity = Float64[])
+function fill_portfolios_missing_units(current_pd, system_portfolios, unit_specs)
+    # Ensure that at least 1 unit of every available type in unit_specs is
+    #   represented in every year of the system portfolio, by adding 1 instance
+    #   of each missing unit type.
+    # Units are only added starting at the earliest year in which construction
+    #   of such a unit could have been completed.
 
-    vals = (pd, pd)
+    # Retrieve only the necessary unit_specs columns
+    brief_unit_specs = unit_specs[!, [:unit_type, :capacity, :capacity_factor]]
 
-    total_caps = DataFrame(period = Int64[], total_eff_cap = Float64[])
-
-    for i = pd:maximum(keys(system_portfolios))
-        year_portfolio =
-            innerjoin(system_portfolios[i], unit_specs, on = :unit_type)
-        transform!(
-            year_portfolio,
-            [:num_units, :capacity, :capacity_factor] =>
-                ((num_units, cap, CF) -> num_units .* cap .* CF) =>
-                    :effective_capacity,
-        )
-
-        total_year_cap = sum(year_portfolio[!, :effective_capacity])
-        push!(total_caps, [i, total_year_cap])
+    for y = minimum(keys(system_portfolios)):maximum(keys(system_portfolios))
+        for unit_type_specs in eachrow(unit_specs)
+            if !in(unit_type_specs.unit_type, system_portfolios[y][!, :unit_type])
+                if y - current_pd >= unit_type_specs.construction_duration
+                    # Target dataframe columns:
+                    # unit_type, num_units, real, capacity, capacity_factor, total_capacity
+                    push!(system_portfolios[y], (unit_type_specs.unit_type, 1, 0, unit_type_specs.capacity, unit_type_specs.capacity_factor, unit_type_specs.capacity))
+                end
+            end
+        end
     end
 
-    demand_forecast = innerjoin(demand_forecast, total_caps, on = :period)
-    transform!(
-        demand_forecast,
-        [:total_demand, :total_eff_cap] =>
-            ((demand, eff_cap) -> demand - eff_cap) => :net_demand,
-    )
+    return system_portfolios
+end
 
-    return demand_forecast
+
+function forecast_balance_of_market_investment(adj_system_portfolios, agent_portfolios, agent_params, current_pd, settings, demand_forecast)
+    end_year = (current_pd + convert(Int64, settings["dispatch"]["num_dispatch_years"]) - 1)
+
+    for y = current_pd:end_year
+        apf = select(agent_portfolios[y], [:unit_type, :total_capacity])
+        rename!(apf, :total_capacity => :agent_total_capacity)
+
+        adj_system_portfolios[y] = coalesce.(outerjoin(adj_system_portfolios[y], apf, on = :unit_type), 0)
+
+        transform!(adj_system_portfolios[y], [:total_capacity, :capacity_factor] => ((cap, cf) -> cap .* cf) => :total_derated_capacity)
+        transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((total_cap, agent_cap) -> (total_cap - agent_cap) ./ total_cap) => :my)
+
+        d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
+        c_y = sum(adj_system_portfolios[y][!, :total_derated_capacity])
+
+        d_0 = filter(:period => x -> x == current_pd, demand_forecast)[1, :total_demand]
+        c_0 = sum(adj_system_portfolios[current_pd][!, :total_derated_capacity])
+
+
+        if c_y / d_y < c_0 / d_0
+            transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :real] => ((c_iy, my, cf, real) -> c_iy .+ real .* (my .* (c_iy ./ c_y) .* (d_y .* c_0 ./ d_0 .- c_y))) => :total_esc_der_capacity)
+        else
+            adj_system_portfolios[y][!, :total_esc_der_capacity] .= adj_system_portfolios[y][!, :total_derated_capacity]
+        end
+
+        transform!(adj_system_portfolios[y], [:total_esc_der_capacity, :capacity_factor] => ((c_iy, cf) -> c_iy ./ cf) => :total_esc_capacity)
+
+        transform!(adj_system_portfolios[y], [:total_esc_capacity, :capacity] => ((total_esc_cap, cap) -> ceil.(total_esc_cap ./cap)) => :esc_num_units)
+    end
+
+    return adj_system_portfolios
+
 end
 
 
@@ -1251,7 +1323,7 @@ function set_up_model(
     agent_params,
     unit_specs,
     current_pd,
-    system_portfolios,
+    adj_system_portfolios,
     db,
     agent_id,
     agent_fs,
@@ -1333,7 +1405,7 @@ function set_up_model(
         sufficiency =
             filter(:period => x -> x == current_pd + i - 1, total_demand)
         pd_total_demand = sufficiency[1, :total_demand]
-        total_eff_cap = sufficiency[1, :total_eff_cap]
+        total_eff_cap = sum(adj_system_portfolios[current_pd + i][!, :total_esc_der_capacity])
 
         # Enforce different capacity assurance requirements based on extant
         #   reserve margin
