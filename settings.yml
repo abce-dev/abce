@@ -79,7 +79,7 @@ demand:
 #   dispatch data
 dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
-  num_repdays: 35
+  num_repdays: 45
   hist_wt: 0.4  # Weighting of historical versus projected data
   hist_decay: 0.5   # Decay factor for each historical data year
 
