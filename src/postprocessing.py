@@ -37,6 +37,7 @@ unit_type_colors = {
     "HTGR_C2N2_single": "#a50eec",
     "SFR_C2N0_single": "#ebf697",
     "SFR_C2N3_single": "#c6e000",
+    "PUN_unit": "#000000",
 }
 
 
