@@ -219,6 +219,7 @@ abce_tables = {
     ],
     "agent_decisions": [
         ("agent_id", "integer", "PRIMARY KEY"),
+        ("base_pd", "integer"),
         ("unit_type", "text"),
         ("project_type", "text"),
         ("lag", "integer"),
