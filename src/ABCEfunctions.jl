@@ -1743,7 +1743,7 @@ function postprocess_agent_decisions(
     end
 
     # Save the agent's decisions to the database
-    save_agent_decisions(db, agent_id, all_results)
+    save_agent_decisions(db, current_pd, agent_id, all_results)
 
 
 end
@@ -2283,16 +2283,17 @@ function save_agent_fs!(fs, agent_id, db)
 
 end
 
-function save_agent_decisions(db, agent_id, decision_df)
+function save_agent_decisions(db, current_pd, agent_id, decision_df)
     decision_df[!, :agent_id] .= agent_id
+    decision_df[!, :base_pd] .= current_pd
     cols_to_ignore = [:uid, :current]
-    select!(decision_df, :agent_id, Not(vcat([:agent_id], cols_to_ignore)))
+    select!(decision_df, [:agent_id, :base_pd], Not(vcat([:agent_id], cols_to_ignore)))
     for row in Tuple.(eachrow(decision_df))
         DBInterface.execute(
             db,
             string(
                 "INSERT INTO agent_decisions ",
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             ),
             row,
         )
