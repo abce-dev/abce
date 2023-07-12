@@ -197,7 +197,7 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
     )
 
 
-def postprocess_portfolios(db, settings, unit_specs, agent_id):
+def plot_portfolios(db, settings, unit_specs, agent_id):
     if agent_id == None:
         msg = "total system portfolio"
     else:
@@ -212,7 +212,7 @@ def postprocess_portfolios(db, settings, unit_specs, agent_id):
     logging.debug(f"Plot for {msg} saved.")
 
 
-def postprocess_results(abce_model, settings):
+def postprocess_results(args, abce_model, settings):
     logging.info("Postprocessing results...")
 
     # Save the raw database as an Excel format for easier viewing and manual
@@ -226,8 +226,9 @@ def postprocess_results(abce_model, settings):
     unit_specs = get_unit_specs(abce_model.db)
 
     # Plot portfolio evolution for all agents, plus the overall system
-    for agent_id in agent_list + [None]:
-        postprocess_portfolios(abce_model.db, settings, unit_specs, agent_id)
+    if not args.no_plots:
+        for agent_id in agent_list + [None]:
+            plot_portfolios(abce_model.db, settings, unit_specs, agent_id)
 
     logging.info("Postprocessing complete.")
 

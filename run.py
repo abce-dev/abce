@@ -105,6 +105,12 @@ def cli_args():
         action="store_true",
         help="Pause the simulation after each step until user presses a key.",
     )
+    parser.add_argument(
+        "--no-plots",
+        action="store_true",
+        help="Disable plot generation during postprocessing (prevents matplotlib/qt issues)",
+    )
+
     args = parser.parse_args()
     return args
 
@@ -191,7 +197,7 @@ def run_model():
     for i in range(settings["simulation"]["num_steps"]):
         abce_model.step(demo=args.demo)
 
-    ppx.postprocess_results(abce_model, settings)
+    ppx.postprocess_results(args, abce_model, settings)
 
 
 class ABCEFormatter(logging.Formatter):
