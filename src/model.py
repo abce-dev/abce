@@ -327,13 +327,25 @@ class GridModel(Model):
             * self.settings["scenario"]["peak_demand"]
         )
 
-        # Create an expanded range of periods to backfill with demand_df data
-        new_index = list(
-            range(self.settings["demand"]["total_forecast_horizon"])
-        )
-        demand_df = demand_df.reindex(new_index, method="ffill")
+        num_steps = self.settings["simulation"]["num_steps"]
+        dem_horiz = self.settings["demand"]["demand_visibility_horizon"]
 
-        # Save data to DB
+        if len(demand_df) < num_steps + dem_horiz:
+            msg = (
+                f"The peak demand time series data supplied in " +
+                f"{demand_data_file} is too short for the specified number " +
+                f"of simulation years to be run.\n" +
+                f"  Number of years given: {len(demand_df)}.\n" +
+                f"  Number of years needed: {num_steps + dem_horiz} = " +
+                f"{num_steps} simulated year(s) + {dem_horiz} year(s) " +
+                f"lookahead.\n"
+                f"Supply additional years of peak demand data, or run ABCE " +
+                f"for fewer time-steps."
+            )
+            logging.error(msg)
+            exit()
+
+       # Save data to DB
         demand_df.to_sql(
             "demand", self.db, if_exists="replace", index_label="period"
         )
