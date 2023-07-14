@@ -1987,11 +1987,11 @@ function update_agent_financial_statement(
         get_agent_portfolio_forecast(agent_id, db, current_pd, fc_pd)
 
     # Inner join the year's portfolio with financial pivot
-    fin_results = innerjoin(
+    fin_results = coalesce.(outerjoin(
         dispatch_results,
         agent_portfolio_forecast,
         on = [:y, :unit_type],
-    )
+    ), 0)
 
     # Compute total quantities based on agent's number of owned units
     transform!(
