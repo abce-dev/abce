@@ -767,6 +767,7 @@ function forecast_subproject_financials(
         fuel_cost = zeros(fc_pd),
         FOM = zeros(fc_pd),
         policy_adj = zeros(fc_pd),
+        tax_credits = zeros(fc_pd),
     )
 
     # Compute the series of DCF weights
@@ -821,6 +822,14 @@ function forecast_subproject_financials(
         dispatch_results,
         ALEAF_dispatch_results,
         deepcopy(subproject_fs),
+    )
+
+    # Forecast all post-facto policy adjustments
+    subproject_fs = forecast_subproject_pf_policy_adj(
+        settings,
+        subproject,
+        unit_type_data,
+        deepcopy(subproject_fs)
     )
 
     subproject_fs =
@@ -928,7 +937,7 @@ end
 
 function get_capex_end(fs_copy)
     # Find the end of the capex accumulation period
-    capex_end = nothing
+    capex_end = size(fs_copy)[1]
     for i = 1:size(fs_copy)[1]
         if (fs_copy[i, "capex"]) != 0 && (fs_copy[i + 1, "capex"] == 0)
             capex_end = i
@@ -1140,6 +1149,21 @@ function forecast_subproject_operations(
 
     return fs_copy
 
+end
+
+
+function forecast_subproject_pf_policy_adj(settings, subproject, unit_type_data, fs_copy)
+    # If project is C2N, apply a post-facto 40% ITC
+    if occursin("C2N", subproject["unit_type"])
+        capex_end = get_capex_end(fs_copy)
+        total_capex = sum(fs_copy[!, :capex])
+
+        if (capex_end != nothing) && (capex_end <= size(fs_copy)[1] - 1)
+            fs_copy[capex_end+1, :tax_credits] = 0.4 * total_capex
+        end
+    end
+
+    return fs_copy
 end
 
 
@@ -1898,7 +1922,7 @@ function record_asset_retirements(
                 db,
                 string(
                     "SELECT asset_id FROM assets WHERE unit_type = 'coal' ",
-                    "AND completion_pd <= ? AND retirement_pd > ? ",
+                    "AND completion_pd <= ? AND retirement_pd >= ? ",
                     "AND agent_id = ? AND C2N_reserved = ?",
                 ),
                 match_vals,
@@ -2015,6 +2039,8 @@ function update_agent_financial_statement(
     rename!(agent_fs, :y => :projected_pd)
     agent_fs[!, :base_pd] .= current_pd
 
+    agent_fs = compute_post_facto_policies(settings, db, deepcopy(agent_fs), agent_id, current_pd, unit_specs)
+
     # Add in scheduled financing factors: depreciation, interest payments, and capex
     agent_fs =
         compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
@@ -2076,6 +2102,26 @@ function add_FOM(
     )
 
     return fin_results
+end
+
+
+function compute_post_facto_policies(settings, db, fs_copy, agent_id, current_pd, unit_specs)
+    # Initialize the tax credits column
+    fs_copy[!, :tax_credits] = zeros(size(fs_copy)[1])
+
+    # Get a list of all WIP and operating assets owned by this agent
+    assets = DBInterface.execute(db, "SELECT * FROM assets WHERE agent_id = $agent_id AND cancellation_pd > $current_pd AND retirement_pd > $current_pd") |> DataFrame
+
+    for asset in eachrow(assets)
+        if (occursin("C2N", asset["unit_type"])) && asset["completion_pd"] >= current_pd + 1
+            unit_type_data = filter(:unit_type => unit_type -> unit_type == asset["unit_type"], unit_specs)[1, :]
+            total_capex = unit_type_data[:overnight_capital_cost] * unit_type_data[:capacity] * 1000
+
+            fs_copy[asset["completion_pd"] + 1, :tax_credits] += 0.4 * total_capex
+        end
+    end
+
+    return fs_copy
 end
 
 
@@ -2198,13 +2244,13 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
     # Pull out the bare value
     tax_rate = tax_rate[1, :value]
 
-    # Compute actual tax paid
-    transform!(agent_fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_paid)
+    # Compute nominal tax owed
+    transform!(agent_fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_owed)
 
     # Net Income
     transform!(
         agent_fs,
-        [:EBT, :tax_paid] => ((EBT, tax) -> (EBT - tax)) => :net_income,
+        [:EBT, :tax_credits, :tax_owed] => ((EBT, tax_credits, tax) -> (EBT - tax + tax_credits)) => :net_income,
     )
 
     # Free Cash Flow
