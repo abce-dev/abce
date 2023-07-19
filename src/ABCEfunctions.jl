@@ -1621,13 +1621,14 @@ function set_up_model(
     end
 
     for i = 1:size(coal_retirements)[2]
+        y = current_pd + i
         num_units = 0
 
         # Get number of planned coal units operating during this period
         coal_ops =
             DBInterface.execute(
                 db,
-                "SELECT unit_type, COUNT(unit_type) FROM assets WHERE unit_type = 'coal' AND C2N_reserved = 0 AND agent_id = $agent_id AND completion_pd <= $i AND retirement_pd >= $i AND cancellation_pd >= $i GROUP BY unit_type",
+                "SELECT unit_type, COUNT(unit_type) FROM assets WHERE unit_type = 'coal' AND C2N_reserved = 0 AND agent_id = $agent_id AND completion_pd <= $y AND retirement_pd >= $y AND cancellation_pd >= $y GROUP BY unit_type",
             ) |> DataFrame
         if size(coal_ops)[1] > 0
             num_units = coal_ops[1, "COUNT(unit_type)"]
@@ -1927,6 +1928,18 @@ function record_asset_retirements(
                 ),
                 match_vals,
             ) |> DataFrame
+
+        # Check the assets_updates table
+        # If any units have been marked as C2N_reserved by another operation
+        #   this round, ensure those units are not double-allocated
+        claimed_coal_assets = DBInterface.execute(
+            db,
+            string("SELECT asset_id FROM asset_updates WHERE unit_type = 'coal' AND C2N_reserved = 1")
+        ) |> DataFrame
+
+        for k in 1:size(claimed_coal_assets)[1]
+            ret_candidates = filter(:asset_id => x -> x != claimed_coal_assets[k, :asset_id], ret_candidates)
+        end
 
         # Set the number of units to execute
         units_to_execute =
