@@ -33,19 +33,19 @@ greenfield:
       time_rem: 1.0
   SFR:
     npp_ns_xtr:
-      cost_rem: 0.472
+      cost_rem: 0.4716
       time_rem: 1.0
     npp_safety_xtr:
-      cost_rem: 0.488
+      cost_rem: 0.4876
       time_rem: 3.0
     cpp_wr:
-      cost_rem: 0.006
+      cost_rem: 0.0059
       time_rem: 1.5
     cpp_nrc:
       cost_rem: 0.0
       time_rem: 0.0
     cpp_dnd:
-      cost_rem: 0.035
+      cost_rem: 0.0350
       time_rem: 1.0
 
 electrical:
