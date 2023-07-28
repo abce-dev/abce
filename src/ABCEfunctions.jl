@@ -896,14 +896,14 @@ function project_C2N_capex(
         conversion_type = "greenfield"
         if occursin("PWR", unit_type_data[:unit_type])
             rxtr_type = "PWR"
-            data = C2N_specs["greenfield"]["PWR"]
         elseif occursin("HTGR", unit_type_data[:unit_type])
             rxtr_type = "HTGR"
-            data = C2N_specs["greenfield"]["HTGR"]
         else
             rxtr_type = "SFR"
-            data = C2N_specs["greenfield"]["SFR"]
         end
+
+        data = deepcopy(C2N_specs[conversion_type][rxtr_type])
+
     else
         if unit_type_data[:unit_type] == "C2N1"
             conversion_type = "electrical"
@@ -915,7 +915,12 @@ function project_C2N_capex(
             conversion_type = "steam_TES"
             rxtr_type = "SFR"
         end
-        data = C2N_specs[conversion_type][assumption]
+        data = deepcopy(C2N_specs[conversion_type][assumption])
+    end
+
+    # Scale cost component data to match unit type specification data
+    for key in keys(data)
+        data[key]["cost_rem"] = data[key]["cost_rem"] * unit_type_data[:overnight_capital_cost]
     end
 
     # Develop the C2N capex profile
