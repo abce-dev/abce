@@ -112,6 +112,8 @@ abce_tables = {
         # net $/MWh subsidy or penalty due to carbon tax, PTC, etc.,
         ("policy_adj_per_MWh", "real"),
         # lead time between xtr start and cpp retirement
+        ("tax_credits_per_MWh", "real"),
+        ("tax_credits_per_MW", "real"),
         ("cpp_ret_lead", "real"),
         # number of coal units which must be retired
         ("num_cpp_rets", "integer"),
@@ -245,6 +247,7 @@ abce_tables = {
         ("fuel_cost", "real"),
         ("FOM", "real"),
         ("policy_adj", "real"),
+        ("tax_credits", "real"),
     ],
 }
 
