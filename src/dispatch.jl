@@ -482,7 +482,7 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
                 k = 1:num_days
             ) .* (
                 portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] -
-                portfolio_specs[i, :policy_adj_per_MWh]
+                portfolio_specs[i, :policy_adj_per_MWh] - portfolio_specs[i, :tax_credits_per_MWh]
             ) for i = 1:num_units
         )
     )
@@ -740,7 +740,7 @@ function join_results_data_frames(
         long_econ_results,
         select(
             unit_specs,
-            [:unit_type, :capacity, :VOM, :FC_per_MWh, :policy_adj_per_MWh],
+            [:unit_type, :capacity, :VOM, :FC_per_MWh, :policy_adj_per_MWh, :tax_credits_per_MWh],
         ),
         on = :unit_type,
     )
@@ -803,6 +803,17 @@ function compute_per_unit_cash_flows(long_econ_results)
             ) => :annualized_policy_adj_per_unit,
     )
 
+    # Calculate tax credit adjustment
+    transform!(
+        long_econ_results,
+        [:gen, :tax_credits_per_MWh, :Probability, :num_units] =>
+            (
+                (gen, tc, prob, num_units) ->
+                    gen .* tc .* prob .* 365 ./ num_units
+            ) => :annualized_tax_credits_per_unit,
+    )
+
+
     for col in eachcol(long_econ_results)
         replace!(col, Inf => 0)
         replace!(col, NaN => 0)
@@ -824,6 +835,7 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
             :annualized_VOM_per_unit,
             :annualized_FC_per_unit,
             :annualized_policy_adj_per_unit,
+            :annualized_tax_credits_per_unit,
         ] .=> sum,
     )
 
@@ -834,6 +846,7 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
         :annualized_VOM_per_unit_sum => :VOM,
         :annualized_FC_per_unit_sum => :fuel_cost,
         :annualized_policy_adj_per_unit_sum => :policy_adj,
+        :annualized_tax_credits_per_unit_sum => :tax_credits,
     )
 
     # Pivot in FOM data
@@ -850,7 +863,7 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
     # Put the data into a long format for easier filtering
     dispatch_results = stack(
         dispatch_results,
-        [:generation, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj],
+        [:generation, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj, :tax_credits],
     )
     rename!(dispatch_results, :variable => :dispatch_result, :value => :qty)
 
