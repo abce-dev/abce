@@ -1057,7 +1057,7 @@ function forecast_subproject_operations(
     mode = subproject["project_type"]
     hist_wt = settings["dispatch"]["hist_wt"]
     data_to_get =
-        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
+        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj", "tax_credits"]
 
     # Get historical ALEAF results for this unit type
     ALEAF_dispatch_results = filter(
@@ -1232,7 +1232,7 @@ function average_historical_ALEAF_results(settings, db)
 
         # Weight the data columns
         data_to_weight =
-            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
+            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj", "tax_credits"]
 
         for data_type in data_to_weight
             transform!(
