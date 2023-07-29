@@ -1057,7 +1057,7 @@ function forecast_subproject_operations(
     mode = subproject["project_type"]
     hist_wt = settings["dispatch"]["hist_wt"]
     data_to_get =
-        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
+        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj", "tax_credits"]
 
     # Get historical ALEAF results for this unit type
     ALEAF_dispatch_results = filter(
@@ -1158,14 +1158,20 @@ end
 
 
 function forecast_subproject_pf_policy_adj(settings, subproject, unit_type_data, fs_copy)
-    # If project is C2N, apply a post-facto 40% ITC
-    if occursin("C2N", subproject["unit_type"])
-        capex_end = get_capex_end(fs_copy)
-        total_capex = sum(fs_copy[!, :capex])
+    try
+        ITC_data = settings["scenario"]["policies"]["ITC"]
+        ITC_qty = ITC_data["qty"]
 
-        if (capex_end != nothing) && (capex_end <= size(fs_copy)[1] - 1)
-            fs_copy[capex_end+1, :tax_credits] = 0.4 * total_capex
+        if ITC_data["enabled"] && subproject["unit_type"] in ITC_data["eligibility"]["unit_type"]
+            capex_end = get_capex_end(fs_copy)
+            total_capex = sum(fs_copy[!, :capex])
+
+            if (capex_end != nothing) && (capex_end <= size(fs_copy)[1] - 1)
+                fs_copy[capex_end+1, :tax_credits] = ITC_qty * total_capex
+            end
         end
+    catch
+        # do nothing
     end
 
     return fs_copy
@@ -1226,7 +1232,7 @@ function average_historical_ALEAF_results(settings, db)
 
         # Weight the data columns
         data_to_weight =
-            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
+            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj", "tax_credits"]
 
         for data_type in data_to_weight
             transform!(

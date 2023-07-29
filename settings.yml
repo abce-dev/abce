@@ -19,6 +19,18 @@ scenario:
           - wind
           - solar
       qty: 15.0   # $/MWh
+    ITC:
+      enabled: True
+      eligibility:
+        unit_type:
+          - PWR_C2N0_single
+          - PWR_C2N1_single
+          - HTGR_C2N0_single
+          - HTGR_C2N2_single
+          - SFR_C2N0_single
+          - SFR_C2N3_single
+      qty: 0.4   # Specify as a fraction (between 0 and 1)
+
   allowed_xtr_types:
     - wind
     - solar
