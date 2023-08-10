@@ -105,7 +105,7 @@ def get_portfolio_profile(settings, db, agent_id, unit_specs):
     # Set the total time horizon to num_steps + the construction duration of
     #   the fastest-to-build project
     horizon = int(
-        min(unit_specs.construction_duration)
+        unit_specs.construction_duration.min(skipna=True)
         + int(settings["simulation"]["num_steps"])
         + 1
     )
