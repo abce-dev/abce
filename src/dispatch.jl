@@ -65,7 +65,7 @@ function execute_dispatch_economic_projection(
         unit_specs,
     )
 
-    long_econ_results = postprocess_results(
+    long_econ_results, dispatch_results = postprocess_results(
         settings,
         all_gc_results,
         all_price_results,
@@ -76,7 +76,7 @@ function execute_dispatch_economic_projection(
         fc_pd,
     )
 
-    return long_econ_results
+    return long_econ_results, dispatch_results
 end
 
 
@@ -214,9 +214,6 @@ function load_ts_data(ts_file_dir; num_repdays=nothing)
         CSV.read(joinpath(ts_file_dir, "timeseries_wind_hourly.csv"), DataFrame)
     solar_data =
         CSV.read(joinpath(ts_file_dir, "timeseries_pv_hourly.csv"), DataFrame)
-
-    println(first(load_data, 10))
-    println(size(load_data)[1])
 
     if num_repdays == nothing
         repdays_data = nothing
@@ -966,7 +963,7 @@ function postprocess_results(
     dispatch_results =
         summarize_dispatch_results(settings, unit_specs, long_econ_results)
 
-    return dispatch_results
+    return long_econ_results, dispatch_results
 
 end
 
