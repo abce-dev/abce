@@ -164,7 +164,7 @@ function run_agent_choice()
     # Use the agent's internal dispatch forecast generator to project dispatch
     #   results in the system over the forecast horizon
     @info "Simulating future market dispatch..."
-    dispatch_results = Dispatch.execute_dispatch_economic_projection(
+    long_econ_results, dispatch_results = Dispatch.execute_dispatch_economic_projection(
         CLI_args,
         db,
         settings,
