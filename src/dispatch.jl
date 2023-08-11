@@ -52,7 +52,7 @@ function execute_dispatch_economic_projection(
     else
         ts_data = load_ts_data(
             ts_data_dir,
-            settings["dispatch"]["num_repdays"],
+            num_repdays=settings["dispatch"]["num_repdays"],
         )
     end
 
