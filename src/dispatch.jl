@@ -466,15 +466,13 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
                         m,
                         g[i, k, j] <= (
                             c[i, k, j] .* portfolio_specs[i, :capacity] .*
-                            portfolio_specs[i, :capacity_factor] .*
-                            portfolio_specs[i, :max_PL]
+                            portfolio_specs[i, :capacity_factor]
                         )
                     )
                     @constraint(
                         m,
                         g[i, k, j] >= (
                             c[i, k, j] .* portfolio_specs[i, :capacity] .*
-                            portfolio_specs[i, :capacity_factor] .*
                             portfolio_specs[i, :min_PL]
                         )
                     )
