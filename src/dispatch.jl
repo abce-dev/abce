@@ -42,16 +42,19 @@ function execute_dispatch_economic_projection(
     )
 
     # Set up all timeseries data
-    ts_data = load_ts_data(
-        joinpath(
-            CLI_args["inputs_path"],
-            "ts_data",
-        ),
-        settings["dispatch"]["num_repdays"],
+    ts_data_dir = joinpath(
+        CLI_args["inputs_path"],
+        settings["file_paths"]["timeseries_data_dir"],
     )
 
-#    system_portfolios =
-#        fill_portfolios_missing_units(system_portfolios, unit_specs)
+    if settings["dispatch"]["downselection"] == "exact"
+        ts_data = load_ts_data(ts_data_dir)
+    else
+        ts_data = load_ts_data(
+            ts_data_dir,
+            settings["dispatch"]["num_repdays"],
+        )
+    end
 
     all_gc_results, all_price_results = handle_annual_dispatch(
         settings,
@@ -203,7 +206,7 @@ function handle_annual_dispatch(
 end
 
 
-function load_ts_data(ts_file_dir, num_repdays)
+function load_ts_data(ts_file_dir; num_repdays=nothing)
     # Load the time-series demand and VRE data into dataframes
     load_data =
         CSV.read(joinpath(ts_file_dir, "timeseries_load_hourly.csv"), DataFrame)
@@ -211,8 +214,21 @@ function load_ts_data(ts_file_dir, num_repdays)
         CSV.read(joinpath(ts_file_dir, "timeseries_wind_hourly.csv"), DataFrame)
     solar_data =
         CSV.read(joinpath(ts_file_dir, "timeseries_pv_hourly.csv"), DataFrame)
-    repdays_data =
-        CSV.read(joinpath(ts_file_dir, "repDays_$num_repdays.csv"), DataFrame)
+
+    println(first(load_data, 10))
+    println(size(load_data)[1])
+
+    if num_repdays == nothing
+        repdays_data = nothing
+    else
+        repdays_data = CSV.read(
+            joinpath(
+                ts_file_dir,
+                "repDays_$num_repdays.csv",
+            ),
+            DataFrame
+        )
+    end
 
     ts_data = Dict(
         :load_data => load_data,
@@ -253,11 +269,38 @@ function scale_load(ts_data, peak_demand)
 end
 
 
-function set_up_load_repdays(ts_data)
+function set_repdays_params(settings, ts_data)
+    if settings["dispatch"]["downselection"] == "exact"
+        if size(ts_data[:load_data])[1] <= 24
+            num_days = 1
+            num_hours = size(ts_data[:load_data])[1]
+        else
+            num_days = size(ts_data[:load_data])[1] / 24
+            num_hours = 24
+        end
+    else
+        num_days = settings["dispatch"]["num_repdays"]
+        num_hours = 24
+    end
+
+    return num_days, num_hours
+
+end
+
+
+function set_up_load_repdays(downselection_mode, num_days, num_hours, ts_data)
     load_repdays = DataFrame()
-    for day in ts_data[:repdays_data][!, :Day]
-        load_repdays[!, Symbol(day)] =
-            ts_data[:load_data][(24 * day + 1):(24 * (day + 1)), :Load]
+
+    if downselection_mode == "exact"
+        for day = 1:num_days
+            load_repdays[!, Symbol(day)] =
+                ts_data[:load_data][(num_hours * (day-1) + 1):(num_hours * day), :Load]
+        end
+    else
+        for day in ts_data[:repdays_data][!, :Day]
+            load_repdays[!, Symbol(day)] =
+                ts_data[:load_data][(num_hours * day + 1):(num_hours * (day + 1)), :Load]
+        end
     end
 
     ts_data[:load_repdays] = load_repdays
@@ -311,15 +354,25 @@ function scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
 end
 
 
-function set_up_wind_solar_repdays(ts_data)
+function set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_data)
     wind_repdays = DataFrame()
     solar_repdays = DataFrame()
 
-    for day in ts_data[:repdays_data][!, :Day]
-        wind_repdays[!, Symbol(day)] =
-            ts_data[:wind_data][(24 * day + 1):(24 * (day + 1)), :wind]
-        solar_repdays[!, Symbol(day)] =
-            ts_data[:solar_data][(24 * day + 1):(24 * (day + 1)), :solar]
+    if downselection_mode == "exact"
+        for day = 1:num_days
+            wind_repdays[!, Symbol(day)] =
+                ts_data[:wind_data][(num_hours * (day-1) + 1):(num_hours * day), :wind]
+            solar_repdays[!, Symbol(day)] =
+                ts_data[:solar_data][(num_hours * (day-1) + 1):(num_hours * day), :solar]
+        end
+
+    else
+        for day in ts_data[:repdays_data][!, :Day]
+            wind_repdays[!, Symbol(day)] =
+                ts_data[:wind_data][(num_hours * day + 1):(num_hours * (day + 1)), :wind]
+            solar_repdays[!, Symbol(day)] =
+                ts_data[:solar_data][(num_hours * day + 1):(num_hours * (day + 1)), :solar]
+        end
     end
 
     ts_data[:wind_repdays] = wind_repdays
@@ -329,7 +382,7 @@ function set_up_wind_solar_repdays(ts_data)
 end
 
 
-function set_up_model(settings, ts_data, year_portfolio, unit_specs)
+function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs)
     # Create joined portfolio-unit_specs dataframe, to ensure consistent
     #   accounting for units which are actually present and consistent
     #   unit ordering
@@ -354,8 +407,6 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
 
     # Helpful named constants
     num_units = size(portfolio_specs)[1]
-    num_days = size(ts_data[:repdays_data])[1]
-    num_hours = 24
 
     # Break out timeseries data sets for convenience
     load_data = ts_data[:load_data]
@@ -612,22 +663,24 @@ function run_annual_dispatch(
     ts_data,
     unit_specs,
 )
+    num_days, num_hours = set_repdays_params(settings, ts_data)
+
     # Scale the load data to the PD value for this year
     ts_data = scale_load(ts_data, peak_demand)
 
     # Set up representative days for load
-    ts_data = set_up_load_repdays(ts_data)
+    ts_data = set_up_load_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
 
     # Scale the wind and solar data according to the current year's total
     #   installed capacity
     ts_data = scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
 
     # Set up representative days for wind and solar
-    ts_data = set_up_wind_solar_repdays(ts_data)
+    ts_data = set_up_wind_solar_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
 
     @debug "Setting up optimization model..."
     m, portfolio_specs =
-        set_up_model(settings, ts_data, year_portfolio, unit_specs)
+        set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs)
 
     @debug "Optimization model set up."
     @debug string("Solving repday dispatch for year ", y, "...")
@@ -717,6 +770,7 @@ end
 
 
 function join_results_data_frames(
+    settings,
     all_gc_results,
     all_prices,
     repdays_data,
@@ -727,11 +781,15 @@ function join_results_data_frames(
     long_econ_results = innerjoin(all_gc_results, all_prices, on = [:y, :d, :h])
 
     # Incorporate repdays probability data
-    long_econ_results = innerjoin(
-        long_econ_results,
-        select(repdays_data, [:index, :Probability]),
-        on = [:d => :index],
-    )
+    if settings["dispatch"]["downselection"] == "exact"
+        long_econ_results[!, :Probability] .= 1.0
+    else
+        long_econ_results = innerjoin(
+            long_econ_results,
+            select(repdays_data, [:index, :Probability]),
+            on = [:d => :index],
+        )
+    end
 
     # Join in limited unit_specs data to compute some cash flows
     long_econ_results = innerjoin(
@@ -893,6 +951,7 @@ function postprocess_results(
     # Join in relevant data to create a single master dataframe suitable for
     #   a variety of column-wise operations
     long_econ_results = join_results_data_frames(
+        settings,
         all_gc_results,
         all_prices,
         repdays_data,
