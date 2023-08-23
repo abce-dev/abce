@@ -836,6 +836,7 @@ function forecast_subproject_financials(
     #   revenue, all cost types, policy adjustments
     subproject_fs = forecast_subproject_operations(
         settings,
+        current_pd,
         subproject,
         unit_type_data,
         dispatch_results,
@@ -1067,6 +1068,7 @@ end
 
 function forecast_subproject_operations(
     settings,
+    current_pd,
     subproject,
     unit_type_data,
     dispatch_results,
@@ -1093,6 +1095,7 @@ function forecast_subproject_operations(
     # Set up timeline start/end and value sign based on project type
     if subproject["project_type"] == "new_xtr"
         # Record marginal additional generation
+        # get_capex_end gives the relative index, not the absolute year
         series_start = get_capex_end(fs_copy) + 1
         series_end = convert(
             Int64,
@@ -1113,15 +1116,18 @@ function forecast_subproject_operations(
     end
 
     # Update the operations results data in the subproject's financial statement
+    # series_start and series_end are relative indices, not absolute years
+    #   --they need to be converted with current_pd
     for i = series_start:series_end
         for data_type in data_to_get
             # Get the corresponding data value for the year i from the ABCE
             #   dispatch projection
-            if (i-1) in ABCE_dispatch_results[!, :y]
+            yr = current_pd + i - 1
+            if yr in ABCE_dispatch_results[!, :y]
                 ABCE_data_value = filter(
                     [:y, :dispatch_result] =>
                         (y, disp_res) ->
-                            (y == i-1) && (disp_res == data_type),
+                            (y == yr) && (disp_res == data_type),
                     ABCE_dispatch_results,
                 )
                 ABCE_data_value = ABCE_data_value[1, :qty]
