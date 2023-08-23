@@ -1117,11 +1117,11 @@ function forecast_subproject_operations(
         for data_type in data_to_get
             # Get the corresponding data value for the year i from the ABCE
             #   dispatch projection
-            if i in ABCE_dispatch_results[!, :y]
+            if (i-1) in ABCE_dispatch_results[!, :y]
                 ABCE_data_value = filter(
                     [:y, :dispatch_result] =>
                         (y, disp_res) ->
-                            (y == i) && (disp_res == data_type),
+                            (y == i-1) && (disp_res == data_type),
                     ABCE_dispatch_results,
                 )
                 ABCE_data_value = ABCE_data_value[1, :qty]
