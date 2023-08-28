@@ -174,6 +174,9 @@ function run_agent_choice()
         adj_system_portfolios,
     )
 
+    CSV.write("./tmp/long_econ_results.csv", long_econ_results)
+    CSV.write("./tmp/dispatch_results.csv", dispatch_results)
+
     # Set up all available project alternatives, including computing marginal
     #   NPV for all potential projects (new construction and retirements)
     @info "Setting up all project alternatives..."
