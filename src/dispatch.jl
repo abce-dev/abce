@@ -402,6 +402,11 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
         ]
     end
 
+    convnuc_index = nothing
+    if !isempty(filter(:unit_type => x -> x == "conventional_nuclear", portfolio_specs))
+        convnuc_index = filter(:unit_type => x -> x == "conventional_nuclear", portfolio_specs)[1, :unit_index]
+    end
+
     # Helpful named constants
     num_units = size(portfolio_specs)[1]
 
@@ -490,6 +495,15 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
             end
             if solar_index != 0
                 @constraint(m, g[solar_index, k, j] <= solar_repdays[j, k])
+            end
+        end
+    end
+
+    # Force all conventional_nuclear units to be committed at all times
+    for k = 1:num_days
+        for j = 1:num_hours
+            if convnuc_index != nothing
+                @constraint(m, c[convnuc_index, k, j] == portfolio_specs[convnuc_index, :num_units])
             end
         end
     end
