@@ -225,7 +225,7 @@ conventional_nuclear:
   max_regulation: 0.0
   max_spinning_reserve: 0.0
   max_nonspinning_reserve: 0.0
-  capacity_factor: 0.9
+  capacity_factor: 0.93
   emissions_per_MMBTU: 0.0   # t CO2 / MMBTU
   is_VRE: False
   uses_fuel: True
