@@ -679,8 +679,7 @@ function create_PA_subprojects(
     subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
 
     # Retrieve historical ALEAF dispatch results data
-    ALEAF_results, ALEAF_dispatch_results =
-        average_historical_ALEAF_results(settings, db)
+    ALEAF_dispatch_results = average_historical_ALEAF_results(settings, db)
 
     for subproject in subprojects
         # Retrieve unit type data for convenience
@@ -1269,10 +1268,7 @@ function average_historical_ALEAF_results(settings, db)
         end
     end
 
-    # Set up dummy data
-    ALEAF_results = Dict("wtd_hist_revs" => nothing, "wtd_hist_gen" => nothing)
-
-    return ALEAF_results, ALEAF_dispatch_results
+    return ALEAF_dispatch_results
 
 end
 
