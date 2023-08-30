@@ -109,6 +109,8 @@ abce_tables = {
         ("max_spinning_reserve", "real"),
         ("max_nonspinning_reserve", "real"),
         ("no_load_cost", "real"),
+        ("start_up_cost", "real"),
+        ("shut_down_cost", "real"),
         ("FC_per_MMBTU", "real"),  # $/MMBTU
         ("FC_per_MWh", "real"),  # $/MWh
         ("is_VRE", "text"),  # boolean

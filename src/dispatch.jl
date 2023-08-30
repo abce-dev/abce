@@ -257,6 +257,8 @@ function set_up_grc_results_df()
         spin = Float64[],
         nspin = Float64[],
         commit = Int[],
+        su = Int[],
+        sd = Int[],
     )
 
     return all_grc_results
@@ -503,6 +505,12 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     # c: number of units of each type committed in each hour
     @variable(m, c[1:num_units, 1:num_days, 1:num_hours] >= 0, Int)
 
+    # su: number of units of each type started up in each hour
+    @variable(m, su[1:num_units, 1:num_days, 1:num_hours] >= 0)
+
+    # sd: number of units of each type shut down in each hour
+    @variable(m, sd[1:num_units, 1:num_days, 1:num_hours] >= 0)
+
     # s: penalty variable for energy not served in each hour
     @variable(m, s[1:num_days, 1:num_hours] >= 0)
 
@@ -540,6 +548,26 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
         for k = 1:num_days
             for j = 1:num_hours
                 @constraint(m, c[i, k, j] <= portfolio_specs[i, :esc_num_units])
+            end
+        end
+    end
+
+    # Compute number of units started up and shut down per hour
+    for i = 1:num_units
+        # Exclude wind and solar
+        if portfolio_specs[i, :is_VRE] == 0
+            # on the first hour of the "year", all units committed are counted as being started up this hour
+            @constraint(m, su[i, 1, 1] == c[i, 1, 1])
+
+            for k = 1:num_days
+                # Intraday constraint
+                if k > 1
+                    @constraint(m, c[i, k, 1] - c[i, k-1, num_hours] - su[i, k, 1] + sd[i, k, 1] == 0)
+                end
+
+                for j = 2:num_hours
+                    @constraint(m, c[i, k, j] - c[i, k, j-1] - su[i, k, j] + sd[i, k, j] == 0)
+                end
             end
         end
     end
@@ -690,7 +718,11 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
             + sum(sum(0.2 * r[i, k, j] + 0.1 * sr[i, k, j] + 0.1 * nsr[i, k, j] for j = 1:num_hours) for k = 1:num_days) 
               .* (portfolio_specs[i, :VOM])
             # No-load costs for commitment
-            + sum(sum(c[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :no_load_cost]
+            + sum(sum(c[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :no_load_cost] .* portfolio_specs[i, :capacity]
+            # Start-up costs
+            + sum(sum(su[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :start_up_cost] .* portfolio_specs[i, :capacity]
+            # Shut-down costs
+            + sum(sum(sd[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :shut_down_cost] .* portfolio_specs[i, :capacity]
         for i = 1:num_units)
     )
 
@@ -709,6 +741,8 @@ function solve_model(model; model_type = "integral")
         sr = nothing
         nsr = nothing
         c = nothing
+        su = nothing
+        sd = nothing
         s = nothing
         if status == "OPTIMAL"
             gen_qty = value.(model[:g])
@@ -716,10 +750,12 @@ function solve_model(model; model_type = "integral")
             sr = value.(model[:sr])
             nsr = value.(model[:nsr])
             c = value.(model[:c])
+            su = value.(model[:su])
+            sd = value.(model[:sd])
             s = value.(model[:s])
         end
 
-        returns = model, status, gen_qty, r, sr, nsr, c, s
+        returns = model, status, gen_qty, r, sr, nsr, c, su, sd, s
 
     elseif model_type == "relaxed_integrality"
         optimize!(model)
@@ -734,7 +770,7 @@ function solve_model(model; model_type = "integral")
 end
 
 
-function assemble_grc_results(y, gen_qty, r, sr, nsr, c, portfolio_specs)
+function assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
     new_grc_results = set_up_grc_results_df()
 
     # Save generation and commitment results to a dataframe
@@ -753,6 +789,8 @@ function assemble_grc_results(y, gen_qty, r, sr, nsr, c, portfolio_specs)
                     spin = sr[i, k, j],
                     nspin = nsr[i, k, j],
                     commit = round(Int, c[i, k, j]),
+                    su = round(Int, su[i, k, j]),
+                    sd = round(Int, sd[i, k, j]),
                 )
                 push!(new_grc_results, line)
             end
@@ -870,11 +908,11 @@ function run_annual_dispatch(
     set_silent(m_copy)
 
     # Solve the integral optimization problem
-    m, status, gen_qty, r, sr, nsr, c, s = solve_model(m, model_type = "integral")
+    m, status, gen_qty, r, sr, nsr, c, su, sd, s = solve_model(m, model_type = "integral")
 
     if status == "OPTIMAL"
         # Save the generation and commitment results from the integral problem
-        new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, portfolio_specs)
+        new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
 
         # Set up a relaxed-integrality version of this model, to allow
         #   retrieval of dual values for the mkt_equil constraint
