@@ -187,6 +187,7 @@ function run_agent_choice()
         CLI_args["current_pd"],
         C2N_specs,
         dispatch_results,
+        CLI_args["verbose_outputs"],
     )
 
     # Update the agent's baseline projected financial statements, to use in
