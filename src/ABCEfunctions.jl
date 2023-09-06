@@ -67,6 +67,12 @@ function get_CL_args()
         help = "absolute path to the top-level ABCE directory"
         required = true
         arg_type = String
+
+        "--verbose_outputs"
+        help = "if True, store various intermediate calculation results in the tmp/ directory"
+        required = false
+        arg_type = Int
+        default = 0
     end
 
     return parse_args(s)
@@ -546,6 +552,7 @@ function set_up_project_alternatives(
     current_pd,
     C2N_specs,
     dispatch_results,
+    verbose_outputs,
 )
     PA_summaries = create_PA_summaries(settings, unit_specs, asset_counts)
     PA_fs_dict = Dict()
@@ -570,7 +577,24 @@ function set_up_project_alternatives(
         # Create an aggregated financial statement for this project alternative
         #   based on its subprojects
         PA_fs_dict[PA.uid] = create_PA_aggregated_fs(PA_subprojects[PA.uid])
-        CSV.write(joinpath("tmp", string(PA["unit_type"], "_", PA["project_type"], "_", PA["lag"], ".csv")), PA_fs_dict[PA.uid])
+
+        # Save raw project fs results, if verbose outputs are enabled
+        if convert.(Bool, verbose_outputs)
+            CSV.write(
+                joinpath(
+                    "tmp",
+                    string(
+                        PA["unit_type"],
+                        "_",
+                        PA["project_type"],
+                        "_",
+                        PA["lag"],
+                        ".csv"
+                    ),
+                ),
+                PA_fs_dict[PA.uid]
+            )
+        end
 
         # Compute the project alternative's overall NPV based on its
         #   subprojects' financial statements
