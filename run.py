@@ -111,13 +111,6 @@ def cli_args():
         help="Disable plot generation during postprocessing (prevents matplotlib/qt issues)",
     )
 
-    parser.add_argument(
-        "--verbose_outputs",
-        "-O",
-        action="store_true",
-        help="Save various intermediate calculation results to the tmp/ directory",
-    )
-
     args = parser.parse_args()
     return args
 

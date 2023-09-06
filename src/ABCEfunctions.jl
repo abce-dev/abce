@@ -68,11 +68,6 @@ function get_CL_args()
         required = true
         arg_type = String
 
-        "--verbose_outputs"
-        help = "if True, store various intermediate calculation results in the tmp/ directory"
-        required = false
-        arg_type = Int
-        default = 0
     end
 
     return parse_args(s)
@@ -552,7 +547,7 @@ function set_up_project_alternatives(
     current_pd,
     C2N_specs,
     dispatch_results,
-    verbose_outputs,
+    verbosity,
 )
     PA_summaries = create_PA_summaries(settings, unit_specs, asset_counts)
     PA_fs_dict = Dict()
@@ -579,7 +574,7 @@ function set_up_project_alternatives(
         PA_fs_dict[PA.uid] = create_PA_aggregated_fs(PA_subprojects[PA.uid])
 
         # Save raw project fs results, if verbose outputs are enabled
-        if convert.(Bool, verbose_outputs)
+        if verbosity > 2
             CSV.write(
                 joinpath(
                     "tmp",
