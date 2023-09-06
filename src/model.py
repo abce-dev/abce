@@ -58,7 +58,8 @@ class GridModel(Model):
         self.load_all_data()
 
         # Ensure a tmp directory exists inside the current working directory
-        self.ensure_tmp_dir_exists()
+        if self.args.verbose_outputs:
+            self.ensure_tmp_dir_exists()
 
         # If running A-LEAF, set up any necessary file paths
         if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
