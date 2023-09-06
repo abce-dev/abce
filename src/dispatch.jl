@@ -414,20 +414,16 @@ function set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_d
     solar_repdays = DataFrame()
 
     if downselection_mode == "exact"
-        for day = 1:num_days
-            wind_repdays[!, Symbol(day)] =
-                ts_data[:wind_data][(num_hours * (day-1) + 1):(num_hours * day), :wind]
-            solar_repdays[!, Symbol(day)] =
-                ts_data[:solar_data][(num_hours * (day-1) + 1):(num_hours * day), :solar]
-        end
-
+        days = 1:num_days
     else
-        for day in ts_data[:repdays_data][!, :Day]
-            wind_repdays[!, Symbol(day)] =
-                ts_data[:wind_data][(num_hours * day + 1):(num_hours * (day + 1)), :wind]
-            solar_repdays[!, Symbol(day)] =
-                ts_data[:solar_data][(num_hours * day + 1):(num_hours * (day + 1)), :solar]
-        end
+        days = ts_data[:repdays_data][!, :Day]
+    end
+
+    for day in days
+        wind_repdays[!, Symbol(day)] =
+            ts_data[:wind_data][(num_hours * (day-1) + 1):(num_hours * day), :wind]
+        solar_repdays[!, Symbol(day)] =
+            ts_data[:solar_data][(num_hours * (day-1) + 1):(num_hours * day), :solar]
     end
 
     ts_data[:wind_repdays] = wind_repdays
