@@ -145,6 +145,10 @@ class GenCo(Agent):
             )
             sysimage_cmd = f"-J {sysimage_path}"
 
+        vo_string = ""
+        if self.model.args.verbose_outputs:
+            vo_string = "--verbose_outputs=1"
+
         julia_env = Path(os.getenv("ABCE_ENV"))
 
         julia_cmd = (
@@ -155,7 +159,8 @@ class GenCo(Agent):
             + f"--verbosity={self.model.args.verbosity} "
             + f"--settings_file={self.model.args.settings_file} "
             + f"--inputs_path={self.model.args.inputs_path} "
-            + f"--abce_abs_path={self.model.settings['file_paths']['ABCE_abs_path']}"
+            + f"--abce_abs_path={self.model.settings['file_paths']['ABCE_abs_path']} "
+            + vo_string
         )
 
         sp = subprocess.check_call(julia_cmd, shell=True)
