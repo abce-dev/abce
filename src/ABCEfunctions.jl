@@ -1118,10 +1118,14 @@ function forecast_subproject_operations(
     # series_start and series_end are relative indices, not absolute years
     #   --they need to be converted with current_pd
     for i = series_start:series_end
+        # Convert relative period to absolute
+        yr = current_pd + i - 1
+
         for data_type in data_to_get
-            # Get the corresponding data value for the year i from the ABCE
+            # Get the corresponding data value for the year yr from the ABCE
             #   dispatch projection
-            yr = current_pd + i - 1
+            # If year yr was actually simulated by dispatch.jl, retrieve
+            #   the corresponding result
             if yr in ABCE_dispatch_results[!, :y]
                 ABCE_data_value = filter(
                     [:y, :dispatch_result] =>
@@ -1130,6 +1134,9 @@ function forecast_subproject_operations(
                     ABCE_dispatch_results,
                 )
                 ABCE_data_value = ABCE_data_value[1, :qty]
+
+            # If year yr was not simulated by dispatch.jl, use the dispatch
+            #   results from the last simulated year
             else
                 last_dispatch_year = maximum(
                     filter(
