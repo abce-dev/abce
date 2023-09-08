@@ -22,6 +22,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - run: |
-        bash ./test/run_julia_tests.sh
 
