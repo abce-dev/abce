@@ -164,7 +164,7 @@ function run_agent_choice()
     # Use the agent's internal dispatch forecast generator to project dispatch
     #   results in the system over the forecast horizon
     @info "Simulating future market dispatch..."
-    dispatch_results = Dispatch.execute_dispatch_economic_projection(
+    long_econ_results, dispatch_results = Dispatch.execute_dispatch_economic_projection(
         CLI_args,
         db,
         settings,
@@ -173,6 +173,11 @@ function run_agent_choice()
         unit_specs,
         adj_system_portfolios,
     )
+
+    if CLI_args["verbosity"] > 2
+        CSV.write("./tmp/long_econ_results.csv", long_econ_results)
+        CSV.write("./tmp/dispatch_results.csv", dispatch_results)
+    end
 
     # Set up all available project alternatives, including computing marginal
     #   NPV for all potential projects (new construction and retirements)

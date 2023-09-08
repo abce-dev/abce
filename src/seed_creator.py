@@ -105,6 +105,12 @@ abce_tables = {
         ("min_PL", "real"),  # frac
         ("ramp_up_limit", "real"),  # frac PL change/hr
         ("ramp_down_limit", "real"),  # frac PL change/hr
+        ("max_regulation", "real"), # max. regulation participation, % PL
+        ("max_spinning_reserve", "real"),
+        ("max_nonspinning_reserve", "real"),
+        ("no_load_cost", "real"),
+        ("start_up_cost", "real"),
+        ("shut_down_cost", "real"),
         ("FC_per_MMBTU", "real"),  # $/MMBTU
         ("FC_per_MWh", "real"),  # $/MWh
         ("is_VRE", "text"),  # boolean

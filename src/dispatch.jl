@@ -42,18 +42,21 @@ function execute_dispatch_economic_projection(
     )
 
     # Set up all timeseries data
-    ts_data = load_ts_data(
-        joinpath(
-            CLI_args["inputs_path"],
-            "ts_data",
-        ),
-        settings["dispatch"]["num_repdays"],
+    ts_data_dir = joinpath(
+        CLI_args["inputs_path"],
+        settings["file_paths"]["timeseries_data_dir"],
     )
 
-#    system_portfolios =
-#        fill_portfolios_missing_units(system_portfolios, unit_specs)
+    if settings["dispatch"]["downselection"] == "exact"
+        ts_data = load_ts_data(ts_data_dir)
+    else
+        ts_data = load_ts_data(
+            ts_data_dir,
+            num_repdays=settings["dispatch"]["num_repdays"],
+        )
+    end
 
-    all_gc_results, all_price_results = handle_annual_dispatch(
+    all_grc_results, all_price_results = handle_annual_dispatch(
         settings,
         CLI_args["current_pd"],
         system_portfolios,
@@ -62,9 +65,9 @@ function execute_dispatch_economic_projection(
         unit_specs,
     )
 
-    long_econ_results = postprocess_results(
+    long_econ_results, dispatch_results = postprocess_results(
         settings,
-        all_gc_results,
+        all_grc_results,
         all_price_results,
         ts_data[:repdays_data],
         system_portfolios,
@@ -73,7 +76,7 @@ function execute_dispatch_economic_projection(
         fc_pd,
     )
 
-    return long_econ_results
+    return long_econ_results, dispatch_results
 end
 
 
@@ -135,7 +138,7 @@ function handle_annual_dispatch(
     ts_data,
     unit_specs,
 )
-    all_gc_results = set_up_gc_results_df()
+    all_grc_results = set_up_grc_results_df()
     all_prices = set_up_prices_df()
 
     # Run the annual dispatch for the user-specified number of dispatch years
@@ -151,7 +154,7 @@ function handle_annual_dispatch(
             filter(:period => ((pd) -> pd == y), total_demand)[1, :real_demand]
 
         # Set up and run the dispatch simulation for this year
-        # This function updates all_gc_results and all_prices in-place, and
+        # This function updates all_grc_results and all_prices in-place, and
         #   returns a boolean to determine whether the next year should be run
         results = run_annual_dispatch(
             settings,
@@ -163,7 +166,7 @@ function handle_annual_dispatch(
         )
 
         # Save new generation, commitment, and price results
-        all_gc_results = vcat(all_gc_results, results[:new_gc_results])
+        all_grc_results = vcat(all_grc_results, results[:new_grc_results])
         all_prices = vcat(all_prices, results[:new_prices])
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
@@ -190,7 +193,7 @@ function handle_annual_dispatch(
     end
 
     # If no years ran correctly, throw an error and exit
-    if size(all_gc_results)[1] == 0
+    if size(all_grc_results)[1] == 0
         msg = string(
             "No dispatch simulations could be run. Re-check ",
             "your inputs.",
@@ -198,12 +201,12 @@ function handle_annual_dispatch(
         throw(ErrorException(msg))
     end
 
-    return all_gc_results, all_prices
+    return all_grc_results, all_prices
 
 end
 
 
-function load_ts_data(ts_file_dir, num_repdays)
+function load_ts_data(ts_file_dir; num_repdays=nothing)
     # Load the time-series demand and VRE data into dataframes
     load_data =
         CSV.read(joinpath(ts_file_dir, "timeseries_load_hourly.csv"), DataFrame)
@@ -211,37 +214,69 @@ function load_ts_data(ts_file_dir, num_repdays)
         CSV.read(joinpath(ts_file_dir, "timeseries_wind_hourly.csv"), DataFrame)
     solar_data =
         CSV.read(joinpath(ts_file_dir, "timeseries_pv_hourly.csv"), DataFrame)
-    repdays_data =
-        CSV.read(joinpath(ts_file_dir, "repDays_$num_repdays.csv"), DataFrame)
+    reg_data = 
+        CSV.read(joinpath(ts_file_dir, "timeseries_reg_hourly.csv"), DataFrame)
+    spin_data = 
+        CSV.read(joinpath(ts_file_dir, "timeseries_spin_hourly.csv"), DataFrame)
+    nspin_data = 
+        CSV.read(joinpath(ts_file_dir, "timeseries_nspin_hourly.csv"), DataFrame)
+
+    if num_repdays == nothing
+        repdays_data = nothing
+    else
+        repdays_data = CSV.read(
+            joinpath(
+                ts_file_dir,
+                "repDays_$num_repdays.csv",
+            ),
+            DataFrame
+        )
+    end
 
     ts_data = Dict(
         :load_data => load_data,
         :wind_data => wind_data,
         :solar_data => solar_data,
+        :reg_data => reg_data,
+        :spin_data => spin_data,
+        :nspin_data => nspin_data,
         :repdays_data => repdays_data,
     )
 
     return ts_data
 end
 
-function set_up_gc_results_df()
-    all_gc_results = DataFrame(
+function set_up_grc_results_df()
+    all_grc_results = DataFrame(
         y = Int[],
         d = Int[],
         h = Int[],
         unit_type = String[],
         gen = Float64[],
+        reg = Float64[],
+        spin = Float64[],
+        nspin = Float64[],
         commit = Int[],
+        su = Int[],
+        sd = Int[],
     )
 
-    return all_gc_results
+    return all_grc_results
 end
 
 
 function set_up_prices_df()
-    all_prices = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
+    prices_df = DataFrame(
+        y = Int[], 
+        d = Int[], 
+        h = Int[], 
+        lambda = Float64[], 
+        reg_rmp = Float64[], 
+        spin_rmp = Float64[], 
+        nspin_rmp = Float64[]
+    )
 
-    return all_prices
+    return prices_df
 end
 
 
@@ -253,11 +288,47 @@ function scale_load(ts_data, peak_demand)
 end
 
 
-function set_up_load_repdays(ts_data)
+function scale_AS_data(ts_data, peak_demand, init_peak_demand)
+    ts_data[:reg_data][!, :AS_qty] = ts_data[:reg_data][!, :ReqReg] * peak_demand / init_peak_demand
+    ts_data[:spin_data][!, :AS_qty] = ts_data[:spin_data][!, :ReqSR] * peak_demand / init_peak_demand
+    ts_data[:nspin_data][!, :AS_qty] = ts_data[:nspin_data][!, :ReqNSR] * peak_demand / init_peak_demand
+
+    return ts_data
+end
+
+
+function set_repdays_params(settings, ts_data)
+    if settings["dispatch"]["downselection"] == "exact"
+        if size(ts_data[:load_data])[1] <= 24
+            num_days = 1
+            num_hours = size(ts_data[:load_data])[1]
+        else
+            num_days = size(ts_data[:load_data])[1] / 24
+            num_hours = 24
+        end
+    else
+        num_days = settings["dispatch"]["num_repdays"]
+        num_hours = 24
+    end
+
+    return num_days, num_hours
+
+end
+
+
+function set_up_load_repdays(downselection_mode, num_days, num_hours, ts_data)
     load_repdays = DataFrame()
-    for day in ts_data[:repdays_data][!, :Day]
-        load_repdays[!, Symbol(day)] =
-            ts_data[:load_data][(24 * day + 1):(24 * (day + 1)), :Load]
+
+    if downselection_mode == "exact"
+        for day = 1:num_days
+            load_repdays[!, Symbol(day)] =
+                ts_data[:load_data][(num_hours * (day-1) + 1):(num_hours * day), :Load]
+        end
+    else
+        for day in ts_data[:repdays_data][!, :Day]
+            load_repdays[!, Symbol(day)] =
+                ts_data[:load_data][(num_hours * day + 1):(num_hours * (day + 1)), :Load]
+        end
     end
 
     ts_data[:load_repdays] = load_repdays
@@ -266,53 +337,78 @@ function set_up_load_repdays(ts_data)
 end
 
 
-function scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
-    wind_specs = filter(:unit_type => x -> x == "wind", unit_specs)[1, :]
-    solar_specs = filter(:unit_type => x -> x == "solar", unit_specs)[1, :]
+function set_up_AS_repdays(downselection_mode, num_days, num_hours, ts_data)
+    reg_repdays = DataFrame()
+    spin_repdays = DataFrame()
+    nspin_repdays = DataFrame()
 
-    # For non-zero wind and solar capacity, scale the WindShape series by the
-    #   installed capacity to get total instantaneous VRE availability
-    # If either wind or solar has 0 installed capacity, set its entire time
-    #   series to 0.0
-    if !isempty(filter(:unit_type => x -> x == "wind", year_portfolio))
-        ts_data[:wind_data][!, :wind] = (
-            ts_data[:wind_data][!, :WindShape] *
-            filter(:unit_type => x -> x == "wind", year_portfolio)[
-                1,
-                :num_units,
-            ] *
-            wind_specs[:capacity]
-        )
+    if downselection_mode == "exact"
+        for day = 1:num_days
+            reg_repdays[!, Symbol(day)] = ts_data[:reg_data][(num_hours * (day - 1) + 1):(num_hours * day), :AS_qty]
+            spin_repdays[!, Symbol(day)] = ts_data[:spin_data][(num_hours * (day - 1) + 1):(num_hours * day), :AS_qty]
+            nspin_repdays[!, Symbol(day)] = ts_data[:nspin_data][(num_hours * (day - 1) + 1):(num_hours * day), :AS_qty]
+        end
     else
-        ts_data[:wind_data][!, :wind] .= 0.0
+        for day in ts_data[:repdays_data][!, :Day]
+            reg_repdays[!, Symbol(day)] = ts_data[:reg_data][(num_hours * day + 1):(num_hours * (day + 1)), :AS_qty]
+            spin_repdays[!, Symbol(day)] = ts_data[:spin_data][(num_hours * day + 1):(num_hours * (day + 1)), :AS_qty]
+            nspin_repdays[!, Symbol(day)] = ts_data[:nspin_data][(num_hours * day + 1):(num_hours * (day + 1)), :AS_qty]
+        end
     end
 
-    if !isempty(filter(:unit_type => x -> x == "solar", year_portfolio))
-        ts_data[:solar_data][!, :solar] = (
-            ts_data[:solar_data][!, :SolarShape] *
-            filter(:unit_type => x -> x == "solar", year_portfolio)[
-                1,
-                :num_units,
-            ] *
-            solar_specs[:capacity]
-        )
-    else
-        ts_data[:solar_data][!, :solar] .= 0.0
+    ts_data[:reg_repdays] = reg_repdays
+    ts_data[:spin_repdays] = spin_repdays
+    ts_data[:nspin_repdays] = nspin_repdays
+
+    return ts_data
+end
+
+
+function scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
+    for unit_type in ["wind", "solar"]
+        data_name = Symbol(string(unit_type, "_data"))
+        shaped_col = Symbol(string(uppercasefirst(unit_type), "Shape"))
+
+        # Set up data in ts_data
+        ts_data[data_name][!, Symbol(unit_type)] .= 0.0
+
+        if !isempty(filter(:unit_type => x -> x == unit_type, unit_specs))
+            # Get the unit type's specs
+            type_specs = filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
+
+            # For non-zero wind and solar capacity, scale the WindShape series by the
+            #   installed capacity to get total instantaneous VRE availability
+            # If either wind or solar has 0 installed capacity, set its entire time
+            #   series to 0.0
+            if !isempty(filter(:unit_type => x -> x == unit_type, year_portfolio))
+                ts_data[data_name][!, Symbol(unit_type)] = (
+                    ts_data[data_name][!, shaped_col]
+                    * filter(:unit_type => x -> x == unit_type, year_portfolio)[1, :num_units]
+                    * type_specs[:capacity]
+                )
+            end
+        end
     end
 
     return ts_data
 end
 
 
-function set_up_wind_solar_repdays(ts_data)
+function set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_data)
     wind_repdays = DataFrame()
     solar_repdays = DataFrame()
 
-    for day in ts_data[:repdays_data][!, :Day]
+    if downselection_mode == "exact"
+        days = 1:num_days
+    else
+        days = ts_data[:repdays_data][!, :Day]
+    end
+
+    for day in days
         wind_repdays[!, Symbol(day)] =
-            ts_data[:wind_data][(24 * day + 1):(24 * (day + 1)), :wind]
+            ts_data[:wind_data][(num_hours * (day-1) + 1):(num_hours * day), :wind]
         solar_repdays[!, Symbol(day)] =
-            ts_data[:solar_data][(24 * day + 1):(24 * (day + 1)), :solar]
+            ts_data[:solar_data][(num_hours * (day-1) + 1):(num_hours * day), :solar]
     end
 
     ts_data[:wind_repdays] = wind_repdays
@@ -322,7 +418,7 @@ function set_up_wind_solar_repdays(ts_data)
 end
 
 
-function set_up_model(settings, ts_data, year_portfolio, unit_specs)
+function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs)
     # Create joined portfolio-unit_specs dataframe, to ensure consistent
     #   accounting for units which are actually present and consistent
     #   unit ordering
@@ -345,19 +441,21 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
         ]
     end
 
+    convnuc_index = nothing
+    if !isempty(filter(:unit_type => x -> x == "conventional_nuclear", portfolio_specs))
+        convnuc_index = filter(:unit_type => x -> x == "conventional_nuclear", portfolio_specs)[1, :unit_index]
+    end
+
     # Helpful named constants
     num_units = size(portfolio_specs)[1]
-    num_days = size(ts_data[:repdays_data])[1]
-    num_hours = 24
 
     # Break out timeseries data sets for convenience
-    load_data = ts_data[:load_data]
-    wind_data = ts_data[:wind_data]
-    solar_data = ts_data[:solar_data]
-    repdays_data = ts_data[:repdays_data]
     load_repdays = ts_data[:load_repdays]
     wind_repdays = ts_data[:wind_repdays]
     solar_repdays = ts_data[:solar_repdays]
+    reg_repdays = ts_data[:reg_repdays]
+    spin_repdays = ts_data[:spin_repdays]
+    nspin_repdays = ts_data[:nspin_repdays]
 
     # Initialize JuMP model
     if lowercase(settings["simulation"]["solver"]) == "cplex"
@@ -376,8 +474,23 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
     # g: quantity generated (in MWh) for each unit type
     @variable(m, g[1:num_units, 1:num_days, 1:num_hours] >= 0)
 
+    # r: quantity (MWh) reserved for frequency regulation (combined up/down)
+    @variable(m, r[1:num_units, 1:num_days, 1:num_hours] >= 0)
+
+    # sr: quantity (MWh) reserved for spinning reserve
+    @variable(m, sr[1:num_units, 1:num_days, 1:num_hours] >= 0)
+
+    # nsr: quantity (MWh) reserved for non-spinning reserve
+    @variable(m, nsr[1:num_units, 1:num_days, 1:num_hours] >= 0)
+
     # c: number of units of each type committed in each hour
     @variable(m, c[1:num_units, 1:num_days, 1:num_hours] >= 0, Int)
+
+    # su: number of units of each type started up in each hour
+    @variable(m, su[1:num_units, 1:num_days, 1:num_hours] >= 0)
+
+    # sd: number of units of each type shut down in each hour
+    @variable(m, sd[1:num_units, 1:num_days, 1:num_hours] >= 0)
 
     # s: penalty variable for energy not served in each hour
     @variable(m, s[1:num_days, 1:num_hours] >= 0)
@@ -387,6 +500,27 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
         m,
         mkt_equil[k = 1:num_days, j = 1:num_hours],
         sum(g[i, k, j] for i = 1:num_units) + s[k, j] >= load_repdays[j, k]
+    )
+
+    # Total regulation per hour must be greater than or equal to the requirement
+    @constraint(
+        m,
+        reg_mkt_equil[k = 1:num_days, j = 1:num_hours],
+        sum(r[i, k, j] for i = 1:num_units) >= reg_repdays[j, k]
+    )
+
+    # Total spinning reserve per hour must be greater than or equal to the requirement
+    @constraint(
+        m,
+        spin_mkt_equil[k = 1:num_days, j = 1:num_hours],
+        sum(sr[i, k, j] for i = 1:num_units) >= spin_repdays[j, k]
+    )
+
+    # Total non-spinning reserve per hour must be greater than or equal to the requirement
+    @constraint(
+        m,
+        nspin_mkt_equil[k = 1:num_days, j = 1:num_hours],
+        sum(nsr[i, k, j] for i = 1:num_units) >= nspin_repdays[j, k]
     )
 
     # Number of committed units per hour must be less than or equal to the
@@ -399,7 +533,27 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
         end
     end
 
-    # Limit total generation per unit type each hour to the total capacity of
+    # Compute number of units started up and shut down per hour
+    for i = 1:num_units
+        # Exclude wind and solar
+        if portfolio_specs[i, :is_VRE] == 0
+            # on the first hour of the "year", all units committed are counted as being started up this hour
+            @constraint(m, su[i, 1, 1] == c[i, 1, 1])
+
+            for k = 1:num_days
+                # Intraday constraint
+                if k > 1
+                    @constraint(m, c[i, k, 1] - c[i, k-1, num_hours] - su[i, k, 1] + sd[i, k, 1] == 0)
+                end
+
+                for j = 2:num_hours
+                    @constraint(m, c[i, k, j] - c[i, k, j-1] - su[i, k, j] + sd[i, k, j] == 0)
+                end
+            end
+        end
+    end
+
+    # Limit total energy market participation per unit type each hour to the total capacity of
     #   all committed units of this type, with committed units subject to
     #   minimum and maximum power levels
     # wind and solar are excluded
@@ -407,19 +561,18 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
         if !(portfolio_specs[i, :unit_type] in ["wind", "solar"])
             for k = 1:num_days
                 for j = 1:num_hours
+                    # Constrain total market participation to capacity * capacity_factor
                     @constraint(
                         m,
-                        g[i, k, j] <= (
+                        g[i, k, j] + r[i, k, j] + sr[i, k, j] + nsr[i, k, j] <= (
                             c[i, k, j] .* portfolio_specs[i, :capacity] .*
-                            portfolio_specs[i, :capacity_factor] .*
-                            portfolio_specs[i, :max_PL]
+                            portfolio_specs[i, :capacity_factor]
                         )
                     )
                     @constraint(
                         m,
-                        g[i, k, j] >= (
+                        g[i, k, j] + r[i, k, j] + sr[i, k, j] + nsr[i, k, j] >= (
                             c[i, k, j] .* portfolio_specs[i, :capacity] .*
-                            portfolio_specs[i, :capacity_factor] .*
                             portfolio_specs[i, :min_PL]
                         )
                     )
@@ -428,15 +581,74 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
         end
     end
 
-    # Limit solar and wind generation to their actual hourly availability, if
-    #   wind and/or solar exist in the system
+    # Limit solar and wind generation and AS participation to their actual 
+    #   hourly availability, if wind and/or solar exist in the system
     for k = 1:num_days
         for j = 1:num_hours
             if wind_index != 0
-                @constraint(m, g[wind_index, k, j] <= wind_repdays[j, k])
+                @constraint(
+                    m,
+                    g[wind_index, k, j] + r[wind_index, k, j] + sr[wind_index, k, j] + nsr[wind_index, k, j]
+                      <= wind_repdays[j, k]
+                )
             end
             if solar_index != 0
-                @constraint(m, g[solar_index, k, j] <= solar_repdays[j, k])
+                @constraint(
+                    m,
+                    g[solar_index, k, j] + r[solar_index, k, j] + sr[solar_index, k, j] + nsr[solar_index, k, j]
+                      <= solar_repdays[j, k]
+                )
+            end
+        end
+    end
+
+    # Constrain AS participation to specified maximum levels
+    for i = 1:num_units
+        for k = 1:num_days
+            for j = 1:num_hours
+                # Frequency regulation
+                @constraint(
+                    m,
+                    r[i, k, j] 
+                      <= (c[i, k, j]
+                          .* portfolio_specs[i, :capacity] 
+                          .* portfolio_specs[i, :capacity_factor] 
+                          .* portfolio_specs[i, :max_regulation]
+                         )
+                )
+
+                # Spinning reserve
+                @constraint(
+                    m,
+                    sr[i, k, j] 
+                      <= (c[i, k, j]
+                          .* portfolio_specs[i, :capacity] 
+                          .* portfolio_specs[i, :capacity_factor] 
+                          .* portfolio_specs[i, :max_spinning_reserve]
+                         )
+                )
+
+                # Non-spinning reserve
+                @constraint(
+                    m,
+                    nsr[i, k, j] 
+                      <= (c[i, k, j]
+                          .* portfolio_specs[i, :capacity] 
+                          .* portfolio_specs[i, :capacity_factor] 
+                          .* portfolio_specs[i, :max_nonspinning_reserve]
+                         )
+                )
+
+            end
+        end
+    end
+
+
+    # Force all conventional_nuclear units to be committed at all times
+    for k = 1:num_days
+        for j = 1:num_hours
+            if convnuc_index != nothing
+                @constraint(m, c[convnuc_index, k, j] == portfolio_specs[convnuc_index, :num_units])
             end
         end
     end
@@ -477,14 +689,22 @@ function set_up_model(settings, ts_data, year_portfolio, unit_specs)
         m,
         Min,
         sum(
-            sum(
-                sum(g[i, k, j] + ENS_penalty * s[k, j] for j = 1:num_hours) for
-                k = 1:num_days
-            ) .* (
+            # Generation and scarcity costs
+            sum(sum(g[i, k, j] + ENS_penalty * s[k, j] for j = 1:num_hours) for k = 1:num_days)
+            .* (
                 portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] -
                 portfolio_specs[i, :policy_adj_per_MWh] - portfolio_specs[i, :tax_credits_per_MWh]
-            ) for i = 1:num_units
-        )
+            ) 
+            # Reserves costs
+            + sum(sum(0.2 * r[i, k, j] + 0.1 * sr[i, k, j] + 0.1 * nsr[i, k, j] for j = 1:num_hours) for k = 1:num_days) 
+              .* (portfolio_specs[i, :VOM])
+            # No-load costs for commitment
+            + sum(sum(c[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :no_load_cost] .* portfolio_specs[i, :capacity]
+            # Start-up costs
+            + sum(sum(su[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :start_up_cost] .* portfolio_specs[i, :capacity]
+            # Shut-down costs
+            + sum(sum(sd[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :shut_down_cost] .* portfolio_specs[i, :capacity]
+        for i = 1:num_units)
     )
 
     return m, portfolio_specs
@@ -498,15 +718,25 @@ function solve_model(model; model_type = "integral")
         status = string(termination_status.(model))
         @debug "$model_type model status: $status"
         gen_qty = nothing
+        r = nothing
+        sr = nothing
+        nsr = nothing
         c = nothing
+        su = nothing
+        sd = nothing
         s = nothing
         if status == "OPTIMAL"
             gen_qty = value.(model[:g])
+            r = value.(model[:r])
+            sr = value.(model[:sr])
+            nsr = value.(model[:nsr])
             c = value.(model[:c])
+            su = value.(model[:su])
+            sd = value.(model[:sd])
             s = value.(model[:s])
         end
 
-        returns = model, status, gen_qty, c, s
+        returns = model, status, gen_qty, r, sr, nsr, c, su, sd, s
 
     elseif model_type == "relaxed_integrality"
         optimize!(model)
@@ -521,8 +751,8 @@ function solve_model(model; model_type = "integral")
 end
 
 
-function assemble_gc_results(y, gen_qty, c, portfolio_specs)
-    new_gc_results = set_up_gc_results_df()
+function assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
+    new_grc_results = set_up_grc_results_df()
 
     # Save generation and commitment results to a dataframe
     # g[i, k, j] and c[i, k, j] are arranged as
@@ -536,29 +766,40 @@ function assemble_gc_results(y, gen_qty, c, portfolio_specs)
                     h = j,
                     unit_type = portfolio_specs[i, :unit_type],
                     gen = gen_qty[i, k, j],
+                    reg = r[i, k, j],
+                    spin = sr[i, k, j],
+                    nspin = nsr[i, k, j],
                     commit = round(Int, c[i, k, j]),
+                    su = round(Int, su[i, k, j]),
+                    sd = round(Int, sd[i, k, j]),
                 )
-                push!(new_gc_results, line)
+                push!(new_grc_results, line)
             end
         end
     end
 
-    return new_gc_results
+    return new_grc_results
 end
 
 
-function reshape_shadow_prices(shadow_prices, y, settings)
-    price_df = DataFrame(y = Int[], d = Int[], h = Int[], price = Float64[])
+function reshape_shadow_prices(gen_shadow_prices, reg_shadow_prices, spin_shadow_prices, nspin_shadow_prices, y, settings)
+    price_df = set_up_prices_df()
 
     # Convert the (repdays, hours) table into a long (y, d, h, price) table
-    for k = 1:size(shadow_prices)[1]        # num_days
-        for j = 1:size(shadow_prices)[2]    # num_hours
+    for k = 1:size(gen_shadow_prices)[1]        # num_days
+        for j = 1:size(gen_shadow_prices)[2]    # num_hours
+            gen_price = (-1) * gen_shadow_prices[k, j]
+            reg_price = (-1) * reg_shadow_prices[k, j]
+            spin_price = (-1) * spin_shadow_prices[k, j]
+            nspin_price = (-1) * nspin_shadow_prices[k, j]
+
             # Ensure the shadow price is no greater than the system cap
-            price = (-1) * shadow_prices[k, j]
-            if price > settings["system"]["price_cap"]
-                price = settings["system"]["price_cap"]
+            if gen_price > settings["system"]["price_cap"]
+                gen_price = settings["system"]["price_cap"]
             end
-            line = (y = y, d = k, h = j, price = price)
+
+            # Add the price data to the table, indexed by y,d,h
+            line = (y = y, d = k, h = j, lambda = gen_price, reg_rmp = reg_price, spin_rmp = spin_price, nspin_rmp = nspin_price)
             push!(price_df, line)
         end
     end
@@ -567,21 +808,21 @@ function reshape_shadow_prices(shadow_prices, y, settings)
 end
 
 
-function propagate_all_results(all_gc_results, all_prices, current_pd, end_year)
-    final_dispatched_year = maximum(all_gc_results[!, :y])
+function propagate_all_results(all_grc_results, all_prices, current_pd, end_year)
+    final_dispatched_year = maximum(all_grc_results[!, :y])
 
-    final_year_gc =
-        filter(:y => x -> x == final_dispatched_year, all_gc_results)
+    final_year_grc =
+        filter(:y => x -> x == final_dispatched_year, all_grc_results)
     final_year_prices =
         filter(:y => x -> x == final_dispatched_year, all_prices)
 
     for y = (final_dispatched_year + 1):(current_pd + end_year - 1)
-        # Copy the final_year_gc results forward, updating the year
-        next_year_gc = deepcopy(final_year_gc)
-        next_year_gc[!, :y] .= y
+        # Copy the final_year_grc results forward, updating the year
+        next_year_grc = deepcopy(final_year_grc)
+        next_year_grc[!, :y] .= y
         # Push row-by-row (avoids Julia's strict for-loop scoping)
-        for i = 1:size(next_year_gc)[1]
-            push!(all_gc_results, next_year_gc[i, :])
+        for i = 1:size(next_year_grc)[1]
+            push!(all_grc_results, next_year_grc[i, :])
         end
 
         # Copy the final_year_prices results forward, updating the year
@@ -592,7 +833,7 @@ function propagate_all_results(all_gc_results, all_prices, current_pd, end_year)
         end
     end
 
-    return all_gc_results, all_prices
+    return all_grc_results, all_prices
 
 end
 
@@ -605,22 +846,30 @@ function run_annual_dispatch(
     ts_data,
     unit_specs,
 )
+    num_days, num_hours = set_repdays_params(settings, ts_data)
+
     # Scale the load data to the PD value for this year
     ts_data = scale_load(ts_data, peak_demand)
 
     # Set up representative days for load
-    ts_data = set_up_load_repdays(ts_data)
+    ts_data = set_up_load_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
 
     # Scale the wind and solar data according to the current year's total
     #   installed capacity
     ts_data = scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
 
     # Set up representative days for wind and solar
-    ts_data = set_up_wind_solar_repdays(ts_data)
+    ts_data = set_up_wind_solar_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
+
+    # Scale the ancillary services to the PD value for this year
+    ts_data = scale_AS_data(ts_data, peak_demand, settings["scenario"]["peak_demand"])
+
+    # Set up representative days for AS
+    ts_data = set_up_AS_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
 
     @debug "Setting up optimization model..."
     m, portfolio_specs =
-        set_up_model(settings, ts_data, year_portfolio, unit_specs)
+        set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs)
 
     @debug "Optimization model set up."
     @debug string("Solving repday dispatch for year ", y, "...")
@@ -640,11 +889,11 @@ function run_annual_dispatch(
     set_silent(m_copy)
 
     # Solve the integral optimization problem
-    m, status, gen_qty, c, s = solve_model(m, model_type = "integral")
+    m, status, gen_qty, r, sr, nsr, c, su, sd, s = solve_model(m, model_type = "integral")
 
     if status == "OPTIMAL"
         # Save the generation and commitment results from the integral problem
-        new_gc_results = assemble_gc_results(y, gen_qty, c, portfolio_specs)
+        new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
 
         # Set up a relaxed-integrality version of this model, to allow
         #   retrieval of dual values for the mkt_equil constraint
@@ -654,7 +903,10 @@ function run_annual_dispatch(
         # Solve the relaxed-integrality model to compute the shadow prices
         m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
         new_prices = reshape_shadow_prices(
-            shadow_price.(m_copy[:mkt_equil]),   # shadow prices
+            shadow_price.(m_copy[:mkt_equil]),   # generation shadow prices
+            shadow_price.(m_copy[:reg_mkt_equil]),  # regulation shadow prices
+            shadow_price.(m_copy[:spin_mkt_equil]),  # spinning reserve shadow prices
+            shadow_price.(m_copy[:nspin_mkt_equil]), # non-spinning reserve shadow prices
             y,
             settings,
         )
@@ -675,7 +927,7 @@ function run_annual_dispatch(
     end
 
     results = Dict(
-        :new_gc_results => new_gc_results,
+        :new_grc_results => new_grc_results,
         :new_prices => new_prices,
         :run_next_year => run_next_year,
         :total_ENS => total_ENS,
@@ -710,21 +962,26 @@ end
 
 
 function join_results_data_frames(
-    all_gc_results,
+    settings,
+    all_grc_results,
     all_prices,
     repdays_data,
     all_year_portfolios,
     unit_specs,
 )
-    # Join in price data to all_gc_results
-    long_econ_results = innerjoin(all_gc_results, all_prices, on = [:y, :d, :h])
+    # Join in price data to all_grc_results
+    long_econ_results = innerjoin(all_grc_results, all_prices, on = [:y, :d, :h])
 
     # Incorporate repdays probability data
-    long_econ_results = innerjoin(
-        long_econ_results,
-        select(repdays_data, [:index, :Probability]),
-        on = [:d => :index],
-    )
+    if settings["dispatch"]["downselection"] == "exact"
+        long_econ_results[!, :Probability] .= 1.0
+    else
+        long_econ_results = innerjoin(
+            long_econ_results,
+            select(repdays_data, [:index, :Probability]),
+            on = [:d => :index],
+        )
+    end
 
     # Join in limited unit_specs data to compute some cash flows
     long_econ_results = innerjoin(
@@ -754,14 +1011,54 @@ function compute_per_unit_cash_flows(long_econ_results)
                 :annualized_gen_per_unit,
     )
 
-    # Calculate revenues
+    # Calculate regulation service
     transform!(
         long_econ_results,
-        [:gen, :price, :Probability, :num_units] =>
-            (
-                (gen, price, prob, num_units) ->
-                    gen .* price .* prob .* 365 ./ num_units
-            ) => :annualized_rev_per_unit,
+        [:reg, :Probability, :num_units] =>
+            ((reg, prob, num_units) -> reg .* prob .* 365 ./ num_units) =>
+                :annualized_reg_per_unit,
+    )
+
+    # Calculate spinning reserve service
+    transform!(
+        long_econ_results,
+        [:spin, :Probability, :num_units] =>
+            ((spin, prob, num_units) -> spin .* prob .* 365 ./ num_units) =>
+                :annualized_spin_per_unit,
+    )
+
+    # Calculate non-spinning reserve service
+    transform!(
+        long_econ_results,
+        [:nspin, :Probability, :num_units] =>
+            ((nspin, prob, num_units) -> nspin .* prob .* 365 ./ num_units) =>
+                :annualized_nspin_per_unit,
+    )
+
+    # Calculate generation revenue
+    transform!(
+        long_econ_results,
+        [:gen, :lambda, :Probability, :num_units] =>
+            ((gen, lambda, prob, num_units) -> (gen .* lambda .* prob .* 365 ./ num_units))
+                => :annualized_gen_rev_per_unit,
+    )
+
+    # Calculate reserves revenue
+    transform!(
+        long_econ_results,
+        [:reg, :spin, :nspin, :reg_rmp, :spin_rmp, :nspin_rmp, :Probability, :num_units]
+        => ((reg, spin, nspin, reg_rmp, spin_rmp, nspin_rmp, prob, num_units)
+        -> ((reg .* reg_rmp .+ spin .* spin_rmp .+ nspin .* nspin_rmp) .* prob .* 365 ./ num_units))
+        => :annualized_reserves_rev_per_unit,
+    )
+
+    # Calculate total revenue
+    transform!(
+        long_econ_results,
+        [:annualized_gen_rev_per_unit, :annualized_reserves_rev_per_unit]
+        => ((gen_rev, res_rev)
+        -> (gen_rev .+ res_rev))
+        => :annualized_rev_per_unit,
     )
 
     # Calculate VOM
@@ -822,6 +1119,11 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
         groupby(dispatch_results, [:y, :unit_type]),
         [
             :annualized_gen_per_unit,
+            :annualized_reg_per_unit,
+            :annualized_spin_per_unit,
+            :annualized_nspin_per_unit,
+            :annualized_gen_rev_per_unit,
+            :annualized_reserves_rev_per_unit,
             :annualized_rev_per_unit,
             :annualized_VOM_per_unit,
             :annualized_FC_per_unit,
@@ -833,6 +1135,11 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
     rename!(
         dispatch_results,
         :annualized_gen_per_unit_sum => :generation,
+        :annualized_reg_per_unit_sum => :regulation,
+        :annualized_spin_per_unit_sum => :spin,
+        :annualized_nspin_per_unit_sum => :nspin,
+        :annualized_gen_rev_per_unit_sum => :gen_rev,
+        :annualized_reserves_rev_per_unit_sum => :reserves_rev,
         :annualized_rev_per_unit_sum => :revenue,
         :annualized_VOM_per_unit_sum => :VOM,
         :annualized_FC_per_unit_sum => :fuel_cost,
@@ -854,7 +1161,7 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
     # Put the data into a long format for easier filtering
     dispatch_results = stack(
         dispatch_results,
-        [:generation, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj, :tax_credits],
+        [:generation, :regulation, :spin, :nspin, :gen_rev, :reserves_rev, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj, :tax_credits],
     )
     rename!(dispatch_results, :variable => :dispatch_result, :value => :qty)
 
@@ -864,7 +1171,7 @@ end
 
 function postprocess_results(
     settings,
-    all_gc_results,
+    all_grc_results,
     all_prices,
     repdays_data,
     all_year_system_portfolios,
@@ -874,8 +1181,8 @@ function postprocess_results(
 )
     # Propagate the results dataframes out to the end of the projection horizon
     # Assume no change after the last modeled year
-    all_gc_results, all_prices =
-        propagate_all_results(all_gc_results, all_prices, current_pd, fc_pd)
+    all_grc_results, all_prices =
+        propagate_all_results(all_grc_results, all_prices, current_pd, fc_pd)
 
     # Get a single long dataframe with unit numbers by type for each year
     all_year_portfolios = combine_and_extend_year_portfolios(
@@ -886,7 +1193,8 @@ function postprocess_results(
     # Join in relevant data to create a single master dataframe suitable for
     #   a variety of column-wise operations
     long_econ_results = join_results_data_frames(
-        all_gc_results,
+        settings,
+        all_grc_results,
         all_prices,
         repdays_data,
         all_year_portfolios,
@@ -900,7 +1208,7 @@ function postprocess_results(
     dispatch_results =
         summarize_dispatch_results(settings, unit_specs, long_econ_results)
 
-    return dispatch_results
+    return long_econ_results, dispatch_results
 
 end
 

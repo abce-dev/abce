@@ -1,12 +1,12 @@
 simulation:
   scenario_name: "ABCE_run"
-  solver: "CPLEX"
+  solver: "HiGHS"
   num_steps: 1
   annual_dispatch_engine: none
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 79000
+  peak_demand: 75000
   policies:
     CTAX:
       enabled: False
@@ -67,6 +67,7 @@ file_paths:
   agent_specifications_file: "single_agent_testing.yml"
 #  agent_specifications_file: "agent_specifications.yml"
   output_file: "outputs.xlsx"
+  timeseries_data_dir: "ts_data"
   unit_specs_data_file: "unit_specs.yml"
   logo: "abce.txt"
 
@@ -91,6 +92,7 @@ demand:
 #   dispatch data
 dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
+  downselection: scenario_reduction
   num_repdays: 45
   hist_wt: 0.4  # Weighting of historical versus projected data
   hist_decay: 0.5   # Decay factor for each historical data year

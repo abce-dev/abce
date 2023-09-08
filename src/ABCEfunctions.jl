@@ -679,8 +679,7 @@ function create_PA_subprojects(
     subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
 
     # Retrieve historical ALEAF dispatch results data
-    ALEAF_results, ALEAF_dispatch_results =
-        average_historical_ALEAF_results(settings, db)
+    ALEAF_dispatch_results = average_historical_ALEAF_results(settings, db)
 
     for subproject in subprojects
         # Retrieve unit type data for convenience
@@ -836,6 +835,7 @@ function forecast_subproject_financials(
     #   revenue, all cost types, policy adjustments
     subproject_fs = forecast_subproject_operations(
         settings,
+        current_pd,
         subproject,
         unit_type_data,
         dispatch_results,
@@ -1067,6 +1067,7 @@ end
 
 function forecast_subproject_operations(
     settings,
+    current_pd,
     subproject,
     unit_type_data,
     dispatch_results,
@@ -1093,6 +1094,7 @@ function forecast_subproject_operations(
     # Set up timeline start/end and value sign based on project type
     if subproject["project_type"] == "new_xtr"
         # Record marginal additional generation
+        # get_capex_end gives the relative index, not the absolute year
         series_start = get_capex_end(fs_copy) + 1
         series_end = convert(
             Int64,
@@ -1113,18 +1115,28 @@ function forecast_subproject_operations(
     end
 
     # Update the operations results data in the subproject's financial statement
+    # series_start and series_end are relative indices, not absolute years
+    #   --they need to be converted with current_pd
     for i = series_start:series_end
+        # Convert relative period to absolute
+        yr = current_pd + i - 1
+
         for data_type in data_to_get
-            # Get the corresponding data value for the year i from the ABCE
+            # Get the corresponding data value for the year yr from the ABCE
             #   dispatch projection
-            if i in ABCE_dispatch_results[!, :y]
+            # If year yr was actually simulated by dispatch.jl, retrieve
+            #   the corresponding result
+            if yr in ABCE_dispatch_results[!, :y]
                 ABCE_data_value = filter(
                     [:y, :dispatch_result] =>
                         (y, disp_res) ->
-                            (y == i) && (disp_res == data_type),
+                            (y == yr) && (disp_res == data_type),
                     ABCE_dispatch_results,
                 )
                 ABCE_data_value = ABCE_data_value[1, :qty]
+
+            # If year yr was not simulated by dispatch.jl, use the dispatch
+            #   results from the last simulated year
             else
                 last_dispatch_year = maximum(
                     filter(
@@ -1263,10 +1275,7 @@ function average_historical_ALEAF_results(settings, db)
         end
     end
 
-    # Set up dummy data
-    ALEAF_results = Dict("wtd_hist_revs" => nothing, "wtd_hist_gen" => nothing)
-
-    return ALEAF_results, ALEAF_dispatch_results
+    return ALEAF_dispatch_results
 
 end
 
