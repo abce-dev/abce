@@ -365,43 +365,28 @@ end
 
 
 function scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
-    # Set up wind data
-    ts_data[:wind_data][!, :wind] .= 0.0
+    for unit_type in ["wind", "solar"]
+        data_name = Symbol(string(unit_type, "_data"))
+        shaped_col = Symbol(string(uppercasefirst(unit_type), "Shape"))
 
-    if !isempty(filter(:unit_type => x -> x == "wind", unit_specs))
-        wind_specs = filter(:unit_type => x -> x == "wind", unit_specs)[1, :]
+        # Set up data in ts_data
+        ts_data[data_name][!, Symbol(unit_type)] .= 0.0
 
-        # For non-zero wind and solar capacity, scale the WindShape series by the
-        #   installed capacity to get total instantaneous VRE availability
-        # If either wind or solar has 0 installed capacity, set its entire time
-        #   series to 0.0
-        if !isempty(filter(:unit_type => x -> x == "wind", year_portfolio))
-            ts_data[:wind_data][!, :wind] = (
-                ts_data[:wind_data][!, :WindShape] *
-                filter(:unit_type => x -> x == "wind", year_portfolio)[
-                    1,
-                    :num_units,
-                ] *
-                wind_specs[:capacity]
-            )
-        end
-    end
+        if !isempty(filter(:unit_type => x -> x == unit_type, unit_specs))
+            # Get the unit type's specs
+            type_specs = filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
 
-    # Set up solar data
-    ts_data[:solar_data][!, :solar] .= 0.0
-
-    if !isempty(filter(:unit_type => x -> x == "solar", unit_specs))
-        solar_specs = filter(:unit_type => x -> x == "solar", unit_specs)[1, :]
-
-        if !isempty(filter(:unit_type => x -> x == "solar", year_portfolio))
-            ts_data[:solar_data][!, :solar] = (
-                ts_data[:solar_data][!, :SolarShape] *
-                filter(:unit_type => x -> x == "solar", year_portfolio)[
-                    1,
-                    :num_units,
-                ] *
-                solar_specs[:capacity]
-            )
+            # For non-zero wind and solar capacity, scale the WindShape series by the
+            #   installed capacity to get total instantaneous VRE availability
+            # If either wind or solar has 0 installed capacity, set its entire time
+            #   series to 0.0
+            if !isempty(filter(:unit_type => x -> x == unit_type, year_portfolio))
+                ts_data[data_name][!, Symbol(unit_type)] = (
+                    ts_data[data_name][!, shaped_col]
+                    * filter(:unit_type => x -> x == unit_type, year_portfolio)[1, :num_units]
+                    * type_specs[:capacity]
+                )
+            end
         end
     end
 
