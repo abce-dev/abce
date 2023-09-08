@@ -686,15 +686,6 @@ function run_annual_dispatch(
 end
 
 
-function save_raw_results(all_prices, all_gc_results)
-    pfile = joinpath(pwd(), "tmp", "price_results.csv")
-    CSV.write(pfile, all_prices)
-
-    gcfile = joinpath(pwd(), "tmp", "./gc_results.csv")
-    CSV.write(gcfile, all_gc_results)
-end
-
-
 function combine_and_extend_year_portfolios(system_portfolios, forecast_end_pd)
     # Combine the existing system portfolios into a single dataframe with
     #   indicator column :y
