@@ -891,6 +891,12 @@ function run_annual_dispatch(
     # Solve the integral optimization problem
     m, status, gen_qty, r, sr, nsr, c, su, sd, s = solve_model(m, model_type = "integral")
 
+    # Set up default return values if the dispatch year is infeasible
+    new_grc_results = nothing
+    new_prices = nothing
+    run_next_year = false
+    total_ENS = nothing
+
     if status == "OPTIMAL"
         # Save the generation and commitment results from the integral problem
         new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
