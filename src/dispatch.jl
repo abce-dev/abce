@@ -140,10 +140,10 @@ function handle_annual_dispatch(
 )
     all_grc_results = set_up_grc_results_df()
     all_prices = set_up_prices_df()
+    num_years = settings["dispatch"]["num_dispatch_years"]
 
     # Run the annual dispatch for the user-specified number of dispatch years
-    for y =
-        current_pd:(current_pd + settings["dispatch"]["num_dispatch_years"] - 1)
+    for y = current_pd:(current_pd + num_years - 1)
         @debug "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Select the current year's expected portfolio
@@ -171,34 +171,6 @@ function handle_annual_dispatch(
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
-        if !results[:run_next_year]
-            break
-        end
-
-        if (
-            (results[:total_ENS] > settings["system"]["max_total_ENS"]) &&
-            (y == current_pd)
-        )
-            msg = string(
-                "In the upcoming dispatch year, the system is ",
-                "projected to experience a total energy shortage ",
-                "which exceeds the maximum allowed level of energy ",
-                "not served (ENS). The system portfolio is likely ",
-                "in an unsalvageable state of supply insufficiency ",
-                "in the immediate term. The run will now terminate.",
-            )
-            throw(ErrorException(msg))
-        end
-
-    end
-
-    # If no years ran correctly, throw an error and exit
-    if size(all_grc_results)[1] == 0
-        msg = string(
-            "No dispatch simulations could be run. Re-check ",
-            "your inputs.",
-        )
-        throw(ErrorException(msg))
     end
 
     return all_grc_results, all_prices
@@ -684,27 +656,36 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     end
 
     ENS_penalty = settings["constants"]["big_number"]
+    gamma_reg = 0.2
+    gamma_sr = 0.1
+    gamma_nsr = 0.1
 
     @objective(
         m,
         Min,
-        sum(
-            # Generation and scarcity costs
-            sum(sum(g[i, k, j] + ENS_penalty * s[k, j] for j = 1:num_hours) for k = 1:num_days)
-            .* (
-                portfolio_specs[i, :VOM] + portfolio_specs[i, :FC_per_MWh] -
-                portfolio_specs[i, :policy_adj_per_MWh] - portfolio_specs[i, :tax_credits_per_MWh]
-            ) 
-            # Reserves costs
-            + sum(sum(0.2 * r[i, k, j] + 0.1 * sr[i, k, j] + 0.1 * nsr[i, k, j] for j = 1:num_hours) for k = 1:num_days) 
-              .* (portfolio_specs[i, :VOM])
-            # No-load costs for commitment
-            + sum(sum(c[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :no_load_cost] .* portfolio_specs[i, :capacity]
-            # Start-up costs
-            + sum(sum(su[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :start_up_cost] .* portfolio_specs[i, :capacity]
-            # Shut-down costs
-            + sum(sum(sd[i, k, j] for j = 1:num_hours) for k = 1:num_days) .* portfolio_specs[i, :shut_down_cost] .* portfolio_specs[i, :capacity]
-        for i = 1:num_units)
+        sum(   # sum over d
+            sum(   # sum over h
+                sum(   # sum over i
+                    # Generation price
+                    g[i, k, j] .* (
+                        portfolio_specs[i, :VOM] 
+                        + portfolio_specs[i, :FC_per_MWh] 
+                        - portfolio_specs[i, :policy_adj_per_MWh] 
+                        - portfolio_specs[i, :tax_credits_per_MWh]
+                    )
+                    # Ancillary services prices
+                    + (r[i, k, j] .* gamma_reg + sr[i, k, j] .* gamma_sr + nsr[i, k, j] .* gamma_nsr) .* portfolio_specs[i, :VOM]
+                    # Commitment/no-load costs
+                    + c[i, k, j] .* portfolio_specs[i, :no_load_cost]
+                    # Start-up costs
+                    + su[i, k, j] .* portfolio_specs[i, :start_up_cost]
+                    # Shut-down costs
+                    + sd[i, k, j] .* portfolio_specs[i, :shut_down_cost]
+                for i = 1:num_units)
+                # Penalty for energy not served
+                + s[k, j] .* ENS_penalty
+            for j = 1:num_hours)
+        for k = 1:num_days)
     )
 
     return m, portfolio_specs
@@ -894,48 +875,36 @@ function run_annual_dispatch(
     # Set up default return values if the dispatch year is infeasible
     new_grc_results = nothing
     new_prices = nothing
-    run_next_year = false
     total_ENS = nothing
 
-    if status == "OPTIMAL"
-        # Save the generation and commitment results from the integral problem
-        new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
+    # Save the generation and commitment results from the integral problem
+    new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
 
-        # Set up a relaxed-integrality version of this model, to allow
-        #   retrieval of dual values for the mkt_equil constraint
-        @debug "Solving relaxed-integrality problem to get shadow prices..."
-        undo = relax_integrality(m_copy)
+    # Set up a relaxed-integrality version of this model, to allow
+    #   retrieval of dual values for the mkt_equil constraint
+    @debug "Solving relaxed-integrality problem to get shadow prices..."
+    undo = relax_integrality(m_copy)
 
-        # Solve the relaxed-integrality model to compute the shadow prices
-        m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
-        new_prices = reshape_shadow_prices(
-            shadow_price.(m_copy[:mkt_equil]),   # generation shadow prices
-            shadow_price.(m_copy[:reg_mkt_equil]),  # regulation shadow prices
-            shadow_price.(m_copy[:spin_mkt_equil]),  # spinning reserve shadow prices
-            shadow_price.(m_copy[:nspin_mkt_equil]), # non-spinning reserve shadow prices
-            y,
-            settings,
-        )
+    # Solve the relaxed-integrality model to compute the shadow prices
+    m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
+    new_prices = reshape_shadow_prices(
+        shadow_price.(m_copy[:mkt_equil]),   # generation shadow prices
+        shadow_price.(m_copy[:reg_mkt_equil]),  # regulation shadow prices
+        shadow_price.(m_copy[:spin_mkt_equil]),  # spinning reserve shadow prices
+        shadow_price.(m_copy[:nspin_mkt_equil]), # non-spinning reserve shadow prices
+        y,
+        settings,
+    )
 
-        # Determine the total level of energy not served (ENS) for this
-        #   dispatch result
-        total_ENS = sum(sum(s[k, j] for k = 1:size(s)[1]) for j = 1:size(s)[2])
+    # Determine the total level of energy not served (ENS) for this
+    #   dispatch result
+    total_ENS = sum(sum(s[k, j] for k = 1:size(s)[1]) for j = 1:size(s)[2])
 
-        @debug "Year $y dispatch run complete."
-        run_next_year = true
-
-    else
-        # Dispatcher is unable to solve the current year: assume agents have
-        #   not had a chance to address conditions in this year yet
-        # Break the loop
-        run_next_year = false
-        total_ENS = nothing
-    end
+    @debug "Year $y dispatch run complete."
 
     results = Dict(
         :new_grc_results => new_grc_results,
         :new_prices => new_prices,
-        :run_next_year => run_next_year,
         :total_ENS => total_ENS,
     )
 
