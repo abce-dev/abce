@@ -357,10 +357,15 @@ class GridModel(Model):
         prm = self.settings["system"]["planning_reserve_margin"]
         self.cur.execute(f"INSERT INTO model_params VALUES ('PRM', {prm})")
 
+
         tax_rate = self.settings["system"]["tax_rate"]
         self.cur.execute(
             f"INSERT INTO model_params VALUES ('tax_rate', {tax_rate})"
         )
+
+        tax_credits_discount = self.settings["system"]["tax_credits_discount"]
+        self.cur.execute(f"INSERT INTO model_params VALUES ('tax_credits_discount', {tax_credits_discount})")
+
         self.db.commit()
 
     def step(self, demo=False):

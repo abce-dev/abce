@@ -2283,18 +2283,11 @@ function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
             ((EBIT, interest) -> EBIT - interest) => :EBT,
     )
 
-    # Retrieve the system corporate tax rate from the database
-    # Extract the value into a temporary dataframe
-    tax_rate =
-        DBInterface.execute(
-            db,
-            string(
-                "SELECT value FROM model_params ",
-                "WHERE parameter == 'tax_rate'",
-            ),
-        ) |> DataFrame
-    # Pull out the bare value
-    tax_rate = tax_rate[1, :value]
+    # Retrieve some system parameters from the database
+    model_params = DBInterface.execute(db, "SELECT * FROM model_params") |> DataFrame
+    tax_rate = filter(:parameter => x -> x == "tax_rate", model_params)[1, :value]
+
+    tax_credits_discount = filter(:parameter => x -> x == "tax_credits_discount", model_params)[1, :value]
 
     # Compute nominal tax owed
     # If this is a subproject, allow negative tax owed
@@ -2309,7 +2302,7 @@ function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
     transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> ifelse(T >= C, T - C, 0)) => :realized_tax_owed)
 
     # Compute post-tax revenue from any sale of excess tax credits
-    transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> ifelse(C > T, (C - T) * 0.7, 0)) => :tax_credit_sale_revenue)
+    transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> ifelse(C > T, (C - T) * (1 - tax_credits_discount) * (1 - tax_rate), 0)) => :tax_credit_sale_revenue)
 
     # Net Income
 #    transform!(agent_fs, [:EBT, :tax_owed, :tax_credits] => ((EBT, T, C) -> EBT - T + C) => :net_income)
