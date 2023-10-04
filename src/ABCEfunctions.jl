@@ -2297,13 +2297,10 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
     tax_rate = tax_rate[1, :value]
 
     # Compute nominal tax owed
-    transform!(agent_fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_owed)
+    transform!(agent_fs, :EBT .=> ByRow(EBT -> ifelse(EBT >= 0, EBT * tax_rate, 0)) .=> :tax_owed)
 
     # Net Income
-    transform!(
-        agent_fs,
-        [:EBT, :tax_credits, :tax_owed] => ((EBT, tax_credits, tax) -> (EBT - tax + tax_credits)) => :net_income,
-    )
+    transform!(agent_fs, [:EBT, :tax_owed, :tax_credits] => ((EBT, T, C) -> EBT - T + C) => :net_income)
 
     # Free Cash Flow
     transform!(
