@@ -852,7 +852,7 @@ function forecast_subproject_financials(
     )
 
     subproject_fs =
-        compute_accounting_line_items(db, deepcopy(subproject_fs), agent_params)
+        compute_accounting_line_items(db, deepcopy(subproject_fs), agent_params, mode="subproject")
 
     return subproject_fs
 end
@@ -2103,7 +2103,7 @@ function update_agent_financial_statement(
     end
 
     # Propagate out accounting line items (EBITDA through FCF)
-    agent_fs = compute_accounting_line_items(db, agent_fs, agent_params)
+    agent_fs = compute_accounting_line_items(db, agent_fs, agent_params, mode="agent")
 
     agent_fs = compute_credit_indicator_scores(agent_fs)
 
@@ -2260,7 +2260,7 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
 end
 
 
-function compute_accounting_line_items(db, agent_fs, agent_params)
+function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
     ### Computed FS quantities
     # EBITDA
     transform!(
@@ -2297,16 +2297,29 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
     tax_rate = tax_rate[1, :value]
 
     # Compute nominal tax owed
-    transform!(agent_fs, :EBT .=> ByRow(EBT -> ifelse(EBT >= 0, EBT * tax_rate, 0)) .=> :tax_owed)
+    # If this is a subproject, allow negative tax owed
+    if mode == "subproject"
+        transform!(agent_fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_owed)
+    # If this is an agent, require tax to be nonnegative
+    else
+        transform!(agent_fs, :EBT .=> ByRow(EBT -> ifelse(EBT >= 0, EBT * tax_rate, 0)) .=> :tax_owed)
+    end
+
+    # Compute real tax owed
+    transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> ifelse(T >= C, T - C, 0)) => :realized_tax_owed)
+
+    # Compute post-tax revenue from any sale of excess tax credits
+    transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> ifelse(C > T, (C - T) * 0.7, 0)) => :tax_credit_sale_revenue)
 
     # Net Income
-    transform!(agent_fs, [:EBT, :tax_owed, :tax_credits] => ((EBT, T, C) -> EBT - T + C) => :net_income)
+#    transform!(agent_fs, [:EBT, :tax_owed, :tax_credits] => ((EBT, T, C) -> EBT - T + C) => :net_income)
+    transform!(agent_fs, [:EBT, :realized_tax_owed, :tax_credit_sale_revenue] => ((EBT, real_tax, C_salerev) -> (EBT - real_tax + C_salerev)) => :net_income)
 
     # Free Cash Flow
     transform!(
         agent_fs,
         [:net_income, :depreciation, :capex] =>
-            ((NI, dep, capex) -> NI + dep - capex) => :FCF,
+            ((NI, dep, capex) -> (NI + dep - capex)) => :FCF,
     )
 
     # Dividends and Retained Earnings
