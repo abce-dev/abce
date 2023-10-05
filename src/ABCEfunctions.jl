@@ -2265,8 +2265,8 @@ function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
     # EBITDA
     transform!(
         agent_fs,
-        [:revenue, :VOM, :FOM, :fuel_cost, :policy_adj] =>
-            ((rev, VOM, FOM, FC, pol) -> (rev - VOM - FOM - FC + pol)) =>
+        [:revenue, :VOM, :FOM, :fuel_cost, :policy_adj, :tax_credits] =>
+            ((rev, VOM, FOM, FC, pol, tc) -> (rev - VOM - FOM - FC + pol + tc)) =>
                 :EBITDA,
     )
 
@@ -2290,22 +2290,19 @@ function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
     tax_credits_discount = filter(:parameter => x -> x == "tax_credits_discount", model_params)[1, :value]
 
     # Compute nominal tax owed
-    # If this is a subproject, allow negative tax owed
+    # If this is a subproject, allow negative tax owed, and assume no tax credits are resold
     if mode == "subproject"
         transform!(agent_fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_owed)
-    # If this is an agent, require tax to be nonnegative
+        transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> T - C) => :realized_tax_owed)
+        agent_fs[!, :tax_credit_sale_revenue] .= 0.0
+    # If this is an agent, require tax to be nonnegative, and allow resale of tax credits if applicable
     else
-        transform!(agent_fs, :EBT .=> ByRow(EBT -> ifelse(EBT >= 0, EBT * tax_rate, 0)) .=> :tax_owed)
+        transform!(agent_fs, :EBT => ByRow(EBT -> ifelse.(EBT >= 0, EBT * tax_rate, 0)) => :tax_owed)
+        transform!(agent_fs, [:tax_owed, :tax_credits] => ByRow((T, C) -> ifelse.(T >= C, T - C, 0)) => :realized_tax_owed)
+        transform!(agent_fs, [:tax_owed, :tax_credits] => ByRow((T, C) -> ifelse.(C > T, (C - T) * (1 - tax_credits_discount) * (1 - tax_rate), 0)) => :tax_credit_sale_revenue)
     end
 
-    # Compute real tax owed
-    transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> ifelse(T >= C, T - C, 0)) => :realized_tax_owed)
-
-    # Compute post-tax revenue from any sale of excess tax credits
-    transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> ifelse(C > T, (C - T) * (1 - tax_credits_discount) * (1 - tax_rate), 0)) => :tax_credit_sale_revenue)
-
     # Net Income
-#    transform!(agent_fs, [:EBT, :tax_owed, :tax_credits] => ((EBT, T, C) -> EBT - T + C) => :net_income)
     transform!(agent_fs, [:EBT, :realized_tax_owed, :tax_credit_sale_revenue] => ((EBT, real_tax, C_salerev) -> (EBT - real_tax + C_salerev)) => :net_income)
 
     # Free Cash Flow
