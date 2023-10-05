@@ -77,7 +77,6 @@ system:
   tax_rate: 0.21
   planning_reserve_margin: 0.1375
   peak_initial_reserves: 0.0
-  max_total_ENS: 100000  # MWh, allowed gen. undersupply in first projected dispatch year (Energy Not Served)
 
 # Settings for demand projections
 demand:
