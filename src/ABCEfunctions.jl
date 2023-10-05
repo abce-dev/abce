@@ -852,7 +852,7 @@ function forecast_subproject_financials(
     )
 
     subproject_fs =
-        compute_accounting_line_items(db, deepcopy(subproject_fs), agent_params)
+        compute_accounting_line_items(db, deepcopy(subproject_fs), agent_params, mode="subproject")
 
     return subproject_fs
 end
@@ -2103,7 +2103,7 @@ function update_agent_financial_statement(
     end
 
     # Propagate out accounting line items (EBITDA through FCF)
-    agent_fs = compute_accounting_line_items(db, agent_fs, agent_params)
+    agent_fs = compute_accounting_line_items(db, agent_fs, agent_params, mode="agent")
 
     agent_fs = compute_credit_indicator_scores(agent_fs)
 
@@ -2260,13 +2260,13 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
 end
 
 
-function compute_accounting_line_items(db, agent_fs, agent_params)
+function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
     ### Computed FS quantities
     # EBITDA
     transform!(
         agent_fs,
-        [:revenue, :VOM, :FOM, :fuel_cost, :policy_adj] =>
-            ((rev, VOM, FOM, FC, pol) -> (rev - VOM - FOM - FC + pol)) =>
+        [:revenue, :VOM, :FOM, :fuel_cost, :policy_adj, :tax_credits] =>
+            ((rev, VOM, FOM, FC, pol, tc) -> (rev - VOM - FOM - FC + pol + tc)) =>
                 :EBITDA,
     )
 
@@ -2283,33 +2283,33 @@ function compute_accounting_line_items(db, agent_fs, agent_params)
             ((EBIT, interest) -> EBIT - interest) => :EBT,
     )
 
-    # Retrieve the system corporate tax rate from the database
-    # Extract the value into a temporary dataframe
-    tax_rate =
-        DBInterface.execute(
-            db,
-            string(
-                "SELECT value FROM model_params ",
-                "WHERE parameter == 'tax_rate'",
-            ),
-        ) |> DataFrame
-    # Pull out the bare value
-    tax_rate = tax_rate[1, :value]
+    # Retrieve some system parameters from the database
+    model_params = DBInterface.execute(db, "SELECT * FROM model_params") |> DataFrame
+    tax_rate = filter(:parameter => x -> x == "tax_rate", model_params)[1, :value]
+
+    tax_credits_discount = filter(:parameter => x -> x == "tax_credits_discount", model_params)[1, :value]
 
     # Compute nominal tax owed
-    transform!(agent_fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_owed)
+    # If this is a subproject, allow negative tax owed, and assume no tax credits are resold
+    if mode == "subproject"
+        transform!(agent_fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_owed)
+        transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> T - C) => :realized_tax_owed)
+        agent_fs[!, :tax_credit_sale_revenue] .= 0.0
+    # If this is an agent, require tax to be nonnegative, and allow resale of tax credits if applicable
+    else
+        transform!(agent_fs, :EBT => ByRow(EBT -> ifelse.(EBT >= 0, EBT * tax_rate, 0)) => :tax_owed)
+        transform!(agent_fs, [:tax_owed, :tax_credits] => ByRow((T, C) -> ifelse.(T >= C, T - C, 0)) => :realized_tax_owed)
+        transform!(agent_fs, [:tax_owed, :tax_credits] => ByRow((T, C) -> ifelse.(C > T, (C - T) * (1 - tax_credits_discount) * (1 - tax_rate), 0)) => :tax_credit_sale_revenue)
+    end
 
     # Net Income
-    transform!(
-        agent_fs,
-        [:EBT, :tax_credits, :tax_owed] => ((EBT, tax_credits, tax) -> (EBT - tax + tax_credits)) => :net_income,
-    )
+    transform!(agent_fs, [:EBT, :realized_tax_owed, :tax_credit_sale_revenue] => ((EBT, real_tax, C_salerev) -> (EBT - real_tax + C_salerev)) => :net_income)
 
     # Free Cash Flow
     transform!(
         agent_fs,
         [:net_income, :depreciation, :capex] =>
-            ((NI, dep, capex) -> NI + dep - capex) => :FCF,
+            ((NI, dep, capex) -> (NI + dep - capex)) => :FCF,
     )
 
     # Dividends and Retained Earnings

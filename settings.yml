@@ -77,6 +77,7 @@ system:
   tax_rate: 0.21
   planning_reserve_margin: 0.1375
   peak_initial_reserves: 0.0
+  tax_credits_discount: 0.1
 
 # Settings for demand projections
 demand:
