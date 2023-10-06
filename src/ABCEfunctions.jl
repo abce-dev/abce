@@ -1660,7 +1660,7 @@ function set_up_model(
     end
 
     for i = 1:size(coal_retirements)[2]
-        y = current_pd + i
+        y = current_pd + i - 1
         num_units = 0
 
         # Get number of planned coal units operating during this period
@@ -1916,7 +1916,7 @@ function record_asset_retirements(
                 db,
                 string(
                     "SELECT asset_id FROM assets WHERE unit_type = ? ",
-                    "AND retirement_pd = ? AND agent_id = ?",
+                    "AND retirement_pd = ? AND agent_id = ? AND C2N_reserved = 0",
                 ),
                 match_vals,
             ) |> DataFrame
