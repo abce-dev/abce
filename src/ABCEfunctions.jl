@@ -1660,7 +1660,7 @@ function set_up_model(
     end
 
     for i = 1:size(coal_retirements)[2]
-        y = current_pd + i - 1
+        y = current_pd + i - 1  # -1 converts i from julia dataframe index back to true relative year
         num_units = 0
 
         # Get number of planned coal units operating during this period
