@@ -6,7 +6,7 @@ simulation:
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 75000
+  peak_demand: 78000
   policies:
     CTAX:
       enabled: False
@@ -112,9 +112,9 @@ agent_opt:
   credit_rating_lamda: 0.1
   fin_metric_horizon: 6
   int_bound: 5.0
-  icr_floor: 1.0
-  fcf_debt_floor: 0.05
-  re_debt_floor: 0.03
+  icr_floor: 4.2
+  fcf_debt_floor: 0.2
+  re_debt_floor: 0.15
 
 financing:
   default_debt_term: 30
