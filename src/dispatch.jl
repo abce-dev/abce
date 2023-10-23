@@ -33,7 +33,9 @@ function execute_dispatch_economic_projection(
     fc_pd,
     total_demand,
     unit_specs,
-    system_portfolios,
+    system_portfolios;
+    run_mode="forecast",
+    downselection_mode="scenario_reduction"
 )
     @debug string(
         "Running the dispatch simulation for ",
@@ -47,7 +49,7 @@ function execute_dispatch_economic_projection(
         settings["file_paths"]["timeseries_data_dir"],
     )
 
-    if settings["dispatch"]["downselection"] == "exact"
+    if downselection_mode == "exact"
         ts_data = load_ts_data(ts_data_dir)
     else
         ts_data = load_ts_data(
@@ -62,7 +64,9 @@ function execute_dispatch_economic_projection(
         system_portfolios,
         total_demand,
         ts_data,
-        unit_specs,
+        unit_specs;
+        run_mode=run_mode,
+        downselection_mode=downselection_mode
     )
 
     long_econ_results, dispatch_results = postprocess_results(
@@ -136,11 +140,18 @@ function handle_annual_dispatch(
     system_portfolios,
     total_demand,
     ts_data,
-    unit_specs,
+    unit_specs;
+    run_mode="forecast",
+    downselection_mode="scenario_reduction"
 )
     all_grc_results = set_up_grc_results_df()
     all_prices = set_up_prices_df()
-    num_years = settings["dispatch"]["num_dispatch_years"]
+
+    if run_mode == "forecast"
+        num_years = settings["dispatch"]["num_dispatch_years"]
+    elseif run_mode == "current"
+        num_years = 1
+    end
 
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:(current_pd + num_years - 1)
@@ -162,7 +173,9 @@ function handle_annual_dispatch(
             year_portfolio,
             year_demand,
             ts_data,
-            unit_specs,
+            unit_specs;
+            run_mode=run_mode,
+            downselection_mode=downselection_mode
         )
 
         # Save new generation, commitment, and price results
@@ -825,22 +838,30 @@ function run_annual_dispatch(
     year_portfolio,
     peak_demand,
     ts_data,
-    unit_specs,
+    unit_specs;
+    run_mode="forecast",
+    downselection_mode="scenario_reduction"
 )
-    num_days, num_hours = set_repdays_params(settings, ts_data)
+    # Set up the appropriate scenario reduction parameters
+    if mode == "current"
+        num_days = 365
+        num_hours = 24
+    else
+        num_days, num_hours = set_repdays_params(settings, ts_data)
+    end
 
     # Scale the load data to the PD value for this year
     ts_data = scale_load(ts_data, peak_demand)
 
     # Set up representative days for load
-    ts_data = set_up_load_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
+    ts_data = set_up_load_repdays(downselection_mode, num_days, num_hours, ts_data)
 
     # Scale the wind and solar data according to the current year's total
     #   installed capacity
     ts_data = scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
 
     # Set up representative days for wind and solar
-    ts_data = set_up_wind_solar_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
+    ts_data = set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_data)
 
     # Scale the ancillary services to the PD value for this year
     ts_data = scale_AS_data(ts_data, peak_demand, settings["scenario"]["peak_demand"])
