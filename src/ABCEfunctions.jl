@@ -788,13 +788,16 @@ function forecast_subproject_financials(
         tax_credits = zeros(fc_pd),
     )
 
-    # Compute the series of DCF weights
-    wacc =
-        agent_params[1, :cost_of_debt] * agent_params[1, :debt_fraction] +
-        agent_params[1, :cost_of_equity] * (1 - agent_params[1, :debt_fraction])
+    # Compute the series of DCF weights (discounting by cost of equity, as DCF
+    #   is calculated on post-interest net cash flow)
+#    wacc =
+#        agent_params[1, :cost_of_debt] * agent_params[1, :debt_fraction] +
+#        agent_params[1, :cost_of_equity] * (1 - agent_params[1, :debt_fraction])
+    coe = agent_params[1, :cost_of_equity]
+
     transform!(
         subproject_fs,
-        [:year] => ((yr) -> 1 ./ (1 .+ wacc) .^ (yr .- 1)) => :weight,
+        [:year] => ((yr) -> 1 ./ (1 .+ coe) .^ (yr .- 1)) => :weight,
     )
 
     if subproject["project_type"] == "new_xtr"
@@ -1232,9 +1235,10 @@ function compute_PA_NPV(fs_copy)
 
     transform!(
         fs_copy,
-        [:retained_earnings, :weight] => ((retained_earnings, wt) -> retained_earnings .* wt) => :wtd_retained_earnings,
+#        [:retained_earnings, :weight] => ((retained_earnings, wt) -> retained_earnings .* wt) => :wtd_retained_earnings,
+        [:FCF, :weight] => ((fcf, wt) -> fcf .* wt) => :wtd_net_cash,
     )
-    NPV += sum(fs_copy[!, :wtd_retained_earnings])
+    NPV += sum(fs_copy[!, :wtd_net_cash])
 
     return NPV
 end
