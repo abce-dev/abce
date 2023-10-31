@@ -50,7 +50,7 @@ function execute_dispatch_economic_projection(
     )
 
     if downselection_mode == "exact"
-        ts_data = load_ts_data(ts_data_dir)
+        ts_data = load_ts_data(ts_data_dir, num_repdays=365)
     else
         ts_data = load_ts_data(
             ts_data_dir,
