@@ -2313,6 +2313,7 @@ function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
     )
 
     # Dividends and Retained Earnings
+    # Set up data
     agent_id = agent_params[1, "agent_id"]
     cost_of_equity =
         DBInterface.execute(
@@ -2320,7 +2321,20 @@ function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
             "SELECT cost_of_equity FROM agent_params WHERE agent_id = $agent_id",
         ) |> DataFrame
     cost_of_equity = cost_of_equity[1, :cost_of_equity]
-    transform!(agent_fs, :FCF => ((fcf) -> fcf .* cost_of_equity) => :dividends)
+
+    # Compute dividends
+    # Allow negative dividends if this is a project (negative FCF accruing to
+    #   the project is assumed to reduce total dividend across the agent's
+    #   finances)
+    if mode == "subproject"
+        transform!(agent_fs, :FCF => ((fcf) -> fcf .* cost_of_equity) => :dividends)
+    else
+        # If this is the agent's financial statement, the minimum actual
+        #   dividend is zero
+        agent_fs.dividends = ifelse.(agent_fs.FCF .> 0, agent_fs.FCF .* cost_of_equity, 0)
+    end
+
+    # Compute retained earnings
     transform!(
         agent_fs,
         [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :retained_earnings,
