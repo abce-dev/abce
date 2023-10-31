@@ -110,7 +110,7 @@ class GenCo(Agent):
             f"""INSERT INTO agent_params VALUES ({self.unique_id},
                         {self.debt_fraction}, {self.cost_of_debt},
                         {self.cost_of_equity}, {self.starting_debt},
-                        {self.starting_PPE})"""
+                        {self.starting_PPE}, {self.starting_RE})"""
         )
         self.model.db.commit()
 
