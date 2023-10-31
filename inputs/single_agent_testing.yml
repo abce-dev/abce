@@ -12,6 +12,7 @@
     cost_of_equity: 0.12
     starting_debt: 7976000
     starting_PPE:  1692000
+    starting_RE: 1000000000
     starting_portfolio:
         coal: 1
         ngcc: 1
