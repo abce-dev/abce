@@ -792,9 +792,6 @@ function forecast_subproject_financials(
 
     # Compute the series of DCF weights (discounting by cost of equity, as DCF
     #   is calculated on post-interest net cash flow)
-#    wacc =
-#        agent_params[1, :cost_of_debt] * agent_params[1, :debt_fraction] +
-#        agent_params[1, :cost_of_equity] * (1 - agent_params[1, :debt_fraction])
     coe = agent_params[1, :cost_of_equity]
 
     transform!(
@@ -2314,7 +2311,7 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
     transform!(
         agent_fs,
         [:net_income, :depreciation, :capex] =>
-            ((NI, dep, capex) -> (NI + dep - capex)) => :FCF,
+            ((NI, dep, capex) -> (NI + dep - capex)) => :nominal_FCF,
     )
 
     # Dividends and Retained Earnings
@@ -2332,26 +2329,31 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
     #   the project is assumed to reduce total dividend across the agent's
     #   finances)
     if mode == "subproject"
-        transform!(agent_fs, :FCF => ((fcf) -> fcf .* cost_of_equity) => :dividends)
+        transform!(agent_fs, :nominal_FCF => ((nfcf) -> nfcf .* cost_of_equity) => :dividends)
     else
         # If this is the agent's financial statement, the minimum actual
         #   dividend is zero
-        agent_fs.dividends = ifelse.(agent_fs.FCF .> 0, agent_fs.FCF .* cost_of_equity, 0)
+        agent_fs.dividends = ifelse.(agent_fs.nominal_FCF .> 0, agent_fs.nominal_FCF .* cost_of_equity, 0)
     end
 
-    # Compute annual contribution to retained earnings
+    # Compute annual contribution to retained earnings and finalized FCF
     if mode == "subproject"
-        # If this is a subproject, just record each year's delta-RE as the RE value
+        # If this is a subproject, nominal FCF = FCF because retained earnings
+        #   are not used to tide over cash flow
+        agent_fs[!, :FCF] = agent_fs[!, :nominal_FCF]
+
+        # Record each year's delta-RE as the RE value
         transform!(
             agent_fs,
-            [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :retained_earnings,
+            [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :delta_RE,
         )
+        agent_fs[!, :retained_earnings] = agent_fs[!, :delta_RE]
     else
-        # If this is the agent, track the full net change in RE starting from
-        #   the current year's RE value
+        # If this is the agent, track the full net change in RE starting 
+        #   from the current year's RE value
         transform!(
             agent_fs,
-            [:FCF, :dividends] => ((fcf, div) -> fcf .- div) => :delta_RE,
+            [:nominal_FCF, :dividends] => ((nfcf, div) -> nfcf .- div) => :delta_RE,
         )
 
         # Get the preceding period's RE
@@ -2371,21 +2373,28 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
 
         # Set up a blank column for retained earnings
         agent_fs[!, :retained_earnings] .= 0.0
-        CSV.write("agent_fs.csv", agent_fs)
+        agent_fs[!, :FCF] .= 0.0
 
         # Propagate the running retained earnings total through the agent
         #   financial statement, while using extra RE to bolster negative FCF
         running_RE = init_RE
         for i=1:size(agent_fs)[1]
-            running_RE += agent_fs[i, :delta_RE]
+            if (running_RE > 0) && (agent_fs[i, :nominal_FCF] < 0)
+                # If the nominal FCF is negative, and there is RE cash
+                #   available, use it to make up the shortfall (as far as possible)
+                RE_transfer = min(running_RE, (-1) * agent_fs[i, :nominal_FCF])
 
-            if (running_RE > 0) && (agent_fs[i, :FCF] < 0)
-                transfer = min(running_RE, (-1) * agent_fs[i, :FCF])
-                agent_fs[i, :FCF] += transfer
-                running_RE -= transfer
+                FCF = agent_fs[i, :nominal_FCF] + RE_transfer
+                running_RE = running_RE - RE_transfer
+            else
+                # If the nominal FCF is positive, there is no transfer
+                #   and RE and FCF take on their normal values
+                FCF = agent_fs[i, :nominal_FCF]
+                running_RE = running_RE + agent_fs[i, :delta_RE]
             end
 
             agent_fs[i, :retained_earnings] = running_RE
+            agent_fs[i, :FCF] = FCF
         end
     end
 
