@@ -187,6 +187,7 @@ function run_agent_choice()
         unit_specs,
         grouped_agent_assets,
         fc_pd,
+        CLI_args["agent_id"],
         agent_params,
         db,
         CLI_args["current_pd"],
