@@ -542,6 +542,7 @@ function set_up_project_alternatives(
     unit_specs,
     asset_counts,
     fc_pd,
+    agent_id,
     agent_params,
     db,
     current_pd,
@@ -565,6 +566,7 @@ function set_up_project_alternatives(
             fc_pd,
             current_pd,
             C2N_specs,
+            agent_id,
             agent_params,
             dispatch_results,
         )
@@ -671,6 +673,7 @@ function create_PA_subprojects(
     fc_pd,
     current_pd,
     C2N_specs,
+    agent_id,
     agent_params,
     dispatch_results,
 )
@@ -684,10 +687,7 @@ function create_PA_subprojects(
     for subproject in subprojects
         # Retrieve unit type data for convenience
         unit_type_data =
-            filter(:unit_type => x -> x == subproject["unit_type"], unit_specs)[
-                1,
-                :,
-            ]
+            filter(:unit_type => x -> x == subproject["unit_type"], unit_specs)[1, :]
 
         # Forecast financial results for each subproject within this project
         #   alternative
@@ -699,6 +699,7 @@ function create_PA_subprojects(
             fc_pd,
             current_pd,
             C2N_specs,
+            agent_id,
             agent_params,
             dispatch_results,
             ALEAF_dispatch_results,
@@ -766,6 +767,7 @@ function forecast_subproject_financials(
     fc_pd,
     current_pd,
     C2N_specs,
+    agent_id,
     agent_params,
     dispatch_results,
     ALEAF_dispatch_results,
@@ -855,7 +857,7 @@ function forecast_subproject_financials(
     )
 
     subproject_fs =
-        compute_accounting_line_items(db, deepcopy(subproject_fs), agent_params, mode="subproject")
+        compute_accounting_line_items(db, deepcopy(subproject_fs), agent_id, agent_params, mode="subproject")
 
     return subproject_fs
 end
@@ -1235,7 +1237,6 @@ function compute_PA_NPV(fs_copy)
 
     transform!(
         fs_copy,
-#        [:retained_earnings, :weight] => ((retained_earnings, wt) -> retained_earnings .* wt) => :wtd_retained_earnings,
         [:FCF, :weight] => ((fcf, wt) -> fcf .* wt) => :wtd_net_cash,
     )
     NPV += sum(fs_copy[!, :wtd_net_cash])
@@ -2107,7 +2108,7 @@ function update_agent_financial_statement(
     end
 
     # Propagate out accounting line items (EBITDA through FCF)
-    agent_fs = compute_accounting_line_items(db, agent_fs, agent_params, mode="agent")
+    agent_fs = compute_accounting_line_items(db, agent_fs, agent_id, agent_params, mode="agent")
 
     agent_fs = compute_credit_indicator_scores(agent_fs)
 
@@ -2264,7 +2265,7 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
 end
 
 
-function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
+function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mode=nothing)
     ### Computed FS quantities
     # EBITDA
     transform!(
@@ -2338,11 +2339,55 @@ function compute_accounting_line_items(db, agent_fs, agent_params; mode=nothing)
         agent_fs.dividends = ifelse.(agent_fs.FCF .> 0, agent_fs.FCF .* cost_of_equity, 0)
     end
 
-    # Compute retained earnings
-    transform!(
-        agent_fs,
-        [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :retained_earnings,
-    )
+    # Compute annual contribution to retained earnings
+    if mode == "subproject"
+        # If this is a subproject, just record each year's delta-RE as the RE value
+        transform!(
+            agent_fs,
+            [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :retained_earnings,
+        )
+    else
+        # If this is the agent, track the full net change in RE starting from
+        #   the current year's RE value
+        transform!(
+            agent_fs,
+            [:FCF, :dividends] => ((fcf, div) -> fcf .- div) => :delta_RE,
+        )
+
+        # Get the preceding period's RE
+        hist_agent_fss = DBInterface.execute(db, "SELECT base_pd, projected_pd, retained_earnings FROM agent_financial_statements WHERE agent_id == $agent_id") |> DataFrame
+
+        if size(hist_agent_fss)[1] == 0
+            # If there are no financial statements recorded for this agent yet,
+            #   this must be the first simulation period; use data from
+            #   agent_params
+            init_RE = agent_params[1, :starting_RE]
+        else
+            # If some financial statements were found, choose the most recent
+            #   immediate-year prediction
+            re_vals = filter([:base_pd, :projected_pd] => ((base_pd, pr_pd) -> base_pd == pr_pd), hist_agent_fss)
+            init_RE = filter(:base_pd => base_pd -> base_pd == maximum(hist_agent_fss[!, :base_pd]), re_vals)[1, :retained_earnings]
+        end
+
+        # Set up a blank column for retained earnings
+        agent_fs[!, :retained_earnings] .= 0.0
+        CSV.write("agent_fs.csv", agent_fs)
+
+        # Propagate the running retained earnings total through the agent
+        #   financial statement, while using extra RE to bolster negative FCF
+        running_RE = init_RE
+        for i=1:size(agent_fs)[1]
+            running_RE += agent_fs[i, :delta_RE]
+
+            if (running_RE > 0) && (agent_fs[i, :FCF] < 0)
+                transfer = min(running_RE, (-1) * agent_fs[i, :FCF])
+                agent_fs[i, :FCF] += transfer
+                running_RE -= transfer
+            end
+
+            agent_fs[i, :retained_earnings] = running_RE
+        end
+    end
 
     return agent_fs
 end
