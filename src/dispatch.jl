@@ -312,7 +312,7 @@ function set_up_load_repdays(downselection_mode, num_days, num_hours, ts_data)
     else
         for day in ts_data[:repdays_data][!, :Day]
             load_repdays[!, Symbol(day)] =
-                ts_data[:load_data][(num_hours * day + 1):(num_hours * (day + 1)), :Load]
+                ts_data[:load_data][(num_hours * (day-1) + 1):(num_hours * day), :Load]
         end
     end
 
@@ -843,7 +843,7 @@ function run_annual_dispatch(
     downselection_mode="scenario_reduction"
 )
     # Set up the appropriate scenario reduction parameters
-    if mode == "current"
+    if run_mode == "current"
         num_days = 365
         num_hours = 24
     else
@@ -1205,6 +1205,12 @@ function postprocess_results(
         summarize_dispatch_results(settings, unit_specs, long_econ_results)
 
     return long_econ_results, dispatch_results
+end
+
+
+function finalize_annual_dispatch_results(db, current_pd, dispatch_results)
+    pivot = unstack(dispatch_results, :unit_type, :dispatch_result, :qty)
+    println(pivot)
 
 end
 
