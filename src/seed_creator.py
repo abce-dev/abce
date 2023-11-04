@@ -240,13 +240,13 @@ abce_tables = {
         ("allowed", "text"),
         ("units_to_execute", "integer"),
     ],
-    "ALEAF_dispatch_results": [
+    "annual_dispatch_results": [
         ("period", "integer"),
         ("unit_type", "text"),
         ("generation", "real"),
-        ("reg_total", "real"),
-        ("spin_total", "real"),
-        ("nspin_total", "real"),
+        ("regulation", "real"),
+        ("spinning_reserve", "real"),
+        ("nonspinning_reserve", "real"),
         ("gen_rev", "real"),
         ("reg_rev", "real"),
         ("spin_rev", "real"),

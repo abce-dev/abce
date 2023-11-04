@@ -437,7 +437,7 @@ class GridModel(Model):
                 self.current_pd,
             )
 
-            # Run A-LEAF
+            # Set up the command to execute ALEAF
             logging.log(
                 self.settings["constants"]["vis_lvl"], "Running A-LEAF..."
             )
@@ -453,6 +453,7 @@ class GridModel(Model):
             )
 
         elif dispatch_engine in ["ABCE", "abce"]:
+            # Set up the command to run dispatch.jl in annual exact mode
             ABCE_ENV = Path(os.environ["ABCE_ENV"])
             annual_disp_script_path = Path(os.environ["ABCE_DIR"]) / "src" / "annual_dispatch.jl"
             dispatch_cmd = (
@@ -957,7 +958,7 @@ class GridModel(Model):
 
         # Get list of column names for ordering
         cursor = self.db.cursor().execute(
-            "SELECT * FROM ALEAF_dispatch_results"
+            "SELECT * FROM annual_dispatch_results"
         )
         col_names = [description[0] for description in cursor.description]
 

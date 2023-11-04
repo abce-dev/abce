@@ -681,8 +681,8 @@ function create_PA_subprojects(
     #   subprojects for this project alternative
     subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
 
-    # Retrieve historical ALEAF dispatch results data
-    ALEAF_dispatch_results = average_historical_ALEAF_results(settings, db)
+    # Retrieve historical dispatch results data
+    historical_dispatch_results = average_historical_dispatch_results(settings, db)
 
     for subproject in subprojects
         # Retrieve unit type data for convenience
@@ -702,7 +702,7 @@ function create_PA_subprojects(
             agent_id,
             agent_params,
             dispatch_results,
-            ALEAF_dispatch_results,
+            historical_dispatch_results,
         )
     end
 
@@ -770,7 +770,7 @@ function forecast_subproject_financials(
     agent_id,
     agent_params,
     dispatch_results,
-    ALEAF_dispatch_results,
+    historical_dispatch_results,
 )
     # Create a blank DataFrame for the subproject's financial statement
     subproject_fs = DataFrame(
@@ -841,7 +841,7 @@ function forecast_subproject_financials(
         subproject,
         unit_type_data,
         dispatch_results,
-        ALEAF_dispatch_results,
+        historical_dispatch_results,
         deepcopy(subproject_fs),
     )
 
@@ -1058,7 +1058,7 @@ function forecast_subproject_operations(
     subproject,
     unit_type_data,
     dispatch_results,
-    ALEAF_dispatch_results,
+    historical_dispatch_results,
     fs_copy,
 )
     mode = subproject["project_type"]
@@ -1066,10 +1066,10 @@ function forecast_subproject_operations(
     data_to_get =
         ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj", "tax_credits"]
 
-    # Get historical ALEAF results for this unit type
-    ALEAF_dispatch_results = filter(
+    # Get historical dispatch results for this unit type
+    historical_dispatch_results = filter(
         :unit_type => unit_type -> unit_type == subproject["unit_type"],
-        ALEAF_dispatch_results,
+        historical_dispatch_results,
     )
 
     # Get projected dispatch results for this unit type
@@ -1148,9 +1148,9 @@ function forecast_subproject_operations(
 
             # Get the corresponding cumulative historical estimate from the 
             #   A-LEAF aggregated dispatch histories
-            if size(ALEAF_dispatch_results)[1] > 0
-                ALEAF_data_value = sum(
-                    ALEAF_dispatch_results[
+            if size(historical_dispatch_results)[1] > 0
+                historical_data_value = sum(
+                    historical_dispatch_results[
                         !,
                         Symbol(string("wtd_", data_type)),
                     ],
@@ -1159,14 +1159,14 @@ function forecast_subproject_operations(
             else
                 # If this unit type does not appear in the A-LEAF historical 
                 #   results, rely only on the ABCE dispatch forecast
-                ALEAF_data_value = 0
+                historical_data_value = 0
                 hist_wt = 0
             end
 
             # Save the signed value into the financial statement
             fs_copy[i, Symbol(data_type)] =
                 sign * ABCE_data_value * (1 - hist_wt) +
-                sign * ALEAF_data_value * (hist_wt)
+                sign * historical_data_value * (hist_wt)
         end
     end
 
@@ -1227,14 +1227,14 @@ function compute_PA_NPV(fs_copy)
 end
 
 
-function average_historical_ALEAF_results(settings, db)
-    ALEAF_dispatch_results =
-        DBInterface.execute(db, "SELECT * FROM ALEAF_dispatch_results") |>
+function average_historical_dispatch_results(settings, db)
+    historical_dispatch_results =
+        DBInterface.execute(db, "SELECT * FROM annual_dispatch_results") |>
         DataFrame
 
-    if size(ALEAF_dispatch_results)[1] != 0
+    if size(historical_dispatch_results)[1] != 0
         # Get a list of all unique years in the dataframe
-        years = unique(ALEAF_dispatch_results, :period)[!, :period]
+        years = unique(historical_dispatch_results, :period)[!, :period]
 
         hist_decay = settings["dispatch"]["hist_decay"]
 
@@ -1243,7 +1243,7 @@ function average_historical_ALEAF_results(settings, db)
 
         # Add a column with the diminishing historical weighting factor
         transform!(
-            ALEAF_dispatch_results,
+            historical_dispatch_results,
             [:period] =>
                 ((pd) -> c ./ (1 + hist_decay) .^ pd) => :hist_wt_coeffs,
         )
@@ -1254,7 +1254,7 @@ function average_historical_ALEAF_results(settings, db)
 
         for data_type in data_to_weight
             transform!(
-                ALEAF_dispatch_results,
+                historical_dispatch_results,
                 [Symbol(data_type), :hist_wt_coeffs] =>
                     ((rev, wt) -> rev .* wt) =>
                         Symbol(string("wtd_", data_type)),
@@ -1262,7 +1262,7 @@ function average_historical_ALEAF_results(settings, db)
         end
     end
 
-    return ALEAF_dispatch_results
+    return historical_dispatch_results
 
 end
 

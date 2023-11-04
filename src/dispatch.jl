@@ -1039,12 +1039,39 @@ function compute_per_unit_cash_flows(long_econ_results)
                 => :annualized_gen_rev_per_unit,
     )
 
-    # Calculate reserves revenue
+    # Calculate frequency regulation revenue
     transform!(
         long_econ_results,
-        [:reg, :spin, :nspin, :reg_rmp, :spin_rmp, :nspin_rmp, :Probability, :num_units]
-        => ((reg, spin, nspin, reg_rmp, spin_rmp, nspin_rmp, prob, num_units)
-        -> ((reg .* reg_rmp .+ spin .* spin_rmp .+ nspin .* nspin_rmp) .* prob .* 365 ./ num_units))
+        [:reg, :reg_rmp, :Probability, :num_units]
+        => ((reg, reg_rmp, prob, num_units)
+        -> (reg .* reg_rmp .* prob .* 365 ./ num_units))
+        => :annualized_reg_rev_per_unit,
+    )
+
+    # Calculate spinning reserve revenue
+    transform!(
+        long_econ_results,
+        [:spin, :spin_rmp, :Probability, :num_units]
+        => ((spin, spin_rmp, prob, num_units)
+        -> (spin .* spin_rmp .* prob .* 365 ./ num_units))
+        => :annualized_spin_rev_per_unit,
+    )
+
+    # Calculate non-spinning reserve revenue
+    transform!(
+        long_econ_results,
+        [:nspin, :nspin_rmp, :Probability, :num_units]
+        => ((nspin, nspin_rmp, prob, num_units)
+        -> (nspin .* nspin_rmp .* prob .* 365 ./ num_units))
+        => :annualized_nspin_rev_per_unit,
+    )
+
+    # Calculate total reserves revenue
+    transform!(
+        long_econ_results,
+        [:annualized_reg_rev_per_unit, :annualized_spin_rev_per_unit, :annualized_nspin_rev_per_unit]
+        => ((ann_reg_rev, ann_spin_rev, ann_nspin_rev)
+        -> (ann_reg_rev .+ ann_spin_rev .+ ann_nspin_rev))
         => :annualized_reserves_rev_per_unit,
     )
 
@@ -1119,6 +1146,9 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
             :annualized_spin_per_unit,
             :annualized_nspin_per_unit,
             :annualized_gen_rev_per_unit,
+            :annualized_reg_rev_per_unit,
+            :annualized_spin_rev_per_unit,
+            :annualized_nspin_rev_per_unit,
             :annualized_reserves_rev_per_unit,
             :annualized_rev_per_unit,
             :annualized_VOM_per_unit,
@@ -1132,9 +1162,12 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
         dispatch_results,
         :annualized_gen_per_unit_sum => :generation,
         :annualized_reg_per_unit_sum => :regulation,
-        :annualized_spin_per_unit_sum => :spin,
-        :annualized_nspin_per_unit_sum => :nspin,
+        :annualized_spin_per_unit_sum => :spinning_reserve,
+        :annualized_nspin_per_unit_sum => :nonspinning_reserve,
         :annualized_gen_rev_per_unit_sum => :gen_rev,
+        :annualized_reg_rev_per_unit_sum => :reg_rev,
+        :annualized_spin_rev_per_unit_sum => :spin_rev,
+        :annualized_nspin_rev_per_unit_sum => :nspin_rev,
         :annualized_reserves_rev_per_unit_sum => :reserves_rev,
         :annualized_rev_per_unit_sum => :revenue,
         :annualized_VOM_per_unit_sum => :VOM,
@@ -1157,7 +1190,7 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
     # Put the data into a long format for easier filtering
     dispatch_results = stack(
         dispatch_results,
-        [:generation, :regulation, :spin, :nspin, :gen_rev, :reserves_rev, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj, :tax_credits],
+        [:generation, :regulation, :spinning_reserve, :nonspinning_reserve, :gen_rev, :reg_rev, :spin_rev, :nspin_rev, :reserves_rev, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj, :tax_credits],
     )
     rename!(dispatch_results, :variable => :dispatch_result, :value => :qty)
 
@@ -1210,8 +1243,28 @@ end
 
 function finalize_annual_dispatch_results(db, current_pd, dispatch_results)
     pivot = unstack(dispatch_results, :unit_type, :dispatch_result, :qty)
-    println(pivot)
 
+    pivot[!, :period] .= current_pd
+
+    # Put the columns in the same order as the DB table
+    col_order = DBInterface.execute(
+        db,
+        "SELECT name FROM PRAGMA_TABLE_INFO('annual_dispatch_results')",
+    ) |> DataFrame
+    col_order = collect(col_order[!, "name"])
+    pivot = select(pivot, col_order)
+
+    # Set up the Sql "(?, ?, ..., ?)" string of correct length
+    fill_tuple = string("(", repeat("?, ", size(col_order)[1]-1), "?)")
+
+    # Add each row to the database table
+    for row in Tuple.(eachrow(pivot))
+        DBInterface.execute(
+            db,
+            string("INSERT INTO annual_dispatch_results VALUES $fill_tuple"),
+            row,
+        )
+    end
 end
 
 
