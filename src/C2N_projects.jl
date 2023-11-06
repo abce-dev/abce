@@ -44,6 +44,16 @@ function create_C2N_capex_timeline(
         asset_id = nothing,
     )
 
+    continue_checking = true
+    while continue_checking
+        if capex_tl[size(capex_tl)[1], :total_capex] == 0
+            deleteat!(capex_tl, size(capex_tl)[1])
+        else
+            continue_checking = false
+        end
+    end
+
+    return capex_tl, activity_schedule
 end
 
 
