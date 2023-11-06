@@ -300,6 +300,7 @@ PWR_C2N0_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 6
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
@@ -336,6 +337,7 @@ PWR_C2N1_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 7
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
@@ -372,6 +374,7 @@ HTGR_C2N0_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 6
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
@@ -408,6 +411,7 @@ HTGR_C2N2_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 7
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
@@ -444,6 +448,7 @@ SFR_C2N0_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 6
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
@@ -480,6 +485,7 @@ SFR_C2N3_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 6
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
