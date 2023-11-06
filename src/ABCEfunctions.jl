@@ -738,10 +738,10 @@ function initialize_subprojects(unit_specs, PA, fc_pd)
         #   greenfield or brownfield
         if occursin("C2N0", PA.unit_type)
             lag = PA.lag + construction_duration - 1
-            ret_pd = 12
+            ret_pd = PA.lag + 12
         else
             lag = PA.lag + unit_type_data["cpp_ret_lead"]
-            ret_pd = 12
+            ret_pd = PA.lag + 12
         end
 
         coal_retirement = Dict(
@@ -1661,6 +1661,8 @@ function set_up_model(
 
     end
 
+    CSV.write("./coal_rets_indicators.csv", DataFrame(coal_retirements, :auto))
+
     for i = 1:size(coal_retirements)[2]
         y = current_pd + i - 1  # -1 converts i from julia dataframe index back to true relative year
         num_units = 0
@@ -1759,9 +1761,14 @@ function postprocess_agent_decisions(
     current_pd,
     agent_id,
 )
-    for i = 1:size(all_results)[1]
+    # Break the results dataframe into non-C2N (processed first) and
+    #   C2N (processed second)
+    regular_results = filter(:unit_type => unit_type -> !occursin("C2N", unit_type), all_results)
+    C2N_results = filter(:unit_type => unit_type -> occursin("C2N", unit_type), all_results)
+
+    for i = 1:size(regular_results)[1]
         # Retrieve the individual result row for convenience
-        result = all_results[i, :]
+        result = regular_results[i, :]
 
         if result[:project_type] == "new_xtr"
             # New construction decisions are binding for this period only
@@ -1805,6 +1812,56 @@ function postprocess_agent_decisions(
             @warn result
             @warn "This decision entry will be skipped."
         end
+
+    end
+
+    # Process all C2N results
+    # Join in some coal retirement info from unit_specs
+    C2N_results = leftjoin(C2N_results, unit_specs[:, [:unit_type, :cpp_ret_lead, :num_cpp_rets]], on = :unit_type)
+
+    # Sort from latest CPP retirement date to earliest
+    sort!(C2N_results, :cpp_ret_lead, rev=true)
+
+    # Record updates from all selected C2N alternatives
+    for i = 1:size(C2N_results)[1]
+        result = C2N_results[i, :]
+
+        if (result[:project_type] == "new_xtr") && (result[:lag] == 0) && (result[:units_to_execute] != 0)
+            # Record start of new construction project
+                record_new_construction_projects(
+                    settings,
+                    result,
+                    unit_specs,
+                    db,
+                    current_pd,
+                    agent_id,
+                )
+
+            # Record CPP retirement(s)
+            for j = 1:result[:num_cpp_rets]
+                record_asset_retirements(
+                    result,
+                    db,
+                    agent_id,
+                    unit_specs,
+                    current_pd,
+                    mode = "C2N_newbuild",
+                )
+
+            end
+
+        elseif result[:project_type] == "retirement"
+            # Retire the nuclear unit
+            if result[:units_to_execute] != 0
+                record_asset_retirements(
+                    result,
+                    db,
+                    agent_id,
+                    unit_specs,
+                    current_pd,
+                )
+            end
+        end 
 
     end
 
@@ -1963,7 +2020,7 @@ function record_asset_retirements(
             DBInterface.execute(
                 db,
                 string(
-                    "SELECT asset_id FROM assets WHERE unit_type = 'coal' ",
+                    "SELECT asset_id, retirement_pd FROM assets WHERE unit_type = 'coal' ",
                     "AND completion_pd <= ? AND retirement_pd >= ? ",
                     "AND agent_id = ? AND C2N_reserved = ?",
                 ),
@@ -1982,6 +2039,10 @@ function record_asset_retirements(
             ret_candidates = filter(:asset_id => x -> x != claimed_coal_assets[k, :asset_id], ret_candidates)
         end
 
+        # Sort the final list of eligible coal retirement candidates from
+        #   earliest initial retirement period to latest
+        sort!(ret_candidates, :retirement_pd)
+
         # Set the number of units to execute
         units_to_execute =
             unit_type_specs["num_cpp_rets"] * result[:units_to_execute]
@@ -1998,8 +2059,8 @@ function record_asset_retirements(
                 "SELECT * FROM assets WHERE asset_id = $asset_to_retire",
             ) |> DataFrame
 
-        # Overwrite the original record's retirement period with the current
-        #   period
+        # Overwrite the original record's retirement period with the new
+        #   retirement period based on the C2N project's scheduling needs
         asset_data[1, :retirement_pd] = new_ret_pd
         # If this is a C2N-related coal retirement, mark it as such
         if mode == "C2N_newbuild"
