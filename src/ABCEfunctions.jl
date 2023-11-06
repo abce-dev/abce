@@ -869,28 +869,14 @@ function forecast_capex(
     C2N_specs,
     fs_copy,
 )
-    if occursin("C2N", subproject["unit_type"])
-        capex_timeline, activity_schedule = project_C2N_capex(
-            db,
-            settings,
-            unit_type_data,
-            subproject["lag"],
-            size(fs_copy)[1],
-            current_pd,
-            C2N_specs,
-        )
-        capex_timeline = capex_timeline[!, :total_capex]
-    else
-        capex_per_pd = (
-            unit_type_data[:overnight_capital_cost] *
-            unit_type_data[:capacity] *
-            settings["constants"]["MW2kW"] /
-            unit_type_data[:construction_duration]
-        )
-        capex_timeline =
-            ones(convert(Int64, unit_type_data[:construction_duration])) *
-            capex_per_pd
-    end
+    capex_per_pd = (
+        unit_type_data[:overnight_capital_cost] *
+        unit_type_data[:capacity] *
+        settings["constants"]["MW2kW"] /
+        unit_type_data[:construction_duration]
+    )
+    capex_timeline =
+        ones(convert(Int64, unit_type_data[:construction_duration])) * capex_per_pd
 
     head_zeros = zeros(subproject["lag"])
     tail_zeros =
@@ -926,10 +912,10 @@ function project_C2N_capex(
         data = deepcopy(C2N_specs[conversion_type][rxtr_type])
 
     else
-        if unit_type_data[:unit_type] == "C2N1"
+        if occursin("C2N1", unit_type_data[:unit_type])
             conversion_type = "electrical"
             rxtr_type = "PWR"
-        elseif unit_type_data[:unit_type] == "C2N2"
+        elseif occursin("C2N2", unit_type_data[:unit_type])
             conversion_type = "steam_noTES"
             rxtr_type = "HTGR"
         else
@@ -957,7 +943,6 @@ function project_C2N_capex(
     )
 
     return capex_tl, activity_schedule
-
 end
 
 
