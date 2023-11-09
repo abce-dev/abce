@@ -33,7 +33,9 @@ function execute_dispatch_economic_projection(
     fc_pd,
     total_demand,
     unit_specs,
-    system_portfolios,
+    system_portfolios;
+    run_mode="forecast",
+    downselection_mode="scenario_reduction"
 )
     @debug string(
         "Running the dispatch simulation for ",
@@ -47,8 +49,8 @@ function execute_dispatch_economic_projection(
         settings["file_paths"]["timeseries_data_dir"],
     )
 
-    if settings["dispatch"]["downselection"] == "exact"
-        ts_data = load_ts_data(ts_data_dir)
+    if downselection_mode == "exact"
+        ts_data = load_ts_data(ts_data_dir, num_repdays=365)
     else
         ts_data = load_ts_data(
             ts_data_dir,
@@ -62,7 +64,9 @@ function execute_dispatch_economic_projection(
         system_portfolios,
         total_demand,
         ts_data,
-        unit_specs,
+        unit_specs;
+        run_mode=run_mode,
+        downselection_mode=downselection_mode
     )
 
     long_econ_results, dispatch_results = postprocess_results(
@@ -136,11 +140,18 @@ function handle_annual_dispatch(
     system_portfolios,
     total_demand,
     ts_data,
-    unit_specs,
+    unit_specs;
+    run_mode="forecast",
+    downselection_mode="scenario_reduction"
 )
     all_grc_results = set_up_grc_results_df()
     all_prices = set_up_prices_df()
-    num_years = settings["dispatch"]["num_dispatch_years"]
+
+    if run_mode == "forecast"
+        num_years = settings["dispatch"]["num_dispatch_years"]
+    elseif run_mode == "current"
+        num_years = 1
+    end
 
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:(current_pd + num_years - 1)
@@ -162,7 +173,9 @@ function handle_annual_dispatch(
             year_portfolio,
             year_demand,
             ts_data,
-            unit_specs,
+            unit_specs;
+            run_mode=run_mode,
+            downselection_mode=downselection_mode
         )
 
         # Save new generation, commitment, and price results
@@ -299,7 +312,7 @@ function set_up_load_repdays(downselection_mode, num_days, num_hours, ts_data)
     else
         for day in ts_data[:repdays_data][!, :Day]
             load_repdays[!, Symbol(day)] =
-                ts_data[:load_data][(num_hours * day + 1):(num_hours * (day + 1)), :Load]
+                ts_data[:load_data][(num_hours * (day-1) + 1):(num_hours * day), :Load]
         end
     end
 
@@ -825,22 +838,30 @@ function run_annual_dispatch(
     year_portfolio,
     peak_demand,
     ts_data,
-    unit_specs,
+    unit_specs;
+    run_mode="forecast",
+    downselection_mode="scenario_reduction"
 )
-    num_days, num_hours = set_repdays_params(settings, ts_data)
+    # Set up the appropriate scenario reduction parameters
+    if run_mode == "current"
+        num_days = 365
+        num_hours = 24
+    else
+        num_days, num_hours = set_repdays_params(settings, ts_data)
+    end
 
     # Scale the load data to the PD value for this year
     ts_data = scale_load(ts_data, peak_demand)
 
     # Set up representative days for load
-    ts_data = set_up_load_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
+    ts_data = set_up_load_repdays(downselection_mode, num_days, num_hours, ts_data)
 
     # Scale the wind and solar data according to the current year's total
     #   installed capacity
     ts_data = scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
 
     # Set up representative days for wind and solar
-    ts_data = set_up_wind_solar_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
+    ts_data = set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_data)
 
     # Scale the ancillary services to the PD value for this year
     ts_data = scale_AS_data(ts_data, peak_demand, settings["scenario"]["peak_demand"])
@@ -1018,12 +1039,39 @@ function compute_per_unit_cash_flows(long_econ_results)
                 => :annualized_gen_rev_per_unit,
     )
 
-    # Calculate reserves revenue
+    # Calculate frequency regulation revenue
     transform!(
         long_econ_results,
-        [:reg, :spin, :nspin, :reg_rmp, :spin_rmp, :nspin_rmp, :Probability, :num_units]
-        => ((reg, spin, nspin, reg_rmp, spin_rmp, nspin_rmp, prob, num_units)
-        -> ((reg .* reg_rmp .+ spin .* spin_rmp .+ nspin .* nspin_rmp) .* prob .* 365 ./ num_units))
+        [:reg, :reg_rmp, :Probability, :num_units]
+        => ((reg, reg_rmp, prob, num_units)
+        -> (reg .* reg_rmp .* prob .* 365 ./ num_units))
+        => :annualized_reg_rev_per_unit,
+    )
+
+    # Calculate spinning reserve revenue
+    transform!(
+        long_econ_results,
+        [:spin, :spin_rmp, :Probability, :num_units]
+        => ((spin, spin_rmp, prob, num_units)
+        -> (spin .* spin_rmp .* prob .* 365 ./ num_units))
+        => :annualized_spin_rev_per_unit,
+    )
+
+    # Calculate non-spinning reserve revenue
+    transform!(
+        long_econ_results,
+        [:nspin, :nspin_rmp, :Probability, :num_units]
+        => ((nspin, nspin_rmp, prob, num_units)
+        -> (nspin .* nspin_rmp .* prob .* 365 ./ num_units))
+        => :annualized_nspin_rev_per_unit,
+    )
+
+    # Calculate total reserves revenue
+    transform!(
+        long_econ_results,
+        [:annualized_reg_rev_per_unit, :annualized_spin_rev_per_unit, :annualized_nspin_rev_per_unit]
+        => ((ann_reg_rev, ann_spin_rev, ann_nspin_rev)
+        -> (ann_reg_rev .+ ann_spin_rev .+ ann_nspin_rev))
         => :annualized_reserves_rev_per_unit,
     )
 
@@ -1098,6 +1146,9 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
             :annualized_spin_per_unit,
             :annualized_nspin_per_unit,
             :annualized_gen_rev_per_unit,
+            :annualized_reg_rev_per_unit,
+            :annualized_spin_rev_per_unit,
+            :annualized_nspin_rev_per_unit,
             :annualized_reserves_rev_per_unit,
             :annualized_rev_per_unit,
             :annualized_VOM_per_unit,
@@ -1111,9 +1162,12 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
         dispatch_results,
         :annualized_gen_per_unit_sum => :generation,
         :annualized_reg_per_unit_sum => :regulation,
-        :annualized_spin_per_unit_sum => :spin,
-        :annualized_nspin_per_unit_sum => :nspin,
+        :annualized_spin_per_unit_sum => :spinning_reserve,
+        :annualized_nspin_per_unit_sum => :nonspinning_reserve,
         :annualized_gen_rev_per_unit_sum => :gen_rev,
+        :annualized_reg_rev_per_unit_sum => :reg_rev,
+        :annualized_spin_rev_per_unit_sum => :spin_rev,
+        :annualized_nspin_rev_per_unit_sum => :nspin_rev,
         :annualized_reserves_rev_per_unit_sum => :reserves_rev,
         :annualized_rev_per_unit_sum => :revenue,
         :annualized_VOM_per_unit_sum => :VOM,
@@ -1136,7 +1190,7 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
     # Put the data into a long format for easier filtering
     dispatch_results = stack(
         dispatch_results,
-        [:generation, :regulation, :spin, :nspin, :gen_rev, :reserves_rev, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj, :tax_credits],
+        [:generation, :regulation, :spinning_reserve, :nonspinning_reserve, :gen_rev, :reg_rev, :spin_rev, :nspin_rev, :reserves_rev, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj, :tax_credits],
     )
     rename!(dispatch_results, :variable => :dispatch_result, :value => :qty)
 
@@ -1184,7 +1238,33 @@ function postprocess_results(
         summarize_dispatch_results(settings, unit_specs, long_econ_results)
 
     return long_econ_results, dispatch_results
+end
 
+
+function finalize_annual_dispatch_results(db, current_pd, dispatch_results)
+    pivot = unstack(dispatch_results, :unit_type, :dispatch_result, :qty)
+
+    pivot[!, :period] .= current_pd
+
+    # Put the columns in the same order as the DB table
+    col_order = DBInterface.execute(
+        db,
+        "SELECT name FROM PRAGMA_TABLE_INFO('annual_dispatch_results')",
+    ) |> DataFrame
+    col_order = collect(col_order[!, "name"])
+    pivot = select(pivot, col_order)
+
+    # Set up the Sql "(?, ?, ..., ?)" string of correct length
+    fill_tuple = string("(", repeat("?, ", size(col_order)[1]-1), "?)")
+
+    # Add each row to the database table
+    for row in Tuple.(eachrow(pivot))
+        DBInterface.execute(
+            db,
+            string("INSERT INTO annual_dispatch_results VALUES $fill_tuple"),
+            row,
+        )
+    end
 end
 
 

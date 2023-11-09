@@ -167,7 +167,9 @@ function run_agent_choice()
         fc_pd,
         demand_forecast,
         unit_specs,
-        adj_system_portfolios,
+        adj_system_portfolios;
+        run_mode="forecast",
+        downselection_mode=settings["dispatch"]["downselection"]
     )
 
     if CLI_args["verbosity"] > 2

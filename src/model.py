@@ -418,7 +418,9 @@ class GridModel(Model):
             logging.log(self.settings["constants"]["vis_lvl"], "\n")
             user_response = input("Press Enter to continue: ")
 
-        if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
+        dispatch_engine = self.settings["simulation"]["annual_dispatch_engine"]
+
+        if dispatch_engine in ["ALEAF", "aleaf", "A-LEAF", "a-leaf"]:
             # Re-load the baseline A-LEAF data
             ALEAF_data = idm.load_data(
                 Path(self.args.inputs_path)
@@ -435,7 +437,7 @@ class GridModel(Model):
                 self.current_pd,
             )
 
-            # Run A-LEAF
+            # Set up the command to execute ALEAF
             logging.log(
                 self.settings["constants"]["vis_lvl"], "Running A-LEAF..."
             )
@@ -444,21 +446,34 @@ class GridModel(Model):
             ALEAF_sysimage_path = (
                 Path(os.environ["ALEAF_DIR"]) / "aleafSysimage.so"
             )
-            aleaf_cmd = (
+            dispatch_cmd = (
                 f"julia --project={ALEAF_env_path} "
                 + f"-J {ALEAF_sysimage_path} {run_script_path} "
                 + f"{self.settings['ALEAF']['ALEAF_abs_path']}"
             )
 
-            if self.args.verbosity < 2:
-                sp = subprocess.check_call(
-                    aleaf_cmd, shell=True, stdout=open(os.devnull, "wb")
-                )
-            else:
-                sp = subprocess.check_call(aleaf_cmd, shell=True)
+        elif dispatch_engine in ["ABCE", "abce"]:
+            # Set up the command to run dispatch.jl in annual exact mode
+            ABCE_ENV = Path(os.environ["ABCE_ENV"])
+            annual_disp_script_path = Path(os.environ["ABCE_DIR"]) / "src" / "annual_dispatch.jl"
+            dispatch_cmd = (
+                f"julia --project={ABCE_ENV} {annual_disp_script_path} " 
+                + f"--current_pd={self.current_pd}"
+            )
 
+        # Run the dispatch simulation
+        if self.args.verbosity < 2:
+            sp = subprocess.check_call(
+                dispatch_cmd, shell=True, stdout=open(os.devnull, "wb")
+            )
+        else:
+            sp = subprocess.check_call(dispatch_cmd, shell=True)
+
+        # Save data to its final destination, if needed
+        if dispatch_engine in ["ALEAF", "aleaf", "A-LEAF", "a-leaf"]:
             self.save_ALEAF_outputs()
             self.process_ALEAF_dispatch_results()
+
 
     def display_step_header(self):
         if self.current_pd != 0:
@@ -943,7 +958,7 @@ class GridModel(Model):
 
         # Get list of column names for ordering
         cursor = self.db.cursor().execute(
-            "SELECT * FROM ALEAF_dispatch_results"
+            "SELECT * FROM annual_dispatch_results"
         )
         col_names = [description[0] for description in cursor.description]
 
