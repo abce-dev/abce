@@ -1617,6 +1617,7 @@ function set_up_model(
     #   visible horizon
     coal_retirements = zeros(size(PA_summaries)[1], coal_horizon)
     planned_coal_units_operating = DataFrame(pd = Int64[], num_units = Int64[])
+    planned_coal_retirements = DataFrame(pd = Int64[], num_units = Int64[])
 
     for i = 1:size(PA_summaries)[1]
         # Mark all of the direct coal retirements in the matrix
@@ -1651,6 +1652,7 @@ function set_up_model(
     for i = 1:size(coal_retirements)[2]
         y = current_pd + i - 1  # -1 converts i from julia dataframe index back to true relative year
         num_units = 0
+        num_rets = 0
 
         # Get number of planned coal units operating during this period
         coal_ops =
@@ -1658,13 +1660,27 @@ function set_up_model(
                 db,
                 "SELECT unit_type, COUNT(unit_type) FROM assets WHERE unit_type = 'coal' AND C2N_reserved = 0 AND agent_id = $agent_id AND completion_pd <= $y AND retirement_pd >= $y AND cancellation_pd >= $y GROUP BY unit_type",
             ) |> DataFrame
+
+        coal_rets = DBInterface.execute(
+            db,
+            "SELECT unit_type, COUNT(unit_type) FROM assets WHERE unit_type = 'coal' AND agent_id = $agent_id AND C2N_reserved = 0 AND retirement_pd = $y GROUP BY unit_type",
+        ) |> DataFrame
+
         if size(coal_ops)[1] > 0
             num_units = coal_ops[1, "COUNT(unit_type)"]
         end
 
+        if size(coal_rets)[1] > 0
+            num_rets = coal_rets[1, "COUNT(unit_type)"]
+        end
+
         # Record the number of operating coal units in this period
-        push!(planned_coal_units_operating, (i, num_units))
+        push!(planned_coal_units_operating, (y, num_units))
+        push!(planned_coal_retirements, (y, num_rets))
     end
+
+    # Introduce a slack variable for limiting coal retirements
+    @variable(m, z[1:size(coal_retirements)[2]] >= 0, Int)
 
     # Constrain rolling total of coal retirements
     for i = 1:size(coal_retirements)[2]
@@ -1673,10 +1689,25 @@ function set_up_model(
             sum(transpose(u) * coal_retirements[:, i]) <=
             planned_coal_units_operating[i, :num_units]
         )
+
+        # The following three constraints are equivalent to:
+        # O(t=0) - sum{t=0 -> i} (max(R(t), P(t)) >= 0
+        #   or, more verbosely:
+        # @constraint(m, max(planned_coal_retirements[i, :num_units], sum(transpose(u) * coal_retirements[:, i]
+        #                <= planned_coal_units_operating[1, :num_units])
         @constraint(
             m,
-            sum(sum(transpose(u) * coal_retirements[:, j]) for j = 1:i) <=
-            planned_coal_units_operating[1, :num_units]
+            z[i] >= planned_coal_retirements[i, :num_units]
+        )
+
+        @constraint(
+            m,
+            z[i] >= sum(transpose(u) * coal_retirements[:, i])
+        )
+
+        @constraint(
+            m,
+            sum(z[j] for j=1:i) <= planned_coal_units_operating[1, :num_units]
         )
     end
 
@@ -1804,8 +1835,8 @@ function postprocess_agent_decisions(
     # Join in some coal retirement info from unit_specs
     C2N_results = leftjoin(C2N_results, unit_specs[:, [:unit_type, :cpp_ret_lead, :num_cpp_rets]], on = :unit_type)
 
-    # Sort from latest CPP retirement date to earliest
-    sort!(C2N_results, :cpp_ret_lead, rev=true)
+    # Sort from earliest CPP retirement date to latest
+    sort!(C2N_results, :cpp_ret_lead)
 
     # Record updates from all selected C2N alternatives
     for i = 1:size(C2N_results)[1]
@@ -2031,7 +2062,6 @@ function record_asset_retirements(
         # Set the number of units to execute
         units_to_execute =
             unit_type_specs["num_cpp_rets"] * result[:units_to_execute]
-
     end
 
     # Retire as many of these matching assets as is indicated by the agent
