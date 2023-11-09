@@ -317,7 +317,7 @@ PWR_C2N1_single:
   capacity: 462   # MW
   max_PL: 1.0
   min_PL: 0.2
-  overnight_capital_cost: 3598
+  overnight_capital_cost: 4066
   retirement_cost: 0.0
   FOM: 94.02    # $/kW-yr
   VOM: 2.0    # $/MWh
@@ -341,7 +341,7 @@ PWR_C2N1_single:
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
-  cpp_ret_lead: 2
+  cpp_ret_lead: 5
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"
@@ -391,7 +391,7 @@ HTGR_C2N2_single:
   capacity: 515   # MW
   max_PL: 1.0
   min_PL: 0.2
-  overnight_capital_cost: 3951
+  overnight_capital_cost: 4732
   retirement_cost: 0.0
   FOM: 122.78    # $/kW-yr
   VOM: 2.07    # $/MWh
@@ -465,7 +465,7 @@ SFR_C2N3_single:
   capacity: 550   # MW
   max_PL: 1.0
   min_PL: 0.2
-  overnight_capital_cost: 3398
+  overnight_capital_cost: 4228
   retirement_cost: 0.0
   FOM: 104.33    # $/kW-yr
   VOM: 2.0    # $/MWh
