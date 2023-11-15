@@ -239,6 +239,7 @@ abce_tables = {
         ("NPV", "real"),
         ("allowed", "text"),
         ("units_to_execute", "integer"),
+        ("mode", "text"),
     ],
     "annual_dispatch_results": [
         ("period", "integer"),

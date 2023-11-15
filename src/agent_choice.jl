@@ -69,12 +69,12 @@ function get_raw_db_data(db, CLI_args)
 end
 
 
-function process_results(settings, CLI_args, m, db, PA_uids, unit_specs)
+function process_results(settings, CLI_args, final_model, final_mode, db, PA_uids, unit_specs)
     # Ensure model results data is valid and of correct type
-    all_results = ABCEfunctions.finalize_results_dataframe(m, PA_uids)
+    all_results = ABCEfunctions.finalize_results_dataframe(final_model, final_mode, PA_uids)
 
     # Display the results
-    ABCEfunctions.display_agent_choice_results(CLI_args, m, all_results)
+    ABCEfunctions.display_agent_choice_results(CLI_args, final_model, all_results)
 
     # Save newly-selected project alternatives happening in the current period
     #   to the database
@@ -230,9 +230,37 @@ function run_agent_choice()
     @info "Solving optimization problem..."
     optimize!(m)
 
+    status = string(termination_status.(m))
+    if status == "OPTIMAL"
+        final_model = m
+        final_mode = "normal"
+    else
+        m_ret = ABCEfunctions.set_up_model(
+            settings,
+            PA_uids,
+            PA_fs_dict,
+            demand_forecast,
+            grouped_agent_assets,
+            agent_params,
+            unit_specs,
+            CLI_args["current_pd"],
+            adj_system_portfolios,
+            db,
+            CLI_args["agent_id"],
+            agent_fs,
+            fc_pd;
+            mode="ret_only"
+        )
+
+        optimize!(m_ret)
+
+        final_model = m_ret
+        final_mode = "ret_only"
+    end
+
     # Process the model outputs
     @debug "Postprocessing model results..."
-    process_results(settings, CLI_args, m, db, PA_uids, unit_specs)
+    process_results(settings, CLI_args, final_model, final_mode, db, PA_uids, unit_specs)
 end
 
 
