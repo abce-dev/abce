@@ -288,7 +288,7 @@ abce_tables = {
         ("policy_adj", "real"),
         ("tax_credits", "real"),
     ],
-    "annual_dispatch_hourly_unit_results": [
+    "annual_disp_hr_unit_results": [
         ("period", "integer"),
         ("day", "integer"),
         ("hour", "integer"),
