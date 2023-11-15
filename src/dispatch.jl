@@ -1241,7 +1241,15 @@ function postprocess_results(
 end
 
 
-function finalize_annual_dispatch_results(db, current_pd, dispatch_results)
+function finalize_annual_dispatch_results(db, current_pd, long_econ_results, dispatch_results)
+    #save_annual_dispatch_summary(db, current_pd, long_econ_results)
+    #save_annual_dispatch_hourly_results(db, current_pd, long_econ_results)
+    save_annual_dispatch_unit_summary(db, current_pd, dispatch_results)
+    #save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
+end
+
+
+function save_annual_dispatch_unit_summary(db, current_pd, dispatch_results)
     pivot = unstack(dispatch_results, :unit_type, :dispatch_result, :qty)
 
     pivot[!, :period] .= current_pd
@@ -1249,7 +1257,7 @@ function finalize_annual_dispatch_results(db, current_pd, dispatch_results)
     # Put the columns in the same order as the DB table
     col_order = DBInterface.execute(
         db,
-        "SELECT name FROM PRAGMA_TABLE_INFO('annual_dispatch_results')",
+        "SELECT name FROM PRAGMA_TABLE_INFO('annual_dispatch_unit_summary')",
     ) |> DataFrame
     col_order = collect(col_order[!, "name"])
     pivot = select(pivot, col_order)
@@ -1261,10 +1269,43 @@ function finalize_annual_dispatch_results(db, current_pd, dispatch_results)
     for row in Tuple.(eachrow(pivot))
         DBInterface.execute(
             db,
-            string("INSERT INTO annual_dispatch_results VALUES $fill_tuple"),
+            string("INSERT INTO annual_dispatch_unit_summary VALUES $fill_tuple"),
             row,
         )
     end
+end
+
+function save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
+    # Get columns of interest
+    results = deepcopy(long_econ_results[:, [:y, :d, :h, :unit_type, :gen, :reg, :spin, :nspin]])
+
+    # Rename the columns to match the DB standard
+    rename!(
+        results,
+        :y => :period,
+        :d => :day,
+        :h => :hour,
+        :gen => :generation,
+        :reg => :regulation,
+        :spin => :spinning_reserve,
+        :nspin => :nonspinning_reserve,
+    )
+
+    stmt = DBInterface.prepare(db, """INSERT INTO annual_dispatch_hourly_unit_results VALUES (:period, :day, :hour, :unit_type, :generation, :regulation, :spinning_reserve, :nonspinning_reserve)""")
+
+    DBInterface.executemany(
+        stmt,
+        (period = results[!, :period],
+         day = results[!, :day],
+         hour = results[!, :hour],
+         unit_type = results[!, :unit_type],
+         generation = results[!, :generation],
+         regulation = results[!, :regulation],
+         spinning_reserve = results[!, :spinning_reserve],
+         nonspinning_reserve = results[!, :nonspinning_reserve],
+        )
+    )
+
 end
 
 
