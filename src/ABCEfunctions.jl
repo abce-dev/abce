@@ -1078,10 +1078,6 @@ function forecast_subproject_operations(
         dispatch_results,
     )
 
-    if (subproject["unit_type"] == "coal") && (subproject["lag"] == 0) && (subproject["project_type"] == "new_xtr")
-        println(ABCE_dispatch_results)
-    end
-
     # Set up timeline start/end and value sign based on project type
     if subproject["project_type"] == "new_xtr"
         # Record marginal additional generation
@@ -1233,7 +1229,7 @@ end
 
 function average_historical_dispatch_results(settings, db)
     historical_dispatch_results =
-        DBInterface.execute(db, "SELECT * FROM annual_dispatch_results") |>
+        DBInterface.execute(db, "SELECT * FROM annual_dispatch_unit_summary") |>
         DataFrame
 
     if size(historical_dispatch_results)[1] != 0
