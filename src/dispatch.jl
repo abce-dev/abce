@@ -477,35 +477,48 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     # sd: number of units of each type shut down in each hour
     @variable(m, sd[1:num_units, 1:num_days, 1:num_hours] >= 0)
 
-    # s: penalty variable for energy not served in each hour
-    @variable(m, s[1:num_days, 1:num_hours] >= 0)
+    # ens: penalty variable for energy not served in each hour
+    @variable(m, ens[1:num_days, 1:num_hours] >= 0)
 
-    # Total generation per hour must be greater than or equal to the demand
+    # rns: penalty variable for regulation not served in each hour
+    @variable(m, rns[1:num_days, 1:num_hours] >= 0)
+
+    # sns: penalty variable for spinning reserve not served in each hour
+    @variable(m, sns[1:num_days, 1:num_hours] >= 0)
+
+    # nsns: penalty variable for non-spinning reserve not served in each hour
+    @variable(m, nsns[1:num_days, 1:num_hours] >= 0)
+
+    # Total generation per hour plus energy not served must be greater than
+    #   or equal to the demand
     @constraint(
         m,
         mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(g[i, k, j] for i = 1:num_units) + s[k, j] >= load_repdays[j, k]
+        sum(g[i, k, j] for i = 1:num_units) + ens[k, j] >= load_repdays[j, k]
     )
 
-    # Total regulation per hour must be greater than or equal to the requirement
+    # Total regulation per hour plus regulation not served must be greater 
+    #   than or equal to the requirement
     @constraint(
         m,
         reg_mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(r[i, k, j] for i = 1:num_units) >= reg_repdays[j, k]
+        sum(r[i, k, j] for i = 1:num_units) + rns[k, j] >= reg_repdays[j, k]
     )
 
-    # Total spinning reserve per hour must be greater than or equal to the requirement
+    # Total spinning reserve per hour plus spinning reserve not served must be
+    #   greater than or equal to the requirement
     @constraint(
         m,
         spin_mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(sr[i, k, j] for i = 1:num_units) >= spin_repdays[j, k]
+        sum(sr[i, k, j] for i = 1:num_units) + sns[k, j] >= spin_repdays[j, k]
     )
 
-    # Total non-spinning reserve per hour must be greater than or equal to the requirement
+    # Total non-spinning reserve per hour plus non-spinning reserve not served
+    #   must be greater than or equal to the requirement
     @constraint(
         m,
         nspin_mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(nsr[i, k, j] for i = 1:num_units) >= nspin_repdays[j, k]
+        sum(nsr[i, k, j] for i = 1:num_units) + nsns[k, j] >= nspin_repdays[j, k]
     )
 
     # Number of committed units per hour must be less than or equal to the
@@ -695,8 +708,9 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
                     # Shut-down costs
                     + sd[i, k, j] .* portfolio_specs[i, :shut_down_cost]
                 for i = 1:num_units)
-                # Penalty for energy not served
-                + s[k, j] .* ENS_penalty
+                # Penalty for energy not served and ancillary services
+                #   not served
+                + (ens[k, j] .+ rns[k, j] .+ sns[k, j] + nsns[k, j]) .* ENS_penalty
             for j = 1:num_hours)
         for k = 1:num_days)
     )
@@ -727,10 +741,13 @@ function solve_model(model; model_type = "integral")
             c = value.(model[:c])
             su = value.(model[:su])
             sd = value.(model[:sd])
-            s = value.(model[:s])
+            ens = value.(model[:ens])
+            rns = value.(model[:rns])
+            sns = value.(model[:sns])
+            nsns = value.(model[:nsns])
         end
 
-        returns = model, status, gen_qty, r, sr, nsr, c, su, sd, s
+        returns = model, status, gen_qty, r, sr, nsr, c, su, sd, ens, rns, sns, nsns
 
     elseif model_type == "relaxed_integrality"
         optimize!(model)
@@ -891,7 +908,7 @@ function run_annual_dispatch(
     set_silent(m_copy)
 
     # Solve the integral optimization problem
-    m, status, gen_qty, r, sr, nsr, c, su, sd, s = solve_model(m, model_type = "integral")
+    m, status, gen_qty, r, sr, nsr, c, su, sd, ens, rns, sns, nsns = solve_model(m, model_type = "integral")
 
     # Set up default return values if the dispatch year is infeasible
     new_grc_results = nothing
@@ -919,7 +936,7 @@ function run_annual_dispatch(
 
     # Determine the total level of energy not served (ENS) for this
     #   dispatch result
-    total_ENS = sum(sum(s[k, j] for k = 1:size(s)[1]) for j = 1:size(s)[2])
+    total_ENS = sum(sum(ens[k, j] for k = 1:size(ens)[1]) for j = 1:size(ens)[2])
 
     @debug "Year $y dispatch run complete."
 
@@ -1291,7 +1308,7 @@ function save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_resu
         :nspin => :nonspinning_reserve,
     )
 
-    stmt = DBInterface.prepare(db, """INSERT INTO annual_dispatch_hourly_unit_results VALUES (:period, :day, :hour, :unit_type, :generation, :regulation, :spinning_reserve, :nonspinning_reserve)""")
+    stmt = DBInterface.prepare(db, """INSERT INTO annual_disp_hr_unit_results VALUES (:period, :day, :hour, :unit_type, :generation, :regulation, :spinning_reserve, :nonspinning_reserve)""")
 
     DBInterface.executemany(
         stmt,
