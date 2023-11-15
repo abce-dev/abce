@@ -958,7 +958,7 @@ class GridModel(Model):
 
         # Get list of column names for ordering
         cursor = self.db.cursor().execute(
-            "SELECT * FROM annual_dispatch_results"
+            "SELECT * FROM annual_dispatch_unit_summary"
         )
         col_names = [description[0] for description in cursor.description]
 
