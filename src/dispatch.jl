@@ -659,35 +659,38 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
 
     # Ramping constraints
     for i = 1:num_units
-        for k = 1:num_days
-            for j = 1:(num_hours - 1)
-                # Ramp-up constraint
-                @constraint(
-                    m,
-                    (
-                        g[i, k, j + 1] - g[i, k, j] <=
-                        c[i, k, j + 1] .* portfolio_specs[i, :ramp_up_limit] *
-                        portfolio_specs[i, :capacity] *
-                        portfolio_specs[i, :capacity_factor]
+        if portfolio_specs[i, :is_VRE] == 0
+            for k = 1:num_days
+                for j = 1:(num_hours - 1)
+                    # Ramp-up constraint
+                    @constraint(
+                        m,
+                        (
+                            g[i, k, j + 1] - g[i, k, j] <=
+                            c[i, k, j + 1] .* portfolio_specs[i, :ramp_up_limit] *
+                            portfolio_specs[i, :capacity] *
+                            portfolio_specs[i, :capacity_factor]
+                        )
                     )
-                )
-                # Ramp-down constraint
-                @constraint(
-                    m,
-                    (
-                        g[i, k, j + 1] - g[i, k, j] >=
-                        (-1) *
-                        c[i, k, j + 1] *
-                        portfolio_specs[i, :ramp_down_limit] *
-                        portfolio_specs[i, :capacity] *
-                        portfolio_specs[i, :capacity_factor]
+                    # Ramp-down constraint
+                    @constraint(
+                        m,
+                        (
+                            g[i, k, j + 1] - g[i, k, j] >=
+                            (-1) *
+                            c[i, k, j + 1] *
+                            portfolio_specs[i, :ramp_down_limit] *
+                            portfolio_specs[i, :capacity] *
+                            portfolio_specs[i, :capacity_factor]
+                        )
                     )
-                )
+                end
             end
         end
     end
 
     ENS_penalty = settings["constants"]["big_number"]
+    ASNS_penalty = ENS_penalty / 100
     gamma_reg = 0.2
     gamma_sr = 0.1
     gamma_nsr = 0.1
@@ -716,7 +719,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
                 for i = 1:num_units)
                 # Penalty for energy not served and ancillary services
                 #   not served
-                + (ens[k, j] .+ rns[k, j] .+ sns[k, j] + nsns[k, j]) .* ENS_penalty
+                + ens[k, j] .* ENS_penalty + (rns[k, j] .+ sns[k, j] + nsns[k, j]) .* ASNS_penalty
             for j = 1:num_hours)
         for k = 1:num_days)
     )
