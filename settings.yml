@@ -1,12 +1,12 @@
 simulation:
   scenario_name: "ABCE_run"
-  solver: "HiGHS"
+  solver: "CPLEX"
   num_steps: 1
   annual_dispatch_engine: ABCE
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 78000
+  peak_demand: 80000
   policies:
     CTAX:
       enabled: False
@@ -18,7 +18,7 @@ scenario:
           - conventional_nuclear
           - wind
           - solar
-      qty: 15.0   # $/MWh
+      qty: 27.5   # $/MWh
     ITC:
       enabled: True
       eligibility:
@@ -64,8 +64,8 @@ file_paths:
   ABCE_sysimage_file: "abceSysimage.so"
   db_file: "abce_db.db"
   demand_data_file: "demand_data.csv"
-  agent_specifications_file: "single_agent_testing.yml"
-#  agent_specifications_file: "agent_specifications.yml"
+#  agent_specifications_file: "single_agent_testing.yml"
+  agent_specifications_file: "agent_specifications.yml"
   output_file: "outputs.xlsx"
   timeseries_data_dir: "ts_data"
   unit_specs_data_file: "unit_specs.yml"
@@ -73,7 +73,8 @@ file_paths:
 
 # Modeled grid system settings which are unlikely to change frequently
 system:
-  price_cap: 9001
+  price_cap: 9000
+  AS_price_cap: 1000
   tax_rate: 0.21
   planning_reserve_margin: 0.1375
   peak_initial_reserves: 0.0
@@ -93,7 +94,7 @@ demand:
 dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
   downselection: scenario_reduction
-  num_repdays: 45
+  num_repdays: 50
   hist_wt: 0.4  # Weighting of historical versus projected data
   hist_decay: 0.5   # Decay factor for each historical data year
 
