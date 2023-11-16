@@ -243,7 +243,6 @@ abce_tables = {
     ],
     "annual_dispatch_summary": [
         ("period", "integer", "PRIMARY KEY"),
-        ("peak_demand", "real"),
         ("wa_lambda", "real"),
         ("wa_reg_price", "real"),
         ("wa_spin_price", "real"),

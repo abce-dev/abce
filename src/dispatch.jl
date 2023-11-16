@@ -59,6 +59,7 @@ function execute_dispatch_economic_projection(
     end
 
     all_grc_results, all_price_results = handle_annual_dispatch(
+        db,
         settings,
         CLI_args["current_pd"],
         system_portfolios,
@@ -135,6 +136,7 @@ end
 
 
 function handle_annual_dispatch(
+    db,
     settings,
     current_pd,
     system_portfolios,
@@ -181,6 +183,10 @@ function handle_annual_dispatch(
         # Save new generation, commitment, and price results
         all_grc_results = vcat(all_grc_results, results[:new_grc_results])
         all_prices = vcat(all_prices, results[:new_prices])
+
+        if run_mode == "current"
+            save_summary_statistics(db, current_pd, results[:summary_statistics])
+        end
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
@@ -732,7 +738,10 @@ function solve_model(model; model_type = "integral")
         c = nothing
         su = nothing
         sd = nothing
-        s = nothing
+        ens = nothing
+        rns = nothing
+        sns = nothing
+        nsns = nothing
         if status == "OPTIMAL"
             gen_qty = value.(model[:g])
             r = value.(model[:r])
@@ -799,15 +808,15 @@ function reshape_shadow_prices(gen_shadow_prices, reg_shadow_prices, spin_shadow
     # Convert the (repdays, hours) table into a long (y, d, h, price) table
     for k = 1:size(gen_shadow_prices)[1]        # num_days
         for j = 1:size(gen_shadow_prices)[2]    # num_hours
-            gen_price = (-1) * gen_shadow_prices[k, j]
-            reg_price = (-1) * reg_shadow_prices[k, j]
-            spin_price = (-1) * spin_shadow_prices[k, j]
-            nspin_price = (-1) * nspin_shadow_prices[k, j]
+            gen_price = min(settings["system"]["price_cap"], (-1) * gen_shadow_prices[k, j])
+            reg_price = min(settings["system"]["AS_price_cap"], (-1) * reg_shadow_prices[k, j])
+            spin_price = min(settings["system"]["AS_price_cap"], (-1) * spin_shadow_prices[k, j])
+            nspin_price = min(settings["system"]["AS_price_cap"], (-1) * nspin_shadow_prices[k, j])
 
             # Ensure the shadow price is no greater than the system cap
-            if gen_price > settings["system"]["price_cap"]
-                gen_price = settings["system"]["price_cap"]
-            end
+#            if gen_price > settings["system"]["price_cap"]
+#                gen_price = settings["system"]["price_cap"]
+#            end
 
             # Add the price data to the table, indexed by y,d,h
             line = (y = y, d = k, h = j, lambda = gen_price, reg_rmp = reg_price, spin_rmp = spin_price, nspin_rmp = nspin_price)
@@ -913,7 +922,7 @@ function run_annual_dispatch(
     # Set up default return values if the dispatch year is infeasible
     new_grc_results = nothing
     new_prices = nothing
-    total_ENS = nothing
+    summary_statistics = nothing
 
     # Save the generation and commitment results from the integral problem
     new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
@@ -934,20 +943,84 @@ function run_annual_dispatch(
         settings,
     )
 
-    # Determine the total level of energy not served (ENS) for this
-    #   dispatch result
-    total_ENS = sum(sum(ens[k, j] for k = 1:size(ens)[1]) for j = 1:size(ens)[2])
-
     @debug "Year $y dispatch run complete."
+
+    if run_mode == "current"
+        summary_statistics = calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
+    end
 
     results = Dict(
         :new_grc_results => new_grc_results,
         :new_prices => new_prices,
-        :total_ENS => total_ENS,
+        :summary_statistics => summary_statistics
     )
+
+    # Set m and m_copy to nothing, to reduce memory utilization
+    m = nothing
+    m_copy = nothing
 
     return results
 
+end
+
+
+function calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
+    econ_res = innerjoin(new_grc_results, new_prices, on = [:y, :d, :h])
+
+    CSV.write("/home/biegelk/abce/annual_dispatch_econ_results.csv", econ_res)
+
+    # Compute weighted average generation price
+    transform!(econ_res, [:gen, :lambda] => ((gen, lambda) -> gen .* lambda) => :gen_tx)
+    wa_gen_price = sum(econ_res[!, :gen_tx]) / sum(econ_res[!, :gen])
+
+    # Compute weighted average regulation price
+    transform!(econ_res, [:reg, :reg_rmp] => ((reg, reg_rmp) -> reg .* reg_rmp) => :reg_tx)
+    wa_reg_price = sum(econ_res[!, :reg_tx]) / sum(econ_res[!, :reg])
+
+    # Compute weighted average spinning reserve price
+    transform!(econ_res, [:spin, :spin_rmp] => ((spin, spin_rmp) -> spin .* spin_rmp) => :spin_tx)
+    wa_spin_price = sum(econ_res[!, :spin_tx]) / sum(econ_res[!, :spin])
+
+    # Compute weighted average non-spinning reserve price
+    transform!(econ_res, [:nspin, :nspin_rmp] => ((nspin, nspin_rmp) -> nspin .* nspin_rmp) => :nspin_tx)
+    wa_nspin_price = sum(econ_res[!, :nspin_tx]) / sum(econ_res[!, :nspin])
+
+    total_ens = sum(sum(ens[k, j] for k = 1:size(ens)[1]) for j = 1:size(ens)[2])
+    total_rns = sum(sum(rns[k, j] for k = 1:size(rns)[1]) for j = 1:size(rns)[2])
+    total_sns = sum(sum(sns[k, j] for k = 1:size(sns)[1]) for j = 1:size(sns)[2])
+    total_nsns = sum(sum(nsns[k, j] for k = 1:size(nsns)[1]) for j = 1:size(nsns)[2])
+
+    summary_statistics = Dict(
+        :wa_gen_price => wa_gen_price,
+        :wa_reg_price => wa_reg_price,
+        :wa_spin_price => wa_spin_price,
+        :wa_nspin_price => wa_nspin_price,
+        :total_ens => total_ens,
+        :total_rns => total_rns,
+        :total_sns => total_sns,
+        :total_nsns => total_nsns,
+    )
+
+    return summary_statistics
+end
+
+
+function save_summary_statistics(db, current_pd, ss)
+    vals = (
+        current_pd,
+        ss[:wa_gen_price],
+        ss[:wa_reg_price],
+        ss[:wa_spin_price],
+        ss[:wa_nspin_price],
+        ss[:total_ens],
+        ss[:total_rns],
+        ss[:total_sns],
+        ss[:total_nsns],
+    )
+
+    stmt = "INSERT INTO annual_dispatch_summary VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+    DBInterface.execute(db, stmt, vals)
 end
 
 
