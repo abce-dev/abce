@@ -690,10 +690,10 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     end
 
     ENS_penalty = settings["constants"]["big_number"]
-    ASNS_penalty = ENS_penalty / 100
-    gamma_reg = 0.2
-    gamma_sr = 0.1
-    gamma_nsr = 0.1
+    ASNS_penalty = ENS_penalty / settings["dispatch"]["ASNS_penalty_ratio"]
+    gamma_reg = settings["dispatch"]["gamma_reg"]
+    gamma_spin = settings["dispatch"]["gamma_spin"]
+    gamma_nspin = settings["dispatch"]["gamma_nspin"]
 
     @objective(
         m,
@@ -709,7 +709,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
                         - portfolio_specs[i, :tax_credits_per_MWh]
                     )
                     # Ancillary services prices
-                    + (r[i, k, j] .* gamma_reg + sr[i, k, j] .* gamma_sr + nsr[i, k, j] .* gamma_nsr) .* portfolio_specs[i, :VOM]
+                    + (r[i, k, j] .* gamma_reg + sr[i, k, j] .* gamma_spin + nsr[i, k, j] .* gamma_nspin) .* portfolio_specs[i, :VOM]
                     # Commitment/no-load costs
                     + c[i, k, j] .* portfolio_specs[i, :no_load_cost]
                     # Start-up costs
