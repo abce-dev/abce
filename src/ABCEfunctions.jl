@@ -1229,7 +1229,7 @@ end
 
 function average_historical_dispatch_results(settings, db)
     historical_dispatch_results =
-        DBInterface.execute(db, "SELECT * FROM annual_dispatch_results") |>
+        DBInterface.execute(db, "SELECT * FROM annual_dispatch_unit_summary") |>
         DataFrame
 
     if size(historical_dispatch_results)[1] != 0
@@ -1378,6 +1378,7 @@ function set_up_model(
     agent_id,
     agent_fs,
     fc_pd;
+    mode="normal"
 )
     # Create the model object
     @debug "Setting up model..."
@@ -1392,6 +1393,16 @@ function set_up_model(
     # Set up variables
     # Number of units of each type to build: must be Integer
     @variable(m, u[1:num_alternatives] >= 0, Int)
+
+    # If running in "ret_only" mode, change the "allowed" value for all
+    #   "new_xtr" projects to 0 to forbid them
+    if mode == "ret_only"
+        for i = 1:size(PA_summaries)[1]
+            if PA_summaries[i, :project_type] == "new_xtr"
+                PA_summaries[i, :allowed] = 0
+            end
+        end
+    end
 
     # Compute expected marginal generation and effective nameplate capacity
     #   contribution per alternative type
@@ -1472,11 +1483,11 @@ function set_up_model(
         else
             margin = settings["agent_opt"]["cap_increase_margin"]
         end
-        @constraint(
-            m,
-            transpose(u .* PA_summaries[:, :current]) * marg_eff_cap[:, i] >=
-            (total_eff_cap - pd_total_demand) * margin
-        )
+#        @constraint(
+#            m,
+#            transpose(u .* PA_summaries[:, :current]) * marg_eff_cap[:, i] >=
+#            (total_eff_cap - pd_total_demand) * margin
+#        )
 
     end
 
@@ -1501,31 +1512,33 @@ function set_up_model(
 
     # Prevent the agent from reducing its credit metrics below Moody's B
     #   rating thresholds (from the Unregulated Power Companies ratings grid)
-    for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-        # Interest coverage ratio
-        @constraint(
-            m,
-            (
-                agent_fs[i, :FCF] / 1e9 +
-                sum(u .* marg_FCF[:, i]) +
-                (1 - settings["agent_opt"]["icr_floor"]) * (
-                    agent_fs[i, :interest_payment] / 1e9 +
-                    sum(u .* marg_int[:, i])
-                )
-            ) >= 0
-        )
+    if mode == "normal"
+        for i = 1:settings["agent_opt"]["fin_metric_horizon"]
+            # Interest coverage ratio
+            @constraint(
+                m,
+                (
+                    agent_fs[i, :FCF] / 1e9 +
+                    sum(u .* marg_FCF[:, i]) +
+                    (1 - settings["agent_opt"]["icr_floor"]) * (
+                        agent_fs[i, :interest_payment] / 1e9 +
+                        sum(u .* marg_int[:, i])
+                    )
+                ) >= 0
+            )
 
-        # FCF / debt
-        @constraint(
-            m,
-            (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - settings["agent_opt"]["fcf_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
-        )
+            # FCF / debt
+            @constraint(
+                m,
+                (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - settings["agent_opt"]["fcf_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+            )
 
-        # Retained earnings / debt
-        @constraint(
-            m,
-            (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) - settings["agent_opt"]["re_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
-        )
+            # Retained earnings / debt
+            @constraint(
+                m,
+                (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) - settings["agent_opt"]["re_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+            )
+        end
     end
 
     # Enforce the user-specified maximum number of new construction/retirement
@@ -1749,8 +1762,11 @@ function set_up_model(
 end
 
 
+
+
+
 ### Postprocessing
-function finalize_results_dataframe(m, PA_summaries)
+function finalize_results_dataframe(m, mode, PA_summaries)
     # Check solve status of model
     status = string(termination_status.(m))
 
@@ -1764,6 +1780,7 @@ function finalize_results_dataframe(m, PA_summaries)
     end
 
     all_results = hcat(PA_summaries, DataFrame(units_to_execute = unit_qty))
+    all_results[!, :mode] .= mode
 
     return all_results
 end
@@ -2539,7 +2556,7 @@ function save_agent_decisions(db, current_pd, agent_id, decision_df)
             db,
             string(
                 "INSERT INTO agent_decisions ",
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             ),
             row,
         )

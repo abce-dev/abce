@@ -59,6 +59,7 @@ function execute_dispatch_economic_projection(
     end
 
     all_grc_results, all_price_results = handle_annual_dispatch(
+        db,
         settings,
         CLI_args["current_pd"],
         system_portfolios,
@@ -135,6 +136,7 @@ end
 
 
 function handle_annual_dispatch(
+    db,
     settings,
     current_pd,
     system_portfolios,
@@ -181,6 +183,10 @@ function handle_annual_dispatch(
         # Save new generation, commitment, and price results
         all_grc_results = vcat(all_grc_results, results[:new_grc_results])
         all_prices = vcat(all_prices, results[:new_prices])
+
+        if run_mode == "current"
+            save_summary_statistics(db, current_pd, results[:summary_statistics])
+        end
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
@@ -477,35 +483,48 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     # sd: number of units of each type shut down in each hour
     @variable(m, sd[1:num_units, 1:num_days, 1:num_hours] >= 0)
 
-    # s: penalty variable for energy not served in each hour
-    @variable(m, s[1:num_days, 1:num_hours] >= 0)
+    # ens: penalty variable for energy not served in each hour
+    @variable(m, ens[1:num_days, 1:num_hours] >= 0)
 
-    # Total generation per hour must be greater than or equal to the demand
+    # rns: penalty variable for regulation not served in each hour
+    @variable(m, rns[1:num_days, 1:num_hours] >= 0)
+
+    # sns: penalty variable for spinning reserve not served in each hour
+    @variable(m, sns[1:num_days, 1:num_hours] >= 0)
+
+    # nsns: penalty variable for non-spinning reserve not served in each hour
+    @variable(m, nsns[1:num_days, 1:num_hours] >= 0)
+
+    # Total generation per hour plus energy not served must be greater than
+    #   or equal to the demand
     @constraint(
         m,
         mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(g[i, k, j] for i = 1:num_units) + s[k, j] >= load_repdays[j, k]
+        sum(g[i, k, j] for i = 1:num_units) + ens[k, j] >= load_repdays[j, k]
     )
 
-    # Total regulation per hour must be greater than or equal to the requirement
+    # Total regulation per hour plus regulation not served must be greater 
+    #   than or equal to the requirement
     @constraint(
         m,
         reg_mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(r[i, k, j] for i = 1:num_units) >= reg_repdays[j, k]
+        sum(r[i, k, j] for i = 1:num_units) + rns[k, j] >= reg_repdays[j, k]
     )
 
-    # Total spinning reserve per hour must be greater than or equal to the requirement
+    # Total spinning reserve per hour plus spinning reserve not served must be
+    #   greater than or equal to the requirement
     @constraint(
         m,
         spin_mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(sr[i, k, j] for i = 1:num_units) >= spin_repdays[j, k]
+        sum(sr[i, k, j] for i = 1:num_units) + sns[k, j] >= spin_repdays[j, k]
     )
 
-    # Total non-spinning reserve per hour must be greater than or equal to the requirement
+    # Total non-spinning reserve per hour plus non-spinning reserve not served
+    #   must be greater than or equal to the requirement
     @constraint(
         m,
         nspin_mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(nsr[i, k, j] for i = 1:num_units) >= nspin_repdays[j, k]
+        sum(nsr[i, k, j] for i = 1:num_units) + nsns[k, j] >= nspin_repdays[j, k]
     )
 
     # Number of committed units per hour must be less than or equal to the
@@ -640,38 +659,41 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
 
     # Ramping constraints
     for i = 1:num_units
-        for k = 1:num_days
-            for j = 1:(num_hours - 1)
-                # Ramp-up constraint
-                @constraint(
-                    m,
-                    (
-                        g[i, k, j + 1] - g[i, k, j] <=
-                        c[i, k, j + 1] .* portfolio_specs[i, :ramp_up_limit] *
-                        portfolio_specs[i, :capacity] *
-                        portfolio_specs[i, :capacity_factor]
+        if portfolio_specs[i, :is_VRE] == 0
+            for k = 1:num_days
+                for j = 1:(num_hours - 1)
+                    # Ramp-up constraint
+                    @constraint(
+                        m,
+                        (
+                            g[i, k, j + 1] - g[i, k, j] <=
+                            c[i, k, j + 1] .* portfolio_specs[i, :ramp_up_limit] *
+                            portfolio_specs[i, :capacity] *
+                            portfolio_specs[i, :capacity_factor]
+                        )
                     )
-                )
-                # Ramp-down constraint
-                @constraint(
-                    m,
-                    (
-                        g[i, k, j + 1] - g[i, k, j] >=
-                        (-1) *
-                        c[i, k, j + 1] *
-                        portfolio_specs[i, :ramp_down_limit] *
-                        portfolio_specs[i, :capacity] *
-                        portfolio_specs[i, :capacity_factor]
+                    # Ramp-down constraint
+                    @constraint(
+                        m,
+                        (
+                            g[i, k, j + 1] - g[i, k, j] >=
+                            (-1) *
+                            c[i, k, j + 1] *
+                            portfolio_specs[i, :ramp_down_limit] *
+                            portfolio_specs[i, :capacity] *
+                            portfolio_specs[i, :capacity_factor]
+                        )
                     )
-                )
+                end
             end
         end
     end
 
     ENS_penalty = settings["constants"]["big_number"]
-    gamma_reg = 0.2
-    gamma_sr = 0.1
-    gamma_nsr = 0.1
+    ASNS_penalty = ENS_penalty / settings["dispatch"]["ASNS_penalty_ratio"]
+    gamma_reg = settings["dispatch"]["gamma_reg"]
+    gamma_spin = settings["dispatch"]["gamma_spin"]
+    gamma_nspin = settings["dispatch"]["gamma_nspin"]
 
     @objective(
         m,
@@ -687,7 +709,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
                         - portfolio_specs[i, :tax_credits_per_MWh]
                     )
                     # Ancillary services prices
-                    + (r[i, k, j] .* gamma_reg + sr[i, k, j] .* gamma_sr + nsr[i, k, j] .* gamma_nsr) .* portfolio_specs[i, :VOM]
+                    + (r[i, k, j] .* gamma_reg + sr[i, k, j] .* gamma_spin + nsr[i, k, j] .* gamma_nspin) .* portfolio_specs[i, :VOM]
                     # Commitment/no-load costs
                     + c[i, k, j] .* portfolio_specs[i, :no_load_cost]
                     # Start-up costs
@@ -695,8 +717,9 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
                     # Shut-down costs
                     + sd[i, k, j] .* portfolio_specs[i, :shut_down_cost]
                 for i = 1:num_units)
-                # Penalty for energy not served
-                + s[k, j] .* ENS_penalty
+                # Penalty for energy not served and ancillary services
+                #   not served
+                + ens[k, j] .* ENS_penalty + (rns[k, j] .+ sns[k, j] + nsns[k, j]) .* ASNS_penalty
             for j = 1:num_hours)
         for k = 1:num_days)
     )
@@ -718,7 +741,10 @@ function solve_model(model; model_type = "integral")
         c = nothing
         su = nothing
         sd = nothing
-        s = nothing
+        ens = nothing
+        rns = nothing
+        sns = nothing
+        nsns = nothing
         if status == "OPTIMAL"
             gen_qty = value.(model[:g])
             r = value.(model[:r])
@@ -727,10 +753,13 @@ function solve_model(model; model_type = "integral")
             c = value.(model[:c])
             su = value.(model[:su])
             sd = value.(model[:sd])
-            s = value.(model[:s])
+            ens = value.(model[:ens])
+            rns = value.(model[:rns])
+            sns = value.(model[:sns])
+            nsns = value.(model[:nsns])
         end
 
-        returns = model, status, gen_qty, r, sr, nsr, c, su, sd, s
+        returns = model, status, gen_qty, r, sr, nsr, c, su, sd, ens, rns, sns, nsns
 
     elseif model_type == "relaxed_integrality"
         optimize!(model)
@@ -782,15 +811,15 @@ function reshape_shadow_prices(gen_shadow_prices, reg_shadow_prices, spin_shadow
     # Convert the (repdays, hours) table into a long (y, d, h, price) table
     for k = 1:size(gen_shadow_prices)[1]        # num_days
         for j = 1:size(gen_shadow_prices)[2]    # num_hours
-            gen_price = (-1) * gen_shadow_prices[k, j]
-            reg_price = (-1) * reg_shadow_prices[k, j]
-            spin_price = (-1) * spin_shadow_prices[k, j]
-            nspin_price = (-1) * nspin_shadow_prices[k, j]
+            gen_price = min(settings["system"]["price_cap"], (-1) * gen_shadow_prices[k, j])
+            reg_price = min(settings["system"]["AS_price_cap"], (-1) * reg_shadow_prices[k, j])
+            spin_price = min(settings["system"]["AS_price_cap"], (-1) * spin_shadow_prices[k, j])
+            nspin_price = min(settings["system"]["AS_price_cap"], (-1) * nspin_shadow_prices[k, j])
 
             # Ensure the shadow price is no greater than the system cap
-            if gen_price > settings["system"]["price_cap"]
-                gen_price = settings["system"]["price_cap"]
-            end
+#            if gen_price > settings["system"]["price_cap"]
+#                gen_price = settings["system"]["price_cap"]
+#            end
 
             # Add the price data to the table, indexed by y,d,h
             line = (y = y, d = k, h = j, lambda = gen_price, reg_rmp = reg_price, spin_rmp = spin_price, nspin_rmp = nspin_price)
@@ -891,12 +920,12 @@ function run_annual_dispatch(
     set_silent(m_copy)
 
     # Solve the integral optimization problem
-    m, status, gen_qty, r, sr, nsr, c, su, sd, s = solve_model(m, model_type = "integral")
+    m, status, gen_qty, r, sr, nsr, c, su, sd, ens, rns, sns, nsns = solve_model(m, model_type = "integral")
 
     # Set up default return values if the dispatch year is infeasible
     new_grc_results = nothing
     new_prices = nothing
-    total_ENS = nothing
+    summary_statistics = nothing
 
     # Save the generation and commitment results from the integral problem
     new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
@@ -917,20 +946,84 @@ function run_annual_dispatch(
         settings,
     )
 
-    # Determine the total level of energy not served (ENS) for this
-    #   dispatch result
-    total_ENS = sum(sum(s[k, j] for k = 1:size(s)[1]) for j = 1:size(s)[2])
-
     @debug "Year $y dispatch run complete."
+
+    if run_mode == "current"
+        summary_statistics = calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
+    end
 
     results = Dict(
         :new_grc_results => new_grc_results,
         :new_prices => new_prices,
-        :total_ENS => total_ENS,
+        :summary_statistics => summary_statistics
     )
+
+    # Set m and m_copy to nothing, to reduce memory utilization
+    m = nothing
+    m_copy = nothing
 
     return results
 
+end
+
+
+function calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
+    econ_res = innerjoin(new_grc_results, new_prices, on = [:y, :d, :h])
+
+    CSV.write("/home/biegelk/abce/annual_dispatch_econ_results.csv", econ_res)
+
+    # Compute weighted average generation price
+    transform!(econ_res, [:gen, :lambda] => ((gen, lambda) -> gen .* lambda) => :gen_tx)
+    wa_gen_price = sum(econ_res[!, :gen_tx]) / sum(econ_res[!, :gen])
+
+    # Compute weighted average regulation price
+    transform!(econ_res, [:reg, :reg_rmp] => ((reg, reg_rmp) -> reg .* reg_rmp) => :reg_tx)
+    wa_reg_price = sum(econ_res[!, :reg_tx]) / sum(econ_res[!, :reg])
+
+    # Compute weighted average spinning reserve price
+    transform!(econ_res, [:spin, :spin_rmp] => ((spin, spin_rmp) -> spin .* spin_rmp) => :spin_tx)
+    wa_spin_price = sum(econ_res[!, :spin_tx]) / sum(econ_res[!, :spin])
+
+    # Compute weighted average non-spinning reserve price
+    transform!(econ_res, [:nspin, :nspin_rmp] => ((nspin, nspin_rmp) -> nspin .* nspin_rmp) => :nspin_tx)
+    wa_nspin_price = sum(econ_res[!, :nspin_tx]) / sum(econ_res[!, :nspin])
+
+    total_ens = sum(sum(ens[k, j] for k = 1:size(ens)[1]) for j = 1:size(ens)[2])
+    total_rns = sum(sum(rns[k, j] for k = 1:size(rns)[1]) for j = 1:size(rns)[2])
+    total_sns = sum(sum(sns[k, j] for k = 1:size(sns)[1]) for j = 1:size(sns)[2])
+    total_nsns = sum(sum(nsns[k, j] for k = 1:size(nsns)[1]) for j = 1:size(nsns)[2])
+
+    summary_statistics = Dict(
+        :wa_gen_price => wa_gen_price,
+        :wa_reg_price => wa_reg_price,
+        :wa_spin_price => wa_spin_price,
+        :wa_nspin_price => wa_nspin_price,
+        :total_ens => total_ens,
+        :total_rns => total_rns,
+        :total_sns => total_sns,
+        :total_nsns => total_nsns,
+    )
+
+    return summary_statistics
+end
+
+
+function save_summary_statistics(db, current_pd, ss)
+    vals = (
+        current_pd,
+        ss[:wa_gen_price],
+        ss[:wa_reg_price],
+        ss[:wa_spin_price],
+        ss[:wa_nspin_price],
+        ss[:total_ens],
+        ss[:total_rns],
+        ss[:total_sns],
+        ss[:total_nsns],
+    )
+
+    stmt = "INSERT INTO annual_dispatch_summary VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+    DBInterface.execute(db, stmt, vals)
 end
 
 
@@ -1241,7 +1334,15 @@ function postprocess_results(
 end
 
 
-function finalize_annual_dispatch_results(db, current_pd, dispatch_results)
+function finalize_annual_dispatch_results(db, current_pd, long_econ_results, dispatch_results)
+    #save_annual_dispatch_summary(db, current_pd, long_econ_results)
+    #save_annual_dispatch_hourly_results(db, current_pd, long_econ_results)
+    save_annual_dispatch_unit_summary(db, current_pd, dispatch_results)
+    #save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
+end
+
+
+function save_annual_dispatch_unit_summary(db, current_pd, dispatch_results)
     pivot = unstack(dispatch_results, :unit_type, :dispatch_result, :qty)
 
     pivot[!, :period] .= current_pd
@@ -1249,7 +1350,7 @@ function finalize_annual_dispatch_results(db, current_pd, dispatch_results)
     # Put the columns in the same order as the DB table
     col_order = DBInterface.execute(
         db,
-        "SELECT name FROM PRAGMA_TABLE_INFO('annual_dispatch_results')",
+        "SELECT name FROM PRAGMA_TABLE_INFO('annual_dispatch_unit_summary')",
     ) |> DataFrame
     col_order = collect(col_order[!, "name"])
     pivot = select(pivot, col_order)
@@ -1261,10 +1362,43 @@ function finalize_annual_dispatch_results(db, current_pd, dispatch_results)
     for row in Tuple.(eachrow(pivot))
         DBInterface.execute(
             db,
-            string("INSERT INTO annual_dispatch_results VALUES $fill_tuple"),
+            string("INSERT INTO annual_dispatch_unit_summary VALUES $fill_tuple"),
             row,
         )
     end
+end
+
+function save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
+    # Get columns of interest
+    results = deepcopy(long_econ_results[:, [:y, :d, :h, :unit_type, :gen, :reg, :spin, :nspin]])
+
+    # Rename the columns to match the DB standard
+    rename!(
+        results,
+        :y => :period,
+        :d => :day,
+        :h => :hour,
+        :gen => :generation,
+        :reg => :regulation,
+        :spin => :spinning_reserve,
+        :nspin => :nonspinning_reserve,
+    )
+
+    stmt = DBInterface.prepare(db, """INSERT INTO annual_disp_hr_unit_results VALUES (:period, :day, :hour, :unit_type, :generation, :regulation, :spinning_reserve, :nonspinning_reserve)""")
+
+    DBInterface.executemany(
+        stmt,
+        (period = results[!, :period],
+         day = results[!, :day],
+         hour = results[!, :hour],
+         unit_type = results[!, :unit_type],
+         generation = results[!, :generation],
+         regulation = results[!, :regulation],
+         spinning_reserve = results[!, :spinning_reserve],
+         nonspinning_reserve = results[!, :nonspinning_reserve],
+        )
+    )
+
 end
 
 

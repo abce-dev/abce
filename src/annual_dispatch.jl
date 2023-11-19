@@ -121,13 +121,12 @@ function run_true_annual_dispatch()
         downselection_mode="exact"
     )
 
+    @info "Saving annual dispatch results to the database..."
+
     # Adjust formatting and save to the database
-    Dispatch.finalize_annual_dispatch_results(db, CL_args["current_pd"], dispatch_results)
+    Dispatch.finalize_annual_dispatch_results(db, CL_args["current_pd"], long_econ_results, dispatch_results)
 
     @info "Done!"
-
-    CSV.write("./long_econ_results.csv", long_econ_results)
-    CSV.write("./dispatch_results.csv", dispatch_results)
 end
 
 run_true_annual_dispatch()   

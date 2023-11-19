@@ -6,7 +6,7 @@ simulation:
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 78000
+  peak_demand: 80000
   policies:
     CTAX:
       enabled: False
@@ -18,7 +18,7 @@ scenario:
           - conventional_nuclear
           - wind
           - solar
-      qty: 15.0   # $/MWh
+      qty: 27.5   # $/MWh
     ITC:
       enabled: True
       eligibility:
@@ -73,7 +73,8 @@ file_paths:
 
 # Modeled grid system settings which are unlikely to change frequently
 system:
-  price_cap: 9001
+  price_cap: 9000
+  AS_price_cap: 1000
   tax_rate: 0.21
   planning_reserve_margin: 0.1375
   peak_initial_reserves: 0.0
@@ -93,7 +94,11 @@ demand:
 dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
   downselection: scenario_reduction
-  num_repdays: 45
+  num_repdays: 50
+  ASNS_penalty_ratio: 0.001  # Relative to an ENS penalty value of 1
+  gamma_reg: 0.2
+  gamma_spin: 0.1
+  gamma_nspin: 0.1
   hist_wt: 0.4  # Weighting of historical versus projected data
   hist_decay: 0.5   # Decay factor for each historical data year
 
