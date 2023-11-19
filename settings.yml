@@ -1,6 +1,6 @@
 simulation:
   scenario_name: "ABCE_run"
-  solver: "CPLEX"
+  solver: "HiGHS"
   num_steps: 1
   annual_dispatch_engine: ABCE
   C2N_assumption: baseline
@@ -64,8 +64,8 @@ file_paths:
   ABCE_sysimage_file: "abceSysimage.so"
   db_file: "abce_db.db"
   demand_data_file: "demand_data.csv"
-#  agent_specifications_file: "single_agent_testing.yml"
-  agent_specifications_file: "agent_specifications.yml"
+  agent_specifications_file: "single_agent_testing.yml"
+#  agent_specifications_file: "agent_specifications.yml"
   output_file: "outputs.xlsx"
   timeseries_data_dir: "ts_data"
   unit_specs_data_file: "unit_specs.yml"
@@ -95,6 +95,10 @@ dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
   downselection: scenario_reduction
   num_repdays: 50
+  ASNS_penalty_ratio: 0.001  # Relative to an ENS penalty value of 1
+  gamma_reg: 0.2
+  gamma_spin: 0.1
+  gamma_nspin: 0.1
   hist_wt: 0.4  # Weighting of historical versus projected data
   hist_decay: 0.5   # Decay factor for each historical data year
 
