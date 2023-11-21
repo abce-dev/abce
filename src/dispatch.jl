@@ -690,7 +690,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     end
 
     ENS_penalty = settings["constants"]["big_number"]
-    ASNS_penalty = ENS_penalty / settings["dispatch"]["ASNS_penalty_ratio"]
+    ASNS_penalty = ENS_penalty * settings["dispatch"]["ASNS_penalty_ratio"]
     gamma_reg = settings["dispatch"]["gamma_reg"]
     gamma_spin = settings["dispatch"]["gamma_spin"]
     gamma_nspin = settings["dispatch"]["gamma_nspin"]
