@@ -118,19 +118,32 @@
     starting_PPE:   90000000
     starting_RE: 600000000
     starting_portfolio:
-        wind: 30
-        solar: 10
+        wind: 5
+        wind_old: 25
+        solar: 4
+        solar_old: 6
     scheduled_retirements:
     # Format:
     # unit_type:
     #   retirement_pd: num_units
         wind:
-            14: 1
-            19: 5
-            20: 20
-            24: 4
+            20: 2
+            24: 3
+        wind_old:
+            8: 3
+            9: 2
+            11: 3
+            14: 4
+            16: 5
+            17: 4
+            19: 4
         solar:
-            31: 10
+            31: 4
+        solar_old:
+            6: 1
+            10: 1
+            13: 2
+            14: 2
  
 # Lean Gas Ops, Inc.
 205:
@@ -143,7 +156,8 @@
     starting_portfolio:
         ngcc: 20
         ngct: 30
-        wind: 10
+        wind: 4
+        wind_old: 6
     scheduled_retirements:
     # Format:
     # unit_type:
@@ -163,8 +177,13 @@
             25: 10
             28: 4
         wind:
-            19: 3
-            27: 7
+            19: 1
+            27: 3
+        wind_old:
+            2: 1
+            8: 1
+            9: 1
+            15: 3
  
 # Legacy Fossil Operator, Inc.
 206:
@@ -219,8 +238,10 @@
 # Balance of System
 208:
     starting_portfolio:
-        wind: 238
-        solar: 61
+        wind: 63
+        wind_old: 175
+        solar: 21
+        solar_old: 40
         ngcc: 121
         ngct: 4
         PUN_unit: 85
