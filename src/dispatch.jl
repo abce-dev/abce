@@ -374,8 +374,6 @@ function scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
             if !isempty(filter(:unit_type => x -> x == unit_type, year_portfolio))
                 ts_data[data_name][!, Symbol(unit_type)] = (
                     ts_data[data_name][!, shaped_col]
-                    * filter(:unit_type => x -> x == unit_type, year_portfolio)[1, :num_units]
-                    * type_specs[:capacity]
                 )
             end
         end
@@ -397,13 +395,13 @@ function set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_d
 
     for day in days
         wind_repdays[!, Symbol(day)] =
-            ts_data[:wind_data][(num_hours * (day-1) + 1):(num_hours * day), :wind]
+            ts_data[:wind_data][(num_hours * (day-1) + 1):(num_hours * day), :WindShape]
         solar_repdays[!, Symbol(day)] =
-            ts_data[:solar_data][(num_hours * (day-1) + 1):(num_hours * day), :solar]
+            ts_data[:solar_data][(num_hours * (day-1) + 1):(num_hours * day), :SolarShape]
     end
 
-    ts_data[:wind_repdays] = wind_repdays
-    ts_data[:solar_repdays] = solar_repdays
+    ts_data[:wind_repdays] = deepcopy(wind_repdays)
+    ts_data[:solar_repdays] = deepcopy(solar_repdays)
 
     return ts_data
 end
@@ -415,22 +413,6 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     #   unit ordering
     portfolio_specs = innerjoin(unit_specs, year_portfolio, on = :unit_type, makeunique=true)
     portfolio_specs[!, :unit_index] = 1:size(portfolio_specs)[1]
-
-    # Set up wind_index and solar_index for easy filtering later
-    wind_index = 0
-    solar_index = 0
-    if !isempty(filter(:unit_type => x -> x == "wind", portfolio_specs))
-        wind_index = filter(:unit_type => x -> x == "wind", portfolio_specs)[
-            1,
-            :unit_index,
-        ]
-    end
-    if !isempty(filter(:unit_type => x -> x == "solar", portfolio_specs))
-        solar_index = filter(:unit_type => x -> x == "solar", portfolio_specs)[
-            1,
-            :unit_index,
-        ]
-    end
 
     convnuc_index = nothing
     if !isempty(filter(:unit_type => x -> x == "conventional_nuclear", portfolio_specs))
@@ -530,9 +512,11 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     # Number of committed units per hour must be less than or equal to the
     #   total number of units of that type in the system
     for i = 1:num_units
-        for k = 1:num_days
-            for j = 1:num_hours
-                @constraint(m, c[i, k, j] <= portfolio_specs[i, :esc_num_units])
+        if portfolio_specs[i, :is_VRE] == 0
+            for k = 1:num_days
+                for j = 1:num_hours
+                    @constraint(m, c[i, k, j] <= portfolio_specs[i, :esc_num_units])
+                end
             end
         end
     end
@@ -562,7 +546,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     #   minimum and maximum power levels
     # wind and solar are excluded
     for i = 1:num_units
-        if !(portfolio_specs[i, :unit_type] in ["wind", "solar"])
+        if portfolio_specs[i, :is_VRE] == 0
             for k = 1:num_days
                 for j = 1:num_hours
                     # Constrain total market participation to capacity * capacity_factor
@@ -587,21 +571,26 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
 
     # Limit solar and wind generation and AS participation to their actual 
     #   hourly availability, if wind and/or solar exist in the system
-    for k = 1:num_days
-        for j = 1:num_hours
-            if wind_index != 0
-                @constraint(
-                    m,
-                    g[wind_index, k, j] + r[wind_index, k, j] + sr[wind_index, k, j] + nsr[wind_index, k, j]
-                      <= wind_repdays[j, k]
-                )
+    for i = 1:num_units
+        if portfolio_specs[i, :is_VRE] == 1
+            # Allocate representative days data based on fundamental unit type
+            if occursin("wind", portfolio_specs[i, :unit_type])
+                availability = wind_repdays
+            elseif occursin("solar", portfolio_specs[i, :unit_type])
+                availability = solar_repdays
+            else
+                continue
             end
-            if solar_index != 0
-                @constraint(
-                    m,
-                    g[solar_index, k, j] + r[solar_index, k, j] + sr[solar_index, k, j] + nsr[solar_index, k, j]
-                      <= solar_repdays[j, k]
-                )
+
+            # Set constraint
+            for k = 1:num_days
+                for j = 1:num_hours
+                    @constraint(
+                        m,
+                        g[i, k, j] + r[i, k, j] + sr[i, k, j] + nsr[i, k, j]
+                          <= availability[j, k] * portfolio_specs[i, :esc_num_units] * portfolio_specs[i, :capacity]
+                    )
+                end
             end
         end
     end
@@ -887,7 +876,7 @@ function run_annual_dispatch(
 
     # Scale the wind and solar data according to the current year's total
     #   installed capacity
-    ts_data = scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
+#    ts_data = scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
 
     # Set up representative days for wind and solar
     ts_data = set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_data)
