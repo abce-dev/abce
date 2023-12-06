@@ -19,7 +19,9 @@
         ngct: 1
         conventional_nuclear: 1
         wind: 1
+        wind_old: 1
         solar: 1
+        solar_old: 1
     scheduled_retirements:
     # Format:
     # unit_type:
@@ -32,8 +34,12 @@
             10: 1
         wind:
             11: 1
+        wind_old:
+            20: 1
         solar:
             12: 1
+        solar_old:
+            21: 1
         conventional_nuclear:
             13: 1
 
@@ -41,8 +47,10 @@
 # Balance of System
 208:
     starting_portfolio:
-        wind: 278
-        solar: 82
+        wind: 103
+        wind_old: 175
+        solar: 22
+        solar_old: 60
         ngcc: 226
         ngct: 174
         conventional_nuclear: 12

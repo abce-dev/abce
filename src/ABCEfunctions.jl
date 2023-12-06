@@ -660,6 +660,9 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
         end
     end
 
+    # Filter out all disallowed project alternatives
+    PA_summaries = deepcopy(filter(:allowed => a -> a == true, PA_summaries))
+
     return PA_summaries
 
 end
@@ -1386,6 +1389,16 @@ function set_up_model(
     # Initialize a model with the settings-specified optimizer
     m = create_model_with_optimizer(settings)
 
+    # If running in "ret_only" mode, change the "allowed" value for all
+    #   "new_xtr" projects to 0 to forbid them
+    if mode == "ret_only"
+        for i=1:size(PA_summaries)[1]
+            if PA_summaries[i, :project_type] == "new_xtr"
+                PA_summaries[i, :allowed] = false
+            end
+        end
+    end
+
     # Parameter names
     num_alternatives = size(PA_summaries)[1]
     num_time_periods = size(PA_fs_dict[PA_summaries[1, :uid]])[1]
@@ -1393,16 +1406,6 @@ function set_up_model(
     # Set up variables
     # Number of units of each type to build: must be Integer
     @variable(m, u[1:num_alternatives] >= 0, Int)
-
-    # If running in "ret_only" mode, change the "allowed" value for all
-    #   "new_xtr" projects to 0 to forbid them
-    if mode == "ret_only"
-        for i = 1:size(PA_summaries)[1]
-            if PA_summaries[i, :project_type] == "new_xtr"
-                PA_summaries[i, :allowed] = 0
-            end
-        end
-    end
 
     # Compute expected marginal generation and effective nameplate capacity
     #   contribution per alternative type
@@ -1475,21 +1478,29 @@ function set_up_model(
             settings["agent_opt"]["cap_decrease_threshold"]
         )
             margin = settings["agent_opt"]["cap_decrease_margin"]
-        elseif (
-            total_eff_cap / pd_total_demand >
-            settings["agent_opt"]["cap_maintain_threshold"]
-        )
-            margin = settings["agent_opt"]["cap_maintain_margin"]
         else
-            margin = settings["agent_opt"]["cap_increase_margin"]
+            margin = settings["agent_opt"]["cap_maintain_margin"]
         end
-#        @constraint(
-#            m,
-#            transpose(u .* PA_summaries[:, :current]) * marg_eff_cap[:, i] >=
-#            (total_eff_cap - pd_total_demand) * margin
-#        )
+
+        # Get total agent portfolio size for this year
+        stmt = "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $i AND retirement_pd > $i GROUP BY unit_type"
+        agent_pf = DBInterface.execute(db, stmt) |> DataFrame
+        rename!(agent_pf, Symbol("COUNT(unit_type)") => :num_units)
+        agent_pf = leftjoin(agent_pf, select(unit_specs, [:unit_type, :capacity, :capacity_factor]), on=:unit_type)
+        transform!(agent_pf, [:num_units, :capacity, :capacity_factor] => ((num, cap, cf) -> num .* cap .* cf) => :total_derated_cap)
+        agent_year_derated_cap = sum(agent_pf[!, :total_derated_cap])
+
+        @constraint(
+            m,
+            transpose(u .* PA_summaries[:, :current]) * marg_eff_cap[:, i] >=
+            agent_year_derated_cap * margin
+        )
 
     end
+
+    
+
+
 
     # Create arrays of expected marginal debt, interest, dividends, and FCF
     #   per unit type
@@ -1568,7 +1579,7 @@ function set_up_model(
                     settings["agent_opt"]["max_type_rets_per_pd"],
                 )
             )
-            #            @constraint(m, u[i] .<= max_retirement)
+            @constraint(m, u[i] .<= max_retirement)
         end
     end
 

@@ -60,13 +60,17 @@ def execute_scenario_reduction(args, db, current_pd, settings, unit_specs):
         db,
     )
     num_wind = len(current_portfolio.loc[current_portfolio.unit_type == "wind"])
+    num_wind_old = len(current_portfolio.loc[current_portfolio.unit_type == "wind_old"])
     num_solar = len(
         current_portfolio.loc[current_portfolio.unit_type == "solar"]
     )
+    num_solar_old = len(current_portfolio.loc[current_portfolio.unit_type == "solar_old"])
 
     # Get the capacity of wind and solar units
     wind_cap = unit_specs["wind"]["capacity"]
+    wind_old_cap = unit_specs["wind_old"]["capacity"]
     solar_cap = unit_specs["solar"]["capacity"]
+    solar_old_cap = unit_specs["solar_old"]["capacity"]
 
     # Get peak demand for this period
     peak_demand = pd.read_sql_query(
@@ -100,8 +104,8 @@ def execute_scenario_reduction(args, db, current_pd, settings, unit_specs):
         data_input_path=temp_data_dir,
         data_output_path=output_dir,
         plot_output_path=plot_output_dir,
-        windCapacity=num_wind * wind_cap,
-        solarCapacity=num_solar * solar_cap,
+        windCapacity=num_wind * wind_cap + num_wind_old * wind_old_cap,
+        solarCapacity=num_solar * solar_cap + num_solar_old * solar_old_cap,
         peakDemand=peak_demand,
     )
 
