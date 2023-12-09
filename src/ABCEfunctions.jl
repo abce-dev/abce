@@ -16,13 +16,13 @@
 
 module ABCEfunctions
 
-using ArgParse,
+using ArgParse, CPLEX,
     Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS, Statistics
 
 # Use CPLEX if available
-function __init__()
-    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
-end
+#function __init__()
+#    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
+#end
 
 include("./dispatch.jl")
 using .Dispatch
@@ -1554,13 +1554,15 @@ function set_up_model(
 
     # Enforce the user-specified maximum number of new construction/retirement
     #   projects by type per period, and the :allowed field in PA_summaries
+    exp_PA_summaries = leftjoin(PA_summaries, unit_specs, on=:unit_type)
+
     for i = 1:num_alternatives
         if PA_summaries[i, :project_type] == "new_xtr"
             @constraint(
                 m,
-                u[i] .<=
-                convert(Int64, PA_summaries[i, :allowed]) .*
-                settings["agent_opt"]["max_type_newbuilds_per_pd"]
+                u[i] .* exp_PA_summaries[i, :capacity] .<=
+                convert(Int64, exp_PA_summaries[i, :allowed]) .*
+                settings["agent_opt"]["max_type_newcap_per_pd"]
             )
         elseif PA_summaries[i, :project_type] == "retirement"
             unit_type = PA_summaries[i, :unit_type]

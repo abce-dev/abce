@@ -17,13 +17,13 @@
 
 module Dispatch
 
-using Requires, Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS
+using Requires, Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS, CPLEX
 
 
 # Initialize this module, with CPLEX as an optional library if available
-function __init__()
-    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
-end
+#function __init__()
+#    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
+#end
 
 
 function execute_dispatch_economic_projection(
@@ -958,8 +958,6 @@ end
 
 function calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
     econ_res = innerjoin(new_grc_results, new_prices, on = [:y, :d, :h])
-
-    CSV.write("/home/biegelk/abce/annual_dispatch_econ_results.csv", econ_res)
 
     # Compute weighted average generation price
     transform!(econ_res, [:gen, :lambda] => ((gen, lambda) -> gen .* lambda) => :gen_tx)
