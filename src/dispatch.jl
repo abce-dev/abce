@@ -959,8 +959,6 @@ end
 function calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
     econ_res = innerjoin(new_grc_results, new_prices, on = [:y, :d, :h])
 
-    CSV.write("/home/biegelk/abce/annual_dispatch_econ_results.csv", econ_res)
-
     # Compute weighted average generation price
     transform!(econ_res, [:gen, :lambda] => ((gen, lambda) -> gen .* lambda) => :gen_tx)
     wa_gen_price = sum(econ_res[!, :gen_tx]) / sum(econ_res[!, :gen])
