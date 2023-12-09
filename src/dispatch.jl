@@ -17,13 +17,13 @@
 
 module Dispatch
 
-using Requires, Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS
+using Requires, Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS, CPLEX
 
 
 # Initialize this module, with CPLEX as an optional library if available
-function __init__()
-    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
-end
+#function __init__()
+#    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
+#end
 
 
 function execute_dispatch_economic_projection(

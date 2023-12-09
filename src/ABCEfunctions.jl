@@ -16,13 +16,13 @@
 
 module ABCEfunctions
 
-using ArgParse,
+using ArgParse, CPLEX,
     Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS, Statistics
 
 # Use CPLEX if available
-function __init__()
-    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
-end
+#function __init__()
+#    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
+#end
 
 include("./dispatch.jl")
 using .Dispatch
