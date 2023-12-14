@@ -8,7 +8,7 @@
     debt_fraction: 0.5
     cost_of_debt: 0.06
     cost_of_equity: 0.12
-    starting_debt: 7976000000
+    starting_debt: 7226000000
     starting_PPE:  1692000000
     starting_RE: 1110000000
     starting_portfolio:
@@ -190,7 +190,7 @@
     debt_fraction: 0.5
     cost_of_debt: 0.04
     cost_of_equity: 0.1
-    starting_debt:  4000000000
+    starting_debt:  3000000000
     starting_PPE:    600000000
     starting_RE: 1000000000
     starting_portfolio:
