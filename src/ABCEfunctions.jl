@@ -1499,9 +1499,6 @@ function set_up_model(
     end
 
     
-
-
-
     # Create arrays of expected marginal debt, interest, dividends, and FCF
     #   per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
@@ -1521,33 +1518,35 @@ function set_up_model(
     end
 
 
-    # Prevent the agent from reducing its credit metrics below Moody's B
-    #   rating thresholds (from the Unregulated Power Companies ratings grid)
+    # Prevent the agent from reducing its aggregated financial metrics score
+    #   below the weighted sum of the Moody's Ba rating thresholds (from the 
+    #   Unregulated Power Companies ratings grid)
+    # Getting some values for conciseness
+    ICR_floor = settings["agent_opt"]["icr_floor"]
+    CDR_floor = settings["agent_opt"]["fcf_debt_floor"]
+    RCDR_floor = settings["agent_opt"]["re_debt_floor"]
+
     if mode == "normal"
         for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-            # Interest coverage ratio
             @constraint(
                 m,
-                (
-                    agent_fs[i, :FCF] / 1e9 +
-                    sum(u .* marg_FCF[:, i]) +
-                    (1 - settings["agent_opt"]["icr_floor"]) * (
-                        agent_fs[i, :interest_payment] / 1e9 +
-                        sum(u .* marg_int[:, i])
+                0.1 * (
+                    agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])
+                    + (1 - ICR_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])
                     )
-                ) >= 0
-            )
+                )
 
-            # FCF / debt
-            @constraint(
-                m,
-                (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - settings["agent_opt"]["fcf_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
-            )
+                + 0.2 * (
+                    (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) 
+                    - CDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) 
+                )
 
-            # Retained earnings / debt
-            @constraint(
-                m,
-                (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) - settings["agent_opt"]["re_debt_floor"] * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) >= 0
+                + 0.1 * (
+                    (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) 
+                    - RCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i]))
+                )
+
+                >= 0
             )
         end
     end
