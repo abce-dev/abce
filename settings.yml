@@ -1,7 +1,7 @@
 simulation:
-  scenario_name: "ABCE_run"
+  scenario_name: "CTAX_0_NG_3"
   solver: "CPLEX"
-  num_steps: 1
+  num_steps: 20
   annual_dispatch_engine: ABCE
   C2N_assumption: baseline
 
@@ -105,7 +105,7 @@ dispatch:
 
 # Settings for agent behavior optimization
 agent_opt:
-  num_future_periods_considered: 4    # Number of periods for which to consider future projects
+  num_future_periods_considered: 2    # Number of periods for which to consider future projects
   max_type_rets_per_pd: 3
   max_type_newcap_per_pd: 1100
   shortage_protection_period: 8
@@ -116,9 +116,13 @@ agent_opt:
   credit_rating_lamda: 0.1
   fin_metric_horizon: 6
   int_bound: 5.0
-  icr_floor: 4.2
-  fcf_debt_floor: 0.2
-  re_debt_floor: 0.15
+  icr_floor: 3.5   # weighted sum limit
+  fcf_debt_floor: 0.16   # weighted sum limit
+  re_debt_floor: 0.115   # weighted sum limit
+  icr_solo_floor: -10000.00   # individual
+  fcf_debt_solo_floor: -10000.00   # individual
+  re_debt_solo_floor: -10000.00    # individual
+  
 
 financing:
   default_debt_term: 30
