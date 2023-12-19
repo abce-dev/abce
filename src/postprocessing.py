@@ -67,7 +67,10 @@ def write_raw_db_to_excel(settings, db):
             table_data = pd.read_sql_query(f"SELECT * FROM {table}", db)
 
             # Write table data to excel tab
-            table_data.to_excel(writer, sheet_name=table, engine="openpyxl")
+            try:
+                table_data.to_excel(writer, sheet_name=table, engine="openpyxl")
+            except:
+                logging.info(f"Unable to save table {table} to excel, likely due to excessive length.")
 
 
 ###############################################################################
