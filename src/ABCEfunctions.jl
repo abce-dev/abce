@@ -1526,27 +1526,54 @@ function set_up_model(
     CDR_floor = settings["agent_opt"]["fcf_debt_floor"]
     RCDR_floor = settings["agent_opt"]["re_debt_floor"]
 
+    ICR_solo_floor = settings["agent_opt"]["icr_solo_floor"]
+    CDR_solo_floor = settings["agent_opt"]["fcf_debt_solo_floor"]
+    RCDR_solo_floor = settings["agent_opt"]["re_debt_solo_floor"]
+
+
     if mode == "normal"
         for i = 1:settings["agent_opt"]["fin_metric_horizon"]
+            # Limit aggregated score
             @constraint(
                 m,
-                0.1 * (
+                0.1 / ICR_floor * (
                     agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])
-                    + (1 - ICR_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])
-                    )
+                    + (1 - ICR_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i]))
                 )
 
-                + 0.2 * (
+                + 0.2 / CDR_floor * (
                     (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) 
                     - CDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) 
                 )
 
-                + 0.1 * (
+                + 0.1 / RCDR_floor * (
                     (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) 
                     - RCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i]))
                 )
 
                 >= 0
+            )
+
+            # Limit individual financial metrics
+            @constraint(
+                m,
+                agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])
+                    + (1 - ICR_solo_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i]))
+                    >= 0
+            )
+
+            @constraint(
+                m,
+                (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) 
+                    - CDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) 
+                    >= 0
+            )
+
+            @constraint(
+                m,
+                (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) 
+                    - RCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i]))
+                    >= 0
             )
         end
     end
@@ -2416,7 +2443,7 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
     transform!(
         agent_fs,
         [:net_income, :depreciation, :capex] =>
-            ((NI, dep, capex) -> (NI + dep - capex)) => :nominal_FCF,
+            ((NI, dep, capex) -> (NI + dep - 0.5 * capex)) => :nominal_FCF,
     )
 
     # Dividends and Retained Earnings
