@@ -1064,8 +1064,8 @@ function run_annual_dispatch(
             @debug "Subperiod starting $starting_index dispatch run complete."
 
             # Deallocate the models to avoid excess memory accumulation
-            #m = nothing
-            #m_copy = nothing
+            m = nothing
+            m_copy = nothing
 
             # Update the new starting_index for the next slice of data
             starting_index = ending_index + 1
