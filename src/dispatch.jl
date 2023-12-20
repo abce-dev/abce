@@ -407,7 +407,7 @@ function set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_d
 end
 
 
-function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs)
+function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs; gen_data, commit_data)
     # Create joined portfolio-unit_specs dataframe, to ensure consistent
     #   accounting for units which are actually present and consistent
     #   unit ordering
@@ -521,13 +521,55 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
         end
     end
 
+    # If no gen_data and commit_data are provided, assume that the time series 
+    #   starts with the first hour of the year or repday year
+    if (gen_data == nothing) || (commit_data == nothing)
+        for i = 1:num_units
+            if portfolio_specs[i, :is_VRE] == 0
+            # on the first hour of the "year", all units committed are counted as being started up this hour
+            @constraint(m, su[i, 1, 1] == c[i, 1, 1])
+            end
+        end
+    else
+        # If gen_data and commit_data are available, match this slice's
+        #   first-hour results to last slice's last-hour results
+        for i = 1:num_units
+            # Match generation: ramp-up
+            @constraint(
+                m,
+                (
+                    g[i, 1, 1] - gen_data[i] <=
+                    c[i, 1, 1] .* portfolio_specs[i, :ramp_up_limit] *
+                    portfolio_specs[i, :capacity] *
+                    portfolio_specs[i, :capacity_factor]
+                )
+            )
+
+            # Match generation: ramp-down constraint
+            @constraint(
+                m,
+                (
+                    g[i, 1, 1] - gen_data[i] >=
+                    (-1) *
+                    c[i, 1, 1] *
+                    portfolio_specs[i, :ramp_down_limit] *
+                    portfolio_specs[i, :capacity] *
+                    portfolio_specs[i, :capacity_factor]
+                )
+            )
+
+            # If not VRE, match commitment + start-up - shut_down
+            if portfolio_specs[i, :is_VRE] == 0
+                @constraint(m, c[i, 1, 1] - commit_data[i] - su[i, 1, 1] + sd[i, 1, 1] == 0)
+            end
+        end
+    end
+
+
     # Compute number of units started up and shut down per hour
     for i = 1:num_units
         # Exclude wind and solar
         if portfolio_specs[i, :is_VRE] == 0
-            # on the first hour of the "year", all units committed are counted as being started up this hour
-            @constraint(m, su[i, 1, 1] == c[i, 1, 1])
-
             for k = 1:num_days
                 # Intraday constraint
                 if k > 1
@@ -763,7 +805,7 @@ function solve_model(model; model_type = "integral")
 end
 
 
-function assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
+function assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs; starting_index=1)
     new_grc_results = set_up_grc_results_df()
 
     # Save generation and commitment results to a dataframe
@@ -774,7 +816,7 @@ function assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs
             for i = 1:size(c)[1]    # num_units
                 line = (
                     y = y,
-                    d = k,
+                    d = k + starting_index - 1,
                     h = j,
                     unit_type = portfolio_specs[i, :unit_type],
                     gen = gen_qty[i, k, j],
@@ -794,7 +836,7 @@ function assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs
 end
 
 
-function reshape_shadow_prices(gen_shadow_prices, reg_shadow_prices, spin_shadow_prices, nspin_shadow_prices, y, settings)
+function reshape_shadow_prices(gen_shadow_prices, reg_shadow_prices, spin_shadow_prices, nspin_shadow_prices, y, settings; starting_index=1)
     price_df = set_up_prices_df()
 
     # Convert the (repdays, hours) table into a long (y, d, h, price) table
@@ -805,13 +847,16 @@ function reshape_shadow_prices(gen_shadow_prices, reg_shadow_prices, spin_shadow
             spin_price = min(settings["system"]["AS_price_cap"], (-1) * spin_shadow_prices[k, j])
             nspin_price = min(settings["system"]["AS_price_cap"], (-1) * nspin_shadow_prices[k, j])
 
-            # Ensure the shadow price is no greater than the system cap
-#            if gen_price > settings["system"]["price_cap"]
-#                gen_price = settings["system"]["price_cap"]
-#            end
-
             # Add the price data to the table, indexed by y,d,h
-            line = (y = y, d = k, h = j, lambda = gen_price, reg_rmp = reg_price, spin_rmp = spin_price, nspin_rmp = nspin_price)
+            line = (
+                y = y,
+                d = k + starting_index - 1,
+                h = j,
+                lambda = gen_price,
+                reg_rmp = reg_price,
+                spin_rmp = spin_price,
+                nspin_rmp = nspin_price
+            )
             push!(price_df, line)
         end
     end
@@ -887,55 +932,146 @@ function run_annual_dispatch(
     # Set up representative days for AS
     ts_data = set_up_AS_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
 
-    @debug "Setting up optimization model..."
-    m, portfolio_specs =
-        set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs)
+    # If running in forecast mode, run the entire "year" at once
+    if run_mode == "forecast"
+        @debug "Setting up optimization model..."
+        m, portfolio_specs =
+            set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs; gen_data=nothing, commit_data=nothing)
 
-    @debug "Optimization model set up."
-    @debug string("Solving repday dispatch for year ", y, "...")
+        @debug "Optimization model set up."
+        @debug string("Solving repday dispatch for year ", y, "...")
 
-    # Create a copy of the model, to use later for the relaxed-integrality
-    #   solution
-    m_copy = copy(m)
-    if lowercase(settings["simulation"]["solver"]) == "cplex"
-        set_optimizer(m_copy, CPLEX.Optimizer)
-    elseif lowercase(settings["simulation"]["solver"]) == "glpk"
-        set_optimizer(m_copy, GLPK.Optimizer)
-    elseif lowercase(settings["simulation"]["solver"]) == "cbc"
-        set_optimizer(m_copy, Cbc.Optimizer)
-    elseif lowercase(settings["simulation"]["solver"]) == "highs"
-        set_optimizer(m_copy, HiGHS.Optimizer)
+        # Create a copy of the model, to use later for the relaxed-integrality
+        #   solution
+        m_copy = copy(m)
+        if lowercase(settings["simulation"]["solver"]) == "cplex"
+            set_optimizer(m_copy, CPLEX.Optimizer)
+        elseif lowercase(settings["simulation"]["solver"]) == "glpk"
+            set_optimizer(m_copy, GLPK.Optimizer)
+        elseif lowercase(settings["simulation"]["solver"]) == "cbc"
+            set_optimizer(m_copy, Cbc.Optimizer)
+        elseif lowercase(settings["simulation"]["solver"]) == "highs"
+            set_optimizer(m_copy, HiGHS.Optimizer)
+        end
+        set_silent(m_copy)
+
+        # Solve the integral optimization problem
+        m, status, gen_qty, r, sr, nsr, c, su, sd, ens, rns, sns, nsns = solve_model(m, model_type = "integral")
+
+        # Set up default return values if the dispatch year is infeasible
+        new_grc_results = nothing
+        new_prices = nothing
+        summary_statistics = nothing
+
+        # Save the generation and commitment results from the integral problem
+        new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
+
+        # Set up a relaxed-integrality version of this model, to allow
+        #   retrieval of dual values for the mkt_equil constraint
+        @debug "Solving relaxed-integrality problem to get shadow prices..."
+        undo = relax_integrality(m_copy)
+
+        # Solve the relaxed-integrality model to compute the shadow prices
+        m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
+        new_prices = reshape_shadow_prices(
+            shadow_price.(m_copy[:mkt_equil]),   # generation shadow prices
+            shadow_price.(m_copy[:reg_mkt_equil]),  # regulation shadow prices
+            shadow_price.(m_copy[:spin_mkt_equil]),  # spinning reserve shadow prices
+            shadow_price.(m_copy[:nspin_mkt_equil]), # non-spinning reserve shadow prices
+            y,
+            settings,
+        )
+
+        @debug "Year $y dispatch run complete."
+
+    else
+        # If running in 'current' mode (i.e. a full year), separate the total
+        #   year into subperiods to reduce memory requirements
+        subpd = settings["dispatch"]["annual_dispatch_subperiod"] # in days
+        starting_index = 1
+        gen_data = nothing
+        commit_data = nothing
+
+        new_grc_results = set_up_grc_results_df()
+        new_prices = set_up_prices_df()
+
+        while starting_index < 365
+            # Take slices of the time-series data
+            ending_index = min(starting_index + subpd - 1, size(ts_data[:load_repdays])[2])
+            @info "  Simulating dispatch for days $starting_index - $ending_index"
+
+            ts_data_slice = Dict(
+                :load_repdays => ts_data[:load_repdays][:, starting_index:ending_index],
+                :wind_repdays => ts_data[:wind_repdays][:, starting_index:ending_index],
+                :solar_repdays => ts_data[:solar_repdays][:, starting_index:ending_index],
+                :reg_repdays => ts_data[:reg_repdays][:, starting_index:ending_index],
+                :spin_repdays => ts_data[:spin_repdays][:, starting_index:ending_index],
+                :nspin_repdays => ts_data[:nspin_repdays][:, starting_index:ending_index],
+            )
+
+            num_slice_days = ending_index - starting_index + 1
+
+            @debug "Setting up optimization model..."
+            m, portfolio_specs =
+                set_up_model(settings, num_slice_days, num_hours, ts_data_slice, year_portfolio, unit_specs; gen_data=gen_data, commit_data=commit_data)
+
+            @debug "Optimization model set up."
+            @debug string("Solving annual dispatch for subperiod beginning ", starting_index, "...")
+
+            # Create a copy of the model, to use later for the relaxed-integrality
+            #   solution
+            m_copy = copy(m)
+            if lowercase(settings["simulation"]["solver"]) == "cplex"
+                set_optimizer(m_copy, CPLEX.Optimizer)
+            elseif lowercase(settings["simulation"]["solver"]) == "glpk"
+                set_optimizer(m_copy, GLPK.Optimizer)
+            elseif lowercase(settings["simulation"]["solver"]) == "cbc"
+                set_optimizer(m_copy, Cbc.Optimizer)
+            elseif lowercase(settings["simulation"]["solver"]) == "highs"
+                set_optimizer(m_copy, HiGHS.Optimizer)
+            end
+            set_silent(m_copy)
+
+            # Solve the integral optimization problem
+            m, status, gen_qty, r, sr, nsr, c, su, sd, ens, rns, sns, nsns = solve_model(m, model_type = "integral")
+
+            # Set up default return values if the dispatch year is infeasible
+            commit_data = deepcopy(c)[:, num_slice_days, num_hours]
+            gen_data = deepcopy(gen_qty)[:, num_slice_days, num_hours]
+
+            # Save the generation and commitment results from the integral problem
+            new_grc_results = vcat(new_grc_results, assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs; starting_index=starting_index))
+
+            # Set up a relaxed-integrality version of this model, to allow
+            #   retrieval of dual values for the mkt_equil constraint
+            @debug "Solving relaxed-integrality problem to get shadow prices..."
+            undo = relax_integrality(m_copy)
+
+            # Solve the relaxed-integrality model to compute the shadow prices
+            m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
+            price_results = reshape_shadow_prices(
+                shadow_price.(m_copy[:mkt_equil]),   # generation shadow prices
+                shadow_price.(m_copy[:reg_mkt_equil]),  # regulation shadow prices
+                shadow_price.(m_copy[:spin_mkt_equil]),  # spinning reserve shadow prices
+                shadow_price.(m_copy[:nspin_mkt_equil]), # non-spinning reserve shadow prices
+                y,
+                settings;
+                starting_index=starting_index
+            )
+
+            new_prices = vcat(new_prices, price_results)
+
+            @debug "Subperiod starting $starting_index dispatch run complete."
+
+            # Deallocate the models to avoid excess memory accumulation
+            m = nothing
+            m_copy = nothing
+
+            # Update the new starting_index for the next slice of data
+            starting_index = ending_index + 1
+        end
+
     end
-    set_silent(m_copy)
-
-    # Solve the integral optimization problem
-    m, status, gen_qty, r, sr, nsr, c, su, sd, ens, rns, sns, nsns = solve_model(m, model_type = "integral")
-
-    # Set up default return values if the dispatch year is infeasible
-    new_grc_results = nothing
-    new_prices = nothing
-    summary_statistics = nothing
-
-    # Save the generation and commitment results from the integral problem
-    new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
-
-    # Set up a relaxed-integrality version of this model, to allow
-    #   retrieval of dual values for the mkt_equil constraint
-    @debug "Solving relaxed-integrality problem to get shadow prices..."
-    undo = relax_integrality(m_copy)
-
-    # Solve the relaxed-integrality model to compute the shadow prices
-    m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
-    new_prices = reshape_shadow_prices(
-        shadow_price.(m_copy[:mkt_equil]),   # generation shadow prices
-        shadow_price.(m_copy[:reg_mkt_equil]),  # regulation shadow prices
-        shadow_price.(m_copy[:spin_mkt_equil]),  # spinning reserve shadow prices
-        shadow_price.(m_copy[:nspin_mkt_equil]), # non-spinning reserve shadow prices
-        y,
-        settings,
-    )
-
-    @debug "Year $y dispatch run complete."
 
     if run_mode == "current"
         summary_statistics = calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
