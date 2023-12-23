@@ -355,34 +355,6 @@ function set_up_AS_repdays(downselection_mode, num_days, num_hours, ts_data)
 end
 
 
-function scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
-    for unit_type in ["wind", "solar"]
-        data_name = Symbol(string(unit_type, "_data"))
-        shaped_col = Symbol(string(uppercasefirst(unit_type), "Shape"))
-
-        # Set up data in ts_data
-        ts_data[data_name][!, Symbol(unit_type)] .= 0.0
-
-        if !isempty(filter(:unit_type => x -> x == unit_type, unit_specs))
-            # Get the unit type's specs
-            type_specs = filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
-
-            # For non-zero wind and solar capacity, scale the WindShape series by the
-            #   installed capacity to get total instantaneous VRE availability
-            # If either wind or solar has 0 installed capacity, set its entire time
-            #   series to 0.0
-            if !isempty(filter(:unit_type => x -> x == unit_type, year_portfolio))
-                ts_data[data_name][!, Symbol(unit_type)] = (
-                    ts_data[data_name][!, shaped_col]
-                )
-            end
-        end
-    end
-
-    return ts_data
-end
-
-
 function set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_data)
     wind_repdays = DataFrame()
     solar_repdays = DataFrame()
@@ -919,10 +891,6 @@ function run_annual_dispatch(
     # Set up representative days for load
     ts_data = set_up_load_repdays(downselection_mode, num_days, num_hours, ts_data)
 
-    # Scale the wind and solar data according to the current year's total
-    #   installed capacity
-#    ts_data = scale_wind_solar_data(ts_data, year_portfolio, unit_specs)
-
     # Set up representative days for wind and solar
     ts_data = set_up_wind_solar_repdays(downselection_mode, num_days, num_hours, ts_data)
 
@@ -992,8 +960,12 @@ function run_annual_dispatch(
         gen_data = nothing
         commit_data = nothing
 
-        new_grc_results = set_up_grc_results_df()
-        new_prices = set_up_prices_df()
+        all_grc_results = set_up_grc_results_df()
+        all_prices = set_up_prices_df()
+        all_ens = nothing
+        all_rns = nothing
+        all_sns = nothing
+        all_nsns = nothing
 
         while starting_index < 365
             # Take slices of the time-series data
@@ -1035,12 +1007,30 @@ function run_annual_dispatch(
             # Solve the integral optimization problem
             m, status, gen_qty, r, sr, nsr, c, su, sd, ens, rns, sns, nsns = solve_model(m, model_type = "integral")
 
-            # Set up default return values if the dispatch year is infeasible
+            # Save last-hour commitment and generation data to set up
+            #   next period's continuity constraints
             commit_data = deepcopy(c)[:, num_slice_days, num_hours]
             gen_data = deepcopy(gen_qty)[:, num_slice_days, num_hours]
 
-            # Save the generation and commitment results from the integral problem
-            new_grc_results = vcat(new_grc_results, assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs; starting_index=starting_index))
+            # Save the generation, commitment, and ancillary services results
+            #    from the integral problem
+            all_grc_results = vcat(all_grc_results, assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs; starting_index=starting_index))
+
+            if starting_index == 1
+                # On the first subperiod, overwrite the default `nothing' 
+                #   objects with the new Matrix objects
+                all_ens = ens
+                all_rns = rns
+                all_sns = sns
+                all_nsns = nsns
+            else
+                # For subsequent subperiods, concatenate new data to the end
+                #   of the existing Matrix objects
+                all_ens = vcat(all_ens, ens)
+                all_rns = vcat(all_rns, rns)
+                all_sns = vcat(all_sns, sns)
+                all_nsns = vcat(all_nsns, nsns)
+            end
 
             # Set up a relaxed-integrality version of this model, to allow
             #   retrieval of dual values for the mkt_equil constraint
@@ -1059,7 +1049,7 @@ function run_annual_dispatch(
                 starting_index=starting_index
             )
 
-            new_prices = vcat(new_prices, price_results)
+            all_prices = vcat(all_prices, price_results)
 
             @debug "Subperiod starting $starting_index dispatch run complete."
 
@@ -1070,6 +1060,14 @@ function run_annual_dispatch(
             # Update the new starting_index for the next slice of data
             starting_index = ending_index + 1
         end
+
+        # Rename data objects to their standard names
+        new_grc_results = all_grc_results
+        new_prices = all_prices
+        ens = all_ens
+        rns = all_rns
+        sns = all_sns
+        nsns = all_nsns
 
     end
 
