@@ -391,9 +391,10 @@ class GridModel(Model):
             f"SELECT agent_id, COUNT(asset_id) FROM assets WHERE completion_pd <= {self.current_pd} AND retirement_pd > {self.current_pd} GROUP BY agent_id",
             self.db
         )
-        for agent_id in units_this_year["agent_id"]:
-            if units_this_year[units_this_year["agent_id"] == agent_id]["COUNT(asset_id)"].values[0] == 0:
-                self.schedule.remove(self.agents[int(agent_id)])
+        for agent_id, agent in self.agents.items():
+            if (str(agent_id) not in units_this_year.agent_id.values) and (self.agents[agent_id] in self.schedule.agents):
+                logging.info(f"Removing agent {agent_id} from the simulation due to a size-zero portfolio.")
+                self.schedule.remove(self.agents[agent_id])
 
         # Compute the scenario reduction results for this year
         ABCE.execute_scenario_reduction(
