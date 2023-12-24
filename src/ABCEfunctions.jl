@@ -1485,17 +1485,18 @@ function set_up_model(
         # Get total agent portfolio size for this year
         stmt = "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $i AND retirement_pd > $i GROUP BY unit_type"
         agent_pf = DBInterface.execute(db, stmt) |> DataFrame
-        rename!(agent_pf, Symbol("COUNT(unit_type)") => :num_units)
-        agent_pf = leftjoin(agent_pf, select(unit_specs, [:unit_type, :capacity, :capacity_factor]), on=:unit_type)
-        transform!(agent_pf, [:num_units, :capacity, :capacity_factor] => ((num, cap, cf) -> num .* cap .* cf) => :total_derated_cap)
-        agent_year_derated_cap = sum(agent_pf[!, :total_derated_cap])
+        if size(agent_pf)[1] != 0
+            rename!(agent_pf, Symbol("COUNT(unit_type)") => :num_units)
+            agent_pf = leftjoin(agent_pf, select(unit_specs, [:unit_type, :capacity, :capacity_factor]), on=:unit_type)
+            transform!(agent_pf, [:num_units, :capacity, :capacity_factor] => ((num, cap, cf) -> num .* cap .* cf) => :total_derated_cap)
+            agent_year_derated_cap = sum(agent_pf[!, :total_derated_cap])
 
-        @constraint(
-            m,
-            transpose(u .* PA_summaries[:, :current]) * marg_eff_cap[:, i] >=
-            agent_year_derated_cap * margin
-        )
-
+            @constraint(
+                m,
+                transpose(u .* PA_summaries[:, :current]) * marg_eff_cap[:, i] >=
+                agent_year_derated_cap * margin
+            )
+        end
     end
 
     

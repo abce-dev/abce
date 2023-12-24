@@ -385,6 +385,17 @@ class GridModel(Model):
         # Update financial statements and financial projections for all agents
         self.update_agent_financials()
 
+        # If any agent will have an empty portfolio this year, delete them
+        #   from the schedule
+        units_this_year = pd.read_sql_query(
+            f"SELECT agent_id, COUNT(asset_id) FROM assets WHERE completion_pd <= {self.current_pd} AND retirement_pd > {self.current_pd} GROUP BY agent_id",
+            self.db
+        )
+        for agent_id, agent in self.agents.items():
+            if (str(agent_id) not in units_this_year.agent_id.values) and (self.agents[agent_id] in self.schedule.agents):
+                logging.info(f"Removing agent {agent_id} from the simulation due to a size-zero portfolio.")
+                self.schedule.remove(self.agents[agent_id])
+
         # Compute the scenario reduction results for this year
         ABCE.execute_scenario_reduction(
             self.args, self.db, self.current_pd, self.settings, self.unit_specs
