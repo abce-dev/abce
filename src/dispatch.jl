@@ -454,7 +454,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     @constraint(
         m,
         mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(g[i, k, j] for i = 1:num_units) + ens[k, j] >= load_repdays[j, k]
+        sum(g[i, k, j] for i = 1:num_units) + ens[k, j] == load_repdays[j, k]
     )
 
     # Total regulation per hour plus regulation not served must be greater 
@@ -462,7 +462,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     @constraint(
         m,
         reg_mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(r[i, k, j] for i = 1:num_units) + rns[k, j] >= reg_repdays[j, k]
+        sum(r[i, k, j] for i = 1:num_units) + rns[k, j] == reg_repdays[j, k]
     )
 
     # Total spinning reserve per hour plus spinning reserve not served must be
@@ -470,7 +470,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     @constraint(
         m,
         spin_mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(sr[i, k, j] for i = 1:num_units) + sns[k, j] >= spin_repdays[j, k]
+        sum(sr[i, k, j] for i = 1:num_units) + sns[k, j] == spin_repdays[j, k]
     )
 
     # Total non-spinning reserve per hour plus non-spinning reserve not served
@@ -478,7 +478,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
     @constraint(
         m,
         nspin_mkt_equil[k = 1:num_days, j = 1:num_hours],
-        sum(nsr[i, k, j] for i = 1:num_units) + nsns[k, j] >= nspin_repdays[j, k]
+        sum(nsr[i, k, j] for i = 1:num_units) + nsns[k, j] == nspin_repdays[j, k]
     )
 
     # Number of committed units per hour must be less than or equal to the
