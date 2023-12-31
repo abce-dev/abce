@@ -1,5 +1,5 @@
 simulation:
-  scenario_name: "CTAX_0_NG_3"
+  scenario_name: "baseline"
   solver: "CPLEX"
   num_steps: 20
   annual_dispatch_engine: ABCE
@@ -9,7 +9,7 @@ scenario:
   peak_demand: 80000
   policies:
     CTAX:
-      enabled: True
+      enabled: False
       qty: 0  # $/t CO2
     PTC:
       enabled: True
@@ -18,6 +18,9 @@ scenario:
           - conventional_nuclear
           - wind
           - solar
+      start_year: 0  # earliest eligible year for construction start (absolute, inclusive)
+      end_year: 9    # latest eligible year for construction start (absolute, inclusive)
+      duration: 10  # number of in-service years for which eligible units receive the credit
       qty: 27.5   # $/MWh
     ITC:
       enabled: True
@@ -29,6 +32,8 @@ scenario:
           - HTGR_C2N2_single
           - SFR_C2N0_single
           - SFR_C2N3_single
+      start_year: 0  # earliest eligible year for construction start (absolute, inclusive)
+      end_year: 9    # latest eligible year for construction start (absolute, inclusive)
       qty: 0.4   # Specify as a fraction (between 0 and 1)
 
   allowed_xtr_types:

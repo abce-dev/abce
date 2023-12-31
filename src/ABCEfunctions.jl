@@ -586,6 +586,8 @@ function set_up_project_alternatives(
                         PA["project_type"],
                         "_",
                         PA["lag"],
+                        "_basepd_",
+                        current_pd,
                         ".csv"
                     ),
                 ),
@@ -851,6 +853,7 @@ function forecast_subproject_financials(
     # Forecast all post-facto policy adjustments
     subproject_fs = forecast_subproject_pf_policy_adj(
         settings,
+        current_pd,
         subproject,
         unit_type_data,
         deepcopy(subproject_fs)
@@ -1171,6 +1174,26 @@ function forecast_subproject_operations(
                 sign * ABCE_data_value * (1 - hist_wt) +
                 sign * historical_data_value * (hist_wt)
         end
+
+        # Zero out production tax credits if the subproject would not actually be
+        #   eligible for them during this year
+        if "policies" in keys(settings["scenario"])
+            if "PTC" in keys(settings["scenario"]["policies"])
+                if subproject["unit_type"] in settings["scenario"]["policies"]["PTC"]["eligibility"]["unit_type"]
+                    PTC_start = settings["scenario"]["policies"]["PTC"]["start_year"]
+                    PTC_end = settings["scenario"]["policies"]["PTC"]["end_year"]
+                    PTC_duration = settings["scenario"]["policies"]["PTC"]["duration"]
+                    unit_xtr_duration = unit_type_data[:construction_duration]
+
+                    # Check if this unit is eligible for the PTC by its
+                    #   construction start date
+                    if (PTC_start > current_pd + subproject["lag"]) || (PTC_end < current_pd + subproject["lag"]) || (yr >= current_pd + subproject["lag"] + unit_xtr_duration + PTC_duration)
+                        fs_copy[i, "tax_credits"] = 0
+                    end
+                end
+            end
+        end
+
     end
 
     return fs_copy
@@ -1178,12 +1201,12 @@ function forecast_subproject_operations(
 end
 
 
-function forecast_subproject_pf_policy_adj(settings, subproject, unit_type_data, fs_copy)
+function forecast_subproject_pf_policy_adj(settings, current_pd, subproject, unit_type_data, fs_copy)
     try
         ITC_data = settings["scenario"]["policies"]["ITC"]
         ITC_qty = ITC_data["qty"]
 
-        if ITC_data["enabled"] && subproject["unit_type"] in ITC_data["eligibility"]["unit_type"]
+        if ((ITC_data["enabled"]) && (subproject["unit_type"] in ITC_data["eligibility"]["unit_type"]) && (ITC["start_year"] <= current_pd + subproject["lag"]) &&(ITC["end_year"] >= current_pd + subproject["lag"]))
             capex_end = get_capex_end(fs_copy)
             total_capex = sum(fs_copy[!, :capex])
 
