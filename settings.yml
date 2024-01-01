@@ -11,17 +11,25 @@ scenario:
     CTAX:
       enabled: False
       qty: 0  # $/t CO2
-    PTC:
+    PTC_all_techs:
       enabled: True
       eligibility:
         unit_type:
-          - conventional_nuclear
           - wind
           - solar
       start_year: -5  # earliest eligible year for construction start (absolute, inclusive)
       end_year: 9    # latest eligible year for construction start (absolute, inclusive)
       duration: 10  # number of in-service years for which eligible units receive the credit
       qty: 27.5   # $/MWh
+    PTC_existing_nuclear:
+      enabled: True
+      eligibility:
+        unit_type:
+          - conventional_nuclear
+      start_year: -100
+      end_year: 100
+      duration: 50
+      qty: 12
     ITC:
       enabled: True
       eligibility:
