@@ -29,7 +29,7 @@ scenario:
       start_year: -100
       end_year: 100
       duration: 50
-      qty: 12
+      qty: 10
     ITC:
       enabled: True
       eligibility:
