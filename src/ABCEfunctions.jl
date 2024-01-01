@@ -1175,27 +1175,50 @@ function forecast_subproject_operations(
                 sign * historical_data_value * (hist_wt)
         end
 
-        # Zero out production tax credits if the subproject would not actually be
-        #   eligible for them during this year
-        if "policies" in keys(settings["scenario"])
-            for policy in keys(settings["scenario"]["policies"])
-                if occursin("PTC", policy)
-                    if subproject["unit_type"] in settings["scenario"]["policies"][policy]["eligibility"]["unit_type"]
-                        PTC_start = settings["scenario"]["policies"][policy]["start_year"]
-                        PTC_end = settings["scenario"]["policies"][policy]["end_year"]
-                        PTC_duration = settings["scenario"]["policies"][policy]["duration"]
-                        unit_xtr_duration = unit_type_data[:construction_duration]
+    end
 
-                        # Check if this unit is eligible for the PTC by its
-                        #   construction start date
-                        if (PTC_start > current_pd + subproject["lag"]) || (PTC_end < current_pd + subproject["lag"]) || (yr >= current_pd + subproject["lag"] + unit_xtr_duration + PTC_duration)
-                            fs_copy[i, "tax_credits"] = 0
+    # Compute all PTC and ITC contributions
+    fs_copy[!, :tax_credits] .= 0.0
+
+    if "policies" in keys(settings["scenario"])
+        policies = settings["scenario"]["policies"]
+
+        # If PTC exists
+        for policy in keys(policies)
+            if occursin("PTC", policy) && policies[policy]["enabled"]
+                # If unit is listed as PTC-eligible
+                if (subproject["unit_type"] in policies[policy]["eligibility"]["unit_type"]) && (subproject["project_type"] == "new_xtr")
+                    # If unit's construction start date is within the PTC eligibility period
+                    if (policies[policy]["start_year"] <= current_pd + subproject["lag"]) && (policies[policy]["end_year"] >= current_pd + subproject["lag"])
+                        # Calculate the start and end of the award period,
+                        #   in relative years
+                        award_start = subproject["lag"] + unit_type_data[:construction_duration] + 1
+                        award_end = award_start + policies[policy]["duration"] - 1
+
+                        for y = award_start:award_end
+                            # Add the asset's total PTC earnings 
+                            #   contribution to the year's total
+                            fs_copy[y, :tax_credits] += fs_copy[y, :generation] * policies[policy]["qty"]
                         end
                     end
                 end
             end
-        end
 
+            # If ITC exists
+            if occursin("ITC", policy) && policies[policy]["enabled"]
+                # If unit is listed as ITC-eligible
+                if (subproject["unit_type"] in policies[policy]["eligibility"]["unit_type"]) && (subproject["project_type"] == "new_xtr")
+                    # If unit's construction start date is within the ITC eligibility period
+                    if (policies[policy]["start_year"] <= current_pd + subproject["lag"]) && (policies[policy]["end_year"] >= current_pd + subproject["lag"])
+                        # If unit is operational, use its total_capex value
+                        total_capex = sum(fs_copy[!, :capex])
+
+                        # Add the appropriate ITC award to the tax_credits column
+                        fs_copy[subproject["lag"] + unit_type_data[:construction_duration] + 1, :tax_credits] += total_capex * policies[policy]["qty"]
+                    end
+                end
+            end
+        end
     end
 
     return fs_copy
@@ -2342,12 +2365,9 @@ function compute_policy_contributions(settings, db, fs_copy, agent_id, current_p
         for asset in eachrow(assets)
             # If PTC exists
             for policy in keys(policies)
-                println(policy)
                 if occursin("PTC", policy) && policies[policy]["enabled"]
-                    println("$policy is a PTC")
                     # If unit is listed as PTC-eligible
                     if asset["unit_type"] in policies[policy]["eligibility"]["unit_type"]
-                        println(string(asset["unit_type"], " is eligible by type for ", policy))
                         # Determine asset's completion date
                         if asset["completion_pd"] == 0
                             # If the asset starts the simulation already operational,
@@ -2359,7 +2379,6 @@ function compute_policy_contributions(settings, db, fs_copy, agent_id, current_p
                         end
                         # If unit's completion date is within the PTC eligibility period
                         if (policies[policy]["start_year"] <= completion_pd) && (policies[policy]["end_year"] >= completion_pd)
-                            println(string(asset["unit_type"], " is eligible by completion period for ", policy))
                             # If current period is still within the award period for the PTC
                             if current_pd <= completion_pd + policies[policy]["duration"]
                                 # Calculate the start and end of the award period,
@@ -2368,7 +2387,6 @@ function compute_policy_contributions(settings, db, fs_copy, agent_id, current_p
                                 award_end = min(completion_pd + policies[policy]["duration"] - current_pd , size(fs_copy)[1])
 
                                 for y = award_start:award_end
-                                    println(y)
                                     # Get asset type generation for the year
                                     asset_generation = filter([:unit_type, :y, :dispatch_result] => ((unit_type, y, disp_res) -> ((unit_type == asset["unit_type"]) && (y == y) && (disp_res == "generation"))), dispatch_results)[1, :qty]
 
@@ -2383,11 +2401,10 @@ function compute_policy_contributions(settings, db, fs_copy, agent_id, current_p
 
                 # If ITC exists
                 if occursin("ITC", policy) && policies[policy]["enabled"]
-                    println("$policy is an ITC")
                     # If unit is listed as ITC-eligible
                     if asset["unit_type"] in policies[policy]["eligibility"]["unit_type"]
                         # If unit's completion date is within the ITC eligibility period
-                        if (policies[policy]["start_year"] <= asset["completion_pd"]) && (policices[policy]["end_year"] >= asset["completion_pd"])
+                        if (policies[policy]["start_year"] <= asset["completion_pd"]) && (policies[policy]["end_year"] >= asset["completion_pd"])
                             # If unit is operational, use its total_capex value
                             if asset["completion_pd"] <= current_pd
                                 total_capex = asset["total_capex"]
