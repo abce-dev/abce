@@ -694,9 +694,18 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
 
     ENS_penalty = settings["constants"]["big_number"]
     ASNS_penalty = ENS_penalty * settings["dispatch"]["ASNS_penalty_ratio"]
+    RNS_subpenalty = settings["dispatch"]["rns_subpenalty"]
+    SNS_subpenalty = settings["dispatch"]["sns_subpenalty"]
+    NSNS_subpenalty = settings["dispatch"]["nsns_subpenalty"]
     gamma_reg = settings["dispatch"]["gamma_reg"]
     gamma_spin = settings["dispatch"]["gamma_spin"]
     gamma_nspin = settings["dispatch"]["gamma_nspin"]
+
+    # Rescale AS subpenalties
+    total = RNS_subpenalty + SNS_subpenalty + NSNS_subpenalty
+    RNS_subpenalty = RNS_subpenalty / total
+    SNS_subpenalty = SNS_subpenalty / total
+    NSNS_subpenalty = NSNS_subpenalty / total
 
     @objective(
         m,
@@ -722,7 +731,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
                 for i = 1:num_units)
                 # Penalty for energy not served and ancillary services
                 #   not served
-                + ens[k, j] .* ENS_penalty + (rns[k, j] .+ sns[k, j] + nsns[k, j]) .* ASNS_penalty
+                + ens[k, j] .* ENS_penalty + (RNS_subpenalty .* rns[k, j] .+ SNS_subpenalty .* sns[k, j] + NSNS_subpenalty .* nsns[k, j]) .* ASNS_penalty
             for j = 1:num_hours)
         for k = 1:num_days)
     )
