@@ -33,13 +33,13 @@
         ngct:
             10: 1
         wind:
-            11: 1
+            26: 1
         wind_old:
-            20: 1
+            8: 1
         solar:
-            12: 1
+            29: 1
         solar_old:
-            21: 1
+            11: 1
         conventional_nuclear:
             13: 1
 
