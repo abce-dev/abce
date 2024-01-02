@@ -110,10 +110,13 @@ dispatch:
   downselection: scenario_reduction
   num_repdays: 50
   annual_dispatch_subperiod: 30   # Number of days per annual dispatch subperiod
-  ASNS_penalty_ratio: 0.001  # Relative to an ENS penalty value of 1
-  gamma_reg: 0.2
-  gamma_spin: 0.1
-  gamma_nspin: 0.1
+  ASNS_penalty_ratio: 0.08  # Relative to an ENS penalty value of 1
+  rns_subpenalty: 4
+  sns_subpenalty: 5
+  nsns_subpenalty: 2
+  gamma_reg: .8
+  gamma_spin: .8
+  gamma_nspin: 0.2
   hist_wt: 0.4  # Weighting of historical versus projected data
   hist_decay: 0.5   # Decay factor for each historical data year
 
