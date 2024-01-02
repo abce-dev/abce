@@ -471,7 +471,6 @@ function forecast_balance_of_market_investment(adj_system_portfolios, agent_port
         d_0 = filter(:period => x -> x == current_pd, demand_forecast)[1, :total_demand]
         c_0 = sum(adj_system_portfolios[current_pd][!, :total_derated_capacity])
 
-
         if c_y / d_y < c_0 / d_0
             transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :real] => ((c_iy, my, cf, real) -> c_iy .+ real .* (my .* (c_iy ./ c_y) .* (d_y .* c_0 ./ d_0 .- c_y))) => :total_esc_der_capacity)
         else
@@ -481,6 +480,7 @@ function forecast_balance_of_market_investment(adj_system_portfolios, agent_port
         transform!(adj_system_portfolios[y], [:total_esc_der_capacity, :capacity_factor] => ((c_iy, cf) -> c_iy ./ cf) => :total_esc_capacity)
 
         transform!(adj_system_portfolios[y], [:total_esc_capacity, :capacity] => ((total_esc_cap, cap) -> ceil.(total_esc_cap ./cap)) => :esc_num_units)
+
     end
 
     return adj_system_portfolios
@@ -1070,7 +1070,7 @@ function forecast_subproject_operations(
     mode = subproject["project_type"]
     hist_wt = settings["dispatch"]["hist_wt"]
     data_to_get =
-        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj", "tax_credits"]
+        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
 
     # Get historical dispatch results for this unit type
     historical_dispatch_results = filter(
@@ -1301,7 +1301,7 @@ function average_historical_dispatch_results(settings, db)
 
         # Weight the data columns
         data_to_weight =
-            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj", "tax_credits"]
+            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
 
         for data_type in data_to_weight
             transform!(
