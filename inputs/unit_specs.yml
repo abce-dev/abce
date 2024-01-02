@@ -223,7 +223,42 @@ ngct:
     Scenario: Moderate
     Year: 2025
     ATB_year: 2020
-PUN_unit:
+PUN_unit_low:
+  capacity: 50   # MW
+  max_PL: 0.92
+  min_PL: 0.0
+  overnight_capital_cost: 925
+  retirement_cost: 0.0
+  FOM: 11.39    # $/kW-yr
+  VOM: 100.00    # $/MWh
+  fuel_type: natural_gas
+  FC_per_MMBTU: 4.0
+  no_load_cost: 0.0
+  start_up_cost: 20.00   # $/MW
+  shut_down_cost: 5.00  # $/MW, non-fuel start-up costs
+  heat_rate: 9.515    # MMBTU/MWh
+  ramp_up_limit: 1.0    # % PL/hr
+  ramp_down_limit: 1.0  # % PL/hr
+  max_regulation: 0.42
+  max_spinning_reserve: 0.83
+  max_nonspinning_reserve: 1.0
+  capacity_factor: 0.92
+  emissions_per_MMBTU: 0.058   # t CO2 / MMBTU
+  is_VRE: False
+  uses_fuel: True
+  occ_stdev: 0
+  construction_duration: 3
+  const_dur_stdev: 0
+  unit_life: 30
+  ATB_search_settings:
+    Tech: NaturalGas
+    TechDetail: CTAvgCF
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    ATB_year: 2020
+PUN_unit_high:
   capacity: 50   # MW
   max_PL: 0.92
   min_PL: 0.0
