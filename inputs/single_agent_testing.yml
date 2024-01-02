@@ -55,7 +55,8 @@
         ngct: 174
         conventional_nuclear: 12
         coal: 30
-        PUN_unit: 85
+        PUN_unit_high: 85
+        PUN_unit_low: 40
     inactive: True
 
 

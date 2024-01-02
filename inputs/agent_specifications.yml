@@ -258,5 +258,6 @@
         solar_old: 40
         ngcc: 121
         ngct: 4
-        PUN_unit: 85
+        PUN_unit_high: 85
+        PUN_unit_low: 40
     inactive: True
