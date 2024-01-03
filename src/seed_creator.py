@@ -206,6 +206,7 @@ abce_tables = {
         ("projected_pd", "integer"),
         ("capex", "real"),
         ("remaining_debt_principal", "real"),
+        ("principal_payment", "real"),
         ("depreciation", "real"),
         ("revenue", "real"),
         ("VOM", "real"),
