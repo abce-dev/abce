@@ -94,8 +94,8 @@
 # City of San Antonio
 203:
     debt_fraction: 0.9
-    cost_of_debt: 0.02
-    cost_of_equity: 0.05
+    cost_of_debt: 0.04
+    cost_of_equity: 0.06
     starting_debt: 3000000000
     starting_PPE:  1000000000
     starting_RE: 814000000
