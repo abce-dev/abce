@@ -1750,8 +1750,6 @@ function set_up_model(
 
     end
 
-    CSV.write("./coal_rets_indicators.csv", DataFrame(coal_retirements, :auto))
-
     for i = 1:size(coal_retirements)[2]
         y = current_pd + i - 1  # -1 converts i from julia dataframe index back to true relative year
         num_units = 0
