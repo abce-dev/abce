@@ -785,6 +785,7 @@ function forecast_subproject_financials(
         remaining_debt_principal = zeros(fc_pd),
         debt_payment = zeros(fc_pd),
         interest_payment = zeros(fc_pd),
+        principal_payment = zeros(fc_pd),
         depreciation = zeros(fc_pd),
         generation = zeros(fc_pd),
         revenue = zeros(fc_pd),
@@ -1029,6 +1030,7 @@ function forecast_debt_schedule(
         fs_copy[i, :interest_payment] =
             fs_copy[i, :remaining_debt_principal] *
             agent_params[1, :cost_of_debt]
+        fs_copy[i, :principal_payment] = fs_copy[i, :debt_payment] - fs_copy[i, :interest_payment]
         if i != fin_end
             fs_copy[i + 1, :remaining_debt_principal] =
                 fs_copy[i, :remaining_debt_principal] -
@@ -2456,31 +2458,16 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
             ),
         ) |> DataFrame
 
-    # Fill in total interest payments
-    interest_payment_ts =
-        DBInterface.execute(
-            db,
-            string(
-                "SELECT projected_pd, SUM(interest_payment) ",
-                "FROM financing_schedule ",
-                "WHERE agent_id = $agent_id ",
-                "AND base_pd = $current_pd ",
-                "GROUP BY projected_pd",
-            ),
-        ) |> DataFrame
-
     # Join the scheduled columns to the financial statement
     agent_fs = leftjoin(agent_fs, capex_ts, on = :projected_pd)
     agent_fs = leftjoin(agent_fs, remaining_debt_principal_ts, on = :projected_pd)
     agent_fs = leftjoin(agent_fs, depreciation_ts, on = :projected_pd)
-    agent_fs = leftjoin(agent_fs, interest_payment_ts, on = :projected_pd)
 
     # Standardize column names
     rename!(
         agent_fs,
         Symbol("SUM(capex)") => :capex,
         Symbol("SUM(depreciation)") => :depreciation,
-        Symbol("SUM(interest_payment)") => :interest_payment,
     )
 
     return agent_fs
@@ -2489,12 +2476,15 @@ end
 
 function compute_debt_principal_ts(db, agent_id, current_pd)
     # Get debt principal repayments by year
-    principal_payments = DBInterface.execute(db, string("SELECT projected_pd, SUM(principal_payment) FROM financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd")) |> DataFrame
-    rename!(principal_payments, Symbol("SUM(principal_payment)") => :principal_payment)
+    principal_payments = DBInterface.execute(db, string("SELECT * FROM financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd")) |> DataFrame
 
     # Get cumulative debt issued by year
     # Get the list of all debt instruments issued by this agent
     inst_manifest = DBInterface.execute(db, string("SELECT * FROM financial_instrument_manifest WHERE agent_id = $agent_id AND instrument_type='debt'")) |> DataFrame
+
+    principal_payments = filter(:instrument_id => instrument_id -> in(instrument_id, inst_manifest[!, :instrument_id]), principal_payments)
+    principal_payments = groupby(principal_payments, :projected_pd)
+    principal_payments = combine(principal_payments, [:principal_payment, :interest_payment] .=> sum; renamecols=false)
 
     debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
 
@@ -2507,7 +2497,15 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
     end
 
     debt_principal_ts = outerjoin(debt_principal_ts, principal_payments, on = :projected_pd)
-    transform!(debt_principal_ts, [:remaining_debt_principal, :principal_payment] => ((rem_prin, prin_pmt) -> rem_prin - prin_pmt) => :remaining_debt_principal)
+
+    debt_principal_ts[!, :BOY_rem_debt_principal] .= 0.0
+    debt_principal_ts[1, :BOY_rem_debt_principal] = debt_principal_ts[1, :remaining_debt_principal]
+    for y = 2:size(debt_principal_ts)[1]
+        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y-1, :BOY_rem_debt_principal] - debt_principal_ts[y-1, :principal_payment]
+    end
+
+    debt_principal_ts = select(debt_principal_ts, [:projected_pd, :BOY_rem_debt_principal, :principal_payment, :interest_payment])
+    rename!(debt_principal_ts, :BOY_rem_debt_principal => :remaining_debt_principal)
 
     return debt_principal_ts
 end
@@ -2561,8 +2559,8 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
     # Free Cash Flow
     transform!(
         agent_fs,
-        [:net_income, :depreciation, :capex] =>
-            ((NI, dep, capex) -> (NI + dep - 0.5 * capex)) => :nominal_FCF,
+        [:net_income, :depreciation, :capex, :principal_payment] =>
+            ((NI, dep, capex, pp) -> (NI + dep - 0.5 * capex - pp)) => :nominal_FCF,
     )
 
     # Dividends and Retained Earnings

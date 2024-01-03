@@ -760,7 +760,8 @@ class GridModel(Model):
         all_fin_insts = pd.read_sql_query(
             (
                 f"SELECT * FROM financial_instrument_manifest "
-                + f"WHERE maturity_pd > {self.current_pd}"
+                + f"WHERE maturity_pd > {self.current_pd} "
+                + f"AND instrument_type = 'debt'"
             ),
             self.db,
         )
@@ -783,13 +784,11 @@ class GridModel(Model):
             initial_principal = all_fin_insts.loc[i, "initial_principal"]
             rate = all_fin_insts.loc[i, "rate"]
             maturity_pd = all_fin_insts.loc[i, "maturity_pd"]
-            total_payment = (
-                rate
-                * initial_principal
-                / (1 - (1 + rate) ** (-1 * (maturity_pd - pd_issued)))
-            )
+
+            total_payment = rate * initial_principal / (1 - (1 + rate) ** (-1 * (maturity_pd - pd_issued - 1)))
+
             remaining_principal = initial_principal
-            for projected_pd in range(pd_issued, maturity_pd):
+            for projected_pd in range(pd_issued, maturity_pd-1):
                 interest_payment = rate * remaining_principal
                 principal_payment = total_payment - interest_payment
 
@@ -804,9 +803,7 @@ class GridModel(Model):
                         interest_payment,
                         principal_payment,
                     ]
-                    fin_sched_updates.loc[
-                        len(fin_sched_updates.index)
-                    ] = new_row
+                    fin_sched_updates.loc[len(fin_sched_updates.index)] = new_row
 
                 # Update the amount of remaining principal
                 remaining_principal = remaining_principal - principal_payment
