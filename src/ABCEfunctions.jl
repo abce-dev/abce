@@ -471,7 +471,6 @@ function forecast_balance_of_market_investment(adj_system_portfolios, agent_port
         d_0 = filter(:period => x -> x == current_pd, demand_forecast)[1, :total_demand]
         c_0 = sum(adj_system_portfolios[current_pd][!, :total_derated_capacity])
 
-
         if c_y / d_y < c_0 / d_0
             transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :real] => ((c_iy, my, cf, real) -> c_iy .+ real .* (my .* (c_iy ./ c_y) .* (d_y .* c_0 ./ d_0 .- c_y))) => :total_esc_der_capacity)
         else
@@ -481,6 +480,7 @@ function forecast_balance_of_market_investment(adj_system_portfolios, agent_port
         transform!(adj_system_portfolios[y], [:total_esc_der_capacity, :capacity_factor] => ((c_iy, cf) -> c_iy ./ cf) => :total_esc_capacity)
 
         transform!(adj_system_portfolios[y], [:total_esc_capacity, :capacity] => ((total_esc_cap, cap) -> ceil.(total_esc_cap ./cap)) => :esc_num_units)
+
     end
 
     return adj_system_portfolios
@@ -586,6 +586,8 @@ function set_up_project_alternatives(
                         PA["project_type"],
                         "_",
                         PA["lag"],
+                        "_basepd_",
+                        current_pd,
                         ".csv"
                     ),
                 ),
@@ -783,6 +785,7 @@ function forecast_subproject_financials(
         remaining_debt_principal = zeros(fc_pd),
         debt_payment = zeros(fc_pd),
         interest_payment = zeros(fc_pd),
+        principal_payment = zeros(fc_pd),
         depreciation = zeros(fc_pd),
         generation = zeros(fc_pd),
         revenue = zeros(fc_pd),
@@ -851,6 +854,7 @@ function forecast_subproject_financials(
     # Forecast all post-facto policy adjustments
     subproject_fs = forecast_subproject_pf_policy_adj(
         settings,
+        current_pd,
         subproject,
         unit_type_data,
         deepcopy(subproject_fs)
@@ -1026,6 +1030,7 @@ function forecast_debt_schedule(
         fs_copy[i, :interest_payment] =
             fs_copy[i, :remaining_debt_principal] *
             agent_params[1, :cost_of_debt]
+        fs_copy[i, :principal_payment] = fs_copy[i, :debt_payment] - fs_copy[i, :interest_payment]
         if i != fin_end
             fs_copy[i + 1, :remaining_debt_principal] =
                 fs_copy[i, :remaining_debt_principal] -
@@ -1067,7 +1072,7 @@ function forecast_subproject_operations(
     mode = subproject["project_type"]
     hist_wt = settings["dispatch"]["hist_wt"]
     data_to_get =
-        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj", "tax_credits"]
+        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
 
     # Get historical dispatch results for this unit type
     historical_dispatch_results = filter(
@@ -1128,25 +1133,25 @@ function forecast_subproject_operations(
             # If year yr was not simulated by dispatch.jl, use the dispatch
             #   results from the last simulated year
             else
-                last_dispatch_year = maximum(
-                    filter(
-                        :unit_type =>
-                            unit_type ->
-                                unit_type == subproject["unit_type"],
+                try
+                    last_dispatch_year = maximum(
+                        filter(
+                            :unit_type => unit_type -> unit_type == subproject["unit_type"],
+                            ABCE_dispatch_results
+                        )[!, :y]
+                    )
+
+                    ABCE_data_value = filter(
+                        [:y, :dispatch_result] =>
+                            (y, disp_res) ->
+                                (y == last_dispatch_year) &&
+                                    (disp_res == data_type),
                         ABCE_dispatch_results,
-                    )[
-                        !,
-                        :y,
-                    ],
-                )
-                ABCE_data_value = filter(
-                    [:y, :dispatch_result] =>
-                        (y, disp_res) ->
-                            (y == last_dispatch_year) &&
-                                (disp_res == data_type),
-                    ABCE_dispatch_results,
-                )
-                ABCE_data_value = ABCE_data_value[1, :qty]
+                    )
+                    ABCE_data_value = ABCE_data_value[1, :qty]
+                catch
+                    ABCE_data_value = 0.0
+                end
             end
 
             # Get the corresponding cumulative historical estimate from the 
@@ -1171,6 +1176,51 @@ function forecast_subproject_operations(
                 sign * ABCE_data_value * (1 - hist_wt) +
                 sign * historical_data_value * (hist_wt)
         end
+
+    end
+
+    # Compute all PTC and ITC contributions
+    fs_copy[!, :tax_credits] .= 0.0
+
+    if "policies" in keys(settings["scenario"])
+        policies = settings["scenario"]["policies"]
+
+        # If PTC exists
+        for policy in keys(policies)
+            if occursin("PTC", policy) && policies[policy]["enabled"]
+                # If unit is listed as PTC-eligible
+                if (subproject["unit_type"] in policies[policy]["eligibility"]["unit_type"]) && (subproject["project_type"] == "new_xtr")
+                    # If unit's construction start date is within the PTC eligibility period
+                    if (policies[policy]["start_year"] <= current_pd + subproject["lag"]) && (policies[policy]["end_year"] >= current_pd + subproject["lag"])
+                        # Calculate the start and end of the award period,
+                        #   in relative years
+                        award_start = subproject["lag"] + unit_type_data[:construction_duration] + 1
+                        award_end = award_start + policies[policy]["duration"] - 1
+
+                        for y = award_start:award_end
+                            # Add the asset's total PTC earnings 
+                            #   contribution to the year's total
+                            fs_copy[y, :tax_credits] += fs_copy[y, :generation] * policies[policy]["qty"]
+                        end
+                    end
+                end
+            end
+
+            # If ITC exists
+            if occursin("ITC", policy) && policies[policy]["enabled"]
+                # If unit is listed as ITC-eligible
+                if (subproject["unit_type"] in policies[policy]["eligibility"]["unit_type"]) && (subproject["project_type"] == "new_xtr")
+                    # If unit's construction start date is within the ITC eligibility period
+                    if (policies[policy]["start_year"] <= current_pd + subproject["lag"]) && (policies[policy]["end_year"] >= current_pd + subproject["lag"])
+                        # If unit is operational, use its total_capex value
+                        total_capex = sum(fs_copy[!, :capex])
+
+                        # Add the appropriate ITC award to the tax_credits column
+                        fs_copy[subproject["lag"] + unit_type_data[:construction_duration] + 1, :tax_credits] += total_capex * policies[policy]["qty"]
+                    end
+                end
+            end
+        end
     end
 
     return fs_copy
@@ -1178,12 +1228,12 @@ function forecast_subproject_operations(
 end
 
 
-function forecast_subproject_pf_policy_adj(settings, subproject, unit_type_data, fs_copy)
+function forecast_subproject_pf_policy_adj(settings, current_pd, subproject, unit_type_data, fs_copy)
     try
         ITC_data = settings["scenario"]["policies"]["ITC"]
         ITC_qty = ITC_data["qty"]
 
-        if ITC_data["enabled"] && subproject["unit_type"] in ITC_data["eligibility"]["unit_type"]
+        if ((ITC_data["enabled"]) && (subproject["unit_type"] in ITC_data["eligibility"]["unit_type"]) && (ITC["start_year"] <= current_pd + subproject["lag"]) &&(ITC["end_year"] >= current_pd + subproject["lag"]))
             capex_end = get_capex_end(fs_copy)
             total_capex = sum(fs_copy[!, :capex])
 
@@ -1253,7 +1303,7 @@ function average_historical_dispatch_results(settings, db)
 
         # Weight the data columns
         data_to_weight =
-            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj", "tax_credits"]
+            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
 
         for data_type in data_to_weight
             transform!(
@@ -1699,8 +1749,6 @@ function set_up_model(
         end
 
     end
-
-    CSV.write("./coal_rets_indicators.csv", DataFrame(coal_retirements, :auto))
 
     for i = 1:size(coal_retirements)[2]
         y = current_pd + i - 1  # -1 converts i from julia dataframe index back to true relative year
@@ -2226,7 +2274,8 @@ function update_agent_financial_statement(
     rename!(agent_fs, :y => :projected_pd)
     agent_fs[!, :base_pd] .= current_pd
 
-    agent_fs = compute_post_facto_policies(settings, db, deepcopy(agent_fs), agent_id, current_pd, unit_specs)
+    # TODO: in post-facto policies, recompute all PTC awards based on units' actual operational dates
+    agent_fs = compute_policy_contributions(settings, db, deepcopy(agent_fs), agent_id, current_pd, unit_specs, agent_portfolio_forecast, dispatch_results)
 
     # Add in scheduled financing factors: depreciation, interest payments, and capex
     agent_fs =
@@ -2292,19 +2341,86 @@ function add_FOM(
 end
 
 
-function compute_post_facto_policies(settings, db, fs_copy, agent_id, current_pd, unit_specs)
-    # Initialize the tax credits column
-    fs_copy[!, :tax_credits] = zeros(size(fs_copy)[1])
+function compute_policy_contributions(settings, db, fs_copy, agent_id, current_pd, unit_specs, agent_portfolio_forecast, dispatch_results)
+    # Check whether any policies are specified in the settings file
+    if "policies" in keys(settings["scenario"])
+        policies = settings["scenario"]["policies"]
 
-    # Get a list of all WIP and operating assets owned by this agent
-    assets = DBInterface.execute(db, "SELECT * FROM assets WHERE agent_id = $agent_id AND cancellation_pd > $current_pd AND retirement_pd > $current_pd") |> DataFrame
+        # Initialize the tax credits column with all zeroes
+        fs_copy[!, :tax_credits] = zeros(size(fs_copy)[1])
 
-    for asset in eachrow(assets)
-        if (occursin("C2N", asset["unit_type"])) && asset["completion_pd"] >= current_pd + 1
-            unit_type_data = filter(:unit_type => unit_type -> unit_type == asset["unit_type"], unit_specs)[1, :]
-            total_capex = unit_type_data[:overnight_capital_cost] * unit_type_data[:capacity] * 1000
+        # Get a list of all WIP and operating assets owned by this agent
+        stmt = string(
+            "SELECT * FROM assets WHERE agent_id = $agent_id ",
+            "AND cancellation_pd > $current_pd ",
+            "AND retirement_pd > $current_pd",
+        )
+        assets = DBInterface.execute(db, stmt) |> DataFrame
 
-            fs_copy[asset["completion_pd"] + 1, :tax_credits] += 0.4 * total_capex
+        stmt = "SELECT * FROM WIP_projects WHERE agent_id = $agent_id AND period = $current_pd"
+        WIP_projects = DBInterface.execute(db, stmt) |> DataFrame
+
+        # Iterate through all assets and individually compute policy incentives
+        #   for which it qualifies
+        for asset in eachrow(assets)
+            # If PTC exists
+            for policy in keys(policies)
+                if occursin("PTC", policy) && policies[policy]["enabled"]
+                    # If unit is listed as PTC-eligible
+                    if asset["unit_type"] in policies[policy]["eligibility"]["unit_type"]
+                        # Determine asset's completion date
+                        if asset["completion_pd"] == 0
+                            # If the asset starts the simulation already operational,
+                            #   assume that its completion period was its
+                            #   retirement date minus the unit life
+                            completion_pd = asset["retirement_pd"] - filter(:unit_type => unit_type -> unit_type == asset["unit_type"], unit_specs)[1, :unit_life]
+                        else
+                            completion_pd = asset["completion_pd"]
+                        end
+                        # If unit's completion date is within the PTC eligibility period
+                        if (policies[policy]["start_year"] <= completion_pd) && (policies[policy]["end_year"] >= completion_pd)
+                            # If current period is still within the award period for the PTC
+                            if current_pd <= completion_pd + policies[policy]["duration"]
+                                # Calculate the start and end of the award period,
+                                #   in relative years
+                                award_start = max(completion_pd - current_pd + 1, policies[policy]["start_year"] - current_pd + 1, 1)
+                                award_end = min(completion_pd + policies[policy]["duration"] - current_pd , size(fs_copy)[1])
+
+                                for y = award_start:award_end
+                                    # Get asset type generation for the year
+                                    asset_generation = filter([:unit_type, :y, :dispatch_result] => ((unit_type, y, disp_res) -> ((unit_type == asset["unit_type"]) && (y == y) && (disp_res == "generation"))), dispatch_results)[1, :qty]
+
+                                    # Add the asset's total PTC earnings 
+                                    #   contribution to the year's total
+                                    fs_copy[y, :tax_credits] += asset_generation * policies[policy]["qty"]
+                                end
+                            end
+                        end
+                    end
+                end
+
+                # If ITC exists
+                if occursin("ITC", policy) && policies[policy]["enabled"]
+                    # If unit is listed as ITC-eligible
+                    if asset["unit_type"] in policies[policy]["eligibility"]["unit_type"]
+                        # If unit's completion date is within the ITC eligibility period
+                        if (policies[policy]["start_year"] <= asset["completion_pd"]) && (policies[policy]["end_year"] >= asset["completion_pd"])
+                            # If unit is operational, use its total_capex value
+                            if asset["completion_pd"] <= current_pd
+                                total_capex = asset["total_capex"]
+                            else
+                            # If unit is not operational, use its total estimated OCC
+                            # TODO: estimate fully financed cost
+                                WIP_data = filter(:asset_id => asset_id -> asset_id == asset["asset_id"], WIP_projects)[1, :]
+                                total_capex = WIP_data["cum_occ"]
+                            end
+
+                            # Add the appropriate ITC award to the tax_credits column
+                            fs_copy[asset["completion_pd"] + 1, :tax_credits] += total_capex * policies[policy]["qty"]
+                        end
+                    end
+                end
+            end
         end
     end
 
@@ -2340,31 +2456,16 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
             ),
         ) |> DataFrame
 
-    # Fill in total interest payments
-    interest_payment_ts =
-        DBInterface.execute(
-            db,
-            string(
-                "SELECT projected_pd, SUM(interest_payment) ",
-                "FROM financing_schedule ",
-                "WHERE agent_id = $agent_id ",
-                "AND base_pd = $current_pd ",
-                "GROUP BY projected_pd",
-            ),
-        ) |> DataFrame
-
     # Join the scheduled columns to the financial statement
     agent_fs = leftjoin(agent_fs, capex_ts, on = :projected_pd)
     agent_fs = leftjoin(agent_fs, remaining_debt_principal_ts, on = :projected_pd)
     agent_fs = leftjoin(agent_fs, depreciation_ts, on = :projected_pd)
-    agent_fs = leftjoin(agent_fs, interest_payment_ts, on = :projected_pd)
 
     # Standardize column names
     rename!(
         agent_fs,
         Symbol("SUM(capex)") => :capex,
         Symbol("SUM(depreciation)") => :depreciation,
-        Symbol("SUM(interest_payment)") => :interest_payment,
     )
 
     return agent_fs
@@ -2373,23 +2474,36 @@ end
 
 function compute_debt_principal_ts(db, agent_id, current_pd)
     # Get debt principal repayments by year
-    principal_payments = DBInterface.execute(db, string("SELECT projected_pd, SUM(principal_payment) FROM financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd GROUP BY projected_pd")) |> DataFrame
-    rename!(principal_payments, Symbol("SUM(principal_payment)") => :principal_payment)
+    principal_payments = DBInterface.execute(db, string("SELECT * FROM financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd")) |> DataFrame
 
     # Get cumulative debt issued by year
     # Get the list of all debt instruments issued by this agent
     inst_manifest = DBInterface.execute(db, string("SELECT * FROM financial_instrument_manifest WHERE agent_id = $agent_id AND instrument_type='debt'")) |> DataFrame
 
+    principal_payments = filter(:instrument_id => instrument_id -> in(instrument_id, inst_manifest[!, :instrument_id]), principal_payments)
+    principal_payments = groupby(principal_payments, :projected_pd)
+    principal_payments = combine(principal_payments, [:principal_payment, :interest_payment] .=> sum; renamecols=false)
+
     debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
 
-    for y=current_pd:maximum(principal_payments[!, :projected_pd])
-        debt_by_year = filter(:pd_issued => pd -> pd <= y, inst_manifest)
-        cum_debt = sum(debt_by_year[!, :initial_principal])
-        push!(debt_principal_ts, [y, cum_debt])
+    if size(principal_payments)[1] > 0
+        for y=current_pd:maximum(principal_payments[!, :projected_pd])
+            debt_by_year = filter(:pd_issued => pd -> pd <= y, inst_manifest)
+            cum_debt = sum(debt_by_year[!, :initial_principal])
+            push!(debt_principal_ts, [y, cum_debt])
+        end
     end
 
     debt_principal_ts = outerjoin(debt_principal_ts, principal_payments, on = :projected_pd)
-    transform!(debt_principal_ts, [:remaining_debt_principal, :principal_payment] => ((rem_prin, prin_pmt) -> rem_prin - prin_pmt) => :remaining_debt_principal)
+
+    debt_principal_ts[!, :BOY_rem_debt_principal] .= 0.0
+    debt_principal_ts[1, :BOY_rem_debt_principal] = debt_principal_ts[1, :remaining_debt_principal]
+    for y = 2:size(debt_principal_ts)[1]
+        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y-1, :BOY_rem_debt_principal] - debt_principal_ts[y-1, :principal_payment]
+    end
+
+    debt_principal_ts = select(debt_principal_ts, [:projected_pd, :BOY_rem_debt_principal, :principal_payment, :interest_payment])
+    rename!(debt_principal_ts, :BOY_rem_debt_principal => :remaining_debt_principal)
 
     return debt_principal_ts
 end
@@ -2443,8 +2557,8 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
     # Free Cash Flow
     transform!(
         agent_fs,
-        [:net_income, :depreciation, :capex] =>
-            ((NI, dep, capex) -> (NI + dep - 0.5 * capex)) => :nominal_FCF,
+        [:net_income, :depreciation, :capex, :principal_payment] =>
+            ((NI, dep, capex, pp) -> (NI + dep - 0.5 * capex - pp)) => :nominal_FCF,
     )
 
     # Dividends and Retained Earnings

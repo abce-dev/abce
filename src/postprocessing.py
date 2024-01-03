@@ -40,7 +40,8 @@ unit_type_colors = {
     "HTGR onsite C2N": "#a50eec",
     "SFR offsite C2N": "#ebf697",
     "SFR onsite C2N": "#c6e000",
-    "PUN units": "#000000",
+    "PUN units (lower VOM)": "#000000",
+    "PUN units (higher VOM)": "#bbbbbb"
 }
 
 
@@ -172,7 +173,8 @@ def get_portfolio_profile(db, agent_id, unit_specs):
 def organize_portfolio_profile(portfolio_profile):
     # Re-order the columns
     col_order = [
-        "PUN_unit",
+        "PUN_unit_high",
+        "PUN_unit_low",
         "conventional_nuclear",
         "coal",
         "PWR_C2N0_single",
@@ -201,7 +203,8 @@ def organize_portfolio_profile(portfolio_profile):
 
     # Rename columns to more readable names
     readable_col_names = {
-        "PUN_unit": "PUN units",
+        "PUN_unit_low": "PUN units (lower VOM)",
+        "PUN_unit_high": "PUN units (higher VOM)",
         "conventional_nuclear": "conventional nuclear",
         "PWR_C2N0_single": "PWR offsite C2N",
         "PWR_C2N1_single": "PWR onsite C2N",

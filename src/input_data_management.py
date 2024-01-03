@@ -594,15 +594,15 @@ def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
                             is_eligible = True
 
                 if is_eligible:
-                    if policy == "CTAX":
+                    if "CTAX" in policy:
                         policy_adj_per_MWh -= (
                             unit_type_data["heat_rate"]
                             * unit_type_data["emissions_per_MMBTU"]
                             * policy_specs["qty"]
                         )
-                    elif policy == "PTC":
+                    elif "PTC" in policy:
                         tax_credits_per_MWh += policy_specs["qty"]
-                    elif policy == "ITC":
+                    elif "ITC" in policy:
                         tax_credits_per_MW += policy_specs["qty"]
 
     policy_results = {
