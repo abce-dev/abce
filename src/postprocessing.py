@@ -45,19 +45,22 @@ unit_type_colors = {
 }
 
 
-def write_raw_db_to_excel(settings, db):
+def write_raw_db_to_excel(settings, db, tag=None):
     # Get the names of all database tables
     db_tables = pd.read_sql_query(
         "SELECT name FROM sqlite_master WHERE type='table';", db
     )
 
-    # Set up the path to the ultimate outputs directory
-    out_file = Path(
-        Path.cwd()
-        / "outputs"
-        / settings["simulation"]["scenario_name"]
-        / settings["file_paths"]["output_file"]
-    )
+    if settings is not None:
+        # Set up the path to the ultimate outputs directory
+        out_file = Path(
+            Path.cwd()
+            / "outputs"
+            / settings["simulation"]["scenario_name"]
+            / settings["file_paths"]["output_file"]
+        )
+    else:
+        out_file = Path(os.getenv("ABCE_DIR")) / "imgs" / tag / f"{tag}_outputs.xlsx"
 
     # Write each table to a tab in the excel sheet
     with pd.ExcelWriter(out_file) as writer:
@@ -306,8 +309,8 @@ def postprocess_results(args, abce_model, settings=None, tag=None, descriptor=No
 
     # Save the raw database as an Excel format for easier viewing and manual
     #   postprocessing/debugging
-    if settings is not None:
-        write_raw_db_to_excel(settings, abce_model.db)
+#    if settings is not None:
+    write_raw_db_to_excel(settings, abce_model.db, tag)
 
     # Get a list of all agent ids
     agent_list = get_agent_list(abce_model.db)
@@ -352,6 +355,7 @@ if __name__ == "__main__":
 
     # Open database and create the fake model object
     db_file = Path(args.dir) / "abce_db.db"
+    print(db_file)
     db = sqlite3.connect(db_file)
     m = Model(db)
 
