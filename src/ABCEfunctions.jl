@@ -1584,7 +1584,7 @@ function set_up_model(
 
     if mode == "normal"
         for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-            # Limit aggregated score
+            # Limit debt-denominator terms in the aggregated score
             @constraint(
                 m,
                 0.2 * (
