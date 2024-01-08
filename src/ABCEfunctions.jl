@@ -1514,12 +1514,12 @@ function set_up_model(
 
     # Prevent the agent from intentionally causing foreseeable energy shortages
     for i = 1:settings["agent_opt"]["shortage_protection_period"]
+        y = current_pd + i - 1
         # Get extant capacity sufficiency measures (projected demand and
         #   capacity)
-        sufficiency =
-            filter(:period => x -> x == current_pd + i - 1, total_demand)
+        sufficiency = filter(:period => x -> x == y, total_demand)
         pd_total_demand = sufficiency[1, :total_demand]
-        total_eff_cap = sum(adj_system_portfolios[current_pd + i][!, :total_esc_der_capacity])
+        total_eff_cap = sum(adj_system_portfolios[y][!, :total_esc_der_capacity])
 
         # Enforce different capacity assurance requirements based on extant
         #   reserve margin
@@ -1533,7 +1533,7 @@ function set_up_model(
         end
 
         # Get total agent portfolio size for this year
-        stmt = "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $i AND retirement_pd > $i GROUP BY unit_type"
+        stmt = "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $y AND retirement_pd > $y GROUP BY unit_type"
         agent_pf = DBInterface.execute(db, stmt) |> DataFrame
         if size(agent_pf)[1] != 0
             rename!(agent_pf, Symbol("COUNT(unit_type)") => :num_units)
@@ -1830,19 +1830,13 @@ function set_up_model(
         Max,
         (
             profit_lamda * (transpose(u) * PA_summaries[!, :NPV]) +
-            credit_rating_lamda * (
-                sum(agent_fs[1:fin_metric_horizon, :FCF]) / 1e9 +
-                sum(transpose(u) * marg_FCF[:, 1:fin_metric_horizon]) +
-                sum(agent_fs[1:fin_metric_horizon, :interest_payment]) / 1e9 +
-                sum(transpose(u) * marg_int[:, 1:fin_metric_horizon]) -
-                (int_bound) * (
-                    sum(agent_fs[1:fin_metric_horizon, :interest_payment]) / 1e9 +
-                    sum(transpose(u) * marg_int[:, 1:fin_metric_horizon])
-                )
+            credit_rating_lamda / (0.1 + 0.2 + 0.1) * (
+                0.1 * sum(agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) - (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])) for i=1:fin_metric_horizon)
+                + 0.2 * sum((agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
+                + 0.1 * sum((agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
             )
         )
     )
-
 
     @debug "Optimization model set up."
 
