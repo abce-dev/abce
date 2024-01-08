@@ -1587,17 +1587,12 @@ function set_up_model(
             # Limit aggregated score
             @constraint(
                 m,
-                0.1 / abs(ICR_floor) * (
-                    agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])
-                    + (1 - ICR_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i]))
-                )
-
-                + 0.2 / abs(CDR_floor) * (
+                0.2 * (
                     (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) 
                     - CDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) 
                 )
 
-                + 0.1 / abs(RCDR_floor) * (
+                + 0.1 * (
                     (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) 
                     - RCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i]))
                 )
