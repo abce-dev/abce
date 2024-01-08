@@ -56,7 +56,7 @@ def write_raw_db_to_excel(settings, db):
         Path.cwd()
         / "outputs"
         / settings["simulation"]["scenario_name"]
-        / settings["file_paths"]["output_file"]
+        / f"{settings['simulation']['scenario_name']}__{settings['file_paths']['output_file']}"
     )
 
     # Write each table to a tab in the excel sheet
@@ -140,7 +140,7 @@ def get_portfolio_profile(db, agent_id, unit_specs):
             year_pf,
             values="COUNT(unit_type)",
             index="unit_type",
-            aggfunc=np.sum,
+            aggfunc="sum",
         )
 
         # Merge in the shortened unit_specs data
