@@ -133,12 +133,13 @@ agent_opt:
   credit_rating_lamda: 0.1
   fin_metric_horizon: 6
   int_bound: 5.0
+  rcdr_target_delta: 0.005
   icr_floor: 3.5   # weighted sum limit
   fcf_debt_floor: 0.16   # weighted sum limit
   re_debt_floor: 0.115   # weighted sum limit
-  icr_solo_floor: -10000.00   # individual
-  fcf_debt_solo_floor: -10000.00   # individual
-  re_debt_solo_floor: -10000.00    # individual
+  icr_solo_floor: 0.0   # individual
+  fcf_debt_solo_floor: 0.00   # individual
+  re_debt_solo_floor: 0.00    # individual
   
 
 financing:
