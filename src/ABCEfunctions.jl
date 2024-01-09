@@ -2278,7 +2278,7 @@ function update_agent_financial_statement(
     # Propagate out accounting line items (EBITDA through FCF)
     agent_fs = compute_accounting_line_items(db, agent_fs, agent_id, agent_params, mode="agent")
 
-    agent_fs = compute_credit_indicator_scores(agent_fs)
+    agent_fs = compute_credit_indicator_scores(settings, agent_fs)
 
     # Save the dataframe to the database
     save_agent_fs!(agent_fs, agent_id, db)
@@ -2637,16 +2637,23 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
     return agent_fs
 end
 
-function compute_credit_indicator_scores(agent_fs)
+function compute_credit_indicator_scores(settings, agent_fs)
     # Credit ratings indicators
+    # Compute retained earnings-to-debt metric column
+    rcdr_target = settings["agent_opt"]["re_debt_floor"] + settings["agent_opt"]["rcdr_target_delta"]
+    transform!(agent_fs, [:remaining_debt_principal, :retained_earnings] => ((debt, re) -> re ./ debt) => :RE_debt_ratio)
+
+    # Use excess RE over the amount needed to reach the target ratio to subsidize FCF
+    transform!(agent_fs, [:retained_earnings, :remaining_debt_principal, :FCF] => ByRow((re, debt, fcf) -> ifelse.((re / debt > rcdr_target), re - rcdr_target * debt, 0)) => :available_cash)
+
+    # Compute effective FCF: if FCF is zero but RE is greater than zero, use RE in place of FCF
+    transform!(agent_fs, [:FCF, :available_cash] => ((fcf, cash) -> fcf .+ cash) => :eff_FCF)
+
     # Compute ICR metric column
-    transform!(agent_fs, [:interest_payment, :FCF] => ((int, fcf) -> (fcf .+ int) ./ int) => :ICR)
+    transform!(agent_fs, [:interest_payment, :eff_FCF] => ((int, fcf) -> (fcf .+ int) ./ int) => :ICR)
 
     # Compute FCF-to-debt metric column
-    transform!(agent_fs, [:remaining_debt_principal, :FCF] => ((debt, fcf) -> fcf ./ debt) => :FCF_debt_ratio)
-
-    # Compute retained earnings-to-debt metric column
-    transform!(agent_fs, [:remaining_debt_principal, :retained_earnings] => ((debt, re) -> re ./ debt) => :RE_debt_ratio)
+    transform!(agent_fs, [:remaining_debt_principal, :eff_FCF] => ((debt, fcf) -> fcf ./ debt) => :FCF_debt_ratio)
 
     # Compute scaled Moody's indicator score from metrics
     transform!(agent_fs, [:ICR, :FCF_debt_ratio, :RE_debt_ratio] => ((icr, fcf_debt, re_debt) -> compute_moodys_score.(icr, fcf_debt, re_debt)) => :moodys_score)

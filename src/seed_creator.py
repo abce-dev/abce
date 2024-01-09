@@ -225,6 +225,7 @@ abce_tables = {
         ("delta_RE", "real"),
         ("retained_earnings", "real"),
         ("FCF", "real"),
+        ("eff_FCF", "real"),
         ("ICR", "real"),
         ("FCF_debt_ratio", "real"),
         ("RE_debt_ratio", "real"),
