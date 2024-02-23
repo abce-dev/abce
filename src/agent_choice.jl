@@ -212,6 +212,7 @@ function run_agent_choice()
     @info "Setting up the agent's decision optimization problem..."
     m = ABCEfunctions.set_up_model(
         settings,
+        CLI_args,
         PA_uids,
         PA_fs_dict,
         demand_forecast,
@@ -228,7 +229,7 @@ function run_agent_choice()
 
     # Solve the model
     @info "Solving optimization problem..."
-    optimize!(m)
+    m = ABCEfunctions.solve_model(m)
 
     status = string(termination_status.(m))
     if status == "OPTIMAL"
@@ -237,6 +238,7 @@ function run_agent_choice()
     else
         m_ret = ABCEfunctions.set_up_model(
             settings,
+            CLI_args,
             PA_uids,
             PA_fs_dict,
             demand_forecast,
