@@ -232,7 +232,7 @@ PUN_unit_low:
   FOM: 11.39    # $/kW-yr
   VOM: 100.00    # $/MWh
   fuel_type: natural_gas
-  FC_per_MMBTU: 4.0
+  FC_per_MMBTU: 3.0
   no_load_cost: 0.0
   start_up_cost: 20.00   # $/MW
   shut_down_cost: 5.00  # $/MW, non-fuel start-up costs
@@ -267,7 +267,7 @@ PUN_unit_high:
   FOM: 11.39    # $/kW-yr
   VOM: 500.00    # $/MWh
   fuel_type: natural_gas
-  FC_per_MMBTU: 4.0
+  FC_per_MMBTU: 3.0
   no_load_cost: 0.0
   start_up_cost: 20.00   # $/MW
   shut_down_cost: 5.00  # $/MW, non-fuel start-up costs
@@ -391,7 +391,7 @@ PWR_C2N0_single:
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
-  cpp_ret_lead: 2
+  cpp_ret_lead: 6
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"
@@ -465,7 +465,7 @@ HTGR_C2N0_single:
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
-  cpp_ret_lead: 0
+  cpp_ret_lead: 6
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"
@@ -539,7 +539,7 @@ SFR_C2N0_single:
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
-  cpp_ret_lead: 4
+  cpp_ret_lead: 6
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"

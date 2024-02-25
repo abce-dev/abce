@@ -581,6 +581,8 @@ function set_up_project_alternatives(
                 joinpath(
                     "tmp",
                     string(
+                        agent_id,
+                        "_",
                         PA["unit_type"],
                         "_",
                         PA["project_type"],
@@ -612,6 +614,7 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
         ret_pd = Union{Int64,Nothing}[],
         uid = Int64[],
         NPV = Float64[],
+        current = Bool[],
         allowed = Bool[],
     )
 
@@ -632,9 +635,15 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
         end
 
         for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
+            # Set current flag if project would take effect immediately
+            current = 0
+            if lag == 0
+                current = 1
+            end
+
             push!(
                 PA_summaries,
-                [unit_type project_type lag nothing uid NPV allowed],
+                [unit_type project_type lag nothing uid NPV current allowed],
             )
             uid += 1
         end
@@ -653,9 +662,12 @@ function create_PA_summaries(settings, unit_specs, asset_counts)
             :retirement_pd,
         ]
 
+        # Novel retirements are always current
+        current = 1
+
         for ret_pd in ret_pds
             for lag = 0:settings["agent_opt"]["num_future_periods_considered"]
-                row = [unit_type project_type lag ret_pd uid NPV allowed]
+                row = [unit_type project_type lag ret_pd uid NPV current allowed]
                 push!(PA_summaries, row)
                 uid += 1
             end
@@ -1408,6 +1420,500 @@ function create_model_with_optimizer(settings)
 end
 
 
+function compute_marginal_derated_capacity(
+    PA_summaries,
+    PA_fs_dict,
+    unit_specs,
+)
+    # Parameter names
+    num_alternatives = size(PA_summaries)[1]
+    num_time_periods = size(PA_fs_dict[PA_summaries[1, :uid]])[1]
+
+    # Compute expected marginal generation and effective nameplate capacity
+    #   contribution per alternative type
+    marg_derated_cap = zeros(num_alternatives, num_time_periods)
+    for i = 1:size(PA_summaries)[1]
+        for j = 1:num_time_periods
+            # Determine change in unforced (derated) capacity due to each
+            #   project alternative in all time periods in the horizon, and 
+            #   save to the marg_derated_cap array
+            unit_type_data = filter(
+                :unit_type => x -> x == PA_summaries[i, :unit_type],
+                unit_specs,
+            )
+
+            if PA_summaries[i, :project_type] == "new_xtr"
+                op_start =
+                    PA_summaries[i, :lag] +
+                    unit_type_data[1, :construction_duration]
+                if j > op_start
+                    marg_derated_cap[i, j] = (
+                        unit_type_data[1, :capacity] *
+                        unit_type_data[1, :capacity_factor]
+                    )
+                end
+            elseif PA_summaries[i, :project_type] == "retirement"
+                if (j > PA_summaries[i, :lag]) &&
+                   (j <= PA_summaries[i, :ret_pd])
+                    marg_derated_cap[i, j] = (
+                        (-1) *
+                        unit_type_data[1, :capacity] *
+                        unit_type_data[1, :capacity_factor]
+                    )
+                end
+            end
+        end
+    end
+
+    return marg_derated_cap
+
+end
+
+function add_constraint_shortage_protection(
+        m,
+        settings,
+        db,
+        agent_id,
+        current_pd,
+        marg_derated_cap,
+        total_demand,
+        adj_system_portfolios,
+        unit_specs,
+        PA_summaries,
+)
+    # Prevent the agent from intentionally causing foreseeable energy shortages
+    for i = 1:settings["agent_opt"]["shortage_protection_period"]
+        y = current_pd + i - 1
+        # Get extant capacity sufficiency measures (projected demand and
+        #   capacity)
+        sufficiency = filter(:period => x -> x == y, total_demand)
+        pd_total_demand = sufficiency[1, :total_demand]
+        total_eff_cap = sum(adj_system_portfolios[y][!, :total_esc_der_capacity])
+
+        # Enforce different capacity assurance requirements based on extant
+        #   reserve margin
+        if (
+            total_eff_cap / pd_total_demand >
+            settings["agent_opt"]["cap_decrease_threshold"]
+        )
+            margin = settings["agent_opt"]["cap_decrease_margin"]
+        else
+            margin = settings["agent_opt"]["cap_maintain_margin"]
+        end
+
+        # Get total agent portfolio size for this year
+        stmt = "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $y AND retirement_pd > $y GROUP BY unit_type"
+        agent_pf = DBInterface.execute(db, stmt) |> DataFrame
+        if size(agent_pf)[1] != 0
+            rename!(agent_pf, Symbol("COUNT(unit_type)") => :num_units)
+            agent_pf = leftjoin(agent_pf, select(unit_specs, [:unit_type, :capacity, :capacity_factor]), on=:unit_type)
+            transform!(agent_pf, [:num_units, :capacity, :capacity_factor] => ((num, cap, cf) -> num .* cap .* cf) => :total_derated_cap)
+            agent_year_derated_cap = sum(agent_pf[!, :total_derated_cap])
+
+            @constraint(
+                m,
+                transpose(m[:u] .* PA_summaries[:, :current]) * marg_derated_cap[:, i] >=
+                agent_year_derated_cap * margin
+            )
+        end
+    end
+
+    return m
+end
+
+function compute_marginal_PA_contributions(
+        verbosity,
+        PA_summaries,
+        PA_fs_dict,
+        agent_params,
+)
+    # Parameter names
+    num_alternatives = size(PA_summaries)[1]
+    num_time_periods = size(PA_fs_dict[PA_summaries[1, :uid]])[1]
+
+    # Create arrays of expected marginal debt, interest, dividends, and FCF
+    #   per unit type
+    marg_debt = zeros(num_alternatives, num_time_periods)
+    marg_int = zeros(num_alternatives, num_time_periods)
+    marg_FCF = zeros(num_alternatives, num_time_periods)
+    marg_RE = zeros(num_alternatives, num_time_periods)
+    for i = 1:size(PA_summaries)[1]
+        project = PA_fs_dict[PA_summaries[i, :uid]]
+        for j = 1:num_time_periods
+            # Retrieve the marginal value of interest
+            # Scale to units of $B
+            marg_debt[i, j] = project[j, :remaining_debt_principal] / 1e9
+            marg_int[i, j] = project[j, :interest_payment] / 1e9
+            marg_FCF[i, j] = project[j, :FCF] / 1e9
+            marg_RE[i, j] = project[j, :FCF] / 1e9 * (1 - agent_params[1, :cost_of_equity])
+        end
+    end
+
+    # Record marginal contributions to csv if verbosity is set to max
+    if verbosity > 2
+        CSV.write(joinpath("tmp", string(agent_id, "_marg_derated_cap_pd_$current_pd.csv")), DataFrame(marg_derated_cap, :auto))
+        CSV.write(joinpath("tmp", string(agent_id, "_marg_debt_pd_$current_pd.csv")), DataFrame(marg_debt, :auto))
+        CSV.write(joinpath("tmp", string(agent_id, "_marg_int_pd_$current_pd.csv")), DataFrame(marg_int, :auto))
+        CSV.write(joinpath("tmp", string(agent_id, "_marg_FCF_pd_$current_pd.csv")), DataFrame(marg_FCF, :auto))
+        CSV.write(joinpath("tmp", string(agent_id, "_marg_RE_pd_$current_pd.csv")), DataFrame(marg_RE, :auto))
+        CSV.write(joinpath("tmp", string(agent_id, "_FS_$current_pd.csv")), agent_fs)
+    end
+
+
+    return marg_debt, marg_int, marg_FCF, marg_RE
+end
+
+
+function add_constraint_FM_floors(
+    m,
+    settings,
+    agent_fs,
+    marg_FCF,
+    marg_int,
+    marg_debt,
+    marg_RE,
+)
+    # Prevent the agent from reducing its aggregated financial metrics score
+    #   below the weighted sum of the Moody's Ba rating thresholds (from the 
+    #   Unregulated Power Companies ratings grid)
+    # Getting some values for conciseness
+    ICR_floor = settings["agent_opt"]["icr_floor"]
+    FCDR_floor = settings["agent_opt"]["fcf_debt_floor"]
+    RCDR_floor = settings["agent_opt"]["re_debt_floor"]
+
+    ICR_solo_floor = settings["agent_opt"]["icr_solo_floor"]
+    FCDR_solo_floor = settings["agent_opt"]["fcf_debt_solo_floor"]
+    RCDR_solo_floor = settings["agent_opt"]["re_debt_solo_floor"]
+
+    for i = 1:settings["agent_opt"]["fin_metric_horizon"]
+        # Limit debt-denominator terms in the aggregated score
+        @constraint(
+            m,
+            0.2 * (
+                (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
+                - FCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
+            )
+
+            + 0.1 * (
+                (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
+                - RCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
+            )
+
+            >= 0
+        )
+
+        # Limit individual financial metrics
+        @constraint(
+            m,
+            agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])
+                + (1 - ICR_solo_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
+                >= 0
+        )
+
+        @constraint(
+            m,
+            (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
+                - FCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
+                >= 0
+        )
+
+        @constraint(
+            m,
+            (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
+                - RCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
+                >= 0
+        )
+    end
+
+    return m
+end
+
+
+function add_constraint_max_new_capacity(
+        m,
+        max_type_newcap,
+        PA_summaries,
+        unit_specs,
+)
+    # Enforce the user-specified maximum number of new construction
+    #   projects by type per period, and the :allowed field in PA_summaries
+    exp_PA_summaries = leftjoin(PA_summaries, unit_specs, on=:unit_type)
+
+    for i = 1:size(PA_summaries)[1]
+        if PA_summaries[i, :project_type] == "new_xtr"
+            @constraint(
+                m,
+                m[:u][i] .* exp_PA_summaries[i, :capacity] .<=
+                convert(Int64, exp_PA_summaries[i, :allowed]) .*
+                max_type_newcap
+            )
+        end
+    end
+
+    return m
+end
+
+
+function add_constraint_max_retirements(
+    m,
+    max_type_rets,
+    PA_summaries,
+    unit_specs,
+    asset_counts,
+)
+    # Enforce the user-specified maximum number of new retirements
+    #   projects by type per period, and the :allowed field in PA_summaries
+    exp_PA_summaries = leftjoin(PA_summaries, unit_specs, on=:unit_type)
+
+    for i = 1:num_alternatives
+        if PA_summaries[i, :project_type] == "retirement"
+            unit_type = PA_summaries[i, :unit_type]
+            ret_pd = PA_summaries[i, :ret_pd]
+            asset_count = filter(
+                [:unit_type, :retirement_pd] =>
+                    (x, y) -> x == unit_type && y == ret_pd,
+                asset_counts,
+            )[
+                1,
+                :count,
+            ]
+            max_retirement = (
+                convert(Int64, PA_summaries[i, :allowed]) .* min(
+                    asset_count,
+                    max_type_rets,
+                )
+            )
+            @constraint(m, m[:u][i] .<= max_retirement)
+        end
+    end
+
+    return m
+end
+
+
+function add_constraint_retireable_asset_limit(
+    m,
+    asset_counts,
+    PA_summaries,        
+)
+    # The total number of assets of each type to be retired cannot exceed
+    #   the total number of assets of that type owned by the agent
+
+    # Setup
+    # Convenient variable for the number of distinct retirement alternatives,
+    #   excluding assets reserved for C2N conversion
+    retireable_asset_counts =
+        filter([:C2N_reserved] => ((reserved) -> reserved == 0), asset_counts)
+
+    # Create the matrix to collapse lagged options
+    # This matrix has one long row for each retiring-asset category,
+    #   with 1's in each element where the corresponding element of u[] is
+    #   one of these units
+    ret_summation_matrix =
+        zeros(size(retireable_asset_counts)[1], size(PA_summaries)[1])
+    for i = 1:size(retireable_asset_counts)[1]
+        for j = 1:size(PA_summaries)[1]
+            if (
+                (PA_summaries[j, :project_type] == "retirement") &
+                (
+                    PA_summaries[j, :unit_type] ==
+                    retireable_asset_counts[i, :unit_type]
+                ) &
+                (
+                    PA_summaries[j, :ret_pd] ==
+                    retireable_asset_counts[i, :retirement_pd]
+                )
+            )
+                ret_summation_matrix[i, j] = 1
+            end
+
+        end
+    end
+
+    # Specify constraint: the agent cannot plan to retire more units (during
+    #   all lag periods) than exist of that unit type
+    for i = 1:size(retireable_asset_counts)[1]
+        @constraint(
+            m,
+            sum(ret_summation_matrix[i, :] .* m[:u]) <=
+            retireable_asset_counts[i, :count]
+        )
+    end
+
+    return m
+end
+
+function compute_retirement_matrices(
+    unit_type,
+    agent_id,
+    db,
+    PA_summaries,
+    unit_type_data,
+    current_pd,
+)
+    # TODO: make this a real function
+    max_horizon = 15
+
+    # Set up indicator matrices of novel asset retirements by type
+    type_PA_ret_matrix = zeros(size(PA_summaries)[1], max_horizon)
+
+    for i = 1:size(PA_summaries)[1]
+        if (PA_summaries[i, :project_type] == "retirement") && (PA_summaries[i, :unit_type] == unit_type)
+            type_PA_ret_matrix[i, PA_summaries[i, :lag] + 1] = 1
+        end
+
+        # If the present unit type is coal, count coal retirements due to
+        #   C2N projects according to current_pd + lag + cpp_ret_lead
+        if (unit_type == "coal") && occursin("C2N", PA_summaries[i, :unit_type])
+            # +1 converts from true zero-indexing to Julia one-indexing
+            target_ret_pd = PA_summaries[i, :lag] + unit_type_data[:cpp_ret_lead] + 1
+
+            if target_ret_pd <= size(type_PA_ret_matrix)[2]
+                type_PA_ret_matrix[i, target_ret_pd] = 1
+            end
+        end
+    end
+
+    # Set up DataFrames to hold data about planned units operating and retiring
+    #    of each type during all years in the horizon
+    planned_type_units_operating = DataFrame(pd = Int64[], num_units = Int64[])
+    planned_type_retirements = DataFrame(pd = Int64[], num_units = Int64[])
+
+    for i = 1:size(type_PA_ret_matrix)[2]
+        y = current_pd + i - 1 # -1 converts i from Julia dataframe index back
+                               #   to true relative year
+        num_units = 0
+        num_rets = 0
+
+        # Get number of $type units planned to operate during period i'
+        stmt = string(
+            "SELECT unit_type, COUNT(unit_type) FROM assets WHERE ",
+            "unit_type = '$unit_type' AND ",
+            "C2N_reserved = 0 AND ",
+            "agent_id = $agent_id AND ",
+            "completion_pd <= $y AND ",
+            "retirement_pd >= $y AND ",
+            "cancellation_pd >= $y ",
+            "GROUP BY unit_type",
+        )
+        unit_ops = DBInterface.execute(
+            db,
+            stmt
+        ) |> DataFrame
+
+        if size(unit_ops)[1] > 0
+            num_units = unit_ops[1, "COUNT(unit_type)"]
+        end
+
+        push!(planned_type_units_operating, (y, num_units))
+
+        # Get number of $type units planned to retire during period i
+        stmt = string(
+            "SELECT unit_type, COUNT(unit_type) FROM assets WHERE ",
+            "unit_type = '$unit_type' AND ",
+            "agent_id = $agent_id AND ",
+            "C2N_reserved = 0 AND ",
+            "retirement_pd = $y ",
+            "GROUP BY unit_type",
+        )
+        unit_rets = DBInterface.execute(
+            db,
+            stmt,
+        ) |> DataFrame        
+
+        if size(unit_rets)[1] > 0
+            num_rets = unit_rets[1, "COUNT(unit_type)"]
+        end
+
+        push!(planned_type_retirements, (y, num_rets))
+    end
+
+    return type_PA_ret_matrix, planned_type_units_operating, planned_type_retirements
+end
+
+function add_constraint_retirement_scheduling_limit(
+    m,
+    agent_id,
+    settings,
+    db,
+    PA_summaries,
+    unit_specs,
+    current_pd,
+)
+    max_horizon = 15
+
+    # Compute the operation and retirement matrices for all unit types
+    type_PA_rets_matrices = Dict() # Dict of matrices
+    type_ops_schedules = Dict()    # Dict of dataframes
+    type_rets_schedules = Dict()   # Dict of dataframes
+
+    # Add slack variables to constrain maximum retirements
+    num_types = size(unique(PA_summaries[!, :unit_type]))[1]
+    @variable(m, z[1:num_types, 1:max_horizon] >= 0, Int)
+
+    z_count = 1
+    # Implement retirement constraints, one unit type at a time
+    for unit_type in unique(PA_summaries[!, :unit_type])
+        unit_type_specs = filter(:unit_type => ((ut) -> ut == unit_type), unit_specs)[1, :]
+
+        type_PA_rets, type_ops, type_rets = compute_retirement_matrices(
+            unit_type,
+            agent_id,
+            db,
+            PA_summaries,
+            unit_type_specs,
+            current_pd,
+        )
+
+        type_PA_rets_matrices[unit_type] = type_PA_rets
+        type_ops_schedules[unit_type] = type_ops
+        type_rets_schedules[unit_type] = type_rets
+
+        for i = 1:max_horizon
+            @constraint(
+                m,
+                sum(transpose(m[:u]) * type_PA_rets[:, i]) <= type_ops[i, :num_units]
+            )
+
+            @constraint(
+                m,
+                sum(transpose(m[:u]) * type_PA_rets[:, i]) <= settings["agent_opt"]["max_type_rets_per_pd"]
+            )
+
+            # The following set of three constraints are collectively
+            #   equivalent to:
+            # O(t=0) - sum{t=0 -> i} max(R(t), P(t)) >= 0
+            #   or, more verbosely:
+            # @constraint(m, max(type_rets[i, :num_units], sum(transpose(u) * type_rets[:, i]
+            #     <= type_ops[1, :num_units]
+
+            @constraint(
+                m,
+                m[:z][z_count, i] >= type_rets[i, :num_units]
+            )
+
+            @constraint(
+                m,
+                m[:z][z_count, i] >= sum(transpose(m[:u]) * type_PA_rets[:, i])
+            )
+
+            @constraint(
+                m,
+                sum(m[:z][z_count, j] for j=1:i) <= type_ops[1, :num_units]
+            )
+
+        end
+
+        z_count += 1
+    end
+
+    return m
+end
+
+
+
+
+
 """
     set_up_model(unit_FS_dict, ret_fs_dict, fc_pd, available_demand, NPV_results, ret_NPV_results)
 
@@ -1419,6 +1925,7 @@ Returns:
 """
 function set_up_model(
     settings,
+    CLI_args,
     PA_summaries,
     PA_fs_dict,
     total_demand,
@@ -1457,355 +1964,65 @@ function set_up_model(
     # Number of units of each type to build: must be Integer
     @variable(m, u[1:num_alternatives] >= 0, Int)
 
-    # Compute expected marginal generation and effective nameplate capacity
-    #   contribution per alternative type
-    marg_gen = zeros(num_alternatives, num_time_periods)
-    marg_eff_cap = zeros(num_alternatives, num_time_periods)
-    for i = 1:size(PA_summaries)[1]
-        for j = 1:num_time_periods
-            # Marginal generation in kWh
-            marg_gen[i, j] = (
-                PA_fs_dict[PA_summaries[i, :uid]][j, :generation] /
-                settings["constants"]["MW2kW"]
-            )
-            # Convert total anticipated marginal generation to an effective
-            #   nameplate capacity and save to the appropriate entry in the
-            #   marginal generation array
-            unit_type_data = filter(
-                :unit_type => x -> x == PA_summaries[i, :unit_type],
-                unit_specs,
-            )
+    marg_derated_cap = compute_marginal_derated_capacity(
+        PA_summaries,
+        PA_fs_dict,
+        unit_specs,
+    )
 
-            if PA_summaries[i, :project_type] == "new_xtr"
-                op_start =
-                    PA_summaries[i, :lag] +
-                    unit_type_data[1, :construction_duration]
-                if j > op_start
-                    marg_eff_cap[i, j] = (
-                        unit_type_data[1, :capacity] *
-                        unit_type_data[1, :capacity_factor]
-                    )
-                end
-            elseif PA_summaries[i, :project_type] == "retirement"
-                if (j > PA_summaries[i, :lag]) &&
-                   (j <= PA_summaries[i, :ret_pd])
-                    marg_eff_cap[i, j] = (
-                        (-1) *
-                        unit_type_data[1, :capacity] *
-                        unit_type_data[1, :capacity_factor]
-                    )
-                end
-            end
-        end
-    end
+    # Prevent agents from intentionally causing foreseeable energy shortages
+    m = add_constraint_shortage_protection(
+        m,
+        settings,
+        db,
+        agent_id,
+        current_pd,
+        marg_derated_cap,
+        total_demand,
+        adj_system_portfolios,
+        unit_specs,
+        PA_summaries,
+    )
 
-    # Record which elements take effect immediately
-    PA_summaries[!, :current] .= 0
-    for i = 1:size(PA_summaries)[1]
-        if PA_summaries[i, :project_type] == "retirement"
-            PA_summaries[i, :current] = 1
-        elseif (
-            (PA_summaries[i, :project_type] == "new_xtr") &&
-            (PA_summaries[i, :lag] == 0)
-        )
-            PA_summaries[i, :current] = 1
-        end
-    end
+    # Compute marginal cash flow/income statement contributions from all PAs
+    marg_debt, marg_int, marg_FCF, marg_RE = compute_marginal_PA_contributions(
+        CLI_args["verbosity"],
+        PA_summaries,
+        PA_fs_dict,
+        agent_params,
+    )
 
-    # Prevent the agent from intentionally causing foreseeable energy shortages
-    for i = 1:settings["agent_opt"]["shortage_protection_period"]
-        y = current_pd + i - 1
-        # Get extant capacity sufficiency measures (projected demand and
-        #   capacity)
-        sufficiency = filter(:period => x -> x == y, total_demand)
-        pd_total_demand = sufficiency[1, :total_demand]
-        total_eff_cap = sum(adj_system_portfolios[y][!, :total_esc_der_capacity])
-
-        # Enforce different capacity assurance requirements based on extant
-        #   reserve margin
-        if (
-            total_eff_cap / pd_total_demand >
-            settings["agent_opt"]["cap_decrease_threshold"]
-        )
-            margin = settings["agent_opt"]["cap_decrease_margin"]
-        else
-            margin = settings["agent_opt"]["cap_maintain_margin"]
-        end
-
-        # Get total agent portfolio size for this year
-        stmt = "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $agent_id AND completion_pd <= $y AND retirement_pd > $y GROUP BY unit_type"
-        agent_pf = DBInterface.execute(db, stmt) |> DataFrame
-        if size(agent_pf)[1] != 0
-            rename!(agent_pf, Symbol("COUNT(unit_type)") => :num_units)
-            agent_pf = leftjoin(agent_pf, select(unit_specs, [:unit_type, :capacity, :capacity_factor]), on=:unit_type)
-            transform!(agent_pf, [:num_units, :capacity, :capacity_factor] => ((num, cap, cf) -> num .* cap .* cf) => :total_derated_cap)
-            agent_year_derated_cap = sum(agent_pf[!, :total_derated_cap])
-
-            @constraint(
-                m,
-                transpose(u .* PA_summaries[:, :current]) * marg_eff_cap[:, i] >=
-                agent_year_derated_cap * margin
-            )
-        end
-    end
-
-    
-    # Create arrays of expected marginal debt, interest, dividends, and FCF
-    #   per unit type
-    marg_debt = zeros(num_alternatives, num_time_periods)
-    marg_int = zeros(num_alternatives, num_time_periods)
-    marg_FCF = zeros(num_alternatives, num_time_periods)
-    marg_retained_earnings = zeros(num_alternatives, num_time_periods)
-    for i = 1:size(PA_summaries)[1]
-        project = PA_fs_dict[PA_summaries[i, :uid]]
-        for j = 1:num_time_periods
-            # Retrieve the marginal value of interest
-            # Scale to units of $B
-            marg_debt[i, j] = project[j, :remaining_debt_principal] / 1e9
-            marg_int[i, j] = project[j, :interest_payment] / 1e9
-            marg_FCF[i, j] = project[j, :FCF] / 1e9
-            marg_retained_earnings[i, j] = project[j, :FCF] / 1e9 * (1 - agent_params[1, :cost_of_equity])
-        end
-    end
-
-
-    # Prevent the agent from reducing its aggregated financial metrics score
-    #   below the weighted sum of the Moody's Ba rating thresholds (from the 
-    #   Unregulated Power Companies ratings grid)
-    # Getting some values for conciseness
-    ICR_floor = settings["agent_opt"]["icr_floor"]
-    CDR_floor = settings["agent_opt"]["fcf_debt_floor"]
-    RCDR_floor = settings["agent_opt"]["re_debt_floor"]
-
-    ICR_solo_floor = settings["agent_opt"]["icr_solo_floor"]
-    CDR_solo_floor = settings["agent_opt"]["fcf_debt_solo_floor"]
-    RCDR_solo_floor = settings["agent_opt"]["re_debt_solo_floor"]
-
-
+    # If running in normal solve mode (not retirement-only), add the financial
+    #    metric floor constraints
     if mode == "normal"
-        for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-            # Limit debt-denominator terms in the aggregated score
-            @constraint(
-                m,
-                0.2 * (
-                    (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) 
-                    - CDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) 
-                )
-
-                + 0.1 * (
-                    (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) 
-                    - RCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i]))
-                )
-
-                >= 0
-            )
-
-            # Limit individual financial metrics
-            @constraint(
-                m,
-                agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])
-                    + (1 - ICR_solo_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i]))
-                    >= 0
-            )
-
-            @constraint(
-                m,
-                (agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) 
-                    - CDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) 
-                    >= 0
-            )
-
-            @constraint(
-                m,
-                (agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) 
-                    - RCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i]))
-                    >= 0
-            )
-        end
-    end
-
-    # Enforce the user-specified maximum number of new construction/retirement
-    #   projects by type per period, and the :allowed field in PA_summaries
-    exp_PA_summaries = leftjoin(PA_summaries, unit_specs, on=:unit_type)
-
-    for i = 1:num_alternatives
-        if PA_summaries[i, :project_type] == "new_xtr"
-            @constraint(
-                m,
-                u[i] .* exp_PA_summaries[i, :capacity] .<=
-                convert(Int64, exp_PA_summaries[i, :allowed]) .*
-                settings["agent_opt"]["max_type_newcap_per_pd"]
-            )
-        elseif PA_summaries[i, :project_type] == "retirement"
-            unit_type = PA_summaries[i, :unit_type]
-            ret_pd = PA_summaries[i, :ret_pd]
-            asset_count = filter(
-                [:unit_type, :retirement_pd] =>
-                    (x, y) -> x == unit_type && y == ret_pd,
-                asset_counts,
-            )[
-                1,
-                :count,
-            ]
-            max_retirement = (
-                convert(Int64, PA_summaries[i, :allowed]) .* min(
-                    asset_count,
-                    settings["agent_opt"]["max_type_rets_per_pd"],
-                )
-            )
-            @constraint(m, u[i] .<= max_retirement)
-        end
-    end
-
-    # The total number of assets of each type to be retired cannot exceed
-    #   the total number of assets of that type owned by the agent
-
-    # Setup
-    # Convenient variable for the number of distinct retirement alternatives,
-    #   excluding assets reserved for C2N conversion
-    retireable_asset_counts =
-        filter([:C2N_reserved] => ((reserved) -> reserved == 0), asset_counts)
-
-    # Shortened name for the number of lag periods to consider
-    #   1 is added, as the user-set value only specifies future periods,
-    #   with the "lag = 0" instance being implied
-    num_lags = settings["agent_opt"]["num_future_periods_considered"] + 1
-
-    # Create the matrix to collapse lagged options
-    # This matrix has one long row for each retiring-asset category,
-    #   with 1's in each element where the corresponding element of u[] is
-    #   one of these units
-    ret_summation_matrix =
-        zeros(size(retireable_asset_counts)[1], size(PA_summaries)[1])
-    for i = 1:size(retireable_asset_counts)[1]
-        for j = 1:size(PA_summaries)[1]
-            if (
-                (PA_summaries[j, :project_type] == "retirement") &
-                (
-                    PA_summaries[j, :unit_type] ==
-                    retireable_asset_counts[i, :unit_type]
-                ) &
-                (
-                    PA_summaries[j, :ret_pd] ==
-                    retireable_asset_counts[i, :retirement_pd]
-                )
-            )
-                ret_summation_matrix[i, j] = 1
-            end
-
-        end
-    end
-
-    # Specify constraint: the agent cannot plan to retire more units (during
-    #   all lag periods) than exist of that unit type
-    for i = 1:size(retireable_asset_counts)[1]
-        @constraint(
+        m = add_constraint_FM_floors(
             m,
-            sum(ret_summation_matrix[i, :] .* u) <=
-            retireable_asset_counts[i, :count]
+            settings,
+            agent_fs,
+            marg_FCF,
+            marg_int,
+            marg_debt,
+            marg_RE,
         )
-    end
+    end   
 
-    # Set the maximum lookahead for coal retirements to be after the latest
-    #   possible coal unit retirement from any project alternative
-    coal_horizon = convert(Int64, ceil(round(maximum(PA_summaries[!, :lag]) + maximum(unit_specs[!, :construction_duration]) + 2, digits=3)))
+    m = add_constraint_max_new_capacity(
+        m,
+        settings["agent_opt"]["max_type_newcap_per_pd"],
+        PA_summaries,
+        unit_specs,
+    )
 
-    # Set up the coal retirements matrix, to ensure that the total "pool"
-    #   of coal plants available for retirement is respected across the entire
-    #   visible horizon
-    coal_retirements = zeros(size(PA_summaries)[1], coal_horizon)
-    planned_coal_units_operating = DataFrame(pd = Int64[], num_units = Int64[])
-    planned_coal_retirements = DataFrame(pd = Int64[], num_units = Int64[])
+    m = add_constraint_retirement_scheduling_limit(
+        m,
+        agent_id,
+        settings,
+        db,
+        PA_summaries,
+        unit_specs,
+        current_pd,
+    )
 
-    for i = 1:size(PA_summaries)[1]
-        # Mark all of the direct coal retirements in the matrix
-        if (PA_summaries[i, :project_type] == "retirement") &&
-           (PA_summaries[i, :unit_type] == "coal")
-            coal_retirements[i, PA_summaries[i, :lag] + 1] = 1
-        end
-
-        # Mark all of the C2N-forced coal retirements in the matrix
-        if occursin("C2N", PA_summaries[i, :unit_type])
-            unit_type_data = filter(
-                :unit_type => ((ut) -> ut == PA_summaries[i, :unit_type]),
-                unit_specs,
-            )[1, :]
-
-            if occursin("C2N0", PA_summaries[i, :unit_type])
-                target_coal_ret_pd = convert(Int64, PA_summaries[i, :lag] + ceil(round(unit_type_data[:construction_duration], digits=3))) + 1
-            else
-                target_coal_ret_pd =
-                    convert(Int64, PA_summaries[i, :lag] + ceil(round(unit_type_data[:cpp_ret_lead], digits=3))) + 1
-            end
-
-            if target_coal_ret_pd <= size(coal_retirements)[2]
-                coal_retirements[i, target_coal_ret_pd] = 1
-            end
-        end
-
-    end
-
-    for i = 1:size(coal_retirements)[2]
-        y = current_pd + i - 1  # -1 converts i from julia dataframe index back to true relative year
-        num_units = 0
-        num_rets = 0
-
-        # Get number of planned coal units operating during this period
-        coal_ops =
-            DBInterface.execute(
-                db,
-                "SELECT unit_type, COUNT(unit_type) FROM assets WHERE unit_type = 'coal' AND C2N_reserved = 0 AND agent_id = $agent_id AND completion_pd <= $y AND retirement_pd >= $y AND cancellation_pd >= $y GROUP BY unit_type",
-            ) |> DataFrame
-
-        coal_rets = DBInterface.execute(
-            db,
-            "SELECT unit_type, COUNT(unit_type) FROM assets WHERE unit_type = 'coal' AND agent_id = $agent_id AND C2N_reserved = 0 AND retirement_pd = $y GROUP BY unit_type",
-        ) |> DataFrame
-
-        if size(coal_ops)[1] > 0
-            num_units = coal_ops[1, "COUNT(unit_type)"]
-        end
-
-        if size(coal_rets)[1] > 0
-            num_rets = coal_rets[1, "COUNT(unit_type)"]
-        end
-
-        # Record the number of operating coal units in this period
-        push!(planned_coal_units_operating, (y, num_units))
-        push!(planned_coal_retirements, (y, num_rets))
-    end
-
-    # Introduce a slack variable for limiting coal retirements
-    @variable(m, z[1:size(coal_retirements)[2]] >= 0, Int)
-
-    # Constrain rolling total of coal retirements
-    for i = 1:size(coal_retirements)[2]
-        @constraint(
-            m,
-            sum(transpose(u) * coal_retirements[:, i]) <=
-            planned_coal_units_operating[i, :num_units]
-        )
-
-        # The following three constraints are equivalent to:
-        # O(t=0) - sum{t=0 -> i} (max(R(t), P(t)) >= 0
-        #   or, more verbosely:
-        # @constraint(m, max(planned_coal_retirements[i, :num_units], sum(transpose(u) * coal_retirements[:, i]
-        #                <= planned_coal_units_operating[1, :num_units])
-        @constraint(
-            m,
-            z[i] >= planned_coal_retirements[i, :num_units]
-        )
-
-        @constraint(
-            m,
-            z[i] >= sum(transpose(u) * coal_retirements[:, i])
-        )
-
-        @constraint(
-            m,
-            sum(z[j] for j=1:i) <= planned_coal_units_operating[1, :num_units]
-        )
-    end
 
     # Create the objective function 
     fin_metric_horizon = settings["agent_opt"]["fin_metric_horizon"]
@@ -1828,7 +2045,7 @@ function set_up_model(
             credit_rating_lamda / (0.1 + 0.2 + 0.1) * (
                 0.1 * sum(agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) - (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])) for i=1:fin_metric_horizon)
                 + 0.2 * sum((agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
-                + 0.1 * sum((agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_retained_earnings[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
+                + 0.1 * sum((agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_RE[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
             )
         )
     )
@@ -1839,6 +2056,23 @@ function set_up_model(
 end
 
 
+function solve_model(m, threshold=1e-8)
+    optimize!(m)
+
+#    if string(termination_status.(m)) == "OPTIMAL"
+#        binding_cons = ConstraintRef[]
+#        for (F, S) in list_of_constraint_types(m)
+#            for con in all_constraints(m, F, S)
+#                println(con)
+#                println(JuMP.value(con))
+#             end
+#        end
+
+#        print(binding_cons)
+#    end
+
+    return m
+end
 
 
 

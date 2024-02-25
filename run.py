@@ -110,6 +110,13 @@ def cli_args():
         action="store_true",
         help="Disable plot generation during postprocessing (prevents matplotlib/qt issues)",
     )
+    parser.add_argument(
+        "--log_file",
+        type=str,
+        help="Relative path to the desired logfile.",
+        default=Path(Path.cwd() / "logfile.txt"),
+    )
+
 
     args = parser.parse_args()
     return args
@@ -139,9 +146,13 @@ def initialize_logging(args, vis_lvl):
 
     fmt = ABCEFormatter(vis_lvl)
     hdlr = logging.StreamHandler(sys.stdout)
+    f_hdlr = logging.FileHandler(args.log_file)
 
     hdlr.setFormatter(fmt)
+    f_hdlr.setFormatter(fmt)
+
     logging.root.addHandler(hdlr)
+    logging.root.addHandler(f_hdlr)
 
     logging.root.setLevel(lvl)
 
