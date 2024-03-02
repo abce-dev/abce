@@ -792,18 +792,17 @@ class GridModel(Model):
                 interest_payment = rate * remaining_principal
                 principal_payment = total_payment - interest_payment
 
-                if projected_pd >= self.current_pd:
-                    # Organize data and add to fin_sched_updates
-                    new_row = [
-                        inst_id,
-                        agent_id,
-                        self.current_pd,
-                        projected_pd,
-                        total_payment,
-                        interest_payment,
-                        principal_payment,
-                    ]
-                    fin_sched_updates.loc[len(fin_sched_updates.index)] = new_row
+                # Organize data and add to fin_sched_updates
+                new_row = [
+                    inst_id,
+                    agent_id,
+                    self.current_pd,
+                    projected_pd,
+                    total_payment,
+                    interest_payment,
+                    principal_payment,
+                ]
+                fin_sched_updates.loc[len(fin_sched_updates.index)] = new_row
 
                 # Update the amount of remaining principal
                 remaining_principal = remaining_principal - principal_payment
