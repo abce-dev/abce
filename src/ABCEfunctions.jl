@@ -2696,37 +2696,82 @@ end
 
 
 function compute_debt_principal_ts(db, agent_id, current_pd)
-    # Get debt principal repayments by year
-    principal_payments = DBInterface.execute(db, string("SELECT * FROM financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd")) |> DataFrame
+    # Retrieve a DataFrame of all debt instruments issued by this agent
+    #   starting in period 0
+    stmt = string(
+        "SELECT instrument_id, pd_issued, initial_principal ",
+        "FROM financial_instrument_manifest WHERE ",
+        "agent_id = $agent_id AND ",
+        "instrument_type = 'debt' ",
+    )
 
-    # Get cumulative debt issued by year
-    # Get the list of all debt instruments issued by this agent
-    inst_manifest = DBInterface.execute(db, string("SELECT * FROM financial_instrument_manifest WHERE agent_id = $agent_id AND instrument_type='debt'")) |> DataFrame
+    inst_manifest = DBInterface.execute(db, stmt) |> DataFrame
 
-    principal_payments = filter(:instrument_id => instrument_id -> in(instrument_id, inst_manifest[!, :instrument_id]), principal_payments)
-    principal_payments = groupby(principal_payments, :projected_pd)
-    principal_payments = combine(principal_payments, [:principal_payment, :interest_payment] .=> sum; renamecols=false)
+    println("inst_manifest")
+    println(inst_manifest)
 
+    # Get all repayment schedule information
+    stmt = string(
+        "SELECT * FROM financing_schedule WHERE ",
+        "agent_id = $agent_id AND ",
+        "base_pd = $current_pd",
+    )
+    fin_sched = DBInterface.execute(db, stmt) |> DataFrame
+
+    # Filter fin_sched to include only instruments listed in inst_manifest
+    #   (i.e. instruments that really were issued in the past, or are
+    #   currently forecasted for the future)
+    fin_sched = filter(
+        :instrument_id => instrument_id -> in(instrument_id, inst_manifest[!, :instrument_id]),
+        fin_sched        
+    )
+
+    fin_sched = groupby(fin_sched, :projected_pd)
+    fin_sched = combine(
+        fin_sched,
+        :total_payment => sum => :total_payment,
+        :principal_payment => sum => :principal_payment,
+        :interest_payment => sum => :interest_payment
+    )
+
+    println(fin_sched)
+
+
+    # Fill the final debt_principal_ts dataframe
     debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
 
-    if size(principal_payments)[1] > 0
-        for y=current_pd:maximum(principal_payments[!, :projected_pd])
+    if size(fin_sched)[1] > 0
+        for y=minimum(fin_sched[!, :projected_pd]):maximum(fin_sched[!, :projected_pd])
             debt_by_year = filter(:pd_issued => pd -> pd <= y, inst_manifest)
             cum_debt = sum(debt_by_year[!, :initial_principal])
             push!(debt_principal_ts, [y, cum_debt])
         end
     end
 
-    debt_principal_ts = outerjoin(debt_principal_ts, principal_payments, on = :projected_pd)
+    debt_principal_ts = outerjoin(debt_principal_ts, fin_sched, on = :projected_pd)
+    debt_principal_ts = sort(debt_principal_ts, :projected_pd)
+
+    println("debt_principal_ts")
+    println(debt_principal_ts)
 
     debt_principal_ts[!, :BOY_rem_debt_principal] .= 0.0
     debt_principal_ts[1, :BOY_rem_debt_principal] = debt_principal_ts[1, :remaining_debt_principal]
+
     for y = 2:size(debt_principal_ts)[1]
-        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y-1, :BOY_rem_debt_principal] - debt_principal_ts[y-1, :principal_payment]
+        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y, :remaining_debt_principal] - sum(debt_principal_ts[1:y-1, :principal_payment])
     end
 
     debt_principal_ts = select(debt_principal_ts, [:projected_pd, :BOY_rem_debt_principal, :principal_payment, :interest_payment])
+
+    println("fully propagated debt_principal_ts")
+    println(debt_principal_ts)
+
     rename!(debt_principal_ts, :BOY_rem_debt_principal => :remaining_debt_principal)
+
+    debt_principal_ts = debt_principal_ts[current_pd+1:size(debt_principal_ts)[1], :]
+
+    println("final debt_principal_ts")
+    println(debt_principal_ts)
 
     return debt_principal_ts
 end
