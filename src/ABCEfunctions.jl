@@ -2707,9 +2707,6 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
 
     inst_manifest = DBInterface.execute(db, stmt) |> DataFrame
 
-    println("inst_manifest")
-    println(inst_manifest)
-
     # Get all repayment schedule information
     stmt = string(
         "SELECT * FROM financing_schedule WHERE ",
@@ -2734,9 +2731,6 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
         :interest_payment => sum => :interest_payment
     )
 
-    println(fin_sched)
-
-
     # Fill the final debt_principal_ts dataframe
     debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
 
@@ -2751,9 +2745,6 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
     debt_principal_ts = outerjoin(debt_principal_ts, fin_sched, on = :projected_pd)
     debt_principal_ts = sort(debt_principal_ts, :projected_pd)
 
-    println("debt_principal_ts")
-    println(debt_principal_ts)
-
     debt_principal_ts[!, :BOY_rem_debt_principal] .= 0.0
     debt_principal_ts[1, :BOY_rem_debt_principal] = debt_principal_ts[1, :remaining_debt_principal]
 
@@ -2763,15 +2754,9 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
 
     debt_principal_ts = select(debt_principal_ts, [:projected_pd, :BOY_rem_debt_principal, :principal_payment, :interest_payment])
 
-    println("fully propagated debt_principal_ts")
-    println(debt_principal_ts)
-
     rename!(debt_principal_ts, :BOY_rem_debt_principal => :remaining_debt_principal)
 
     debt_principal_ts = debt_principal_ts[current_pd+1:size(debt_principal_ts)[1], :]
-
-    println("final debt_principal_ts")
-    println(debt_principal_ts)
 
     return debt_principal_ts
 end
@@ -2839,20 +2824,13 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
         ) |> DataFrame
     cost_of_equity = cost_of_equity[1, :cost_of_equity]
 
-    # Compute dividends
-    # Allow negative dividends if this is a project (negative FCF accruing to
-    #   the project is assumed to reduce total dividend across the agent's
-    #   finances)
-    if mode == "subproject"
-        transform!(agent_fs, :nominal_FCF => ((nfcf) -> nfcf .* cost_of_equity) => :dividends)
-    else
-        # If this is the agent's financial statement, the minimum actual
-        #   dividend is zero
-        agent_fs.dividends = ifelse.(agent_fs.nominal_FCF .> 0, agent_fs.nominal_FCF .* cost_of_equity, 0)
-    end
-
     # Compute annual contribution to retained earnings and finalized FCF
     if mode == "subproject"
+        # Allow negative dividends if this is a project (negative FCF accruing to
+        #   the project is assumed to reduce total dividend across the agent's
+        #   finances)
+        transform!(agent_fs, :nominal_FCF => ((nfcf) -> nfcf .* cost_of_equity) => :dividends)
+
         # If this is a subproject, nominal FCF = FCF because retained earnings
         #   are not used to tide over cash flow
         agent_fs[!, :FCF] = agent_fs[!, :nominal_FCF]
@@ -2864,13 +2842,6 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
         )
         agent_fs[!, :retained_earnings] = agent_fs[!, :delta_RE]
     else
-        # If this is the agent, track the full net change in RE starting 
-        #   from the current year's RE value
-        transform!(
-            agent_fs,
-            [:nominal_FCF, :dividends] => ((nfcf, div) -> nfcf .- div) => :delta_RE,
-        )
-
         # Get the preceding period's RE
         hist_agent_fss = DBInterface.execute(db, "SELECT base_pd, projected_pd, retained_earnings FROM agent_financial_statements WHERE agent_id == $agent_id") |> DataFrame
 
@@ -2888,6 +2859,7 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
 
         # Set up a blank column for retained earnings
         agent_fs[!, :retained_earnings] .= 0.0
+        agent_fs[!, :dividends] .= 0.0
         agent_fs[!, :FCF] .= 0.0
 
         # Propagate the running retained earnings total through the agent
@@ -2900,16 +2872,25 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
                 RE_transfer = min(running_RE, (-1) * agent_fs[i, :nominal_FCF])
 
                 FCF = agent_fs[i, :nominal_FCF] + RE_transfer
-                running_RE = running_RE - RE_transfer
+                total_RE = running_RE - RE_transfer
             else
                 # If the nominal FCF is positive, there is no transfer
                 #   and RE and FCF take on their normal values
                 FCF = agent_fs[i, :nominal_FCF]
-                running_RE = running_RE + agent_fs[i, :delta_RE]
+                total_RE = running_RE + agent_fs[i, :nominal_FCF]
             end
 
+            dividends = max(
+                convert(Int64, floor(round(total_RE * cost_of_equity, digits=3))),
+                0
+            )
+            running_RE = total_RE - dividends
+
+            agent_fs[i, :dividends] = dividends
             agent_fs[i, :retained_earnings] = running_RE
             agent_fs[i, :FCF] = FCF
+
+            running_RE = running_RE * (1 - cost_of_equity)
         end
     end
 
@@ -2923,16 +2904,14 @@ function compute_credit_indicator_scores(settings, agent_fs)
     transform!(agent_fs, [:remaining_debt_principal, :retained_earnings] => ((debt, re) -> re ./ debt) => :RE_debt_ratio)
 
     # Use excess RE over the amount needed to reach the target ratio to subsidize FCF
-    transform!(agent_fs, [:retained_earnings, :remaining_debt_principal, :FCF] => ByRow((re, debt, fcf) -> ifelse.((re / debt > rcdr_target), re - rcdr_target * debt, 0)) => :available_cash)
 
     # Compute effective FCF: if FCF is zero but RE is greater than zero, use RE in place of FCF
-    transform!(agent_fs, [:FCF, :available_cash] => ((fcf, cash) -> fcf .+ cash) => :eff_FCF)
 
     # Compute ICR metric column
-    transform!(agent_fs, [:interest_payment, :eff_FCF] => ((int, fcf) -> (fcf .+ int) ./ int) => :ICR)
+    transform!(agent_fs, [:interest_payment, :FCF] => ((int, fcf) -> (fcf .+ int) ./ int) => :ICR)
 
     # Compute FCF-to-debt metric column
-    transform!(agent_fs, [:remaining_debt_principal, :eff_FCF] => ((debt, fcf) -> fcf ./ debt) => :FCF_debt_ratio)
+    transform!(agent_fs, [:remaining_debt_principal, :FCF] => ((debt, fcf) -> fcf ./ debt) => :FCF_debt_ratio)
 
     # Compute scaled Moody's indicator score from metrics
     transform!(agent_fs, [:ICR, :FCF_debt_ratio, :RE_debt_ratio] => ((icr, fcf_debt, re_debt) -> compute_moodys_score.(icr, fcf_debt, re_debt)) => :moodys_score)
