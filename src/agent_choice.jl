@@ -196,8 +196,8 @@ function run_agent_choice()
 
     # Update the agent's baseline projected financial statements, to use in
     #   the decision optimization model
-    @info "Updating the agent's financial statements..."
-    agent_fs = ABCEfunctions.update_agent_financial_statement(
+    @info "Generating the agent's projected financial statements..."
+    agent_fs = ABCEfunctions.forecast_agent_financial_statement(
         settings,
         CLI_args["agent_id"],
         db,
