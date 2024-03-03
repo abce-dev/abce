@@ -544,6 +544,11 @@ class GridModel(Model):
         # Based on the current status of any WIP projects, update projections
         #   of capital expenditures for upcoming periods
 
+        # Retrieve a list of all current WIP projects
+#        WIP_projects = pd.read_sql_query(
+#            "SELECT * FROM WIP_projects"
+#        )
+
         # Retrieve a list of all ongoing WIP projects
         WIP_projects = pd.read_sql_query(
             f"SELECT WIP_projects.*, assets.* "
@@ -557,6 +562,19 @@ class GridModel(Model):
             + f"AND WIP_projects.period = {self.current_pd}",
             self.db,
         )
+
+        # Retrieve a list of assets already accounted for in capex_projections
+#        previous_assets = pd.read_sql_query(
+#            "SELECT asset_id FROM capex_projections",
+#            self.db,
+#        )
+
+#        print(WIP_projects)
+#        print(previous_assets)
+
+        # Filter WIP_projects to only new projects without capex projections
+        
+#        new_WIP_projects = WIP_projects[~(WIP_projects.asset_id.isin(list(previous_assets["asset_id"])))]
 
         # Create dataframe to hold all new capex_projections entries
         capex_cols = [
@@ -680,7 +698,7 @@ class GridModel(Model):
         fin_insts_updates = pd.read_sql_query(
             (
                 f"SELECT * FROM financial_instrument_manifest "
-                + f"WHERE pd_issued < {self.current_pd - 1}"
+                + f"WHERE pd_issued <= {self.current_pd}" # TODO
             ),
             self.db,
         )
@@ -702,7 +720,7 @@ class GridModel(Model):
             (
                 f"SELECT * FROM capex_projections "
                 + f"WHERE base_pd >= {self.current_pd} "
-                + f"AND projected_pd >= {self.current_pd-1}"
+                + f"AND projected_pd >= {self.current_pd}"
             ),
             self.db,
         )
