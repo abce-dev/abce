@@ -2447,7 +2447,7 @@ function get_agent_portfolio_forecast(agent_id, db, current_pd, fc_pd)
 end
 
 
-function update_agent_financial_statement(
+function forecast_agent_financial_statement(
     settings,
     agent_id,
     db,
@@ -2515,7 +2515,7 @@ function update_agent_financial_statement(
     agent_fs = compute_credit_indicator_scores(settings, agent_fs)
 
     # Save the dataframe to the database
-    save_agent_fs!(agent_fs, agent_id, db)
+    save_agent_fs!(agent_fs, agent_id, db, "forecast")
 
     return agent_fs
 
@@ -2843,7 +2843,7 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
         agent_fs[!, :retained_earnings] = agent_fs[!, :delta_RE]
     else
         # Get the preceding period's RE
-        hist_agent_fss = DBInterface.execute(db, "SELECT base_pd, projected_pd, retained_earnings FROM agent_financial_statements WHERE agent_id == $agent_id") |> DataFrame
+        hist_agent_fss = DBInterface.execute(db, "SELECT base_pd, projected_pd, retained_earnings FROM realized_agent_fss WHERE agent_id == $agent_id") |> DataFrame
 
         if size(hist_agent_fss)[1] == 0
             # If there are no financial statements recorded for this agent yet,
@@ -2853,8 +2853,7 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
         else
             # If some financial statements were found, choose the most recent
             #   immediate-year prediction
-            re_vals = filter([:base_pd, :projected_pd] => ((base_pd, pr_pd) -> base_pd == pr_pd), hist_agent_fss)
-            init_RE = filter(:base_pd => base_pd -> base_pd == maximum(hist_agent_fss[!, :base_pd]), re_vals)[1, :retained_earnings]
+            init_RE = filter([:base_pd] => ((base_pd) -> base_pd == current_pd - 1), hist_agent_fss)[1, :retained_earnings]
         end
 
         # Set up a blank column for retained earnings
@@ -2921,7 +2920,13 @@ end
 
 
 
-function save_agent_fs!(fs, agent_id, db)
+function save_agent_fs!(fs, agent_id, db, mode)
+    if mode == "forecast"
+        table = "forecasted_agent_fss"
+    else
+        table = "realized_agent_fss"
+    end
+
     # Add the agent id to the dataframe
     fs[!, :agent_id] .= agent_id
 
@@ -2931,7 +2936,7 @@ function save_agent_fs!(fs, agent_id, db)
             db,
             string(
                 "SELECT name FROM ",
-                "PRAGMA_TABLE_INFO('agent_financial_statements')",
+                "PRAGMA_TABLE_INFO('$table')",
             ),
         ) |> DataFrame
     fs_col_order = collect(fs_col_order[!, "name"]) # convert DF col to vector
@@ -2946,7 +2951,7 @@ function save_agent_fs!(fs, agent_id, db)
         DBInterface.execute(
             db,
             string(
-                "INSERT INTO agent_financial_statements VALUES $fill_tuple"
+                "INSERT INTO $table VALUES $fill_tuple"
             ),
             row,
         )
