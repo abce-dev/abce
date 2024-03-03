@@ -485,6 +485,9 @@ class GridModel(Model):
             self.save_ALEAF_outputs()
             self.process_ALEAF_dispatch_results()
 
+        # Save the realized agents' financial statement for this year
+#        self.save_realized_agents_fss()
+
 
     def display_step_header(self):
         if self.current_pd != 0:
@@ -532,13 +535,10 @@ class GridModel(Model):
         #   - financing instrument manifest
         #   - financing schedule
         #   - depreciation projections
-        #   - agent financial statements
         self.update_capex_projections()
         self.update_financial_instrument_manifest()
         self.update_financing_schedule()
-        # self.update_PPE_projections()
         self.update_depreciation_projections()
-        # self.update_agent_financial_statements()
 
     def update_capex_projections(self):
         # Based on the current status of any WIP projects, update projections
