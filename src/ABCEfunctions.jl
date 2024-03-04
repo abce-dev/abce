@@ -2660,7 +2660,7 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
                 "SELECT projected_pd, SUM(capex) ",
                 "FROM capex_projections ",
                 "WHERE agent_id = $agent_id ",
-                "AND base_pd = $current_pd GROUP BY projected_pd",
+                "GROUP BY projected_pd",
             ),
         ) |> DataFrame
 
@@ -2674,7 +2674,6 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
                 "SELECT projected_pd, SUM(depreciation) ",
                 "FROM depreciation_projections ",
                 "WHERE agent_id = $agent_id ",
-                "AND base_pd = $current_pd ",
                 "GROUP BY projected_pd",
             ),
         ) |> DataFrame
@@ -2706,23 +2705,19 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
     )
 
     inst_manifest = DBInterface.execute(db, stmt) |> DataFrame
+    println("inst_manifest")
+    println(inst_manifest)
 
     # Get all repayment schedule information
     stmt = string(
         "SELECT * FROM financing_schedule WHERE ",
-        "agent_id = $agent_id AND ",
-        "base_pd = $current_pd",
+        "agent_id = $agent_id",
     )
     fin_sched = DBInterface.execute(db, stmt) |> DataFrame
+    println("fin_sched")
+    println(fin_sched)
 
-    # Filter fin_sched to include only instruments listed in inst_manifest
-    #   (i.e. instruments that really were issued in the past, or are
-    #   currently forecasted for the future)
-    fin_sched = filter(
-        :instrument_id => instrument_id -> in(instrument_id, inst_manifest[!, :instrument_id]),
-        fin_sched        
-    )
-
+    # Pivot the fin_sched information to group all payments by period
     fin_sched = groupby(fin_sched, :projected_pd)
     fin_sched = combine(
         fin_sched,
@@ -2730,6 +2725,8 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
         :principal_payment => sum => :principal_payment,
         :interest_payment => sum => :interest_payment
     )
+    println("reorganized fin_sched")
+    println(fin_sched)
 
     # Fill the final debt_principal_ts dataframe
     debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
@@ -2741,9 +2738,13 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
             push!(debt_principal_ts, [y, cum_debt])
         end
     end
+    println("initial fill of debt_principal_ts")
+    println(debt_principal_ts)
 
     debt_principal_ts = outerjoin(debt_principal_ts, fin_sched, on = :projected_pd)
     debt_principal_ts = sort(debt_principal_ts, :projected_pd)
+    println("reorganized debt_principal_ts")
+    println(debt_principal_ts)
 
     debt_principal_ts[!, :BOY_rem_debt_principal] .= 0.0
     debt_principal_ts[1, :BOY_rem_debt_principal] = debt_principal_ts[1, :remaining_debt_principal]
