@@ -374,6 +374,7 @@ class GridModel(Model):
         """
         self.current_pd += 1
 
+        # Perform some step-0 setup
         if self.current_pd == 0:
             self.has_ABCE_sysimage = self.check_for_sysimage_file()
 
@@ -381,9 +382,6 @@ class GridModel(Model):
 
         # Advance the status of all WIP projects to the current period
         self.update_WIP_projects()
-
-        # Update financial statements and financial projections for all agents
-        self.update_agent_financials()
 
         # If any agent will have an empty portfolio this year, delete them
         #   from the schedule
@@ -499,6 +497,7 @@ class GridModel(Model):
         )
         logging.log(self.settings["constants"]["vis_lvl"], "=" * 60)
 
+
     def show_round_updates(self):
         logging.debug("Updates to assets:")
         logging.debug(pd.read_sql("SELECT * FROM asset_updates", self.db))
@@ -506,6 +505,7 @@ class GridModel(Model):
         logging.debug(
             pd.read_sql("SELECT * FROM WIP_updates", self.db).tail(n=10)
         )
+
 
     def check_for_sysimage_file(self):
         ABCE_sysimage_path = (
@@ -529,472 +529,6 @@ class GridModel(Model):
 
         return has_ABCE_sysimage
 
-    def update_agent_financials(self):
-        # Update the following database tables for all agents:
-        #   - capex projections
-        #   - financing instrument manifest
-        #   - financing schedule
-        #   - depreciation projections
-        self.update_capex_projections()
-        self.update_financial_instrument_manifest()
-        self.update_financing_schedule()
-        self.update_depreciation_projections()
-
-    def update_capex_projections(self):
-        # Based on the current status of any WIP projects, update projections
-        #   of capital expenditures for upcoming periods
-
-        # Retrieve a list of all current WIP projects
-#        WIP_projects = pd.read_sql_query(
-#            "SELECT * FROM WIP_projects"
-#        )
-
-        # Retrieve a list of all ongoing WIP projects
-        WIP_projects = pd.read_sql_query(
-            f"SELECT WIP_projects.*, assets.* "
-            + "FROM WIP_projects "
-            + "INNER JOIN assets "
-            + "ON WIP_projects.asset_id = assets.asset_id "
-            + "WHERE "
-            + f"assets.completion_pd > {self.current_pd} "
-            + f"AND assets.retirement_pd > {self.current_pd} "
-            + f"AND assets.cancellation_pd > {self.current_pd} "
-            + f"AND WIP_projects.period = {self.current_pd}",
-            self.db,
-        )
-
-        # Retrieve a list of assets already accounted for in capex_projections
-#        previous_assets = pd.read_sql_query(
-#            "SELECT asset_id FROM capex_projections",
-#            self.db,
-#        )
-
-#        print(WIP_projects)
-#        print(previous_assets)
-
-        # Filter WIP_projects to only new projects without capex projections
-        
-#        new_WIP_projects = WIP_projects[~(WIP_projects.asset_id.isin(list(previous_assets["asset_id"])))]
-
-        # Create dataframe to hold all new capex_projections entries
-        capex_cols = [
-            "agent_id",
-            "asset_id",
-            "base_pd",
-            "projected_pd",
-            "capex",
-        ]
-        capex_updates = pd.DataFrame(columns=capex_cols)
-
-        # Iterate through all WIP projects and project capex through the
-        #   project's end
-        for row in WIP_projects.itertuples():
-            asset_id = getattr(row, "asset_id")
-            agent_id = getattr(row, "agent_id")
-
-            projected_capex = self.project_capex(
-                getattr(row, "unit_type"),
-                getattr(row, "cum_construction_exp"),
-                getattr(row, "cum_construction_duration"),
-                getattr(row, "rcec"),
-                getattr(row, "rtec"),
-            )
-
-            for i in range(len(projected_capex)):
-                new_row = [
-                    agent_id,
-                    asset_id,
-                    self.current_pd,
-                    self.current_pd + i - 1,
-                    projected_capex[i],
-                ]
-                capex_updates.loc[len(capex_updates.index)] = new_row
-
-        # Write the entire capex_cols dataframe to the capex_projections
-        #   DB table
-        capex_updates.to_sql(
-            "capex_projections", self.db, if_exists="append", index=False
-        )
-
-        self.db.commit()
-
-    def project_capex(
-        self,
-        unit_type,
-        cum_construction_exp,
-        cum_construction_duration,
-        rcec,
-        rtec,
-    ):
-        # For a given WIP project, project the sequence of annual capital
-        #   expenditures until the project's expected completion
-        # TODO: update with more specific methods for different project types
-        # For now, assume the project proceeds linearly
-        projected_capex = []
-        for i in range(math.ceil(round(rtec + 1, 3))):
-            projected_capex.append(rcec / rtec)
-
-        return projected_capex
-
-    def initialize_preexisting_instruments(self, fin_insts_updates):
-        # Initialize the instrument ids
-        inst_id = self.settings["financing"]["starting_instrument_id"]
-
-        for agent_id, agent in self.agents.items():
-            if not agent.inactive:
-                # Compute starting level of extant equity
-                if agent.debt_fraction != 0:
-                    starting_equity = (
-                        float(agent.starting_debt)
-                        / agent.debt_fraction
-                        * (1 - agent.debt_fraction)
-                    )
-                else:
-                    starting_equity = agent.starting_debt
-
-                # Instantiate a debt record
-                debt_row = [
-                    agent.unique_id,
-                    inst_id,
-                    "debt",
-                    agent.unique_id,
-                    self.settings["constants"]["time_before_start"],
-                    float(agent.starting_debt),
-                    self.settings["financing"]["default_debt_term"],
-                    agent.cost_of_debt,
-                ]
-
-                fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
-                inst_id += 1
-
-                # Instantiate an equity record
-                equity_row = [
-                    agent.unique_id,
-                    inst_id,
-                    "equity",
-                    agent.unique_id,
-                    self.settings["constants"]["time_before_start"],
-                    starting_equity,
-                    self.settings["financing"]["default_equity_horizon"],
-                    agent.cost_of_equity,
-                ]
-
-                fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
-                inst_id += 1
-
-        return fin_insts_updates
-
-    def update_financial_instrument_manifest(self):
-        # Based on projected capital expenditures, project the total set of
-        #   active financial instruments which will exist at any point in the
-        #   future
-        # Assumptions:
-        #   - the agent tries to maintain a fixed debt/equity ratio by
-        #       amortizing all instruments with a sinking fund at their cost
-        #   - the "maturity" life of all instruments is 30 years
-
-        # Pull out all financial instruments which already exist (as of
-        #   last period). All other entries will be overwritten
-        fin_insts_updates = pd.read_sql_query(
-            (
-                f"SELECT * FROM financial_instrument_manifest "
-                + f"WHERE pd_issued <= {self.current_pd}" # TODO
-            ),
-            self.db,
-        )
-
-        self.db.commit()
-
-        # Delete all other contents of this table
-        self.db.cursor().execute("DELETE FROM financial_instrument_manifest")
-
-        # On the first period, add instruments representing preexisting
-        #   debt and equity for the agents
-        if self.current_pd == 0:
-            fin_insts_updates = self.initialize_preexisting_instruments(
-                fin_insts_updates
-            )
-
-        # Get a list of all capex projections
-        new_capex_instances = pd.read_sql_query(
-            (
-                f"SELECT * FROM capex_projections "
-                + f"WHERE base_pd >= {self.current_pd} "
-                + f"AND projected_pd >= {self.current_pd}"
-            ),
-            self.db,
-        )
-        inst_id = max(fin_insts_updates["instrument_id"]) + 1
-        for i in range(len(new_capex_instances.index)):
-            agent_id = new_capex_instances.loc[i, "agent_id"]
-            asset_id = new_capex_instances.loc[i, "asset_id"]
-            total_qty = float(new_capex_instances.loc[i, "capex"])
-            pd_issued = new_capex_instances.loc[i, "projected_pd"]
-            agent_debt_frac = self.agents[agent_id].debt_fraction
-            agent_debt_cost = self.agents[agent_id].cost_of_debt
-            agent_equity_cost = self.agents[agent_id].cost_of_equity
-
-            # Set up debt issuance for this project for this year
-            debt_row = [
-                agent_id,  # agent_id
-                inst_id,  # instrument_id
-                "debt",  # instrument_type
-                asset_id,  # asset_id
-                pd_issued,  # pd_issued
-                total_qty * agent_debt_frac,  # initial_principal
-                pd_issued + self.settings["financing"]["default_debt_term"],
-                agent_debt_cost,  # rate
-            ]
-            fin_insts_updates.loc[len(fin_insts_updates.index)] = debt_row
-
-            # Set up equity issuance for this project for this year
-            equity_row = [
-                agent_id,
-                inst_id + 1,
-                "equity",
-                asset_id,
-                pd_issued,
-                total_qty * (1 - agent_debt_frac),
-                pd_issued
-                + self.settings["financing"]["default_equity_horizon"],
-                agent_equity_cost,
-            ]
-            fin_insts_updates.loc[len(fin_insts_updates.index)] = equity_row
-
-            inst_id = max(fin_insts_updates["instrument_id"]) + 1
-
-        # Overwrite the financial_instrument_manifest table with the new data
-        fin_insts_updates.to_sql(
-            "financial_instrument_manifest",
-            self.db,
-            if_exists="append",
-            index=False,
-        )
-        self.db.commit()
-
-    def update_financing_schedule(self):
-        # Retrieve the current list of all forecasted financial instruments
-        #   which are not past their maturity date
-        all_fin_insts = pd.read_sql_query(
-            (
-                f"SELECT * FROM financial_instrument_manifest "
-                + f"WHERE maturity_pd > {self.current_pd} "
-                + f"AND instrument_type = 'debt'"
-            ),
-            self.db,
-        )
-
-        fin_sched_cols = [
-            "instrument_id",
-            "agent_id",
-            "base_pd",
-            "projected_pd",
-            "total_payment",
-            "interest_payment",
-            "principal_payment",
-        ]
-        fin_sched_updates = pd.DataFrame(columns=fin_sched_cols)
-
-        for i in range(len(all_fin_insts.index)):
-            inst_id = all_fin_insts.loc[i, "instrument_id"]
-            agent_id = all_fin_insts.loc[i, "agent_id"]
-            pd_issued = all_fin_insts.loc[i, "pd_issued"]
-            initial_principal = all_fin_insts.loc[i, "initial_principal"]
-            rate = all_fin_insts.loc[i, "rate"]
-            maturity_pd = all_fin_insts.loc[i, "maturity_pd"]
-
-            total_payment = rate * initial_principal / (1 - (1 + rate) ** (-1 * (maturity_pd - pd_issued - 1)))
-
-            remaining_principal = initial_principal
-            for projected_pd in range(pd_issued, maturity_pd-1):
-                interest_payment = rate * remaining_principal
-                principal_payment = total_payment - interest_payment
-
-                # Organize data and add to fin_sched_updates
-                new_row = [
-                    inst_id,
-                    agent_id,
-                    self.current_pd,
-                    projected_pd,
-                    total_payment,
-                    interest_payment,
-                    principal_payment,
-                ]
-                fin_sched_updates.loc[len(fin_sched_updates.index)] = new_row
-
-                # Update the amount of remaining principal
-                remaining_principal = remaining_principal - principal_payment
-
-        fin_sched_updates.to_sql(
-            "financing_schedule", self.db, if_exists="append", index=False
-        )
-
-    def update_depreciation_projections(self):
-        # Currently uses straight-line depreciation only
-        # Future: allow user selection of SLD or DDBD
-        if self.current_pd == 0:
-            # Add depreciation schedule for initial PPE for each agent
-            dep_cols = [
-                "agent_id",
-                "asset_id",
-                "completion_pd",
-                "base_pd",
-                "projected_pd",
-                "depreciation",
-                "beginning_book_value",
-            ]
-            dep_projections = pd.DataFrame(columns=dep_cols)
-            for agent_id, agent in self.agents.items():
-                summary_asset_id = agent.unique_id
-                init_PPE = agent.starting_PPE
-                dep_horiz = self.settings["financing"]["depreciation_horizon"]
-                pd_dep = init_PPE / dep_horiz
-                for i in range(dep_horiz):
-                    beginning_book_value = (
-                        init_PPE * (dep_horiz - i) / dep_horiz
-                    )
-                    new_row = [
-                        agent_id,
-                        summary_asset_id,
-                        0,
-                        self.current_pd,
-                        i,
-                        pd_dep,
-                        beginning_book_value,
-                    ]
-                    dep_projections.loc[len(dep_projections.index)] = new_row
-        else:
-            # Start by copying forward all entries related to previously-
-            #   completed assets (i.e. where total capex is not in question,
-            #   so depreciation values are fixed)
-            # From last period, copy forward all entries where:
-            #   - the asset was complete as of last period at the latest
-            #   - the projected period is this period or later
-            # Then simply change all `base_pd` values to the current period
-            dep_projections = pd.read_sql_query(
-                (
-                    f"SELECT * FROM depreciation_projections "
-                    + f"WHERE base_pd = {self.current_pd-1} "
-                    + f"AND completion_pd < {self.current_pd} "
-                    + f"AND projected_pd >= {self.current_pd}"
-                ),
-                self.db,
-            )
-            dep_projections["base_pd"] = self.current_pd
-
-            # Then, recompute expected depreciation schedules for all relevant
-            #   WIP projects, including:
-            #   - WIPs which are ongoing
-            #   - new WIPs since last period
-            # WIPs completed last period are NOT included in this section
-            WIP_projects = pd.read_sql_query(
-                (
-                    f"SELECT * FROM WIP_projects "
-                    + f"WHERE period = {self.current_pd-1} AND rtec > 0"
-                ),
-                self.db,
-            )
-
-            for row in WIP_projects.itertuples():
-                asset_id = getattr(row, "asset_id")
-                agent_id = getattr(row, "agent_id")
-                starting_pd = getattr(row, "period") + math.ceil(
-                    round(getattr(row, "rtec"), 3)
-                )
-                asset_PPE = getattr(row, "cum_construction_exp") + getattr(
-                    row, "rcec"
-                )
-                dep_horiz = self.settings["financing"]["depreciation_horizon"]
-                pd_dep = asset_PPE / dep_horiz
-                for i in range(dep_horiz):
-                    book_value = asset_PPE * (dep_horiz - i) / dep_horiz
-                    new_row = [
-                        agent_id,
-                        asset_id,
-                        starting_pd,
-                        self.current_pd,
-                        starting_pd + i,
-                        pd_dep,
-                        book_value,
-                    ]
-                    dep_projections.loc[len(dep_projections.index)] = new_row
-
-        dep_projections.to_sql(
-            "depreciation_projections", self.db, if_exists="append", index=False
-        )
-        self.db.commit()
-
-    def save_ALEAF_outputs(self):
-        # Copy all ALEAF output files to the output directory, with
-        #   scenario and step-specific names
-        files_to_save = [
-            "dispatch_summary_OP",
-            "expansion_result",
-            "system_summary_OP",
-            "system_tech_summary_OP",
-        ]
-        for outfile in files_to_save:
-            old_filename = (
-                f"{self.settings['simulation']['scenario_name']}"
-                + f"__{outfile}.csv"
-            )
-            old_filepath = Path(self.ALEAF_output_data_path) / old_filename
-            new_filename = (
-                f"{self.settings['simulation']['scenario_name']}"
-                + f"__{outfile}__step_{self.current_pd}.csv"
-            )
-            new_filepath = Path(self.ABCE_output_data_path) / new_filename
-            shutil.copy2(old_filepath, new_filepath)
-
-    def process_ALEAF_dispatch_results(self):
-        # Find and load the ALEAF dispatch file corresponding to the current
-        #   simulation period
-        fname_pattern = f"dispatch_summary_OP__step_{self.current_pd}"
-        ALEAF_dsp_file = None
-        for fname in os.listdir(Path(self.ABCE_output_data_path)):
-            if (
-                "dispatch" in fname
-                and "OP" in fname
-                and f"{self.current_pd}" in fname
-            ):
-                ALEAF_dsp_file = Path(self.ABCE_output_data_path) / fname
-
-        # Get the number of units which are currently operational (needed for
-        #   scaling dispatch results to a per-unit basis)
-        sql_query = (
-            f"SELECT unit_type, COUNT(unit_type) FROM assets "
-            + f"WHERE completion_pd <= {self.current_pd} "
-            + f"AND retirement_pd > {self.current_pd} "
-            + f"AND cancellation_pd > {self.current_pd} "
-            + f"GROUP BY unit_type"
-        )
-        num_units = pd.read_sql_query(
-            sql_query, self.db, index_col="unit_type"
-        ).rename(columns={"COUNT(unit_type)": "num_units"})
-
-        # Postprocess ALEAF dispatch results
-        ALEAF_dsp_results = dsp.postprocess_dispatch(
-            ALEAF_dsp_file, num_units, self.unit_specs
-        )
-        ALEAF_dsp_results["period"] = self.current_pd
-        ALEAF_dsp_results = ALEAF_dsp_results.reset_index().rename(
-            columns={"index": "unit_type"}
-        )
-
-        # Get list of column names for ordering
-        cursor = self.db.cursor().execute(
-            "SELECT * FROM annual_dispatch_unit_summary"
-        )
-        col_names = [description[0] for description in cursor.description]
-
-        # Reorder ALEAF_dsp_results to match database
-        ALEAF_dsp_results = ALEAF_dsp_results[col_names]
-
-        logging.debug(ALEAF_dsp_results)
-
-        ALEAF_dsp_results.to_sql(
-            "ALEAF_dispatch_results", self.db, if_exists="append", index=False
-        )
 
     def update_WIP_projects(self):
         """
@@ -1107,63 +641,6 @@ class GridModel(Model):
         # Save changes to the database
         self.db.commit()
 
-    def compute_total_capex_newbuild(self, asset_id):
-        """
-        For assets which are newly completed during any period except period 0:
-        Retrieve all previously-recorded capital expenditures (via 'anpe', i.e.
-        "Authorized Next-Period Expenditures") for the indicated asset ID from
-        the database, and sum them to return the total capital expenditure (up
-        to the current period).
-
-        Args:
-          asset_id (int): asset for which to compute total capex
-
-        Returns:
-          total_capex (float): total capital expenditures up to the
-            present period
-        """
-
-        total_capex = pd.read_sql(
-            (
-                f"SELECT SUM(anpe) FROM WIP_projects "
-                + f"WHERE asset_id = {asset_id}"
-            ),
-            self.db,
-        ).iloc[0, 0]
-        return total_capex
-
-    def compute_sinking_fund_payment(self, agent_id, total_capex, term):
-        """
-        Compute a constant sinking-fund payment based on a total capital-
-        expenditures amount and the life of the investment, using the specified
-        agent's financial parameters.
-
-        Args:
-          agent_id (int): the unique ID of the owning agent, to retrieve
-            financial data
-          total_capex (float): total capital expenditures on the project
-          term (int or float): term over which to amortize capex
-
-        Returns:
-          cap_pmt (float): equal capital repayments to make over the course
-            of the indicated amortization term
-        """
-
-        agent_params = pd.read_sql(
-            "SELECT * FROM agent_params WHERE " + f"agent_id = {agent_id}",
-            self.db,
-        )
-
-        wacc = (
-            agent_params.debt_fraction * agent_params.cost_of_debt
-            + (1 - agent_params.debt_fraction) * agent_params.cost_of_equity
-        )
-        cap_pmt = total_capex * wacc / (1 - (1 + wacc) ** (-term))
-
-        # Convert cap_pmt from a single-entry Series to a scalar
-        cap_pmt = cap_pmt[0]
-
-        return cap_pmt
 
     def advance_project_to_current_period(self, project_data):
         # Escalated RTEC is reduced by one
@@ -1182,6 +659,7 @@ class GridModel(Model):
 
         return project_data
 
+
     def update_expected_completion_period(self, project_data):
         asset_id = project_data.loc[0, "asset_id"]
         new_completion_pd = project_data.loc[0, "rtec"] + self.current_pd
@@ -1196,6 +674,158 @@ class GridModel(Model):
 
         self.db.commit()
 
+
+    def convert_WIP_updates_to_FIs(self, WIP_updates):
+        """
+        This function handles the recording of ALL financial information
+          ensuing from selected project alternatives by ALL agents.
+
+        This function is run after all agent decision rounds have been
+          completed. This data is saved once and is never altered or deleted.
+        """
+
+        # Retrieve the list of all extant financial instruments
+        extant_FIs = pd.read_sql_query(
+            "SELECT * FROM financial_instrument_manifest",
+            self.db,
+        )
+
+        # Retrieve the schema for capex forecasts
+        extant_capex = pd.read_sql_query(
+            "SELECT * FROM capex_projections",
+            self.db,
+        )
+        capex_cols = extant_capex.columns.tolist()
+
+        # Retrieve the schema for the financing schedules
+        extant_fin_sched = pd.read_sql_query(
+            "SELECT * FROM financing_schedule",
+            self.db,
+        )
+        fin_sched_cols = extant_fin_sched.columns.tolist()
+
+        # Retrieve the schema for depreciation forecasts
+        extant_dep = pd.read_sql_query(
+            "SELECT * FROM depreciation_projections",
+            self.db,
+        )
+        dep_cols = extant_dep.columns.tolist()
+
+        # Create empty dataframes with the same structure as each table,
+        #   to store new financial information
+        fin_insts_updates = pd.DataFrame(columns=extant_FIs.columns.tolist())
+        capex_updates = pd.DataFrame(columns=capex_cols)
+        fin_sched_updates = pd.DataFrame(columns=fin_sched_cols)
+        dep_updates = pd.DataFrame(columns=dep_cols)
+
+        # Determine the next available instrument id
+        next_id = max(extant_FIs["instrument_id"]) + 1
+
+        for index, row in WIP_updates.iterrows():
+            # Compute values that don't change per year
+            agent_id = row["agent_id"]
+            asset_id = row["asset_id"]
+            inst_type = "debt"
+            debt_term = self.settings["financing"]["default_debt_term"]
+            annual_capex = row["cum_occ"] / row["cum_construction_duration"]
+            initial_principal = annual_capex * self.agents[agent_id].debt_fraction
+            rate = self.agents[agent_id].cost_of_debt
+
+            total_payment = (
+                rate * initial_principal 
+                / (1 - (1 + rate) ** (-debt_term))
+            )
+
+            # Project out annual depreciation
+            dep_horiz = self.settings["financing"]["depreciation_horizon"]
+            dep_per_pd = row["cum_occ"] / dep_horiz
+            book_value = row["cum_occ"]
+
+            for i in range(dep_horiz):
+                y = i + self.current_pd
+
+                dep_data = [
+                    agent_id,
+                    asset_id,
+                    y,
+                    dep_per_pd,
+                    book_value
+                ]
+
+                dep_updates.loc[len(dep_updates.index)] = dep_data
+
+                book_value -= dep_per_pd
+
+            # Iterate over all construction years for this project
+            for i in range(int(row["cum_construction_duration"])):
+                pd_issued = i + self.current_pd
+                maturity_pd = pd_issued + debt_term - 1
+
+                # Add the instrument data for this year
+                inst_data = [
+                    agent_id,
+                    next_id,
+                    inst_type,
+                    asset_id,
+                    pd_issued,
+                    initial_principal,
+                    maturity_pd,
+                    rate
+                ]
+
+                fin_insts_updates.loc[len(fin_insts_updates.index)] = inst_data
+
+                # Add the capex data for this year
+                capex_data = [
+                    agent_id,
+                    asset_id,
+                    pd_issued,
+                    annual_capex
+                ]
+
+                capex_updates.loc[len(capex_updates.index)] = capex_data
+
+                # Project out the scheduled payment series
+                remaining_principal = initial_principal
+                for j in range(debt_term):
+                    interest_payment = rate * remaining_principal
+                    principal_payment = total_payment - interest_payment
+
+                    # Add the financial schedule data for this instrument
+                    inst_sched_data = [
+                        next_id,
+                        agent_id,
+                        pd_issued + j,
+                        total_payment,
+                        interest_payment,
+                        principal_payment,
+                    ]
+
+                    fin_sched_updates.loc[len(fin_sched_updates.index)] = inst_sched_data
+
+                    remaining_principal -= principal_payment
+
+                next_id += 1
+
+        # Once all new financial instruments have been set up, add the complete
+        #   dataframe to the DB table
+        fin_insts_updates.to_sql(
+            "financial_instrument_manifest",
+            self.db,
+            if_exists = "append",
+            index = False,
+        )
+
+        capex_updates.to_sql(
+            "capex_projections",
+            self.db,
+            if_exists = "append",
+            index = False,
+        )
+
+        self.db.commit()
+
+
     def execute_all_status_updates(self):
         # Record newly-started WIP projects from the agents' decisions
         WIP_updates = pd.read_sql_query("SELECT * FROM WIP_updates", self.db)
@@ -1203,6 +833,9 @@ class GridModel(Model):
             "WIP_projects", self.db, if_exists="append", index=False
         )
         self.db.commit()
+
+        # Set up all financial instruments corresponding to the new projects
+        self.convert_WIP_updates_to_FIs(WIP_updates)
 
         # Record newly-started C2N WIP projects from the agents' decisions
         C2N_updates = pd.read_sql_query(
@@ -1260,3 +893,79 @@ class GridModel(Model):
         self.db.cursor().execute("DELETE FROM WIP_updates")
         self.db.cursor().execute("DELETE FROM asset_updates")
         self.db.commit()
+
+
+    def save_ALEAF_outputs(self):
+        # Copy all ALEAF output files to the output directory, with
+        #   scenario and step-specific names
+        files_to_save = [
+            "dispatch_summary_OP",
+            "expansion_result",
+            "system_summary_OP",
+            "system_tech_summary_OP",
+        ]
+        for outfile in files_to_save:
+            old_filename = (
+                f"{self.settings['simulation']['scenario_name']}"
+                + f"__{outfile}.csv"
+            )
+            old_filepath = Path(self.ALEAF_output_data_path) / old_filename
+            new_filename = (
+                f"{self.settings['simulation']['scenario_name']}"
+                + f"__{outfile}__step_{self.current_pd}.csv"
+            )
+            new_filepath = Path(self.ABCE_output_data_path) / new_filename
+            shutil.copy2(old_filepath, new_filepath)
+
+
+    def process_ALEAF_dispatch_results(self):
+        # Find and load the ALEAF dispatch file corresponding to the current
+        #   simulation period
+        fname_pattern = f"dispatch_summary_OP__step_{self.current_pd}"
+        ALEAF_dsp_file = None
+        for fname in os.listdir(Path(self.ABCE_output_data_path)):
+            if (
+                "dispatch" in fname
+                and "OP" in fname
+                and f"{self.current_pd}" in fname
+            ):
+                ALEAF_dsp_file = Path(self.ABCE_output_data_path) / fname
+
+        # Get the number of units which are currently operational (needed for
+        #   scaling dispatch results to a per-unit basis)
+        sql_query = (
+            f"SELECT unit_type, COUNT(unit_type) FROM assets "
+            + f"WHERE completion_pd <= {self.current_pd} "
+            + f"AND retirement_pd > {self.current_pd} "
+            + f"AND cancellation_pd > {self.current_pd} "
+            + f"GROUP BY unit_type"
+        )
+        num_units = pd.read_sql_query(
+            sql_query, self.db, index_col="unit_type"
+        ).rename(columns={"COUNT(unit_type)": "num_units"})
+
+        # Postprocess ALEAF dispatch results
+        ALEAF_dsp_results = dsp.postprocess_dispatch(
+            ALEAF_dsp_file, num_units, self.unit_specs
+        )
+        ALEAF_dsp_results["period"] = self.current_pd
+        ALEAF_dsp_results = ALEAF_dsp_results.reset_index().rename(
+            columns={"index": "unit_type"}
+        )
+
+        # Get list of column names for ordering
+        cursor = self.db.cursor().execute(
+            "SELECT * FROM annual_dispatch_unit_summary"
+        )
+        col_names = [description[0] for description in cursor.description]
+
+        # Reorder ALEAF_dsp_results to match database
+        ALEAF_dsp_results = ALEAF_dsp_results[col_names]
+
+        logging.debug(ALEAF_dsp_results)
+
+        ALEAF_dsp_results.to_sql(
+            "ALEAF_dispatch_results", self.db, if_exists="append", index=False
+        )
+
+
