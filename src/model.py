@@ -742,7 +742,7 @@ class GridModel(Model):
             book_value = row["cum_occ"]
 
             for i in range(dep_horiz):
-                y = i + self.current_pd
+                y = i + self.current_pd + row["cum_construction_duration"]
 
                 dep_data = [
                     agent_id,
@@ -818,6 +818,13 @@ class GridModel(Model):
 
         capex_updates.to_sql(
             "capex_projections",
+            self.db,
+            if_exists = "append",
+            index = False,
+        )
+
+        dep_updates.to_sql(
+            "depreciation_projections",
             self.db,
             if_exists = "append",
             index = False,
