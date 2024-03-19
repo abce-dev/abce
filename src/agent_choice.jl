@@ -196,8 +196,8 @@ function run_agent_choice()
 
     # Update the agent's baseline projected financial statements, to use in
     #   the decision optimization model
-    @debug "Updating the agent's financial statements..."
-    agent_fs = ABCEfunctions.update_agent_financial_statement(
+    @info "Generating the agent's projected financial statements..."
+    agent_fs = ABCEfunctions.forecast_agent_financial_statement(
         settings,
         CLI_args["agent_id"],
         db,
@@ -229,7 +229,7 @@ function run_agent_choice()
 
     # Solve the model
     @info "Solving optimization problem..."
-    m = ABCEfunctions.solve_model(m)
+    m = ABCEfunctions.solve_model(m, CLI_args["verbosity"])
 
     status = string(termination_status.(m))
     if status == "OPTIMAL"
@@ -254,7 +254,7 @@ function run_agent_choice()
             mode="ret_only"
         )
 
-        optimize!(m_ret)
+        m_ret = ABCEfunctions.solve_model(m_ret, CLI_args["verbosity"])
 
         final_model = m_ret
         final_mode = "ret_only"

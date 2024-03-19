@@ -1525,7 +1525,9 @@ function compute_marginal_PA_contributions(
         verbosity,
         PA_summaries,
         PA_fs_dict,
+        agent_id,
         agent_params,
+        current_pd,
 )
     # Parameter names
     num_alternatives = size(PA_summaries)[1]
@@ -1551,12 +1553,10 @@ function compute_marginal_PA_contributions(
 
     # Record marginal contributions to csv if verbosity is set to max
     if verbosity > 2
-        CSV.write(joinpath("tmp", string(agent_id, "_marg_derated_cap_pd_$current_pd.csv")), DataFrame(marg_derated_cap, :auto))
         CSV.write(joinpath("tmp", string(agent_id, "_marg_debt_pd_$current_pd.csv")), DataFrame(marg_debt, :auto))
         CSV.write(joinpath("tmp", string(agent_id, "_marg_int_pd_$current_pd.csv")), DataFrame(marg_int, :auto))
         CSV.write(joinpath("tmp", string(agent_id, "_marg_FCF_pd_$current_pd.csv")), DataFrame(marg_FCF, :auto))
         CSV.write(joinpath("tmp", string(agent_id, "_marg_RE_pd_$current_pd.csv")), DataFrame(marg_RE, :auto))
-        CSV.write(joinpath("tmp", string(agent_id, "_FS_$current_pd.csv")), agent_fs)
     end
 
 
@@ -1748,7 +1748,7 @@ function compute_retirement_matrices(
     agent_id,
     db,
     PA_summaries,
-    unit_type_data,
+    unit_specs,
     current_pd,
 )
     # TODO: make this a real function
@@ -1765,6 +1765,9 @@ function compute_retirement_matrices(
         # If the present unit type is coal, count coal retirements due to
         #   C2N projects according to current_pd + lag + cpp_ret_lead
         if (unit_type == "coal") && occursin("C2N", PA_summaries[i, :unit_type])
+            C2N_type = PA_summaries[i, :unit_type]
+            unit_type_data = filter(:unit_type => x -> x == C2N_type, unit_specs)[1, :]
+
             # +1 converts from true zero-indexing to Julia one-indexing
             target_ret_pd = PA_summaries[i, :lag] + unit_type_data[:cpp_ret_lead] + 1
 
@@ -1826,7 +1829,13 @@ function compute_retirement_matrices(
         end
 
         push!(planned_type_retirements, (y, num_rets))
+
     end
+
+    if occursin("coal", unit_type) && (agent_id == 205)
+        CSV.write(string("tmp/C2N/", unit_type, ".csv"), DataFrame(type_PA_ret_matrix, :auto))
+    end
+
 
     return type_PA_ret_matrix, planned_type_units_operating, planned_type_retirements
 end
@@ -1848,12 +1857,12 @@ function add_constraint_retirement_scheduling_limit(
     type_rets_schedules = Dict()   # Dict of dataframes
 
     # Add slack variables to constrain maximum retirements
-    num_types = size(unique(PA_summaries[!, :unit_type]))[1]
+    num_types = size(unique(unit_specs[!, :unit_type]))[1]
     @variable(m, z[1:num_types, 1:max_horizon] >= 0, Int)
 
     z_count = 1
     # Implement retirement constraints, one unit type at a time
-    for unit_type in unique(PA_summaries[!, :unit_type])
+    for unit_type in unique(unit_specs[!, :unit_type])
         unit_type_specs = filter(:unit_type => ((ut) -> ut == unit_type), unit_specs)[1, :]
 
         type_PA_rets, type_ops, type_rets = compute_retirement_matrices(
@@ -1861,7 +1870,7 @@ function add_constraint_retirement_scheduling_limit(
             agent_id,
             db,
             PA_summaries,
-            unit_type_specs,
+            unit_specs,
             current_pd,
         )
 
@@ -1909,8 +1918,6 @@ function add_constraint_retirement_scheduling_limit(
 
     return m
 end
-
-
 
 
 
@@ -1989,7 +1996,9 @@ function set_up_model(
         CLI_args["verbosity"],
         PA_summaries,
         PA_fs_dict,
+        agent_id,
         agent_params,
+        current_pd,
     )
 
     # If running in normal solve mode (not retirement-only), add the financial
@@ -2056,20 +2065,19 @@ function set_up_model(
 end
 
 
-function solve_model(m, threshold=1e-8)
+function solve_model(m, verbosity, threshold=1e-8)
     optimize!(m)
 
-#    if string(termination_status.(m)) == "OPTIMAL"
-#        binding_cons = ConstraintRef[]
-#        for (F, S) in list_of_constraint_types(m)
-#            for con in all_constraints(m, F, S)
-#                println(con)
-#                println(JuMP.value(con))
-#             end
-#        end
-
-#        print(binding_cons)
-#    end
+    if verbosity >= 3
+        if string(termination_status.(m)) == "OPTIMAL"
+            for (F, S) in list_of_constraint_types(m)
+                for con in all_constraints(m, F, S)
+                    println(con)
+                    println(JuMP.value(con))
+                 end
+            end
+        end
+    end
 
     return m
 end
@@ -2447,7 +2455,7 @@ function get_agent_portfolio_forecast(agent_id, db, current_pd, fc_pd)
 end
 
 
-function update_agent_financial_statement(
+function forecast_agent_financial_statement(
     settings,
     agent_id,
     db,
@@ -2515,7 +2523,7 @@ function update_agent_financial_statement(
     agent_fs = compute_credit_indicator_scores(settings, agent_fs)
 
     # Save the dataframe to the database
-    save_agent_fs!(agent_fs, agent_id, db)
+    save_agent_fs!(agent_fs, agent_id, db, "forecast")
 
     return agent_fs
 
@@ -2660,7 +2668,7 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
                 "SELECT projected_pd, SUM(capex) ",
                 "FROM capex_projections ",
                 "WHERE agent_id = $agent_id ",
-                "AND base_pd = $current_pd GROUP BY projected_pd",
+                "GROUP BY projected_pd",
             ),
         ) |> DataFrame
 
@@ -2674,7 +2682,6 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
                 "SELECT projected_pd, SUM(depreciation) ",
                 "FROM depreciation_projections ",
                 "WHERE agent_id = $agent_id ",
-                "AND base_pd = $current_pd ",
                 "GROUP BY projected_pd",
             ),
         ) |> DataFrame
@@ -2696,37 +2703,59 @@ end
 
 
 function compute_debt_principal_ts(db, agent_id, current_pd)
-    # Get debt principal repayments by year
-    principal_payments = DBInterface.execute(db, string("SELECT * FROM financing_schedule WHERE agent_id = $agent_id AND base_pd = $current_pd")) |> DataFrame
+    # Retrieve a DataFrame of all debt instruments issued by this agent
+    #   starting in period 0
+    stmt = string(
+        "SELECT instrument_id, pd_issued, initial_principal ",
+        "FROM financial_instrument_manifest WHERE ",
+        "agent_id = $agent_id AND ",
+        "instrument_type = 'debt' ",
+    )
 
-    # Get cumulative debt issued by year
-    # Get the list of all debt instruments issued by this agent
-    inst_manifest = DBInterface.execute(db, string("SELECT * FROM financial_instrument_manifest WHERE agent_id = $agent_id AND instrument_type='debt'")) |> DataFrame
+    inst_manifest = DBInterface.execute(db, stmt) |> DataFrame
 
-    principal_payments = filter(:instrument_id => instrument_id -> in(instrument_id, inst_manifest[!, :instrument_id]), principal_payments)
-    principal_payments = groupby(principal_payments, :projected_pd)
-    principal_payments = combine(principal_payments, [:principal_payment, :interest_payment] .=> sum; renamecols=false)
+    # Get all repayment schedule information
+    stmt = string(
+        "SELECT * FROM financing_schedule WHERE ",
+        "agent_id = $agent_id",
+    )
+    fin_sched = DBInterface.execute(db, stmt) |> DataFrame
 
+    # Pivot the fin_sched information to group all payments by period
+    fin_sched = groupby(fin_sched, :projected_pd)
+    fin_sched = combine(
+        fin_sched,
+        :total_payment => sum => :total_payment,
+        :principal_payment => sum => :principal_payment,
+        :interest_payment => sum => :interest_payment
+    )
+
+    # Fill the final debt_principal_ts dataframe
     debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
 
-    if size(principal_payments)[1] > 0
-        for y=current_pd:maximum(principal_payments[!, :projected_pd])
+    if size(fin_sched)[1] > 0
+        for y=minimum(fin_sched[!, :projected_pd]):maximum(fin_sched[!, :projected_pd])
             debt_by_year = filter(:pd_issued => pd -> pd <= y, inst_manifest)
             cum_debt = sum(debt_by_year[!, :initial_principal])
             push!(debt_principal_ts, [y, cum_debt])
         end
     end
 
-    debt_principal_ts = outerjoin(debt_principal_ts, principal_payments, on = :projected_pd)
+    debt_principal_ts = outerjoin(debt_principal_ts, fin_sched, on = :projected_pd)
+    debt_principal_ts = sort(debt_principal_ts, :projected_pd)
 
     debt_principal_ts[!, :BOY_rem_debt_principal] .= 0.0
     debt_principal_ts[1, :BOY_rem_debt_principal] = debt_principal_ts[1, :remaining_debt_principal]
+
     for y = 2:size(debt_principal_ts)[1]
-        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y-1, :BOY_rem_debt_principal] - debt_principal_ts[y-1, :principal_payment]
+        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y, :remaining_debt_principal] - sum(debt_principal_ts[1:y-1, :principal_payment])
     end
 
     debt_principal_ts = select(debt_principal_ts, [:projected_pd, :BOY_rem_debt_principal, :principal_payment, :interest_payment])
+
     rename!(debt_principal_ts, :BOY_rem_debt_principal => :remaining_debt_principal)
+
+    debt_principal_ts = debt_principal_ts[current_pd+1:size(debt_principal_ts)[1], :]
 
     return debt_principal_ts
 end
@@ -2794,20 +2823,13 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
         ) |> DataFrame
     cost_of_equity = cost_of_equity[1, :cost_of_equity]
 
-    # Compute dividends
-    # Allow negative dividends if this is a project (negative FCF accruing to
-    #   the project is assumed to reduce total dividend across the agent's
-    #   finances)
-    if mode == "subproject"
-        transform!(agent_fs, :nominal_FCF => ((nfcf) -> nfcf .* cost_of_equity) => :dividends)
-    else
-        # If this is the agent's financial statement, the minimum actual
-        #   dividend is zero
-        agent_fs.dividends = ifelse.(agent_fs.nominal_FCF .> 0, agent_fs.nominal_FCF .* cost_of_equity, 0)
-    end
-
     # Compute annual contribution to retained earnings and finalized FCF
     if mode == "subproject"
+        # Allow negative dividends if this is a project (negative FCF accruing to
+        #   the project is assumed to reduce total dividend across the agent's
+        #   finances)
+        transform!(agent_fs, :nominal_FCF => ((nfcf) -> nfcf .* cost_of_equity) => :dividends)
+
         # If this is a subproject, nominal FCF = FCF because retained earnings
         #   are not used to tide over cash flow
         agent_fs[!, :FCF] = agent_fs[!, :nominal_FCF]
@@ -2819,15 +2841,8 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
         )
         agent_fs[!, :retained_earnings] = agent_fs[!, :delta_RE]
     else
-        # If this is the agent, track the full net change in RE starting 
-        #   from the current year's RE value
-        transform!(
-            agent_fs,
-            [:nominal_FCF, :dividends] => ((nfcf, div) -> nfcf .- div) => :delta_RE,
-        )
-
         # Get the preceding period's RE
-        hist_agent_fss = DBInterface.execute(db, "SELECT base_pd, projected_pd, retained_earnings FROM agent_financial_statements WHERE agent_id == $agent_id") |> DataFrame
+        hist_agent_fss = DBInterface.execute(db, "SELECT base_pd, projected_pd, retained_earnings FROM realized_agent_fss WHERE agent_id == $agent_id") |> DataFrame
 
         if size(hist_agent_fss)[1] == 0
             # If there are no financial statements recorded for this agent yet,
@@ -2837,12 +2852,12 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
         else
             # If some financial statements were found, choose the most recent
             #   immediate-year prediction
-            re_vals = filter([:base_pd, :projected_pd] => ((base_pd, pr_pd) -> base_pd == pr_pd), hist_agent_fss)
-            init_RE = filter(:base_pd => base_pd -> base_pd == maximum(hist_agent_fss[!, :base_pd]), re_vals)[1, :retained_earnings]
+            init_RE = filter([:base_pd] => ((base_pd) -> base_pd == current_pd - 1), hist_agent_fss)[1, :retained_earnings]
         end
 
         # Set up a blank column for retained earnings
         agent_fs[!, :retained_earnings] .= 0.0
+        agent_fs[!, :dividends] .= 0.0
         agent_fs[!, :FCF] .= 0.0
 
         # Propagate the running retained earnings total through the agent
@@ -2855,16 +2870,25 @@ function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mod
                 RE_transfer = min(running_RE, (-1) * agent_fs[i, :nominal_FCF])
 
                 FCF = agent_fs[i, :nominal_FCF] + RE_transfer
-                running_RE = running_RE - RE_transfer
+                total_RE = running_RE - RE_transfer
             else
                 # If the nominal FCF is positive, there is no transfer
                 #   and RE and FCF take on their normal values
                 FCF = agent_fs[i, :nominal_FCF]
-                running_RE = running_RE + agent_fs[i, :delta_RE]
+                total_RE = running_RE + agent_fs[i, :nominal_FCF]
             end
 
+            dividends = max(
+                convert(Int64, floor(round(total_RE * cost_of_equity, digits=3))),
+                0
+            )
+            running_RE = total_RE - dividends
+
+            agent_fs[i, :dividends] = dividends
             agent_fs[i, :retained_earnings] = running_RE
             agent_fs[i, :FCF] = FCF
+
+            running_RE = running_RE * (1 - cost_of_equity)
         end
     end
 
@@ -2878,16 +2902,14 @@ function compute_credit_indicator_scores(settings, agent_fs)
     transform!(agent_fs, [:remaining_debt_principal, :retained_earnings] => ((debt, re) -> re ./ debt) => :RE_debt_ratio)
 
     # Use excess RE over the amount needed to reach the target ratio to subsidize FCF
-    transform!(agent_fs, [:retained_earnings, :remaining_debt_principal, :FCF] => ByRow((re, debt, fcf) -> ifelse.((re / debt > rcdr_target), re - rcdr_target * debt, 0)) => :available_cash)
 
     # Compute effective FCF: if FCF is zero but RE is greater than zero, use RE in place of FCF
-    transform!(agent_fs, [:FCF, :available_cash] => ((fcf, cash) -> fcf .+ cash) => :eff_FCF)
 
     # Compute ICR metric column
-    transform!(agent_fs, [:interest_payment, :eff_FCF] => ((int, fcf) -> (fcf .+ int) ./ int) => :ICR)
+    transform!(agent_fs, [:interest_payment, :FCF] => ((int, fcf) -> (fcf .+ int) ./ int) => :ICR)
 
     # Compute FCF-to-debt metric column
-    transform!(agent_fs, [:remaining_debt_principal, :eff_FCF] => ((debt, fcf) -> fcf ./ debt) => :FCF_debt_ratio)
+    transform!(agent_fs, [:remaining_debt_principal, :FCF] => ((debt, fcf) -> fcf ./ debt) => :FCF_debt_ratio)
 
     # Compute scaled Moody's indicator score from metrics
     transform!(agent_fs, [:ICR, :FCF_debt_ratio, :RE_debt_ratio] => ((icr, fcf_debt, re_debt) -> compute_moodys_score.(icr, fcf_debt, re_debt)) => :moodys_score)
@@ -2897,7 +2919,13 @@ end
 
 
 
-function save_agent_fs!(fs, agent_id, db)
+function save_agent_fs!(fs, agent_id, db, mode)
+    if mode == "forecast"
+        table = "forecasted_agent_fss"
+    else
+        table = "realized_agent_fss"
+    end
+
     # Add the agent id to the dataframe
     fs[!, :agent_id] .= agent_id
 
@@ -2907,7 +2935,7 @@ function save_agent_fs!(fs, agent_id, db)
             db,
             string(
                 "SELECT name FROM ",
-                "PRAGMA_TABLE_INFO('agent_financial_statements')",
+                "PRAGMA_TABLE_INFO('$table')",
             ),
         ) |> DataFrame
     fs_col_order = collect(fs_col_order[!, "name"]) # convert DF col to vector
@@ -2922,7 +2950,7 @@ function save_agent_fs!(fs, agent_id, db)
         DBInterface.execute(
             db,
             string(
-                "INSERT INTO agent_financial_statements VALUES $fill_tuple"
+                "INSERT INTO $table VALUES $fill_tuple"
             ),
             row,
         )

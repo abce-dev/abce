@@ -57,6 +57,10 @@ class GenCo(Agent):
         self.model = model
         self.assign_parameters(gc_params)
 
+        if not self.inactive:
+            self.initialize_financial_instruments()
+            self.initialize_scheduled_financing()
+
     def assign_parameters(self, gc_params):
         # Retrieve all parameter names, the union of the database table column
         #   headers and the items provided in the agent_specifications file
@@ -113,6 +117,132 @@ class GenCo(Agent):
                         {self.starting_PPE}, {self.starting_RE})"""
         )
         self.model.db.commit()
+
+
+    def initialize_financial_instruments(self):
+        # Determine next available asset id
+        existing_FIs = pd.read_sql_query(
+            "SELECT * FROM financial_instrument_manifest",
+            self.model.db,
+        )
+
+        next_id = self.model.settings["financing"]["starting_instrument_id"]
+        if len(existing_FIs) > 0:
+            next_id = max(
+                max(existing_FIs["instrument_id"]) + 1,
+                self.model.settings["financing"]["starting_instrument_id"],
+            )
+
+        # Set up a dataframe with the same columns as the FIM table
+        FI_update = pd.DataFrame(columns = existing_FIs.columns.tolist())
+
+        # Determine starting equity value
+        if self.debt_fraction != 0:
+            starting_equity = float(self.starting_debt) / self.debt_fraction * (1 - self.debt_fraction)
+        else:
+            starting_equity = self.starting_debt
+
+        # Instantiate a debt record
+        debt_data = [
+            self.unique_id,
+            next_id,
+            "debt",
+            self.unique_id,
+            self.model.settings["constants"]["time_before_start"],
+            float(self.starting_debt),
+            self.model.settings["financing"]["default_debt_term"],
+            self.cost_of_debt,
+        ]
+
+        FI_update.loc[0] = debt_data
+        FI_update.to_sql(
+            "financial_instrument_manifest",
+            self.model.db,
+            if_exists="append",
+            index=False,
+        )
+        self.model.db.commit()
+
+
+    def initialize_scheduled_financing(self):
+        extant_FI = pd.read_sql_query(
+            ("SELECT * FROM financial_instrument_manifest WHERE " +
+            f"agent_id = {self.unique_id}"),
+            self.model.db
+        )
+        inst_id = extant_FI.loc[0, "instrument_id"]
+
+        # Retrieve the schema for financing schedules
+        fin_sched = pd.read_sql_query(
+            "SELECT * FROM financing_schedule",
+            self.model.db,
+        )
+        fin_sched_cols = fin_sched.columns.tolist()
+
+        # Retrieve the schema for depreciation
+        dep = pd.read_sql_query(
+            "SELECT * FROM depreciation_projections",
+            self.model.db,
+        )
+        dep_cols = dep.columns.tolist()
+
+        # Create empty dataframes with the same structure as each table, to
+        #   store new financial information
+        fin_sched_updates = pd.DataFrame(columns = fin_sched_cols)
+        dep_updates = pd.DataFrame(columns = dep_cols)
+
+        # Project out annual depreciation
+        book_value = self.starting_PPE
+        dep_per_pd = book_value / self.model.settings["financing"]["depreciation_horizon"]
+        for i in range(self.model.settings["financing"]["depreciation_horizon"]):
+            dep_data = [
+                self.unique_id,
+                inst_id,
+                i,
+                dep_per_pd,
+                book_value
+            ]
+
+            dep_updates.loc[len(dep_updates.index)] = dep_data
+
+            book_value -= dep_per_pd
+
+        dep_updates.to_sql(
+            "depreciation_projections",
+            self.model.db,
+            if_exists="append",
+            index=False,
+        )
+        self.model.db.commit()
+
+        # Project payback of starting debt
+        remaining_principal = self.starting_debt
+        debt_term = self.model.settings["financing"]["default_debt_term"]
+        total_payment = self.cost_of_debt * self.starting_debt / (1 - (1 + self.cost_of_debt) ** (-1 * debt_term))
+        for i in range(debt_term):
+            interest_payment = self.cost_of_debt * remaining_principal
+            principal_payment = total_payment - interest_payment
+
+            fin_sched_data = [
+                inst_id,
+                self.unique_id,
+                i,
+                total_payment,
+                interest_payment,
+                principal_payment
+            ]
+
+            fin_sched_updates.loc[len(fin_sched_updates.index)] = fin_sched_data
+
+            remaining_principal -= principal_payment
+
+        fin_sched_updates.to_sql(
+            "financing_schedule",
+            self.model.db,
+            if_exists="append",
+            index=False,
+        )
+
 
     def step(self):
         """
