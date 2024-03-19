@@ -1748,7 +1748,7 @@ function compute_retirement_matrices(
     agent_id,
     db,
     PA_summaries,
-    unit_type_data,
+    unit_specs,
     current_pd,
 )
     # TODO: make this a real function
@@ -1765,6 +1765,9 @@ function compute_retirement_matrices(
         # If the present unit type is coal, count coal retirements due to
         #   C2N projects according to current_pd + lag + cpp_ret_lead
         if (unit_type == "coal") && occursin("C2N", PA_summaries[i, :unit_type])
+            C2N_type = PA_summaries[i, :unit_type]
+            unit_type_data = filter(:unit_type => x -> x == C2N_type, unit_specs)[1, :]
+
             # +1 converts from true zero-indexing to Julia one-indexing
             target_ret_pd = PA_summaries[i, :lag] + unit_type_data[:cpp_ret_lead] + 1
 
@@ -1826,7 +1829,13 @@ function compute_retirement_matrices(
         end
 
         push!(planned_type_retirements, (y, num_rets))
+
     end
+
+    if occursin("coal", unit_type) && (agent_id == 205)
+        CSV.write(string("tmp/C2N/", unit_type, ".csv"), DataFrame(type_PA_ret_matrix, :auto))
+    end
+
 
     return type_PA_ret_matrix, planned_type_units_operating, planned_type_retirements
 end
@@ -1848,12 +1857,14 @@ function add_constraint_retirement_scheduling_limit(
     type_rets_schedules = Dict()   # Dict of dataframes
 
     # Add slack variables to constrain maximum retirements
-    num_types = size(unique(PA_summaries[!, :unit_type]))[1]
+#    ret_summaries = filter(:project_type => ((pt) -> pt == "retirement"), PA_summaries)
+#    num_types = size(unique(ret_summaries[!, :unit_type]))[1]
+    num_types = size(unique(unit_specs[!, :unit_type]))[1]
     @variable(m, z[1:num_types, 1:max_horizon] >= 0, Int)
 
     z_count = 1
     # Implement retirement constraints, one unit type at a time
-    for unit_type in unique(PA_summaries[!, :unit_type])
+    for unit_type in unique(unit_specs[!, :unit_type])
         unit_type_specs = filter(:unit_type => ((ut) -> ut == unit_type), unit_specs)[1, :]
 
         type_PA_rets, type_ops, type_rets = compute_retirement_matrices(
@@ -1861,7 +1872,7 @@ function add_constraint_retirement_scheduling_limit(
             agent_id,
             db,
             PA_summaries,
-            unit_type_specs,
+            unit_specs,
             current_pd,
         )
 
@@ -1909,8 +1920,6 @@ function add_constraint_retirement_scheduling_limit(
 
     return m
 end
-
-
 
 
 
@@ -2059,17 +2068,15 @@ end
 function solve_model(m, threshold=1e-8)
     optimize!(m)
 
-#    if string(termination_status.(m)) == "OPTIMAL"
-#        binding_cons = ConstraintRef[]
-#        for (F, S) in list_of_constraint_types(m)
-#            for con in all_constraints(m, F, S)
-#                println(con)
-#                println(JuMP.value(con))
-#             end
-#        end
+    if string(termination_status.(m)) == "OPTIMAL"
+        for (F, S) in list_of_constraint_types(m)
+            for con in all_constraints(m, F, S)
+                println(con)
+                println(JuMP.value(con))
+             end
+        end
 
-#        print(binding_cons)
-#    end
+    end
 
     return m
 end
@@ -2705,8 +2712,6 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
     )
 
     inst_manifest = DBInterface.execute(db, stmt) |> DataFrame
-    println("inst_manifest")
-    println(inst_manifest)
 
     # Get all repayment schedule information
     stmt = string(
@@ -2714,8 +2719,6 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
         "agent_id = $agent_id",
     )
     fin_sched = DBInterface.execute(db, stmt) |> DataFrame
-    println("fin_sched")
-    println(fin_sched)
 
     # Pivot the fin_sched information to group all payments by period
     fin_sched = groupby(fin_sched, :projected_pd)
@@ -2725,8 +2728,6 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
         :principal_payment => sum => :principal_payment,
         :interest_payment => sum => :interest_payment
     )
-    println("reorganized fin_sched")
-    println(fin_sched)
 
     # Fill the final debt_principal_ts dataframe
     debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
@@ -2738,13 +2739,9 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
             push!(debt_principal_ts, [y, cum_debt])
         end
     end
-    println("initial fill of debt_principal_ts")
-    println(debt_principal_ts)
 
     debt_principal_ts = outerjoin(debt_principal_ts, fin_sched, on = :projected_pd)
     debt_principal_ts = sort(debt_principal_ts, :projected_pd)
-    println("reorganized debt_principal_ts")
-    println(debt_principal_ts)
 
     debt_principal_ts[!, :BOY_rem_debt_principal] .= 0.0
     debt_principal_ts[1, :BOY_rem_debt_principal] = debt_principal_ts[1, :remaining_debt_principal]

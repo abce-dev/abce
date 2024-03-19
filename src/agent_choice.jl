@@ -254,7 +254,7 @@ function run_agent_choice()
             mode="ret_only"
         )
 
-        optimize!(m_ret)
+        m_ret = ABCEfunctions.solve_model(m_ret)
 
         final_model = m_ret
         final_mode = "ret_only"
