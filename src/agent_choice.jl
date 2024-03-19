@@ -229,7 +229,7 @@ function run_agent_choice()
 
     # Solve the model
     @info "Solving optimization problem..."
-    m = ABCEfunctions.solve_model(m)
+    m = ABCEfunctions.solve_model(m, CLI_args["verbosity"])
 
     status = string(termination_status.(m))
     if status == "OPTIMAL"
@@ -254,7 +254,7 @@ function run_agent_choice()
             mode="ret_only"
         )
 
-        m_ret = ABCEfunctions.solve_model(m_ret)
+        m_ret = ABCEfunctions.solve_model(m_ret, CLI_args["verbosity"])
 
         final_model = m_ret
         final_mode = "ret_only"

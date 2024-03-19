@@ -1525,7 +1525,9 @@ function compute_marginal_PA_contributions(
         verbosity,
         PA_summaries,
         PA_fs_dict,
+        agent_id,
         agent_params,
+        current_pd,
 )
     # Parameter names
     num_alternatives = size(PA_summaries)[1]
@@ -1551,12 +1553,10 @@ function compute_marginal_PA_contributions(
 
     # Record marginal contributions to csv if verbosity is set to max
     if verbosity > 2
-        CSV.write(joinpath("tmp", string(agent_id, "_marg_derated_cap_pd_$current_pd.csv")), DataFrame(marg_derated_cap, :auto))
         CSV.write(joinpath("tmp", string(agent_id, "_marg_debt_pd_$current_pd.csv")), DataFrame(marg_debt, :auto))
         CSV.write(joinpath("tmp", string(agent_id, "_marg_int_pd_$current_pd.csv")), DataFrame(marg_int, :auto))
         CSV.write(joinpath("tmp", string(agent_id, "_marg_FCF_pd_$current_pd.csv")), DataFrame(marg_FCF, :auto))
         CSV.write(joinpath("tmp", string(agent_id, "_marg_RE_pd_$current_pd.csv")), DataFrame(marg_RE, :auto))
-        CSV.write(joinpath("tmp", string(agent_id, "_FS_$current_pd.csv")), agent_fs)
     end
 
 
@@ -1857,8 +1857,6 @@ function add_constraint_retirement_scheduling_limit(
     type_rets_schedules = Dict()   # Dict of dataframes
 
     # Add slack variables to constrain maximum retirements
-#    ret_summaries = filter(:project_type => ((pt) -> pt == "retirement"), PA_summaries)
-#    num_types = size(unique(ret_summaries[!, :unit_type]))[1]
     num_types = size(unique(unit_specs[!, :unit_type]))[1]
     @variable(m, z[1:num_types, 1:max_horizon] >= 0, Int)
 
@@ -1998,7 +1996,9 @@ function set_up_model(
         CLI_args["verbosity"],
         PA_summaries,
         PA_fs_dict,
+        agent_id,
         agent_params,
+        current_pd,
     )
 
     # If running in normal solve mode (not retirement-only), add the financial
@@ -2065,17 +2065,18 @@ function set_up_model(
 end
 
 
-function solve_model(m, threshold=1e-8)
+function solve_model(m, verbosity, threshold=1e-8)
     optimize!(m)
 
-    if string(termination_status.(m)) == "OPTIMAL"
-        for (F, S) in list_of_constraint_types(m)
-            for con in all_constraints(m, F, S)
-                println(con)
-                println(JuMP.value(con))
-             end
+    if verbosity >= 3
+        if string(termination_status.(m)) == "OPTIMAL"
+            for (F, S) in list_of_constraint_types(m)
+                for con in all_constraints(m, F, S)
+                    println(con)
+                    println(JuMP.value(con))
+                 end
+            end
         end
-
     end
 
     return m
