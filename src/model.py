@@ -816,6 +816,13 @@ class GridModel(Model):
             index = False,
         )
 
+        fin_sched_updates.to_sql(
+            "financing_schedule",
+            self.db,
+            if_exists = "append",
+            index=False,
+        )
+
         capex_updates.to_sql(
             "capex_projections",
             self.db,
