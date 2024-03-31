@@ -1,7 +1,7 @@
 simulation:
   scenario_name: "baseline"
   solver: "CPLEX"
-  num_steps: 20
+  num_steps: 30
   annual_dispatch_engine: ABCE
   C2N_assumption: baseline
 
@@ -130,8 +130,8 @@ agent_opt:
   cap_decrease_margin: -0.08
   cap_maintain_margin: -0.03
   profit_lamda: 1.0          # Note: only the ratio between the lamdas matters
-  credit_rating_lamda: 0.1
-  fin_metric_horizon: 6
+  credit_rating_lamda: 1.0
+  fin_metric_horizon: 4
   int_bound: 5.0
   rcdr_target_delta: 0.005
   icr_floor: 3.5   # weighted sum limit
@@ -140,7 +140,7 @@ agent_opt:
   icr_solo_floor: 0.0   # individual
   fcf_debt_solo_floor: 0.00   # individual
   re_debt_solo_floor: 0.00    # individual
-  
+  competitor_efficiency_assumption: 0.95   # k < 1.0 (sensitive parameter!)
 
 financing:
   default_debt_term: 30
