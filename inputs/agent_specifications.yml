@@ -234,12 +234,12 @@
  
 # TinySolar
 207:
-    debt_fraction: 0.1
+    debt_fraction: 0.5
     cost_of_debt: 0.1
-    cost_of_equity: 0.11
+    cost_of_equity: 0.16
     starting_debt:  10000000
     starting_PPE: 90000000
-    starting_RE: 150000000
+    starting_RE: 40000000
     starting_portfolio:
         solar: 6
     scheduled_retirements:
