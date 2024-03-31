@@ -471,8 +471,10 @@ function forecast_balance_of_market_investment(adj_system_portfolios, agent_port
         d_0 = filter(:period => x -> x == current_pd, demand_forecast)[1, :total_demand]
         c_0 = sum(adj_system_portfolios[current_pd][!, :total_derated_capacity])
 
-        if c_y / d_y < c_0 / d_0
-            transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :real] => ((c_iy, my, cf, real) -> c_iy .+ real .* (my .* (c_iy ./ c_y) .* (d_y .* c_0 ./ d_0 .- c_y))) => :total_esc_der_capacity)
+        r_0 = settings["agent_opt"]["competitor_efficiency_assumption"] * c_0 / d_0   # k < 1
+
+        if c_y / d_y < r_0
+            transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :real] => ((c_iy, my, cf, real) -> c_iy .+ real .* (my .* (c_iy ./ c_y) .* (d_y .* r_0 .- c_y))) => :total_esc_der_capacity)
         else
             adj_system_portfolios[y][!, :total_esc_der_capacity] .= adj_system_portfolios[y][!, :total_derated_capacity]
         end
@@ -1585,10 +1587,11 @@ function add_constraint_FM_floors(
     FCDR_solo_floor = settings["agent_opt"]["fcf_debt_solo_floor"]
     RCDR_solo_floor = settings["agent_opt"]["re_debt_solo_floor"]
 
-    for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-        # Limit debt-denominator terms in the aggregated score
-        @constraint(
-            m,
+    # Limit the average debt-denominator terms in the aggregated score,
+    #    averaged over the protection period
+    @constraint(
+        m,
+        sum(
             0.2 * (
                 (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
                 - FCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
@@ -1598,32 +1601,59 @@ function add_constraint_FM_floors(
                 (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
                 - RCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
             )
+            for i=1:settings["agent_opt"]["fin_metric_horizon"]
+        ) / settings["agent_opt"]["fin_metric_horizon"] >= 0,
+    )
 
-            >= 0
-        )
-
-        # Limit individual financial metrics
-        @constraint(
-            m,
+    # Limit the average ICR value over the horizon to its floor
+    @constraint(
+        m,
+        sum(
             agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])
                 + (1 - ICR_solo_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
-                >= 0
-        )
+            for i = 1:settings["agent_opt"]["fin_metric_horizon"]
+        ) >= 0
+    )
 
-        @constraint(
-            m,
-            (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
-                - FCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
-                >= 0
-        )
+#    for i = 1:settings["agent_opt"]["fin_metric_horizon"]
+#        # Limit debt-denominator terms in the aggregated score
+#        @constraint(
+#            m,
+#            0.2 * (
+#                (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
+#                - FCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
+#            )
+#
+#            + 0.1 * (
+#                (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
+#                - RCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
+#            )
+#
+#            >= 0
+#        )
 
-        @constraint(
-            m,
-            (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
-                - RCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
-                >= 0
-        )
-    end
+#        # Limit individual financial metrics
+#        @constraint(
+#            m,
+#            agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])
+#                + (1 - ICR_solo_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
+#                >= 0
+#        )
+#
+#        @constraint(
+#            m,
+#            (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
+#                - FCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
+#                >= 0
+#        )
+#
+#         @constraint(
+#            m,
+#            (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
+#                - RCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
+#                >= 0
+#        )
+#    end
 
     return m
 end
@@ -2020,6 +2050,12 @@ function set_up_model(
         settings["agent_opt"]["max_type_newcap_per_pd"],
         PA_summaries,
         unit_specs,
+    )
+
+    m = add_constraint_retireable_asset_limit(
+        m,
+        asset_counts,
+        PA_summaries,        
     )
 
     m = add_constraint_retirement_scheduling_limit(
