@@ -261,3 +261,5 @@
         PUN_unit_high: 85
         PUN_unit_low: 40
     inactive: True
+    balance_of_system: True
+    expansion_strategy: proportional_expansion
