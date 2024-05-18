@@ -251,7 +251,7 @@ function get_portfolio_forecast(db, settings, current_pd, unit_specs; agent_id=n
         # Retrieve annual portfolios
         sql_command = string(
             "SELECT unit_type, COUNT(unit_type) FROM assets ",
-            "WHERE completion_pd <= $y AND retirement_PD > $y ",
+            "WHERE completion_pd <= $y AND retirement_pd > $y ",
             "AND cancellation_pd > $y ",
             sql_filter,
             "GROUP BY unit_type"
@@ -264,6 +264,17 @@ function get_portfolio_forecast(db, settings, current_pd, unit_specs; agent_id=n
 
         # Add a column to indicate real vs fictitious units
         portfolios_dict[y][!, :real] = ones(size(portfolios_dict[y])[1])
+
+        # Add a column to indicate feasible future expansion
+        portfolios_dict[y][!, :auto_expansion] = zeros(size(portfolios_dict[y])[1])
+        if mode == "system"
+            for i = 1:size(portfolios_dict[y])[1]
+                ut = portfolios_dict[y][i, :unit_type]
+                if in(ut, settings["scenario"]["allowed_xtr_types"]) && (portfolios_dict[y][i, :real] == 1)
+                    portfolios_dict[y][i, :auto_expansion] = 1
+                end
+            end
+        end
 
         # Join in the unit specs data for existing units
         portfolios_dict[y] = innerjoin(portfolios_dict[y], brief_unit_specs, on = :unit_type)
@@ -406,18 +417,19 @@ function get_demand_forecast(db, pd, fc_pd, settings)
 
     demand_forecast =
         extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
-    prm =
-        DBInterface.execute(
-            db,
-            "SELECT * FROM model_params WHERE parameter = 'PRM'",
-        ) |> DataFrame
+#    prm =
+#        DBInterface.execute(
+#            db,
+#            "SELECT * FROM model_params WHERE parameter = 'PRM'",
+#        ) |> DataFrame
 
     transform!(
         demand_forecast,
         :real_demand =>
             (
                 (dem) -> (
-                    dem .* (1 + prm[1, :value]) .+
+#                    dem .* (1 + prm[1, :value]) .+
+                    dem .+
                     settings["system"]["peak_initial_reserves"]
                 )
             ) => :total_demand,
@@ -442,8 +454,8 @@ function fill_portfolios_missing_units(current_pd, system_portfolios, unit_specs
             if !in(unit_type_specs.unit_type, system_portfolios[y][!, :unit_type])
                 if y - current_pd >= unit_type_specs.construction_duration
                     # Target dataframe columns:
-                    # unit_type, num_units, real, capacity, capacity_factor, total_capacity
-                    push!(system_portfolios[y], (unit_type_specs.unit_type, 1, 0, unit_type_specs.capacity, unit_type_specs.capacity_factor, unit_type_specs.capacity))
+                    # unit_type, num_units, real, auto_expansion, capacity, capacity_factor, total_capacity
+                    push!(system_portfolios[y], (unit_type_specs.unit_type, 1, 0, 0, unit_type_specs.capacity, unit_type_specs.capacity_factor, unit_type_specs.capacity))
                 end
             end
         end
@@ -453,8 +465,17 @@ function fill_portfolios_missing_units(current_pd, system_portfolios, unit_specs
 end
 
 
-function forecast_balance_of_market_investment(adj_system_portfolios, agent_portfolios, agent_params, current_pd, settings, demand_forecast)
+function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_portfolios, agent_params, current_pd, settings, demand_forecast)
     end_year = (current_pd + convert(Int64, settings["dispatch"]["num_dispatch_years"]) - 1)
+
+    prm = DBInterface.execute(
+       db,
+       "SELECT * FROM model_params WHERE parameter = 'PRM'",
+    ) |> DataFrame
+    prm = prm[1, :value]
+
+    # Shortest possible construction period
+    delay = 3
 
     for y = current_pd:end_year
         apf = select(agent_portfolios[y], [:unit_type, :total_capacity])
@@ -473,8 +494,21 @@ function forecast_balance_of_market_investment(adj_system_portfolios, agent_port
 
         r_0 = settings["agent_opt"]["competitor_efficiency_assumption"] * c_0 / d_0   # k < 1
 
-        if c_y / d_y < r_0
-            transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :real] => ((c_iy, my, cf, real) -> c_iy .+ real .* (my .* (c_iy ./ c_y) .* (d_y .* r_0 .- c_y))) => :total_esc_der_capacity)
+        if (c_y / d_y < (1 + prm)) && (y >= current_pd + delay)
+            # Compute escalation factor
+            # Linearly increases to cover the difference between cy/dy and prm,
+            #   starting at 60% (b) of the difference and increasing to the
+            #   full difference over 5 (n) years
+            n = 5
+            b = 0.6
+            j = min(n, y - delay - current_pd)
+            s = b + (1 - b) / n * j
+            esc = c_y / d_y + ((1 + prm) - c_y / d_y) * s
+
+            ae_y = filter(:auto_expansion => auto -> auto == 1.0, adj_system_portfolios[y])
+            ae_c_y = sum(ae_y[!, :total_derated_capacity])
+
+            transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :auto_expansion] => ((c_iy, my, cf, auto) -> c_iy .+ auto .* (my .* (c_iy ./ ae_c_y) .* (d_y .* esc .- c_y))) => :total_esc_der_capacity)
         else
             adj_system_portfolios[y][!, :total_esc_der_capacity] .= adj_system_portfolios[y][!, :total_derated_capacity]
         end
@@ -1862,11 +1896,6 @@ function compute_retirement_matrices(
 
     end
 
-    if occursin("coal", unit_type) && (agent_id == 205)
-        CSV.write(string("tmp/C2N/", unit_type, ".csv"), DataFrame(type_PA_ret_matrix, :auto))
-    end
-
-
     return type_PA_ret_matrix, planned_type_units_operating, planned_type_retirements
 end
 
@@ -2372,7 +2401,7 @@ function record_asset_retirements(
         units_to_execute = result[:units_to_execute]
 
         # Set the new retirement pd
-        new_ret_pd = result[:lag]
+        new_ret_pd = current_pd + result[:lag]
 
     elseif mode == "C2N_newbuild"
         # Determine the period in which the coal units must retire
