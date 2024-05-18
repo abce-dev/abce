@@ -85,6 +85,13 @@ class GridModel(Model):
         # Make sure all pending database transactions are resolved
         self.db.commit()
 
+        # If the simulation contains a balance-of-system agent, set up its
+        #   expansion schedule
+        for agent, agent_data in self.agents.items():
+            if agent_data.balance_of_system:
+                self.set_up_BOS_expansion(agent, agent_data)
+
+
     def load_all_data(self):
         # Retrieve the input data
         self.unit_specs = idm.initialize_unit_specs(self.settings, self.args)
@@ -201,6 +208,7 @@ class GridModel(Model):
             "unit_specs", self.db, if_exists="replace", index=False
         )
 
+
     def initialize_agent_retirement_schedule(self, agent):
         # Validate the number of retirements versus number of owned units
         for unit_type, num_units in agent.starting_portfolio.items():
@@ -233,6 +241,7 @@ class GridModel(Model):
                 agent.scheduled_retirements[unit_type][dist_t] = (
                     num_units - total_ret_units
                 )
+
 
     def initialize_agent_assets(self, agent):
         # Set up the agent's retirement schedule, and validate that the
@@ -305,6 +314,130 @@ class GridModel(Model):
 
         self.db.commit()
 
+
+    def set_up_BOS_expansion(self, agent, agent_data):
+        if agent_data.expansion_strategy == "proportional_expansion":
+            pf = pd.read_sql_query(f"SELECT * FROM assets WHERE agent_id = {agent}", self.db)
+            pf["agent_id"] = agent
+
+            sys_pf = pd.read_sql_query(f"SELECT * FROM assets", self.db)
+            sys_pf["agent_id"] = "system"
+
+            pf = pd.concat([pf, sys_pf])
+ 
+            unit_specs = pd.read_sql_query("SELECT * FROM unit_specs", self.db)
+
+            pf = pf.merge(
+                unit_specs[["unit_type", "capacity", "capacity_factor"]],
+                on = "unit_type",
+            )
+
+            pf["der_cap"] = pf["capacity"] * pf ["capacity_factor"]
+
+            pf = pd.pivot_table(
+                pf,
+                values = "der_cap",
+                index="unit_type",
+                columns="agent_id",
+                aggfunc="sum",
+            ).fillna(0)
+
+            # Re-add the per-unit derated capacity column
+            pf = pf.merge(
+                unit_specs[["unit_type", "capacity", "capacity_factor"]],
+                on = "unit_type",
+            )
+            pf["der_cap"] = pf["capacity"] * pf ["capacity_factor"]
+            pf = pf.set_index("unit_type")
+            
+            pf = pf[[agent, "system", "der_cap"]]
+
+            pf["agent_pct"] = pf[agent] / sum(pf[agent])
+            pf["carryover"] = 0.0
+
+            # Compute the balance-of-system agent's starting market share
+            MS_init = sum(pf[agent]) / sum(pf["system"])
+
+            # Retrieve all demand data
+            demand = pd.read_sql_query("SELECT * FROM demand", self.db)
+
+            # Get the column schema for the assets table
+            cols = sys_pf.columns.tolist()
+
+            new_units = pf[[agent]].copy(deep=True)
+
+            # Add units each year of the demand forecast horizon
+            for y in range(min(demand["period"])+1, max(demand["period"])+1):
+                # Calculate absolute change in demand for this year
+                demand_delta = demand.loc[y, "demand"] - demand.loc[y-1, "demand"]
+
+                # Calculate change in capacity this agent should take care of
+                cap_delta = demand_delta * MS_init
+
+                # Total new capacity this agent should add
+                total_new = cap_delta * pf["agent_pct"] / pf["der_cap"] + pf["carryover"]
+
+                # Record full new units
+                new_units[y] = np.floor(total_new)
+
+                # Update unit carryover
+                pf["carryover"] = total_new % 1
+
+            new_units = new_units.drop(columns=[agent])
+
+            added_assets_df = pd.DataFrame(columns=cols)
+
+            # Set up all data values except for the asset id and unit type
+            asset_dict = {
+                "agent_id": agent,
+                "cancellation_pd": self.settings["constants"]["distant_time"],
+                "retirement_pd": self.settings["constants"]["distant_time"],
+                "total_capex": 0,
+                "cap_pmt": 0,
+                "C2N_reserved": 0,
+            }
+
+            # For each year in the dataframe:
+            for y in range(1, max(new_units.columns.tolist())+1):
+                # For each unit type in the dataframe:
+                for unit_type in new_units.index.values.tolist():
+                    if new_units.loc[unit_type, y] != 0:
+                        # Create a dataframe record and store it in the
+                        #   added_assets_df dataframe
+                        asset_dict["unit_type"] = unit_type
+                        asset_dict["start_pd"] = y
+                        asset_dict["completion_pd"] = y
+
+                        # Find the largest extant asset id, and set the current
+                        #   asset id 1 higher
+                        asset_dict["asset_id"] = max(
+                            ABCE.get_next_asset_id(
+                                self.db,
+                                self.settings["constants"]["first_asset_id"],
+                            ),
+                            max(
+                                added_assets_df["asset_id"],
+                                default=self.settings["constants"][
+                                    "first_asset_id"
+                                ],
+                            )
+                            + 1,
+                        )
+
+                        # Convert the dictionary to a dataframe format and save
+                        new_record = pd.DataFrame(asset_dict, index=[0])
+                        added_assets_df = pd.concat([added_assets_df, new_record])
+
+            # Once all additional assets planned for this agent have had records
+            #   initialized, save the dataframe of all assets into the 'assets'
+            #   DB table
+            added_assets_df.to_sql(
+                "assets", self.db, if_exists="append", index=False
+            )
+
+            self.db.commit()
+
+
     def compute_total_capex_preexisting(self, unit_type):
         unit_cost_per_kW = self.unit_specs[unit_type]["overnight_capital_cost"]
         unit_capacity = self.unit_specs[unit_type]["capacity"]
@@ -316,6 +449,7 @@ class GridModel(Model):
         )
 
         return total_capex
+
 
     def load_demand_data_to_db(self):
         # Load all-period demand data into the database
@@ -546,20 +680,31 @@ class GridModel(Model):
           4. The new project status, including updated RCEC and RTEC, is saved
                to the 'WIP_projects' table.
         """
+        # Get a list of any balance-of-system agents to exclude
+        BOS_agents = []
+        not_in = ""
+        for agent in self.agents:
+            if self.agents[agent].balance_of_system:
+                BOS_agents.append(str(agent))
+        if len(BOS_agents) != 0:
+            not_in = ",".join(BOS_agents)
+            not_in = f"AND agent_id NOT IN ({not_in})"
 
         # Get a list of all currently-active construction projects
         if self.current_pd == 0:
             WIP_projects = pd.read_sql(
                 "SELECT asset_id FROM assets WHERE "
                 + f"completion_pd > {self.current_pd} AND "
-                + f"cancellation_pd >= {self.current_pd}",
+                + f"cancellation_pd >= {self.current_pd} "
+                + not_in,
                 self.db,
             )
         else:
             WIP_projects = pd.read_sql(
                 "SELECT asset_id FROM assets WHERE "
                 + f"completion_pd >= {self.current_pd} AND "
-                + f"cancellation_pd > {self.current_pd}",
+                + f"cancellation_pd > {self.current_pd} "
+                + not_in,
                 self.db,
             )
 
