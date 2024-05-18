@@ -81,6 +81,8 @@ class GenCo(Agent):
             "starting_portfolio": {},
             "scheduled_retirements": {},
             "inactive": False,
+            "balance_of_system": False,
+            "expansion_strategy": "full",
         }
 
         # Start by ensuring that the agent has attributes set for all optional
