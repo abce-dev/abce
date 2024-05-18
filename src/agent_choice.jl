@@ -149,6 +149,7 @@ function run_agent_choice()
     )
 
     adj_system_portfolios = ABCEfunctions.forecast_balance_of_market_investment(
+        db,
         adj_system_portfolios,
         agent_portfolios,
         agent_params,
@@ -156,6 +157,17 @@ function run_agent_choice()
         settings,
         demand_forecast,
     )
+
+    if (CLI_args["agent_id"] == 204) || (CLI_args["agent_id"] == "204")
+        pfs = deepcopy(adj_system_portfolios[CLI_args["current_pd"]])
+        for i=CLI_args["current_pd"]+1:maximum(keys(adj_system_portfolios))
+            append!(pfs, adj_system_portfolios[i])
+        end
+
+        a = CLI_args["current_pd"]
+        filename = joinpath("/filespace/k/kebiegel/abce/tmp", string(a, "_pf_forecast.csv"))
+        CSV.write(filename, pfs)
+    end
 
     # Use the agent's internal dispatch forecast generator to project dispatch
     #   results in the system over the forecast horizon
@@ -171,6 +183,11 @@ function run_agent_choice()
         run_mode="forecast",
         downselection_mode=settings["dispatch"]["downselection"]
     )
+
+    if (CLI_args["agent_id"] == 204) || (CLI_args["agent_id"] == "204")
+        a = CLI_args["current_pd"]
+        CSV.write(string("./tmp/204_", a, "_long_econ_results.csv"), long_econ_results)
+    end
 
     if CLI_args["verbosity"] > 2
         CSV.write("./tmp/long_econ_results.csv", long_econ_results)
