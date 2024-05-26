@@ -302,6 +302,9 @@ function set_repdays_params(settings, ts_data)
         num_hours = 24
     end
 
+    num_days = Int(num_days)
+    num_hours = Int(num_hours)
+
     return num_days, num_hours
 
 end
@@ -910,7 +913,7 @@ function run_annual_dispatch(
     ts_data = set_up_AS_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
 
     # If running in forecast mode, run the entire "year" at once
-    if run_mode == "forecast"
+    if run_mode == "XXXXXXXXXXXXXXXXXX"
         @debug "Setting up optimization model..."
         m, portfolio_specs =
             set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs; gen_data=nothing, commit_data=nothing)
@@ -1080,9 +1083,9 @@ function run_annual_dispatch(
 
     end
 
-    if run_mode == "current"
-        summary_statistics = calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
-    end
+#    if run_mode == "current"
+    summary_statistics = calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
+#    end
 
     results = Dict(
         :new_grc_results => new_grc_results,
