@@ -43,28 +43,12 @@ function execute_dispatch_economic_projection(
         " years...",
     )
 
-    # Set up all timeseries data
-    ts_data_dir = joinpath(
-        CLI_args["inputs_path"],
-        settings["file_paths"]["timeseries_data_dir"],
-    )
-
-    if downselection_mode == "exact"
-        ts_data = load_ts_data(ts_data_dir, num_repdays=365)
-    else
-        ts_data = load_ts_data(
-            ts_data_dir,
-            num_repdays=settings["dispatch"]["num_repdays"],
-        )
-    end
-
-    all_grc_results, all_price_results = handle_annual_dispatch(
+    all_repdays, all_grc_results, all_price_results = handle_annual_dispatch(
         db,
         settings,
-        CLI_args["current_pd"],
+        CLI_args,
         system_portfolios,
         total_demand,
-        ts_data,
         unit_specs;
         run_mode=run_mode,
         downselection_mode=downselection_mode
@@ -74,7 +58,7 @@ function execute_dispatch_economic_projection(
         settings,
         all_grc_results,
         all_price_results,
-        ts_data[:repdays_data],
+        all_repdays,
         system_portfolios,
         unit_specs,
         CLI_args["current_pd"],
@@ -135,17 +119,41 @@ function fill_portfolios_missing_units(system_portfolios, unit_specs)
 end
 
 
+function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd)
+    if settings["dispatch"]["downselection"] == "exact"
+        num_days = 365
+    else
+        num_days = settings["dispatch"]["num_repdays"]
+    end
+
+    ts_data = load_ts_data(
+        ts_data_dir,
+        current_pd,
+        fc_pd,
+        num_repdays=num_days
+    )
+
+    return ts_data
+end
+
+
 function handle_annual_dispatch(
     db,
     settings,
-    current_pd,
+    CLI_args,
     system_portfolios,
     total_demand,
-    ts_data,
     unit_specs;
     run_mode="forecast",
     downselection_mode="scenario_reduction"
 )
+    current_pd = CLI_args["current_pd"]
+
+    ts_data_dir = joinpath(
+        CLI_args["inputs_path"],
+        settings["file_paths"]["timeseries_data_dir"],
+    )
+
     all_grc_results = set_up_grc_results_df()
     all_prices = set_up_prices_df()
 
@@ -155,9 +163,28 @@ function handle_annual_dispatch(
         num_years = 1
     end
 
+    all_repdays = nothing
+
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:(current_pd + num_years - 1)
         @debug "\n\nDISPATCH SIMULATION: YEAR $y"
+
+        # Set up the timeseries data for this year
+        ts_data = set_up_ts_data(
+            settings,
+            ts_data_dir,
+            CLI_args["current_pd"],
+            y
+        )
+
+        y_repdays = deepcopy(ts_data[:repdays_data])
+        y_repdays[!, :y] .= y
+
+        if all_repdays == nothing
+            all_repdays = y_repdays
+        else
+            all_repdays = vcat(all_repdays, y_repdays)
+        end
 
         # Select the current year's expected portfolio
         year_portfolio = system_portfolios[y]
@@ -185,19 +212,23 @@ function handle_annual_dispatch(
         all_prices = vcat(all_prices, results[:new_prices])
 
         if run_mode == "current"
-            save_summary_statistics(db, current_pd, results[:summary_statistics])
+            save_summary_statistics(
+                db,
+                CLI_args["current_pd"],
+                results[:summary_statistics]
+            )
         end
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
     end
 
-    return all_grc_results, all_prices
+    return all_repdays, all_grc_results, all_prices
 
 end
 
 
-function load_ts_data(ts_file_dir; num_repdays=nothing)
+function load_ts_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
     # Load the time-series demand and VRE data into dataframes
     load_data =
         CSV.read(joinpath(ts_file_dir, "timeseries_load_hourly.csv"), DataFrame)
@@ -214,11 +245,24 @@ function load_ts_data(ts_file_dir; num_repdays=nothing)
 
     if num_repdays == nothing
         repdays_data = nothing
+    elseif num_repdays == 365
+        repdays_data = CSV.read(
+            joinpath(
+                ts_file_dir,
+                "repDays_365.csv",
+            )
+        )
     else
         repdays_data = CSV.read(
             joinpath(
                 ts_file_dir,
-                "repDays_$num_repdays.csv",
+                string(
+                    "bp_",
+                    base_pd,
+                    "_fp_",
+                    fc_pd,
+                    "_repDays_$num_repdays.csv",
+                ),
             ),
             DataFrame
         )
@@ -907,7 +951,7 @@ function run_annual_dispatch(
     ts_data = scale_AS_data(ts_data, peak_demand, settings["scenario"]["peak_demand"])
 
     # Set up representative days for AS
-    ts_data = set_up_AS_repdays(settings["dispatch"]["downselection"], num_days, num_hours, ts_data)
+    ts_data = set_up_AS_repdays(downselection_mode, num_days, num_hours, ts_data)
 
     # If running in forecast mode, run the entire "year" at once
     if run_mode == "forecast"
@@ -1184,7 +1228,7 @@ function join_results_data_frames(
     settings,
     all_grc_results,
     all_prices,
-    repdays_data,
+    all_repdays,
     all_year_portfolios,
     unit_specs,
 )
@@ -1197,8 +1241,8 @@ function join_results_data_frames(
     else
         long_econ_results = innerjoin(
             long_econ_results,
-            select(repdays_data, [:index, :Probability]),
-            on = [:d => :index],
+            select(all_repdays, [:index, :Probability, :y]),
+            on = [:y, :d => :index],
         )
     end
 
@@ -1425,7 +1469,7 @@ function postprocess_results(
     settings,
     all_grc_results,
     all_prices,
-    repdays_data,
+    all_repdays,
     all_year_system_portfolios,
     unit_specs,
     current_pd,
@@ -1448,7 +1492,7 @@ function postprocess_results(
         settings,
         all_grc_results,
         all_prices,
-        repdays_data,
+        all_repdays,
         all_year_portfolios,
         unit_specs,
     )
