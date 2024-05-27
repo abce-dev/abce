@@ -21,9 +21,6 @@ import os
 
 
 def run_scenario_reduction(**kwargs):
-
-    logging.debug("Running the scenario reduction algorithm...")
-
     # set default parameters and pars kwargs
     setting = {
         "time_resolution": "Hourly",
@@ -40,11 +37,15 @@ def run_scenario_reduction(**kwargs):
         "windCapacity": 1.0,
         "solarCapacity": 1.0,
         "peakDemand": 1.0,
+        "current_pd": 0,
+        "fc_pd": 0,
     }
 
     for key in setting.keys():
         if key in kwargs:
             setting[key] = kwargs[key]
+
+    logging.debug(f"Running the scenario reduction algorithm:\nBase year: {setting['current_pd']} | Forecast year: {setting['fc_pd']}")
 
     # Check input output folders
     for sc_dir in [
@@ -189,7 +190,8 @@ def run_scenario_reduction(**kwargs):
 
         rep_day_input_df.to_csv(
             os.path.join(
-                setting["data_output_path"], f"repDays_{str(num_scenarios)}.csv"
+                setting["data_output_path"],
+                f"bp_{setting['current_pd']}_fp_{setting['fc_pd']}_repDays_{str(num_scenarios)}.csv"
             ),
             index=False,
         )
