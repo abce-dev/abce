@@ -26,6 +26,4 @@ __pycache__
 *\~\$*
 precompile.jl
 *cplex*
-**/repDays*.csv
-
-
+**/*repDays*.csv

@@ -119,8 +119,8 @@ function fill_portfolios_missing_units(system_portfolios, unit_specs)
 end
 
 
-function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd)
-    if settings["dispatch"]["downselection"] == "exact"
+function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd, downselection_mode)
+    if (settings["dispatch"]["downselection"] == "exact") || (downselection_mode == "exact")
         num_days = 365
     else
         num_days = settings["dispatch"]["num_repdays"]
@@ -174,7 +174,8 @@ function handle_annual_dispatch(
             settings,
             ts_data_dir,
             CLI_args["current_pd"],
-            y
+            y,
+            downselection_mode
         )
 
         y_repdays = deepcopy(ts_data[:repdays_data])
@@ -250,7 +251,8 @@ function load_ts_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
             joinpath(
                 ts_file_dir,
                 "repDays_365.csv",
-            )
+            ),
+            DataFrame,
         )
     else
         repdays_data = CSV.read(
