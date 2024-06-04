@@ -50,13 +50,13 @@ def get_next_asset_id(db, suggested_next_id):
     return next_id
 
 
-def execute_scenario_reduction(args, db, current_pd, settings, unit_specs):
+def execute_scenario_reduction(args, db, current_pd, fc_pd, settings, unit_specs):
     # Get the number of wind and solar units to allow computation of net
     #   demand
     current_portfolio = pd.read_sql_query(
         f"SELECT unit_type FROM assets "
-        + f"WHERE completion_pd <= {current_pd} "
-        + f"AND retirement_pd > {current_pd}",
+        + f"WHERE completion_pd <= {fc_pd} "
+        + f"AND retirement_pd > {fc_pd}",
         db,
     )
     num_wind = len(current_portfolio.loc[current_portfolio.unit_type == "wind"])
@@ -74,7 +74,7 @@ def execute_scenario_reduction(args, db, current_pd, settings, unit_specs):
 
     # Get peak demand for this period
     peak_demand = pd.read_sql_query(
-        f"SELECT demand FROM demand " + f"WHERE period = {current_pd}", db
+        f"SELECT demand FROM demand " + f"WHERE period = {fc_pd}", db
     ).iloc[0, 0]
 
     # Set up directory locations
@@ -107,6 +107,8 @@ def execute_scenario_reduction(args, db, current_pd, settings, unit_specs):
         windCapacity=num_wind * wind_cap + num_wind_old * wind_old_cap,
         solarCapacity=num_solar * solar_cap + num_solar_old * solar_old_cap,
         peakDemand=peak_demand,
+        current_pd=current_pd,
+        fc_pd=fc_pd
     )
 
 

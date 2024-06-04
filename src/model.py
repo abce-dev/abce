@@ -528,10 +528,18 @@ class GridModel(Model):
                 logging.info(f"Removing agent {agent_id} from the simulation due to a size-zero portfolio.")
                 self.schedule.remove(self.agents[agent_id])
 
-        # Compute the scenario reduction results for this year
-        ABCE.execute_scenario_reduction(
-            self.args, self.db, self.current_pd, self.settings, self.unit_specs
-        )
+        # Compute the scenario reduction results for the dispatch forecast
+        #   horizon, starting with this year
+        fc_horiz = self.settings["dispatch"]["num_dispatch_years"]
+        for fc_y in range(self.current_pd, self.current_pd + fc_horiz):
+            ABCE.execute_scenario_reduction(
+                self.args,
+                self.db,
+                self.current_pd,
+                fc_y,
+                self.settings,
+                self.unit_specs
+            )
 
         # Close the database to avoid access problems in the Julia scope
         self.db.commit()
