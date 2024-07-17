@@ -1108,9 +1108,10 @@ function run_annual_dispatch(
 
             @debug "Subperiod starting $starting_index dispatch run complete."
 
-            # Deallocate the models to avoid excess memory accumulation
-            m = nothing
-            m_copy = nothing
+            # Empty the old optimization model
+            empty!(m)
+            empty!(m_copy)
+
 
             # Update the new starting_index for the next slice of data
             starting_index = ending_index + 1
