@@ -126,29 +126,45 @@ class GridModel(Model):
         )
 
     def prepare_outputs_directory(self):
-        # Set up the output data path
-        self.ABCE_output_data_path = (
+        # Set up the primary output data path
+        self.primary_output_data_path = (
             Path(os.getcwd())
             / "outputs"
             / self.settings["simulation"]["scenario_name"]
         )
 
-        if not Path(self.ABCE_output_data_path).is_dir():
-            # If the desired output directory doesn't already exist, create it
-            Path(self.ABCE_output_data_path).mkdir(exist_ok=True, parents=True)
+        # Set up the output data path for logging and diagnostics
+        if self.settings["file_paths"]["output_logging_dir"] == "tmp":
+            self.logging_output_data_path = (
+                Path(os.getcwd())
+                / "tmp"
+                / self.settings["simulation"]["scenario_name"]
+            )
         else:
-            # Otherwise, delete any existing files in the directory
-            for existing_file in Path(self.ABCE_output_data_path).iterdir():
-                logging.debug(
-                    f"Deleting file {existing_file} from the output directory"
-                )
-                (Path(self.ABCE_output_data_path) / existing_file).unlink()
+            self.logging_output_data_path = (
+                Path(self.settings["file_paths"]["output_logging_dir"])
+                / self.settings["simulation"]["scenario_name"]
+            )
+
+        output_paths = [Path(self.primary_output_data_path), Path(self.logging_output_data_path)]
+
+        for outpath in output_paths:
+            if not outpath.is_dir():
+                # If the desired output directory doesn't already exist, create it
+                outpath.mkdir(exist_ok=True, parents=True)
+            else:
+                # Otherwise, delete any existing files in the directory
+                for existing_file in outpath.iterdir():
+                    logging.debug(
+                        f"Deleting file {existing_file} from the output directory"
+                    )
+                    (outpath / existing_file).unlink()
 
 
     def initialize_database(self):
         # Initialize database for storing and managing all simulation data
         self.db_file = (
-            self.ABCE_output_data_path
+            self.primary_output_data_path
             / self.settings["file_paths"]["db_file"]
         )
         self.db, self.cur = sc.create_database(self.db_file, self.args.force)
@@ -1081,7 +1097,7 @@ class GridModel(Model):
                 f"{self.settings['simulation']['scenario_name']}"
                 + f"__{outfile}__step_{self.current_pd}.csv"
             )
-            new_filepath = Path(self.ABCE_output_data_path) / new_filename
+            new_filepath = Path(self.primary_output_data_path) / new_filename
             shutil.copy2(old_filepath, new_filepath)
 
 
@@ -1090,13 +1106,13 @@ class GridModel(Model):
         #   simulation period
         fname_pattern = f"dispatch_summary_OP__step_{self.current_pd}"
         ALEAF_dsp_file = None
-        for fname in os.listdir(Path(self.ABCE_output_data_path)):
+        for fname in os.listdir(Path(self.primary_output_data_path)):
             if (
                 "dispatch" in fname
                 and "OP" in fname
                 and f"{self.current_pd}" in fname
             ):
-                ALEAF_dsp_file = Path(self.ABCE_output_data_path) / fname
+                ALEAF_dsp_file = Path(self.primary_output_data_path) / fname
 
         # Get the number of units which are currently operational (needed for
         #   scaling dispatch results to a per-unit basis)
