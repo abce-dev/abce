@@ -338,9 +338,9 @@ function set_repdays_params(settings, ts_data)
     if settings["dispatch"]["downselection"] == "exact"
         if size(ts_data[:load_data])[1] <= 24
             num_days = 1
-            num_hours = size(ts_data[:load_data])[1]
+            num_hours = Int(round(size(ts_data[:load_data])[1]))
         else
-            num_days = size(ts_data[:load_data])[1] / 24
+            num_days = Int(round(size(ts_data[:load_data])[1] / 24))
             num_hours = 24
         end
     else
@@ -934,7 +934,7 @@ function run_annual_dispatch(
 )
     # Set up the appropriate scenario reduction parameters
     if run_mode == "current"
-        num_days = 365
+        num_days = Int(round(size(ts_data[:load_data])[1] / 24))
         num_hours = 24
     else
         num_days, num_hours = set_repdays_params(settings, ts_data)
@@ -956,7 +956,7 @@ function run_annual_dispatch(
     ts_data = set_up_AS_repdays(downselection_mode, num_days, num_hours, ts_data)
 
     # If running in forecast mode, run the entire "year" at once
-    if run_mode == "forecast"
+    if (run_mode == "forecast") && (settings["dispatch"]["num_repdays"] < 100)
         @debug "Setting up optimization model..."
         m, portfolio_specs =
             set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs; gen_data=nothing, commit_data=nothing)
@@ -1128,6 +1128,8 @@ function run_annual_dispatch(
 
     if run_mode == "current"
         summary_statistics = calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
+    else
+        summary_statistics = nothing
     end
 
     results = Dict(
@@ -1239,7 +1241,7 @@ function join_results_data_frames(
 
     # Incorporate repdays probability data
     if settings["dispatch"]["downselection"] == "exact"
-        long_econ_results[!, :Probability] .= 1.0
+        long_econ_results[!, :Probability] .= 1.0/365
     else
         long_econ_results = innerjoin(
             long_econ_results,
