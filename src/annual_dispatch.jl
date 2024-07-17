@@ -123,6 +123,32 @@ function run_true_annual_dispatch()
 
     @info "Saving annual dispatch results to the database..."
 
+    CSV.write(
+        joinpath(
+            settings["file_paths"]["output_logging_dir"],
+            settings["simulation"]["scenario_name"],
+            string(
+                "annual_dispatch_LER_pd_",
+                CL_args["current_pd"],
+                ".csv",
+            ),
+        ),
+        long_econ_results,
+    )
+
+    CSV.write(
+        joinpath(
+            settings["file_paths"]["output_logging_dir"],
+            settings["simulation"]["scenario_name"],
+            string(
+                "annual_dispatch_dispres_pd_",
+                CL_args["current_pd"],
+                ".csv",
+            )
+        ),
+        dispatch_results,
+    )
+
     # Adjust formatting and save to the database
     Dispatch.finalize_annual_dispatch_results(db, CL_args["current_pd"], long_econ_results, dispatch_results)
 
