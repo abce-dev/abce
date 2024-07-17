@@ -484,7 +484,8 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
         adj_system_portfolios[y] = coalesce.(outerjoin(adj_system_portfolios[y], apf, on = :unit_type), 0)
 
         transform!(adj_system_portfolios[y], [:total_capacity, :capacity_factor] => ((cap, cf) -> cap .* cf) => :total_derated_capacity)
-        transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((total_cap, agent_cap) -> (total_cap - agent_cap) ./ total_cap) => :my)
+#        transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((total_cap, agent_cap) -> (total_cap - agent_cap) ./ total_cap) => :my)
+        transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((total_cap, agent_cap) -> (total_cap) ./ total_cap) => :my)
 
         d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
         c_y = sum(adj_system_portfolios[y][!, :total_derated_capacity])
@@ -492,18 +493,22 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
         d_0 = filter(:period => x -> x == current_pd, demand_forecast)[1, :total_demand]
         c_0 = sum(adj_system_portfolios[current_pd][!, :total_derated_capacity])
 
-        r_0 = settings["agent_opt"]["competitor_efficiency_assumption"] * c_0 / d_0   # k < 1
+        k = settings["agent_opt"]["competitor_efficiency_assumption"]   # k < 1
 
         if (c_y / d_y < (1 + prm)) && (y >= current_pd + delay)
             # Compute escalation factor
             # Linearly increases to cover the difference between cy/dy and prm,
-            #   starting at 60% (b) of the difference and increasing to the
-            #   full difference over 5 (n) years
-            n = 5
-            b = 0.6
+            #   starting at (b)% of the difference and increasing to the
+            #   full difference over (n) years
+            # TODO: self-fulfilling prophecy/positive feedback loop: agents with larger
+            #   capacity perceive a greater market opportunities because the M_(-a) market
+            #   share is smaller from the point of view of a larger agent
+            #   ---> is this degenerate or a real phenomenon?
+            n = 4
+            b = 0.5
             j = min(n, y - delay - current_pd)
             s = b + (1 - b) / n * j
-            esc = c_y / d_y + ((1 + prm) - c_y / d_y) * s
+            esc = c_y / d_y + ((1 + prm) - c_y / d_y) * s * k
 
             ae_y = filter(:auto_expansion => auto -> auto == 1.0, adj_system_portfolios[y])
             ae_c_y = sum(ae_y[!, :total_derated_capacity])
@@ -612,10 +617,11 @@ function set_up_project_alternatives(
         PA_fs_dict[PA.uid] = create_PA_aggregated_fs(PA_subprojects[PA.uid])
 
         # Save raw project fs results, if verbose outputs are enabled
-        if verbosity > 2
+        if (verbosity > 2) || (agent_id == 204) || (agent_id == "204") || true
             CSV.write(
                 joinpath(
-                    "tmp",
+                    settings["file_paths"]["output_logging_dir"],
+                    settings["simulation"]["scenario_name"],
                     string(
                         agent_id,
                         "_",
@@ -1589,10 +1595,45 @@ function compute_marginal_PA_contributions(
 
     # Record marginal contributions to csv if verbosity is set to max
     if verbosity > 2
-        CSV.write(joinpath("tmp", string(agent_id, "_marg_debt_pd_$current_pd.csv")), DataFrame(marg_debt, :auto))
-        CSV.write(joinpath("tmp", string(agent_id, "_marg_int_pd_$current_pd.csv")), DataFrame(marg_int, :auto))
-        CSV.write(joinpath("tmp", string(agent_id, "_marg_FCF_pd_$current_pd.csv")), DataFrame(marg_FCF, :auto))
-        CSV.write(joinpath("tmp", string(agent_id, "_marg_RE_pd_$current_pd.csv")), DataFrame(marg_RE, :auto))
+        # Write marg_debt to file
+        CSV.write(
+            joinpath(
+                settings["file_paths"]["output_logging_dir"],
+                settings["simulation"]["scenario_name"],
+                string(agent_id, "_marg_debt_pd_$current_pd.csv")
+            ),
+            DataFrame(marg_debt, :auto)
+        )
+
+        # Write marg_int to file
+        CSV.write(
+            joinpath(
+                settings["file_paths"]["output_logging_dir"],
+                settings["simulation"]["scenario_name"],
+                string(agent_id, "_marg_int_pd_$current_pd.csv")
+            ),
+            DataFrame(marg_int, :auto)
+        )
+
+        # Write marg_FCF to file
+        CSV.write(
+            joinpath(
+                settings["file_paths"]["output_logging_dir"],
+                settings["simulation"]["scenario_name"],
+                string(agent_id, "_marg_FCF_pd_$current_pd.csv")
+            ),
+            DataFrame(marg_FCF, :auto)
+        )
+
+        # Write marg_RE to file
+        CSV.write(
+            joinpath(
+                settings["file_paths"]["output_logging_dir"],
+                settings["simulation"]["scenario_name"],
+                string(agent_id, "_marg_RE_pd_$current_pd.csv")
+            ),
+            DataFrame(marg_RE, :auto)
+        )
     end
 
 
