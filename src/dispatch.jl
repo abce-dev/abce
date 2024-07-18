@@ -167,7 +167,7 @@ function handle_annual_dispatch(
 
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:(current_pd + num_years - 1)
-        @debug "\n\nDISPATCH SIMULATION: YEAR $y"
+        @info "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Set up the timeseries data for this year
         ts_data = set_up_ts_data(
