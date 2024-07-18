@@ -629,20 +629,18 @@ class GridModel(Model):
             )
 
         # Run the dispatch simulation
-        if self.args.verbosity < 2:
-            sp = subprocess.check_call(
-                dispatch_cmd, shell=True, stdout=open(os.devnull, "wb")
-            )
-        else:
-            sp = subprocess.check_call(dispatch_cmd, shell=True)
+        if dispatch_engine not in ["none", "None"]:
+            if self.args.verbosity < 2:
+                sp = subprocess.check_call(
+                    dispatch_cmd, shell=True, stdout=open(os.devnull, "wb")
+                )
+            else:
+                sp = subprocess.check_call(dispatch_cmd, shell=True)
 
         # Save data to its final destination, if needed
         if dispatch_engine in ["ALEAF", "aleaf", "A-LEAF", "a-leaf"]:
             self.save_ALEAF_outputs()
             self.process_ALEAF_dispatch_results()
-
-        # Save the realized agents' financial statement for this year
-#        self.save_realized_agents_fss()
 
 
     def display_step_header(self):
