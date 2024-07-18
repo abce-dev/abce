@@ -2,7 +2,7 @@ simulation:
   scenario_name: "example_test"
   solver: "CPLEX"
   num_steps: 1
-  annual_dispatch_engine: none
+  annual_dispatch_engine: ABCE
   C2N_assumption: baseline
 
 scenario:
