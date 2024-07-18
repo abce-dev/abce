@@ -101,7 +101,7 @@ def get_unit_specs(db):
     return unit_specs
 
 
-def get_portfolio_profile(db, agent_id, unit_specs):
+def get_portfolio_profile(db, agent_id, unit_specs, settings):
     # Retrieve a long dataframe showing the number of installed units
     #   by type by year
     portfolios = pd.DataFrame()
@@ -114,14 +114,9 @@ def get_portfolio_profile(db, agent_id, unit_specs):
 
     # Set the total time horizon to num_years + the construction duration of
     #   the fastest-to-build project
-    ads = pd.read_sql_query(
-        "SELECT * FROM annual_dispatch_summary",
-        db
-    )
-
     horizon = int(
         unit_specs.construction_duration.min(skipna=True)
-        + max(ads["period"]) + 1
+        + settings["simulation"]["num_steps"] + 1
         + 1
     )
 
@@ -295,7 +290,7 @@ def plot_portfolios(db, settings, unit_specs, agent_id, tag, descriptor):
 
     logging.debug(f"Procesing data for {msg}...")
     portfolio_profile = get_portfolio_profile(
-        db, agent_id, unit_specs,
+        db, agent_id, unit_specs, settings,
     )
 
     portfolio_profile = organize_portfolio_profile(portfolio_profile)
