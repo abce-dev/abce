@@ -32,6 +32,32 @@ wind:
     Scenario: Moderate
     Year: 2025
     ATB_year: 2020
+wind_old:
+  capacity: 100   # MW
+  max_PL: 1.0
+  min_PL: 0.0
+  overnight_capital_cost: 1381
+  retirement_cost: 0.0
+  FOM: 51.00    # $/kW-yr
+  VOM: 0.0    # $/MWh
+  FC_per_MMBTU: 0.0
+  no_load_cost: 0.0
+  start_up_cost: 0.0
+  shut_down_cost: 0.0
+  heat_rate: 0.0    # MMBTU/MWh
+  ramp_up_limit: 1.0    # % PL/hr
+  ramp_down_limit: 1.0  # % PL/hr
+  max_regulation: 0.0
+  max_spinning_reserve: 0.0
+  max_nonspinning_reserve: 0.0
+  capacity_factor: 0.37
+  emissions_per_MMBTU: 0.0   # t CO2 / MMBTU
+  is_VRE: True
+  uses_fuel: False
+  occ_stdev: 0
+  construction_duration: 3
+  const_dur_stdev: 0
+  unit_life: 30
 solar:
   capacity: 100   # MW
   max_PL: 1.0
@@ -66,6 +92,32 @@ solar:
     Scenario: Moderate
     Year: 2025
     ATB_year: 2020
+solar_old:
+  capacity: 100   # MW
+  max_PL: 1.0
+  min_PL: 0.0
+  overnight_capital_cost: 1095
+  retirement_cost: 0.0
+  FOM: 17.00    # $/kW-yr
+  VOM: 0.0    # $/MWh
+  FC_per_MMBTU: 0.0
+  no_load_cost: 0.0
+  start_up_cost: 0.0
+  shut_down_cost: 0.0
+  heat_rate: 0.0    # MMBTU/MWh
+  ramp_up_limit: 1.0    # % PL/hr
+  ramp_down_limit: 1.0  # % PL/hr
+  max_regulation: 0.0
+  max_spinning_reserve: 0.0
+  max_nonspinning_reserve: 0.0
+  capacity_factor: 0.22
+  emissions_per_MMBTU: 0.0   # t CO2 / MMBTU
+  is_VRE: True
+  uses_fuel: False
+  occ_stdev: 0
+  construction_duration: 3
+  const_dur_stdev: 0
+  unit_life: 30
 coal:
   capacity: 500   # MW
   max_PL: 0.84
@@ -110,7 +162,7 @@ ngcc:
   FOM: 12.86    # $/kW-yr
   VOM: 2.16    # $/MWh
   fuel_type: natural_gas
-  FC_per_MMBTU: 4.0
+  FC_per_MMBTU: 3.0
   no_load_cost: 0.0
   start_up_cost: 1.53  # $/MW
   shut_down_cost: 0.0  # $/MW, non-fuel start-up costs
@@ -145,10 +197,80 @@ ngct:
   FOM: 11.39    # $/kW-yr
   VOM: 4.50    # $/MWh
   fuel_type: natural_gas
-  FC_per_MMBTU: 4.0
+  FC_per_MMBTU: 3.0
   no_load_cost: 0.0
   start_up_cost: 3.04   # $/MW
   shut_down_cost: 0.95  # $/MW, non-fuel start-up costs
+  heat_rate: 9.515    # MMBTU/MWh
+  ramp_up_limit: 1.0    # % PL/hr
+  ramp_down_limit: 1.0  # % PL/hr
+  max_regulation: 0.42
+  max_spinning_reserve: 0.83
+  max_nonspinning_reserve: 1.0
+  capacity_factor: 0.92
+  emissions_per_MMBTU: 0.058   # t CO2 / MMBTU
+  is_VRE: False
+  uses_fuel: True
+  occ_stdev: 0
+  construction_duration: 3
+  const_dur_stdev: 0
+  unit_life: 30
+  ATB_search_settings:
+    Tech: NaturalGas
+    TechDetail: CTAvgCF
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    ATB_year: 2020
+PUN_unit_low:
+  capacity: 50   # MW
+  max_PL: 0.92
+  min_PL: 0.0
+  overnight_capital_cost: 925
+  retirement_cost: 0.0
+  FOM: 11.39    # $/kW-yr
+  VOM: 100.00    # $/MWh
+  fuel_type: natural_gas
+  FC_per_MMBTU: 3.0
+  no_load_cost: 0.0
+  start_up_cost: 20.00   # $/MW
+  shut_down_cost: 5.00  # $/MW, non-fuel start-up costs
+  heat_rate: 9.515    # MMBTU/MWh
+  ramp_up_limit: 1.0    # % PL/hr
+  ramp_down_limit: 1.0  # % PL/hr
+  max_regulation: 0.42
+  max_spinning_reserve: 0.83
+  max_nonspinning_reserve: 1.0
+  capacity_factor: 0.92
+  emissions_per_MMBTU: 0.058   # t CO2 / MMBTU
+  is_VRE: False
+  uses_fuel: True
+  occ_stdev: 0
+  construction_duration: 3
+  const_dur_stdev: 0
+  unit_life: 30
+  ATB_search_settings:
+    Tech: NaturalGas
+    TechDetail: CTAvgCF
+    Case: Market
+    CRP: 30
+    Scenario: Moderate
+    Year: 2025
+    ATB_year: 2020
+PUN_unit_high:
+  capacity: 50   # MW
+  max_PL: 0.92
+  min_PL: 0.0
+  overnight_capital_cost: 925
+  retirement_cost: 0.0
+  FOM: 11.39    # $/kW-yr
+  VOM: 500.00    # $/MWh
+  fuel_type: natural_gas
+  FC_per_MMBTU: 3.0
+  no_load_cost: 0.0
+  start_up_cost: 20.00   # $/MW
+  shut_down_cost: 5.00  # $/MW, non-fuel start-up costs
   heat_rate: 9.515    # MMBTU/MWh
   ramp_up_limit: 1.0    # % PL/hr
   ramp_down_limit: 1.0  # % PL/hr
@@ -190,7 +312,7 @@ conventional_nuclear:
   max_regulation: 0.0
   max_spinning_reserve: 0.0
   max_nonspinning_reserve: 0.0
-  capacity_factor: 0.9
+  capacity_factor: 0.93
   emissions_per_MMBTU: 0.0   # t CO2 / MMBTU
   is_VRE: False
   uses_fuel: True
@@ -210,7 +332,7 @@ advanced_nuclear:
   capacity: 300   # MW
   max_PL: 1.0
   min_PL: 0.2
-  overnight_capital_cost: 4572
+  overnight_capital_cost: 5000
   retirement_cost: 0.0
   FOM: 80    # $/kW-yr
   VOM: 2.0    # $/MWh
@@ -265,10 +387,11 @@ PWR_C2N0_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 6
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
-  cpp_ret_lead: 2
+  cpp_ret_lead: 6
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"
@@ -281,7 +404,7 @@ PWR_C2N1_single:
   capacity: 462   # MW
   max_PL: 1.0
   min_PL: 0.2
-  overnight_capital_cost: 3598
+  overnight_capital_cost: 4066
   retirement_cost: 0.0
   FOM: 94.02    # $/kW-yr
   VOM: 2.0    # $/MWh
@@ -301,10 +424,11 @@ PWR_C2N1_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 7
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
-  cpp_ret_lead: 2
+  cpp_ret_lead: 5
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"
@@ -337,10 +461,11 @@ HTGR_C2N0_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 6
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
-  cpp_ret_lead: 0
+  cpp_ret_lead: 6
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"
@@ -353,7 +478,7 @@ HTGR_C2N2_single:
   capacity: 515   # MW
   max_PL: 1.0
   min_PL: 0.2
-  overnight_capital_cost: 3951
+  overnight_capital_cost: 4732
   retirement_cost: 0.0
   FOM: 122.78    # $/kW-yr
   VOM: 2.07    # $/MWh
@@ -373,6 +498,7 @@ HTGR_C2N2_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 7
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
@@ -409,10 +535,11 @@ SFR_C2N0_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 6
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
-  cpp_ret_lead: 4
+  cpp_ret_lead: 6
   ATB_search_settings:
     Tech: Nuclear
     TechDetail: "*"
@@ -425,7 +552,7 @@ SFR_C2N3_single:
   capacity: 550   # MW
   max_PL: 1.0
   min_PL: 0.2
-  overnight_capital_cost: 3398
+  overnight_capital_cost: 4228
   retirement_cost: 0.0
   FOM: 104.33    # $/kW-yr
   VOM: 2.0    # $/MWh
@@ -445,6 +572,7 @@ SFR_C2N3_single:
   is_VRE: False
   uses_fuel: True
   occ_stdev: 0
+  construction_duration: 6
   const_dur_stdev: 0
   unit_life: 60
   num_cpp_rets: 1
