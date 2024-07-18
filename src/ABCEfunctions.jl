@@ -490,9 +490,6 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
         d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
         c_y = sum(adj_system_portfolios[y][!, :total_derated_capacity])
 
-        d_0 = filter(:period => x -> x == current_pd, demand_forecast)[1, :total_demand]
-        c_0 = sum(adj_system_portfolios[current_pd][!, :total_derated_capacity])
-
         k = settings["agent_opt"]["competitor_efficiency_assumption"]   # k < 1
 
         if (c_y / d_y < (1 + prm)) && (y >= current_pd + delay)
@@ -500,10 +497,6 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
             # Linearly increases to cover the difference between cy/dy and prm,
             #   starting at (b)% of the difference and increasing to the
             #   full difference over (n) years
-            # TODO: self-fulfilling prophecy/positive feedback loop: agents with larger
-            #   capacity perceive a greater market opportunities because the M_(-a) market
-            #   share is smaller from the point of view of a larger agent
-            #   ---> is this degenerate or a real phenomenon?
             n = 4
             b = 0.5
             j = min(n, y - delay - current_pd)
