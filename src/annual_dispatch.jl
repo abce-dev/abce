@@ -95,32 +95,7 @@ function get_year_portfolio(db, current_pd, unit_specs)
     return system_portfolio_dict
 end
 
-
-function run_true_annual_dispatch()
-    show_header()
-
-    @info "Setting up data..."
-    CL_args = get_CL_args()
-    settings = get_settings(CL_args)
-    db = get_db(settings)
-    unit_specs = get_unit_specs(db)
-    total_demand = ABCEfunctions.get_demand_forecast(db, CL_args["current_pd"], 1, settings)
-    system_portfolio_dict = get_year_portfolio(db, CL_args["current_pd"], unit_specs)
-
-    @info "Running the year-long dispatch simulation (this may take a little while)..."
-    # Run the year's UC/ED problem
-    long_econ_results, dispatch_results = Dispatch.execute_dispatch_economic_projection(
-        CL_args,
-        db,
-        settings,
-        1,   # forecast period is always 1 for current-year runs
-        total_demand,
-        unit_specs,
-        system_portfolio_dict;
-        run_mode="current",
-        downselection_mode="exact"
-    )
-
+function save_intermediate_outputs(settings, CL_args, long_econ_results, dispatch_results)
     @info "Saving annual dispatch results to the database..."
 
     CSV.write(
@@ -148,6 +123,37 @@ function run_true_annual_dispatch()
         ),
         dispatch_results,
     )
+end
+
+
+function run_true_annual_dispatch()
+    show_header()
+
+    @info "Setting up data..."
+    CL_args = get_CL_args()
+    settings = get_settings(CL_args)
+    db = get_db(settings)
+    unit_specs = get_unit_specs(db)
+    total_demand = ABCEfunctions.get_demand_forecast(db, CL_args["current_pd"], 1, settings)
+    system_portfolio_dict = get_year_portfolio(db, CL_args["current_pd"], unit_specs)
+
+    @info "Running the year-long dispatch simulation (this may take a little while)..."
+    # Run the year's UC/ED problem
+    long_econ_results, dispatch_results = Dispatch.execute_dispatch_economic_projection(
+        CL_args,
+        db,
+        settings,
+        1,   # forecast period is always 1 for current-year runs
+        total_demand,
+        unit_specs,
+        system_portfolio_dict;
+        run_mode="current",
+        downselection_mode="exact"
+    )
+
+    if settings["simulation"]["file_logging_level"] > 0
+        save_intermediate_outputs(settings, CL_args, long_econ_results, dispatch_results)
+    end
 
     # Adjust formatting and save to the database
     Dispatch.finalize_annual_dispatch_results(db, CL_args["current_pd"], long_econ_results, dispatch_results)

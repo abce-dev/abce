@@ -610,7 +610,7 @@ function set_up_project_alternatives(
         PA_fs_dict[PA.uid] = create_PA_aggregated_fs(PA_subprojects[PA.uid])
 
         # Save raw project fs results, if verbose outputs are enabled
-        if (verbosity > 2) || (agent_id == 204) || (agent_id == "204") || true
+        if settings["simulation"]["file_logging_level"] > 0
             CSV.write(
                 joinpath(
                     settings["file_paths"]["output_logging_dir"],
@@ -1557,6 +1557,7 @@ function add_constraint_shortage_protection(
 end
 
 function compute_marginal_PA_contributions(
+        settings,
         verbosity,
         PA_summaries,
         PA_fs_dict,
@@ -1587,7 +1588,7 @@ function compute_marginal_PA_contributions(
     end
 
     # Record marginal contributions to csv if verbosity is set to max
-    if verbosity > 2
+    if settings["simulation"]["file_logging_level"] > 0
         # Write marg_debt to file
         CSV.write(
             joinpath(
@@ -2086,6 +2087,7 @@ function set_up_model(
 
     # Compute marginal cash flow/income statement contributions from all PAs
     marg_debt, marg_int, marg_FCF, marg_RE = compute_marginal_PA_contributions(
+        settings,
         CLI_args["verbosity"],
         PA_summaries,
         PA_fs_dict,

@@ -2,6 +2,7 @@ simulation:
   scenario_name: "baseline"
   solver: "CPLEX"
   num_steps: 1
+  file_logging_level: 1  # 0: no additional csvs saved; 1: all additional csvs saved
   annual_dispatch_engine: ABCE
   C2N_assumption: baseline
 
