@@ -119,8 +119,8 @@ function fill_portfolios_missing_units(system_portfolios, unit_specs)
 end
 
 
-function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd)
-    if settings["dispatch"]["downselection"] == "exact"
+function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd, downselection_mode)
+    if (settings["dispatch"]["downselection"] == "exact") || (downselection_mode == "exact")
         num_days = 365
     else
         num_days = settings["dispatch"]["num_repdays"]
@@ -167,14 +167,15 @@ function handle_annual_dispatch(
 
     # Run the annual dispatch for the user-specified number of dispatch years
     for y = current_pd:(current_pd + num_years - 1)
-        @debug "\n\nDISPATCH SIMULATION: YEAR $y"
+        @info "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Set up the timeseries data for this year
         ts_data = set_up_ts_data(
             settings,
             ts_data_dir,
             CLI_args["current_pd"],
-            y
+            y,
+            downselection_mode
         )
 
         y_repdays = deepcopy(ts_data[:repdays_data])
@@ -250,7 +251,8 @@ function load_ts_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
             joinpath(
                 ts_file_dir,
                 "repDays_365.csv",
-            )
+            ),
+            DataFrame,
         )
     else
         repdays_data = CSV.read(
@@ -336,9 +338,9 @@ function set_repdays_params(settings, ts_data)
     if settings["dispatch"]["downselection"] == "exact"
         if size(ts_data[:load_data])[1] <= 24
             num_days = 1
-            num_hours = size(ts_data[:load_data])[1]
+            num_hours = Int(round(size(ts_data[:load_data])[1]))
         else
-            num_days = size(ts_data[:load_data])[1] / 24
+            num_days = Int(round(size(ts_data[:load_data])[1] / 24))
             num_hours = 24
         end
     else
@@ -932,7 +934,7 @@ function run_annual_dispatch(
 )
     # Set up the appropriate scenario reduction parameters
     if run_mode == "current"
-        num_days = 365
+        num_days = Int(round(size(ts_data[:load_data])[1] / 24))
         num_hours = 24
     else
         num_days, num_hours = set_repdays_params(settings, ts_data)
@@ -954,7 +956,7 @@ function run_annual_dispatch(
     ts_data = set_up_AS_repdays(downselection_mode, num_days, num_hours, ts_data)
 
     # If running in forecast mode, run the entire "year" at once
-    if run_mode == "forecast"
+    if (run_mode == "forecast") && (settings["dispatch"]["num_repdays"] < 100)
         @debug "Setting up optimization model..."
         m, portfolio_specs =
             set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, unit_specs; gen_data=nothing, commit_data=nothing)
@@ -1106,9 +1108,10 @@ function run_annual_dispatch(
 
             @debug "Subperiod starting $starting_index dispatch run complete."
 
-            # Deallocate the models to avoid excess memory accumulation
-            m = nothing
-            m_copy = nothing
+            # Empty the old optimization model
+            empty!(m)
+            empty!(m_copy)
+
 
             # Update the new starting_index for the next slice of data
             starting_index = ending_index + 1
@@ -1126,6 +1129,8 @@ function run_annual_dispatch(
 
     if run_mode == "current"
         summary_statistics = calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
+    else
+        summary_statistics = nothing
     end
 
     results = Dict(
@@ -1237,7 +1242,7 @@ function join_results_data_frames(
 
     # Incorporate repdays probability data
     if settings["dispatch"]["downselection"] == "exact"
-        long_econ_results[!, :Probability] .= 1.0
+        long_econ_results[!, :Probability] .= 1.0/365
     else
         long_econ_results = innerjoin(
             long_econ_results,

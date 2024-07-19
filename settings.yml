@@ -1,7 +1,7 @@
 simulation:
   scenario_name: "baseline"
   solver: "CPLEX"
-  num_steps: 30
+  num_steps: 1
   annual_dispatch_engine: ABCE
   C2N_assumption: baseline
 
@@ -81,6 +81,7 @@ file_paths:
 #  agent_specifications_file: "single_agent_testing.yml"
   agent_specifications_file: "agent_specifications.yml"
   output_file: "outputs.xlsx"
+  output_logging_dir: "/groupspace/cnerg/users/kebiegel/abce_outputs"
   timeseries_data_dir: "ts_data"
   unit_specs_data_file: "unit_specs.yml"
   logo: "abce.txt"
@@ -107,8 +108,8 @@ demand:
 #   dispatch data
 dispatch:
   num_dispatch_years: 10  # Num. of years to explicitly simulate dispatch
-  downselection: scenario_reduction
-  num_repdays: 50
+  downselection: exact
+  num_repdays: 365
   annual_dispatch_subperiod: 30   # Number of days per annual dispatch subperiod
   ASNS_penalty_ratio: 0.08  # Relative to an ENS penalty value of 1
   rns_subpenalty: 4
