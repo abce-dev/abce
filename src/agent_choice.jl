@@ -89,6 +89,37 @@ function process_results(settings, CLI_args, final_model, final_mode, db, PA_uid
 end
 
 
+function save_intermediate_outputs(settings, CLI_args, adj_system_portfolios, long_econ_results)
+    # Save all system portfolio forecasts to the cnerg groupspace
+    pfs = deepcopy(adj_system_portfolios[CLI_args["current_pd"]])
+    for i=CLI_args["current_pd"]+1:maximum(keys(adj_system_portfolios))
+        append!(pfs, adj_system_portfolios[i])
+    end
+
+    za = CLI_args["current_pd"]
+    zb = CLI_args["agent_id"]
+    filename = joinpath(
+        settings["file_paths"]["output_logging_dir"],
+        settings["simulation"]["scenario_name"],
+        string("agent_", zb, "_pd_", za, "_pf_forecast.csv"),
+    )
+    CSV.write(filename, pfs)
+
+    # Save all agents' long econ results to the cnerg groupspace
+    za = CLI_args["current_pd"]
+    zb = CLI_args["agent_id"]
+    CSV.write(
+        joinpath(
+            settings["file_paths"]["output_logging_dir"],
+            settings["simulation"]["scenario_name"],
+            string("agent_", zb, "_pd_", za, "_long_econ_results.csv"),
+        ),
+        long_econ_results,
+    )
+
+end
+
+
 function run_agent_choice()
     @info "Setting up data..."
 
@@ -158,21 +189,6 @@ function run_agent_choice()
         demand_forecast,
     )
 
-    # Save all system portfolio forecasts to the cnerg groupspace
-    pfs = deepcopy(adj_system_portfolios[CLI_args["current_pd"]])
-    for i=CLI_args["current_pd"]+1:maximum(keys(adj_system_portfolios))
-        append!(pfs, adj_system_portfolios[i])
-    end
-
-    za = CLI_args["current_pd"]
-    zb = CLI_args["agent_id"]
-    filename = joinpath(
-        settings["file_paths"]["output_logging_dir"],
-        settings["simulation"]["scenario_name"],
-        string("agent_", zb, "_pd_", za, "_pf_forecast.csv"),
-    )
-    CSV.write(filename, pfs)
-
 
     # Use the agent's internal dispatch forecast generator to project dispatch
     #   results in the system over the forecast horizon
@@ -189,18 +205,9 @@ function run_agent_choice()
         downselection_mode=settings["dispatch"]["downselection"]
     )
 
-    # Save all agents' long econ results to the cnerg groupspace
-    za = CLI_args["current_pd"]
-    zb = CLI_args["agent_id"]
-    CSV.write(
-        joinpath(
-            settings["file_paths"]["output_logging_dir"],
-            settings["simulation"]["scenario_name"],
-            string("agent_", zb, "_pd_", za, "_long_econ_results.csv"),
-        ),
-        long_econ_results,
-    )
-
+    if settings["simulation"]["file_logging_level"] > 0
+        save_intermediate_outputs(settings, CLI_args, adj_system_portfolios, long_econ_results)
+    end
 
     # Set up all available project alternatives, including computing marginal
     #   NPV for all potential projects (new construction and retirements)
