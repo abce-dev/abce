@@ -17,12 +17,18 @@
 
 using PackageCompiler, Pkg, Requires
 
+abce_abs_path = ENV["ABCE_DIR"]
+env_path = joinpath(abce_abs_path, "env")
+script_path = joinpath(abce_abs_path, "src", "agent_choice.jl")
+settings_file= joinpath(abce_abs_path, "settings.yml")
+inputs_path = joinpath(abce_abs_path, "inputs")
+
 # Activate the current environment
-Pkg.activate(".")
+Pkg.activate(env_path)
 
 # Run agent_choice.jl as a standalone script, outputting function-compilation
 #   records to `./precompile.jl`
-run(`julia --project=. --trace-compile=precompile.jl ../src/agent_choice.jl --settings_file=../settings.yml --current_pd=1 --agent_id=201 --abce_abs_path=..`)
+run(`julia --project=$env_path --trace-compile=precompile.jl $script_path --current_pd=0 --agent_id=201 --verbosity=2 --settings_file=$settings_file --inputs_path=$inputs_path --abce_abs_path=$abce_abs_path`)
 
 pkg_list = [
     :ArgParse,
