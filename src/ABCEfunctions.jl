@@ -1648,13 +1648,10 @@ function add_constraint_FM_floors(
     #   below the weighted sum of the Moody's Ba rating thresholds (from the 
     #   Unregulated Power Companies ratings grid)
     # Getting some values for conciseness
-    ICR_floor = settings["agent_opt"]["icr_floor"]
     FCDR_floor = settings["agent_opt"]["fcf_debt_floor"]
     RCDR_floor = settings["agent_opt"]["re_debt_floor"]
 
     ICR_solo_floor = settings["agent_opt"]["icr_solo_floor"]
-    FCDR_solo_floor = settings["agent_opt"]["fcf_debt_solo_floor"]
-    RCDR_solo_floor = settings["agent_opt"]["re_debt_solo_floor"]
 
     # Limit the average debt-denominator terms in the aggregated score,
     #    averaged over the protection period
@@ -1683,46 +1680,6 @@ function add_constraint_FM_floors(
             for i = 1:settings["agent_opt"]["fin_metric_horizon"]
         ) >= 0
     )
-
-#    for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-#        # Limit debt-denominator terms in the aggregated score
-#        @constraint(
-#            m,
-#            0.2 * (
-#                (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
-#                - FCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
-#            )
-#
-#            + 0.1 * (
-#                (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
-#                - RCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
-#            )
-#
-#            >= 0
-#        )
-
-#        # Limit individual financial metrics
-#        @constraint(
-#            m,
-#            agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])
-#                + (1 - ICR_solo_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
-#                >= 0
-#        )
-#
-#        @constraint(
-#            m,
-#            (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
-#                - FCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
-#                >= 0
-#        )
-#
-#         @constraint(
-#            m,
-#            (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
-#                - RCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
-#                >= 0
-#        )
-#    end
 
     return m
 end
@@ -2136,7 +2093,6 @@ function set_up_model(
 
     # Create the objective function 
     fin_metric_horizon = settings["agent_opt"]["fin_metric_horizon"]
-    int_bound = settings["agent_opt"]["int_bound"]
 
     # Average credit rating over the horizon
     avg_cr = mean(agent_fs[1:fin_metric_horizon, :moodys_score])
