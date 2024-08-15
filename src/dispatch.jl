@@ -763,7 +763,7 @@ function set_up_model(settings, num_days, num_hours, ts_data, year_portfolio, un
                     g[i, k, j] .* (
                         portfolio_specs[i, :VOM] 
                         + portfolio_specs[i, :FC_per_MWh] 
-                        - portfolio_specs[i, :policy_adj_per_MWh] 
+                        - portfolio_specs[i, :carbon_tax_per_MWh] 
                         - portfolio_specs[i, :tax_credits_per_MWh]
                     )
                     # Ancillary services prices
@@ -1256,7 +1256,7 @@ function join_results_data_frames(
         long_econ_results,
         select(
             unit_specs,
-            [:unit_type, :capacity, :VOM, :FC_per_MWh, :policy_adj_per_MWh, :tax_credits_per_MWh],
+            [:unit_type, :capacity, :VOM, :FC_per_MWh, :carbon_tax_per_MWh, :tax_credits_per_MWh],
         ),
         on = :unit_type,
     )
@@ -1379,11 +1379,11 @@ function compute_per_unit_cash_flows(long_econ_results)
     # Calculate policy adjustment
     transform!(
         long_econ_results,
-        [:gen, :policy_adj_per_MWh, :Probability, :num_units] =>
+        [:gen, :carbon_tax_per_MWh, :Probability, :num_units] =>
             (
                 (gen, adj, prob, num_units) ->
                     gen .* adj .* prob .* 365 ./ num_units
-            ) => :annualized_policy_adj_per_unit,
+            ) => :annualized_carbon_tax_per_unit,
     )
 
     # Calculate tax credit adjustment
@@ -1425,7 +1425,7 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
             :annualized_rev_per_unit,
             :annualized_VOM_per_unit,
             :annualized_FC_per_unit,
-            :annualized_policy_adj_per_unit,
+            :annualized_carbon_tax_per_unit,
             :annualized_tax_credits_per_unit,
         ] .=> sum,
     )
@@ -1444,7 +1444,7 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
         :annualized_rev_per_unit_sum => :revenue,
         :annualized_VOM_per_unit_sum => :VOM,
         :annualized_FC_per_unit_sum => :fuel_cost,
-        :annualized_policy_adj_per_unit_sum => :policy_adj,
+        :annualized_carbon_tax_per_unit_sum => :carbon_tax,
         :annualized_tax_credits_per_unit_sum => :tax_credits,
     )
 
@@ -1462,7 +1462,7 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
     # Put the data into a long format for easier filtering
     dispatch_results = stack(
         dispatch_results,
-        [:generation, :regulation, :spinning_reserve, :nonspinning_reserve, :gen_rev, :reg_rev, :spin_rev, :nspin_rev, :reserves_rev, :revenue, :VOM, :fuel_cost, :FOM, :policy_adj, :tax_credits],
+        [:generation, :regulation, :spinning_reserve, :nonspinning_reserve, :gen_rev, :reg_rev, :spin_rev, :nspin_rev, :reserves_rev, :revenue, :VOM, :fuel_cost, :FOM, :carbon_tax, :tax_credits],
     )
     rename!(dispatch_results, :variable => :dispatch_result, :value => :qty)
 

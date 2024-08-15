@@ -564,7 +564,7 @@ def write_workbook_and_close(base_filename, tabs_to_create, output_file_path):
 
 def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
     # Initialize all units with zero policy adjustment
-    policy_adj_per_MWh = 0
+    carbon_tax_per_MWh = 0
     tax_credits_per_MWh = 0
     tax_credits_per_MW = 0
 
@@ -595,7 +595,7 @@ def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
 
                 if is_eligible:
                     if "CTAX" in policy:
-                        policy_adj_per_MWh -= (
+                        carbon_tax_per_MWh -= (
                             unit_type_data["heat_rate"]
                             * unit_type_data["emissions_per_MMBTU"]
                             * policy_specs["qty"]
@@ -606,12 +606,12 @@ def set_unit_type_policy_adjustment(unit_type, unit_type_data, settings):
                         tax_credits_per_MW += policy_specs["qty"]
 
     policy_results = {
-        "policy_adj_per_MWh": policy_adj_per_MWh,
+        "carbon_tax_per_MWh": carbon_tax_per_MWh,
         "tax_credits_per_MWh": tax_credits_per_MWh,
         "tax_credits_per_MW": tax_credits_per_MW,
     }
 
-    return policy_adj_per_MWh, tax_credits_per_MWh, tax_credits_per_MW,
+    return carbon_tax_per_MWh, tax_credits_per_MWh, tax_credits_per_MW,
 
 
 
@@ -628,7 +628,7 @@ def compute_unit_specs_cols(unit_specs, settings):
         )
 
         # Add policy adjustment per MWh column
-        unit_type_data["policy_adj_per_MWh"], unit_type_data["tax_credits_per_MWh"], unit_type_data["tax_credits_per_MW"] = set_unit_type_policy_adjustment(
+        unit_type_data["carbon_tax_per_MWh"], unit_type_data["tax_credits_per_MWh"], unit_type_data["tax_credits_per_MW"] = set_unit_type_policy_adjustment(
             unit_type, unit_type_data, settings
         )
 

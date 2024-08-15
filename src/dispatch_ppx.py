@@ -128,7 +128,7 @@ def compute_per_unit_results(agg_dsp_pivot):
             "VOM",
             "FOM",
             "FC_per_MWh",
-            "policy_adj_per_MWh",
+            "carbon_tax_per_MWh",
             "tax_credits_per_MWh",
             "capacity",
         ]
@@ -159,8 +159,8 @@ def compute_per_unit_results(agg_dsp_pivot):
         dsp_pivot_PU["FC_per_MWh"] * dsp_pivot_PU["generation"]
     )
     dsp_pivot_PU["FOM"] = dsp_pivot_PU["FOM"] * dsp_pivot_PU["capacity"] * 1000
-    dsp_pivot_PU["policy_adj"] = (
-        dsp_pivot_PU["policy_adj_per_MWh"] * dsp_pivot_PU["generation"]
+    dsp_pivot_PU["carbon_tax"] = (
+        dsp_pivot_PU["carbon_tax_per_MWh"] * dsp_pivot_PU["generation"]
     )
 
     dsp_pivot_PU["tax_credits"] = dsp_pivot_PU["tax_credits_per_MWh"] * dsp_pivot_PU["generation"]
@@ -183,7 +183,7 @@ def downselect_dispatch_econ_results(dsp_pivot_PU):
             "VOM",
             "fuel_cost",
             "FOM",
-            "policy_adj",
+            "carbon_tax",
             "tax_credits",
         ]
     ].copy(deep=True)
