@@ -17,7 +17,7 @@
 
 module Dispatch
 
-using Requires, Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS, CPLEX
+using Requires, Logging, CSV, DataFrames, JuMP, GLPK, Cbc, XLSX, SQLite, HiGHS, CPLEX, Dates
 
 
 # Initialize this module, with CPLEX as an optional library if available
@@ -1023,6 +1023,7 @@ function run_annual_dispatch(
         all_nsns = nothing
 
         while starting_index < 365
+            loop_t1 = now()
             # Take slices of the time-series data
             ending_index = min(starting_index + subpd - 1, size(ts_data[:load_repdays])[2])
             @info "  Simulating dispatch for days $starting_index - $ending_index"
@@ -1039,15 +1040,24 @@ function run_annual_dispatch(
             num_slice_days = ending_index - starting_index + 1
 
             @debug "Setting up optimization model..."
+            t1 = now()
             m, portfolio_specs =
                 set_up_model(settings, num_slice_days, num_hours, ts_data_slice, year_portfolio, unit_specs; gen_data=gen_data, commit_data=commit_data)
+            t2 = now()
+            setup_dt = t2-t1
+            println(string("set_up_model time: ", setup_dt))
 
             @debug "Optimization model set up."
             @debug string("Solving annual dispatch for subperiod beginning ", starting_index, "...")
 
             # Create a copy of the model, to use later for the relaxed-integrality
             #   solution
+            t1 = now()
             m_copy = copy(m)
+            t2 = now()
+            copy_dt = t2-t1
+            println(string("m_copy time: ", copy_dt))
+
             if lowercase(settings["simulation"]["solver"]) == "cplex"
                 set_optimizer(m_copy, CPLEX.Optimizer)
             elseif lowercase(settings["simulation"]["solver"]) == "glpk"
@@ -1060,7 +1070,11 @@ function run_annual_dispatch(
             set_silent(m_copy)
 
             # Solve the integral optimization problem
+            t1 = now()
             m, status, gen_qty, r, sr, nsr, c, su, sd, ens, rns, sns, nsns = solve_model(m, model_type = "integral")
+            t2 = now()
+            solve_dt = t2-t1
+            println(string("solve_model time: ", solve_dt))
 
             # Save last-hour commitment and generation data to set up
             #   next period's continuity constraints
@@ -1093,7 +1107,12 @@ function run_annual_dispatch(
             undo = relax_integrality(m_copy)
 
             # Solve the relaxed-integrality model to compute the shadow prices
+            t1 = now()
             m_copy = solve_model(m_copy, model_type = "relaxed_integrality")
+            t2 = now()
+            copysolve_dt = t2-t1
+            println("solve copied model time: $copysolve_dt")
+
             price_results = reshape_shadow_prices(
                 shadow_price.(m_copy[:mkt_equil]),   # generation shadow prices
                 shadow_price.(m_copy[:reg_mkt_equil]),  # regulation shadow prices
@@ -1115,6 +1134,14 @@ function run_annual_dispatch(
 
             # Update the new starting_index for the next slice of data
             starting_index = ending_index + 1
+            loop_t2 = now()
+            loop_dt = loop_t2-loop_t1
+
+            println(string("total loop time: ", loop_dt))
+
+            println(string("% of loop time inside timed segments: ", (copysolve_dt + solve_dt + copy_dt + setup_dt)/loop_dt))
+
+
         end
 
         # Rename data objects to their standard names
