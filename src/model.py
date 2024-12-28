@@ -674,7 +674,7 @@ class GridModel(Model):
         if not Path(ABCE_sysimage_path).exists():
             msg = (
                 f"No sysimage file found at {ABCE_sysimage_path}. "
-                + "Execution will proceed, but Julia may run extremely "
+                + "Execution will proceed, but Julia may run "
                 + "slowly. If you already have a sysimage file, please move "
                 + f"it to the filename {ABCE_sysimage_path}. If you do not have a "
                 + "sysimage file, please run 'julia make_sysimage.jl "

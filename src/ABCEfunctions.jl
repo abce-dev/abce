@@ -28,6 +28,8 @@ include("./dispatch.jl")
 using .Dispatch
 include("./C2N_projects.jl")
 using .C2N
+include("./income_statement.jl")
+using .ISpf
 
 
 #####
@@ -417,18 +419,12 @@ function get_demand_forecast(db, pd, fc_pd, settings)
 
     demand_forecast =
         extrapolate_demand(visible_demand, db, pd, fc_pd, settings)
-#    prm =
-#        DBInterface.execute(
-#            db,
-#            "SELECT * FROM model_params WHERE parameter = 'PRM'",
-#        ) |> DataFrame
 
     transform!(
         demand_forecast,
         :real_demand =>
             (
                 (dem) -> (
-#                    dem .* (1 + prm[1, :value]) .+
                     dem .+
                     settings["system"]["peak_initial_reserves"]
                 )
@@ -484,7 +480,6 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
         adj_system_portfolios[y] = coalesce.(outerjoin(adj_system_portfolios[y], apf, on = :unit_type), 0)
 
         transform!(adj_system_portfolios[y], [:total_capacity, :capacity_factor] => ((cap, cf) -> cap .* cf) => :total_derated_capacity)
-#        transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((total_cap, agent_cap) -> (total_cap - agent_cap) ./ total_cap) => :my)
         transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((total_cap, agent_cap) -> (total_cap) ./ total_cap) => :my)
 
         d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
@@ -839,7 +834,7 @@ function forecast_subproject_financials(
         VOM = zeros(fc_pd),
         fuel_cost = zeros(fc_pd),
         FOM = zeros(fc_pd),
-        policy_adj = zeros(fc_pd),
+        carbon_tax = zeros(fc_pd),
         tax_credits = zeros(fc_pd),
     )
 
@@ -908,7 +903,7 @@ function forecast_subproject_financials(
     )
 
     subproject_fs =
-        compute_accounting_line_items(db, deepcopy(subproject_fs), agent_id, agent_params, mode="subproject")
+        compute_accounting_line_items(db, settings, deepcopy(subproject_fs), agent_id, agent_params, mode="subproject")
 
     return subproject_fs
 end
@@ -1107,32 +1102,7 @@ function forecast_depreciation(settings, fs_copy)
 end
 
 
-function forecast_subproject_operations(
-    settings,
-    current_pd,
-    subproject,
-    unit_type_data,
-    dispatch_results,
-    historical_dispatch_results,
-    fs_copy,
-)
-    mode = subproject["project_type"]
-    hist_wt = settings["dispatch"]["hist_wt"]
-    data_to_get =
-        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
-
-    # Get historical dispatch results for this unit type
-    historical_dispatch_results = filter(
-        :unit_type => unit_type -> unit_type == subproject["unit_type"],
-        historical_dispatch_results,
-    )
-
-    # Get projected dispatch results for this unit type
-    ABCE_dispatch_results = filter(
-        :unit_type => unit_type -> unit_type == subproject["unit_type"],
-        dispatch_results,
-    )
-
+function set_up_subproject_type(subproject, fs_copy, unit_type_data)
     # Set up timeline start/end and value sign based on project type
     if subproject["project_type"] == "new_xtr"
         # Record marginal additional generation
@@ -1155,6 +1125,39 @@ function forecast_subproject_operations(
         series_end = convert(Int64, min(size(fs_copy)[1], subproject["ret_pd"]))
         sign = -1
     end
+
+    return series_start, series_end, sign
+end
+
+
+function forecast_subproject_operations(
+    settings,
+    current_pd,
+    subproject,
+    unit_type_data,
+    dispatch_results,
+    historical_dispatch_results,
+    fs_copy,
+)
+    mode = subproject["project_type"]
+    hist_wt = settings["dispatch"]["hist_wt"]
+    data_to_get =
+        ["generation", "revenue", "VOM", "fuel_cost", "FOM", "carbon_tax"]
+
+    # Get historical dispatch results for this unit type
+    historical_dispatch_results = filter(
+        :unit_type => unit_type -> unit_type == subproject["unit_type"],
+        historical_dispatch_results,
+    )
+
+    # Get projected dispatch results for this unit type
+    ABCE_dispatch_results = filter(
+        :unit_type => unit_type -> unit_type == subproject["unit_type"],
+        dispatch_results,
+    )
+
+    # Set up index and sign data for the subproject
+    series_start, series_end, sign = set_up_subproject_type(subproject, fs_copy, unit_type_data)
 
     # Update the operations results data in the subproject's financial statement
     # series_start and series_end are relative indices, not absolute years
@@ -1350,7 +1353,7 @@ function average_historical_dispatch_results(settings, db)
 
         # Weight the data columns
         data_to_weight =
-            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "policy_adj"]
+            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "carbon_tax"]
 
         for data_type in data_to_weight
             transform!(
@@ -1648,13 +1651,10 @@ function add_constraint_FM_floors(
     #   below the weighted sum of the Moody's Ba rating thresholds (from the 
     #   Unregulated Power Companies ratings grid)
     # Getting some values for conciseness
-    ICR_floor = settings["agent_opt"]["icr_floor"]
     FCDR_floor = settings["agent_opt"]["fcf_debt_floor"]
     RCDR_floor = settings["agent_opt"]["re_debt_floor"]
 
     ICR_solo_floor = settings["agent_opt"]["icr_solo_floor"]
-    FCDR_solo_floor = settings["agent_opt"]["fcf_debt_solo_floor"]
-    RCDR_solo_floor = settings["agent_opt"]["re_debt_solo_floor"]
 
     # Limit the average debt-denominator terms in the aggregated score,
     #    averaged over the protection period
@@ -1683,46 +1683,6 @@ function add_constraint_FM_floors(
             for i = 1:settings["agent_opt"]["fin_metric_horizon"]
         ) >= 0
     )
-
-#    for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-#        # Limit debt-denominator terms in the aggregated score
-#        @constraint(
-#            m,
-#            0.2 * (
-#                (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
-#                - FCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
-#            )
-#
-#            + 0.1 * (
-#                (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
-#                - RCDR_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
-#            )
-#
-#            >= 0
-#        )
-
-#        # Limit individual financial metrics
-#        @constraint(
-#            m,
-#            agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])
-#                + (1 - ICR_solo_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
-#                >= 0
-#        )
-#
-#        @constraint(
-#            m,
-#            (agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])) 
-#                - FCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i])) 
-#                >= 0
-#        )
-#
-#         @constraint(
-#            m,
-#            (agent_fs[i, :retained_earnings] / 1e9 + sum(m[:u] .* marg_RE[:, i])) 
-#                - RCDR_solo_floor * (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(m[:u] .* marg_debt[:, i]))
-#                >= 0
-#        )
-#    end
 
     return m
 end
@@ -2136,7 +2096,6 @@ function set_up_model(
 
     # Create the objective function 
     fin_metric_horizon = settings["agent_opt"]["fin_metric_horizon"]
-    int_bound = settings["agent_opt"]["int_bound"]
 
     # Average credit rating over the horizon
     avg_cr = mean(agent_fs[1:fin_metric_horizon, :moodys_score])
@@ -2619,7 +2578,7 @@ function forecast_agent_financial_statement(
     end
 
     # Propagate out accounting line items (EBITDA through FCF)
-    agent_fs = compute_accounting_line_items(db, agent_fs, agent_id, agent_params, mode="agent")
+    agent_fs = compute_accounting_line_items(db, settings, agent_fs, agent_id, agent_params, mode="agent")
 
     agent_fs = compute_credit_indicator_scores(settings, agent_fs)
 
@@ -2862,50 +2821,11 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
 end
 
 
-function compute_accounting_line_items(db, agent_fs, agent_id, agent_params; mode=nothing)
-    ### Computed FS quantities
-    # EBITDA
-    transform!(
-        agent_fs,
-        [:revenue, :VOM, :FOM, :fuel_cost, :policy_adj, :tax_credits] =>
-            ((rev, VOM, FOM, FC, pol, tc) -> (rev - VOM - FOM - FC + pol + tc)) =>
-                :EBITDA,
-    )
+function compute_accounting_line_items(db, settings, agent_fs, agent_id, agent_params; mode=nothing)
+    agent_fs = ISpf.EBITDA_to_EBT(agent_fs)
+    agent_fs = ISpf.account_for_tax(agent_fs, settings, mode)
 
-    # EBIT
-    transform!(
-        agent_fs,
-        [:EBITDA, :depreciation] => ((EBITDA, dep) -> (EBITDA - dep)) => :EBIT,
-    )
-
-    # EBT
-    transform!(
-        agent_fs,
-        [:EBIT, :interest_payment] =>
-            ((EBIT, interest) -> EBIT - interest) => :EBT,
-    )
-
-    # Retrieve some system parameters from the database
-    model_params = DBInterface.execute(db, "SELECT * FROM model_params") |> DataFrame
-    tax_rate = filter(:parameter => x -> x == "tax_rate", model_params)[1, :value]
-
-    tax_credits_discount = filter(:parameter => x -> x == "tax_credits_discount", model_params)[1, :value]
-
-    # Compute nominal tax owed
-    # If this is a subproject, allow negative tax owed, and assume no tax credits are resold
-    if mode == "subproject"
-        transform!(agent_fs, :EBT => ((EBT) -> EBT * tax_rate) => :tax_owed)
-        transform!(agent_fs, [:tax_owed, :tax_credits] => ((T, C) -> T - C) => :realized_tax_owed)
-        agent_fs[!, :tax_credit_sale_revenue] .= 0.0
-    # If this is an agent, require tax to be nonnegative, and allow resale of tax credits if applicable
-    else
-        transform!(agent_fs, :EBT => ByRow(EBT -> ifelse.(EBT >= 0, EBT * tax_rate, 0)) => :tax_owed)
-        transform!(agent_fs, [:tax_owed, :tax_credits] => ByRow((T, C) -> ifelse.(T >= C, T - C, 0)) => :realized_tax_owed)
-        transform!(agent_fs, [:tax_owed, :tax_credits] => ByRow((T, C) -> ifelse.(C > T, (C - T) * (1 - tax_credits_discount) * (1 - tax_rate), 0)) => :tax_credit_sale_revenue)
-    end
-
-    # Net Income
-    transform!(agent_fs, [:EBT, :realized_tax_owed, :tax_credit_sale_revenue] => ((EBT, real_tax, C_salerev) -> (EBT - real_tax + C_salerev)) => :net_income)
+    agent_fs = ISpf.compute_net_income(agent_fs)
 
     # Free Cash Flow
     transform!(
