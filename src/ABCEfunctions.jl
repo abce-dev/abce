@@ -751,6 +751,7 @@ function create_PA_subprojects(
             dispatch_results,
             historical_dispatch_results,
         )
+
     end
 
     return subprojects
@@ -906,6 +907,7 @@ function forecast_subproject_financials(
         compute_accounting_line_items(db, current_pd, settings, deepcopy(subproject_fs), agent_params)
 
     return subproject_fs
+
 end
 
 
@@ -1068,15 +1070,15 @@ function forecast_debt_schedule(
         fs_copy[capex_end, :remaining_debt_principal]
 
     for i = (capex_end + 1):fin_end
-        fs_copy[i, :debt_payment] = pmt
+        fs_copy[i, :debt_payment] = (-1) * pmt
         fs_copy[i, :interest_payment] =
+            (-1) *
             fs_copy[i, :remaining_debt_principal] *
             agent_params[1, :cost_of_debt]
-        fs_copy[i, :principal_payment] = fs_copy[i, :debt_payment] - fs_copy[i, :interest_payment]
+        fs_copy[i, :principal_payment] =  fs_copy[i, :debt_payment] - fs_copy[i, :interest_payment]
         if i != fin_end
             fs_copy[i + 1, :remaining_debt_principal] =
-                fs_copy[i, :remaining_debt_principal] -
-                (fs_copy[i, :debt_payment] - fs_copy[i, :interest_payment])
+                fs_copy[i, :remaining_debt_principal] + fs_copy[i, :principal_payment]
         end
     end
 
@@ -1670,7 +1672,7 @@ function add_constraint_FM_floors(
         m,
         sum(
             agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])
-                + (1 - ICR_solo_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
+                + (1 - ICR_solo_floor) * (-1) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
             for i = 1:settings["agent_opt"]["fin_metric_horizon"]
         ) >= 0
     )
@@ -2103,7 +2105,7 @@ function set_up_model(
         (
             profit_lamda * (transpose(u) * PA_summaries[!, :NPV]) +
             credit_rating_lamda / (0.1 + 0.2 + 0.1) * (
-                0.1 * sum(agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) - (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])) for i=1:fin_metric_horizon)
+                0.1 * sum(agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])) for i=1:fin_metric_horizon)
                 + 0.2 * sum((agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
                 + 0.1 * sum((agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_RE[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
             )
@@ -2791,6 +2793,16 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
         :interest_payment => sum => :interest_payment
     )
 
+    # Set all debt payments to negative values
+    for col in [:total_payment, :principal_payment, :interest_payment]
+        transform!(
+            fin_sched,
+            [col]
+            => (c -> -1 .* abs.(c))
+            => col
+        )
+    end
+
     # Fill the final debt_principal_ts dataframe
     debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
 
@@ -2809,7 +2821,7 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
     debt_principal_ts[1, :BOY_rem_debt_principal] = debt_principal_ts[1, :remaining_debt_principal]
 
     for y = 2:size(debt_principal_ts)[1]
-        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y, :remaining_debt_principal] - sum(debt_principal_ts[1:y-1, :principal_payment])
+        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y, :remaining_debt_principal] + sum(debt_principal_ts[1:y-1, :principal_payment])
     end
 
     debt_principal_ts = select(debt_principal_ts, [:projected_pd, :BOY_rem_debt_principal, :principal_payment, :interest_payment])
@@ -2847,7 +2859,7 @@ function compute_credit_indicator_scores(settings, agent_fs)
     # Compute effective FCF: if FCF is zero but RE is greater than zero, use RE in place of FCF
 
     # Compute ICR metric column
-    transform!(agent_fs, [:interest_payment, :FCF] => ((int, fcf) -> (fcf .+ int) ./ int) => :ICR)
+    transform!(agent_fs, [:interest_payment, :FCF] => ((int, fcf) -> (fcf .- int) ./ ((-1) .* int)) => :ICR)
 
     # Compute FCF-to-debt metric column
     transform!(agent_fs, [:remaining_debt_principal, :FCF] => ((debt, fcf) -> fcf ./ debt) => :FCF_debt_ratio)
