@@ -73,8 +73,6 @@ end
 
 
 function account_for_tax(pf, settings, agent_id=nothing)
-#    pf = compute_tax_credits(pf, other_args)
-
     tax_rate = settings["system"]["tax_rate"]
     tax_credits_discount = settings["system"]["tax_credits_discount"]
 
@@ -166,7 +164,7 @@ function compute_FCF(pf, agent_params)
     transform!(
         pf,
         [:net_income, :depreciation, :capex]
-        => ((NI, capex, dep) -> NI + dep - capex )
+        => ((NI, dep, capex) -> NI + dep - capex )
         => :FCF
     )
 
@@ -194,16 +192,19 @@ function compute_retained_earnings(pf, current_year, agent_id=nothing, db=nothin
             #   from last year's portfolio forecast
             # TODO: implement actual realized financial statements for the
             #   agents
-            last_year = y-1
+            last_year = current_year-1
             seed_RE = DBInterface.execute(db, "SELECT retained_earnings FROM forecasted_agent_fss WHERE agent_id = $agent_id AND base_pd = $last_year AND projected_pd = $last_year") |> DataFrame
             seed_RE = seed_RE[1, :retained_earnings]
         end
     end
 
-    # Propagate the running total with annual contribution from FCF
-    pf[1, :retained_earnings] = seed_RE + pf[1, :FCF]
+   # Propagate the running total with annual contribution from FCF and deduction of principal payment
+    pf[1, :retained_earnings] = seed_RE + pf[1, :FCF] + pf[1, :principal_payment]
     for y = 2:size(pf)[1]
-        pf[y, :retained_earnings] = pf[y-1, :retained_earnings] + pf[y, :FCF]
+        if agent_id != nothing
+            println(pf[y, :principal_payment])
+        end
+        pf[y, :retained_earnings] = pf[y-1, :retained_earnings] + pf[y, :FCF] + pf[y, :principal_payment]
     end
 
     return pf
@@ -304,7 +305,6 @@ function forecast_income_statement(db, settings, agent_id, current_pd)
     ##### Finalize format and save to file
     pf = reorder_pf(pf)
 
-    println(pf)
     CSV.write("./IS.csv", pf)
 end
 
