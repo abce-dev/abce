@@ -201,9 +201,6 @@ function compute_retained_earnings(pf, current_year, agent_id=nothing, db=nothin
    # Propagate the running total with annual contribution from FCF and deduction of principal payment
     pf[1, :retained_earnings] = seed_RE + pf[1, :FCF] + pf[1, :principal_payment]
     for y = 2:size(pf)[1]
-        if agent_id != nothing
-            println(pf[y, :principal_payment])
-        end
         pf[y, :retained_earnings] = pf[y-1, :retained_earnings] + pf[y, :FCF] + pf[y, :principal_payment]
     end
 
