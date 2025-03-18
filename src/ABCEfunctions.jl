@@ -1097,7 +1097,7 @@ function forecast_depreciation(settings, fs_copy)
 
     for i = (capex_end + 1):dep_end
         fs_copy[i, :depreciation] =
-            total_capex / settings["financing"]["depreciation_horizon"]
+            -1 * total_capex / settings["financing"]["depreciation_horizon"]
     end
 
     return fs_copy

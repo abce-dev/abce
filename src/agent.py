@@ -195,7 +195,7 @@ class GenCo(Agent):
 
         # Project out annual depreciation
         book_value = self.starting_PPE
-        dep_per_pd = book_value / self.model.settings["financing"]["depreciation_horizon"]
+        dep_per_pd = - book_value / self.model.settings["financing"]["depreciation_horizon"]
         for i in range(self.model.settings["financing"]["depreciation_horizon"]):
             dep_data = [
                 self.unique_id,

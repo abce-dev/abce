@@ -905,7 +905,7 @@ class GridModel(Model):
 
             # Project out annual depreciation
             dep_horiz = self.settings["financing"]["depreciation_horizon"]
-            dep_per_pd = row["cum_occ"] / dep_horiz
+            dep_per_pd = - row["cum_occ"] / dep_horiz
             book_value = row["cum_occ"]
 
             for i in range(dep_horiz):
@@ -921,7 +921,7 @@ class GridModel(Model):
 
                 dep_updates.loc[len(dep_updates.index)] = dep_data
 
-                book_value -= dep_per_pd
+                book_value += dep_per_pd
 
             # Iterate over all construction years for this project
             for i in range(int(row["cum_construction_duration"])):
