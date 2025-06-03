@@ -27,3 +27,4 @@ __pycache__
 precompile.jl
 *cplex*
 **/*repDays*.csv
+*logfile*

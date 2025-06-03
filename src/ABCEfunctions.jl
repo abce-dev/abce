@@ -629,7 +629,7 @@ function set_up_project_alternatives(
 
         # Compute the project alternative's overall NPV based on its
         #   subprojects' financial statements
-        PA.NPV = compute_PA_NPV(PA_fs_dict[PA.uid])
+        PA.NPV = ISpf.compute_NPV(PA_fs_dict[PA.uid], agent_params[1, :cost_of_equity])
     end
 
     return PA_summaries, PA_fs_dict
@@ -751,6 +751,7 @@ function create_PA_subprojects(
             dispatch_results,
             historical_dispatch_results,
         )
+
     end
 
     return subprojects
@@ -903,9 +904,10 @@ function forecast_subproject_financials(
     )
 
     subproject_fs =
-        compute_accounting_line_items(db, settings, deepcopy(subproject_fs), agent_id, agent_params, mode="subproject")
+        compute_accounting_line_items(db, current_pd, settings, deepcopy(subproject_fs), agent_params)
 
     return subproject_fs
+
 end
 
 
@@ -1068,15 +1070,15 @@ function forecast_debt_schedule(
         fs_copy[capex_end, :remaining_debt_principal]
 
     for i = (capex_end + 1):fin_end
-        fs_copy[i, :debt_payment] = pmt
+        fs_copy[i, :debt_payment] = (-1) * pmt
         fs_copy[i, :interest_payment] =
+            (-1) *
             fs_copy[i, :remaining_debt_principal] *
             agent_params[1, :cost_of_debt]
-        fs_copy[i, :principal_payment] = fs_copy[i, :debt_payment] - fs_copy[i, :interest_payment]
+        fs_copy[i, :principal_payment] =  fs_copy[i, :debt_payment] - fs_copy[i, :interest_payment]
         if i != fin_end
             fs_copy[i + 1, :remaining_debt_principal] =
-                fs_copy[i, :remaining_debt_principal] -
-                (fs_copy[i, :debt_payment] - fs_copy[i, :interest_payment])
+                fs_copy[i, :remaining_debt_principal] + fs_copy[i, :principal_payment]
         end
     end
 
@@ -1095,7 +1097,7 @@ function forecast_depreciation(settings, fs_copy)
 
     for i = (capex_end + 1):dep_end
         fs_copy[i, :depreciation] =
-            total_capex / settings["financing"]["depreciation_horizon"]
+            -1 * total_capex / settings["financing"]["depreciation_horizon"]
     end
 
     return fs_copy
@@ -1167,6 +1169,10 @@ function forecast_subproject_operations(
         yr = current_pd + i - 1
 
         for data_type in data_to_get
+            r_sign = -1
+            if data_type in ["generation", "revenue"]
+                r_sign = 1
+            end
             # Get the corresponding data value for the year yr from the ABCE
             #   dispatch projection
             # If year yr was actually simulated by dispatch.jl, retrieve
@@ -1178,7 +1184,7 @@ function forecast_subproject_operations(
                             (y == yr) && (disp_res == data_type),
                     ABCE_dispatch_results,
                 )
-                ABCE_data_value = ABCE_data_value[1, :qty]
+                ABCE_data_value = r_sign * ABCE_data_value[1, :qty]
 
             # If year yr was not simulated by dispatch.jl, use the dispatch
             #   results from the last simulated year
@@ -1198,14 +1204,14 @@ function forecast_subproject_operations(
                                     (disp_res == data_type),
                         ABCE_dispatch_results,
                     )
-                    ABCE_data_value = ABCE_data_value[1, :qty]
+                    ABCE_data_value = r_sign * ABCE_data_value[1, :qty]
                 catch
                     ABCE_data_value = 0.0
                 end
             end
 
             # Get the corresponding cumulative historical estimate from the 
-            #   A-LEAF aggregated dispatch histories
+            #   aggregated dispatch histories
             if size(historical_dispatch_results)[1] > 0
                 historical_data_value = sum(
                     historical_dispatch_results[
@@ -1215,7 +1221,7 @@ function forecast_subproject_operations(
                 )
                 hist_wt = settings["dispatch"]["hist_wt"]
             else
-                # If this unit type does not appear in the A-LEAF historical 
+                # If this unit type does not appear in the historical 
                 #   results, rely only on the ABCE dispatch forecast
                 historical_data_value = 0
                 hist_wt = 0
@@ -1305,7 +1311,7 @@ function create_PA_aggregated_fs(subprojects)
     PA_aggregated_fs = deepcopy(subprojects[1]["financial_statement"])
 
     # If other subprojects are present, add them in
-    cols_to_collect = names(PA_aggregated_fs, Not([:year, :weight]))
+    cols_to_collect = names(PA_aggregated_fs, Not([:year]))
     for subproject in deleteat!(subprojects, 1)
         for col in cols_to_collect
             PA_aggregated_fs[!, col] .+=
@@ -1314,19 +1320,6 @@ function create_PA_aggregated_fs(subprojects)
     end
 
     return PA_aggregated_fs
-end
-
-
-function compute_PA_NPV(fs_copy)
-    NPV = 0
-
-    transform!(
-        fs_copy,
-        [:FCF, :weight] => ((fcf, wt) -> fcf .* wt) => :wtd_net_cash,
-    )
-    NPV += sum(fs_copy[!, :wtd_net_cash])
-
-    return NPV
 end
 
 
@@ -1572,7 +1565,7 @@ function compute_marginal_PA_contributions(
     num_alternatives = size(PA_summaries)[1]
     num_time_periods = size(PA_fs_dict[PA_summaries[1, :uid]])[1]
 
-    # Create arrays of expected marginal debt, interest, dividends, and FCF
+    # Create arrays of expected marginal debt, interest, and FCF
     #   per unit type
     marg_debt = zeros(num_alternatives, num_time_periods)
     marg_int = zeros(num_alternatives, num_time_periods)
@@ -1679,7 +1672,7 @@ function add_constraint_FM_floors(
         m,
         sum(
             agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])
-                + (1 - ICR_solo_floor) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
+                + (1 - ICR_solo_floor) * (-1) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
             for i = 1:settings["agent_opt"]["fin_metric_horizon"]
         ) >= 0
     )
@@ -2112,7 +2105,7 @@ function set_up_model(
         (
             profit_lamda * (transpose(u) * PA_summaries[!, :NPV]) +
             credit_rating_lamda / (0.1 + 0.2 + 0.1) * (
-                0.1 * sum(agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) - (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])) for i=1:fin_metric_horizon)
+                0.1 * sum(agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])) for i=1:fin_metric_horizon)
                 + 0.2 * sum((agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
                 + 0.1 * sum((agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_RE[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
             )
@@ -2565,6 +2558,16 @@ function forecast_agent_financial_statement(
     rename!(agent_fs, :y => :projected_pd)
     agent_fs[!, :base_pd] .= current_pd
 
+    # Ensure all costs are negative numbers
+    for col in [:VOM, :FOM, :fuel_cost, :carbon_tax]
+        transform!(
+            agent_fs,
+            [col]
+            => (c -> -1 .* abs.(c))
+            => col
+        )
+    end
+
     # TODO: in post-facto policies, recompute all PTC awards based on units' actual operational dates
     agent_fs = compute_policy_contributions(settings, db, deepcopy(agent_fs), agent_id, current_pd, unit_specs, agent_portfolio_forecast, dispatch_results)
 
@@ -2578,7 +2581,7 @@ function forecast_agent_financial_statement(
     end
 
     # Propagate out accounting line items (EBITDA through FCF)
-    agent_fs = compute_accounting_line_items(db, settings, agent_fs, agent_id, agent_params, mode="agent")
+    agent_fs = compute_accounting_line_items(db, current_pd, settings, agent_fs, agent_params, agent_id)
 
     agent_fs = compute_credit_indicator_scores(settings, agent_fs)
 
@@ -2790,6 +2793,16 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
         :interest_payment => sum => :interest_payment
     )
 
+    # Set all debt payments to negative values
+    for col in [:total_payment, :principal_payment, :interest_payment]
+        transform!(
+            fin_sched,
+            [col]
+            => (c -> -1 .* abs.(c))
+            => col
+        )
+    end
+
     # Fill the final debt_principal_ts dataframe
     debt_principal_ts = DataFrame(projected_pd = Int[], remaining_debt_principal = Float64[])
 
@@ -2808,7 +2821,7 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
     debt_principal_ts[1, :BOY_rem_debt_principal] = debt_principal_ts[1, :remaining_debt_principal]
 
     for y = 2:size(debt_principal_ts)[1]
-        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y, :remaining_debt_principal] - sum(debt_principal_ts[1:y-1, :principal_payment])
+        debt_principal_ts[y, :BOY_rem_debt_principal] = debt_principal_ts[y, :remaining_debt_principal] + sum(debt_principal_ts[1:y-1, :principal_payment])
     end
 
     debt_principal_ts = select(debt_principal_ts, [:projected_pd, :BOY_rem_debt_principal, :principal_payment, :interest_payment])
@@ -2821,96 +2834,15 @@ function compute_debt_principal_ts(db, agent_id, current_pd)
 end
 
 
-function compute_accounting_line_items(db, settings, agent_fs, agent_id, agent_params; mode=nothing)
+function compute_accounting_line_items(db, current_pd, settings, agent_fs, agent_params, agent_id=nothing)
     agent_fs = ISpf.EBITDA_to_EBT(agent_fs)
-    agent_fs = ISpf.account_for_tax(agent_fs, settings, mode)
-
+    agent_fs = ISpf.account_for_tax(agent_fs, settings, agent_id)
     agent_fs = ISpf.compute_net_income(agent_fs)
-
-    # Free Cash Flow
-    transform!(
-        agent_fs,
-        [:net_income, :depreciation, :capex, :principal_payment] =>
-            ((NI, dep, capex, pp) -> (NI + dep - 0.5 * capex - pp)) => :nominal_FCF,
-    )
-
-    # Dividends and Retained Earnings
-    # Set up data
-    agent_id = agent_params[1, "agent_id"]
-    cost_of_equity =
-        DBInterface.execute(
-            db,
-            "SELECT cost_of_equity FROM agent_params WHERE agent_id = $agent_id",
-        ) |> DataFrame
-    cost_of_equity = cost_of_equity[1, :cost_of_equity]
-
-    # Compute annual contribution to retained earnings and finalized FCF
-    if mode == "subproject"
-        # Allow negative dividends if this is a project (negative FCF accruing to
-        #   the project is assumed to reduce total dividend across the agent's
-        #   finances)
-        transform!(agent_fs, :nominal_FCF => ((nfcf) -> nfcf .* cost_of_equity) => :dividends)
-
-        # If this is a subproject, nominal FCF = FCF because retained earnings
-        #   are not used to tide over cash flow
-        agent_fs[!, :FCF] = agent_fs[!, :nominal_FCF]
-
-        # Record each year's delta-RE as the RE value
-        transform!(
-            agent_fs,
-            [:FCF, :dividends] => ((fcf, dividends) -> fcf .- dividends) => :delta_RE,
-        )
-        agent_fs[!, :retained_earnings] = agent_fs[!, :delta_RE]
+    agent_fs = ISpf.compute_FCF(agent_fs, agent_params)
+    if agent_id == nothing
+        agent_fs = ISpf.compute_retained_earnings(agent_fs, current_pd)
     else
-        # Get the preceding period's RE
-        hist_agent_fss = DBInterface.execute(db, "SELECT base_pd, projected_pd, retained_earnings FROM realized_agent_fss WHERE agent_id == $agent_id") |> DataFrame
-
-        if size(hist_agent_fss)[1] == 0
-            # If there are no financial statements recorded for this agent yet,
-            #   this must be the first simulation period; use data from
-            #   agent_params
-            init_RE = agent_params[1, :starting_RE]
-        else
-            # If some financial statements were found, choose the most recent
-            #   immediate-year prediction
-            init_RE = filter([:base_pd] => ((base_pd) -> base_pd == current_pd - 1), hist_agent_fss)[1, :retained_earnings]
-        end
-
-        # Set up a blank column for retained earnings
-        agent_fs[!, :retained_earnings] .= 0.0
-        agent_fs[!, :dividends] .= 0.0
-        agent_fs[!, :FCF] .= 0.0
-
-        # Propagate the running retained earnings total through the agent
-        #   financial statement, while using extra RE to bolster negative FCF
-        running_RE = init_RE
-        for i=1:size(agent_fs)[1]
-            if (running_RE > 0) && (agent_fs[i, :nominal_FCF] < 0)
-                # If the nominal FCF is negative, and there is RE cash
-                #   available, use it to make up the shortfall (as far as possible)
-                RE_transfer = min(running_RE, (-1) * agent_fs[i, :nominal_FCF])
-
-                FCF = agent_fs[i, :nominal_FCF] + RE_transfer
-                total_RE = running_RE - RE_transfer
-            else
-                # If the nominal FCF is positive, there is no transfer
-                #   and RE and FCF take on their normal values
-                FCF = agent_fs[i, :nominal_FCF]
-                total_RE = running_RE + agent_fs[i, :nominal_FCF]
-            end
-
-            dividends = max(
-                convert(Int64, floor(round(total_RE * cost_of_equity, digits=3))),
-                0
-            )
-            running_RE = total_RE - dividends
-
-            agent_fs[i, :dividends] = dividends
-            agent_fs[i, :retained_earnings] = running_RE
-            agent_fs[i, :FCF] = FCF
-
-            running_RE = running_RE * (1 - cost_of_equity)
-        end
+        agent_fs = ISpf.compute_retained_earnings(agent_fs, current_pd, agent_id, db)
     end
 
     return agent_fs
@@ -2927,7 +2859,7 @@ function compute_credit_indicator_scores(settings, agent_fs)
     # Compute effective FCF: if FCF is zero but RE is greater than zero, use RE in place of FCF
 
     # Compute ICR metric column
-    transform!(agent_fs, [:interest_payment, :FCF] => ((int, fcf) -> (fcf .+ int) ./ int) => :ICR)
+    transform!(agent_fs, [:interest_payment, :FCF] => ((int, fcf) -> (fcf .- int) ./ ((-1) .* int)) => :ICR)
 
     # Compute FCF-to-debt metric column
     transform!(agent_fs, [:remaining_debt_principal, :FCF] => ((debt, fcf) -> fcf ./ debt) => :FCF_debt_ratio)

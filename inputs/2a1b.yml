@@ -1,0 +1,180 @@
+# This input file serves as a base for 2-agent-plus-BOS test scenarios.
+# 
+# System composition:
+#   - Active agents: 2, identical, 25% each of system portfolio
+#   - Balance of system agent: 1, 50% of system portfolio, simple prop. expansion
+# 
+# The system portfolio has been adjusted slightly from that of the standard
+#   ABCE "2019 ERCOT" facsimile to be evenly divisible by four, using the
+#   "utils/ppx.py" script.
+
+
+# Standard Light & Power
+201:
+    debt_fraction: 0.5
+    cost_of_debt: 0.06
+    cost_of_equity: 0.1
+    starting_debt:  3000000000   # $3 B
+    starting_PPE:   250000000   # $250 M
+    starting_RE:    200000000   # $200 M
+    starting_portfolio:
+        coal: 8
+        conventional_nuclear: 4
+        ngcc: 57
+        ngct: 44
+        PUN_unit_high: 22
+        PUN_unit_low: 10
+        solar: 10
+        solar_old: 12
+        wind: 19
+        wind_old: 52
+    scheduled_retirements:
+    # Format:
+    # unit_type:
+    #   retirement_pd: num_units
+        coal:
+            4: 1
+            5: 1
+            8: 3
+            9: 1
+            15: 2
+        conventional_nuclear:
+            22: 2
+            27: 2
+        ngcc:
+            3: 2
+            5: 7
+            8: 4
+            10: 13
+            13: 4
+            17: 8
+            19: 6
+            22: 13
+        ngct:
+            2: 2
+            5: 5
+            7: 6
+            11: 13
+            14: 2
+            19: 10
+            24: 6
+        PUN_unit_high:
+            50: 22
+        PUN_unit_low:
+            50: 10
+        solar:
+            15: 3
+            20: 5
+            27: 2
+        solar_old:
+            2: 2
+            5: 4
+            8: 4
+            10: 2
+        wind:
+            12: 6
+            15: 3
+            24: 10
+        wind_old:
+            4: 6
+            6: 7
+            8: 9
+            10: 3
+            14: 8
+            16: 13
+            18: 6
+
+
+
+# Springfield Electric
+202:
+    debt_fraction: 0.5
+    cost_of_debt: 0.06
+    cost_of_equity: 0.1
+    starting_debt:  3000000000   # $3 B
+    starting_PPE:   250000000   # $250 M
+    starting_RE:    200000000   # $200 M
+    starting_portfolio:
+        coal: 8
+        conventional_nuclear: 4
+        ngcc: 57
+        ngct: 44
+        PUN_unit_high: 22
+        PUN_unit_low: 10
+        solar: 10
+        solar_old: 12
+        wind: 19
+        wind_old: 52
+    scheduled_retirements:
+    # Format:
+    # unit_type:
+    #   retirement_pd: num_units
+        coal:
+            4: 1
+            5: 1
+            8: 3
+            9: 1
+            15: 2
+        conventional_nuclear:
+            22: 2
+            27: 2
+        ngcc:
+            3: 2
+            5: 7
+            8: 4
+            10: 13
+            13: 4
+            17: 8
+            19: 6
+            22: 13
+        ngct:
+            2: 2
+            5: 5
+            7: 6
+            11: 13
+            14: 2
+            19: 10
+            24: 6
+        PUN_unit_high:
+            50: 22
+        PUN_unit_low:
+            50: 10
+        solar:
+            15: 3
+            20: 5
+            27: 2
+        solar_old:
+            2: 2
+            5: 4
+            8: 4
+            10: 2
+        wind:
+            12: 6
+            15: 3
+            24: 10
+        wind_old:
+            4: 6
+            6: 7
+            8: 9
+            10: 3
+            14: 8
+            16: 13
+            18: 6
+
+# Balance of System
+208:
+    starting_portfolio:
+        coal: 16
+        ngcc: 114
+        ngct: 88
+        conventional_nuclear: 8
+        wind: 38
+        wind_old: 104
+        solar: 20
+        solar_old: 24
+        PUN_unit_high: 44
+        PUN_unit_low: 20
+    inactive: True
+    balance_of_system: True
+    expansion_strategy: proportional_expansion
+
