@@ -1,0 +1,231 @@
+# This input file serves as a base for two-agent test scenarios.
+# The two agents have identical portfolios and parameters.
+# The system portfolio has been adjusted slightly from that of the standard
+#   ABCE "2019 ERCOT" facsimile to be evenly divisible by two.
+
+
+# Standard Light & Power
+201:
+    debt_fraction: 0.5
+    cost_of_debt: 0.06
+    cost_of_equity: 0.1
+    starting_debt:  3000000000   # $3 B
+    starting_PPE:   250000000   # $250 M
+    starting_RE:    200000000   # $200 M
+    starting_portfolio:
+        coal: 16
+        conventional_nuclear: 7
+        ngcc: 114
+        ngct: 88
+        PUN_unit_high: 43
+        PUN_unit_low: 20
+        solar: 19
+        solar_old: 23
+        wind: 37
+        wind_old: 103
+    scheduled_retirements:
+    # Format:
+    # unit_type:
+    #   retirement_pd: num_units
+        coal:
+            3: 2
+            4: 1
+            5: 1
+            6: 3
+            8: 3
+            9: 1
+            11: 1
+            12: 2
+            15: 2
+        conventional_nuclear:
+            10: 3
+            22: 2
+            27: 2
+        ngcc:
+            2: 3
+            3: 2
+            4: 4
+            5: 7
+            6: 8
+            8: 4
+            10: 13
+            12: 5
+            13: 4
+            15: 9
+            17: 8
+            18: 8
+            19: 6
+            20: 11
+            22: 13
+            25: 9
+        ngct:
+            2: 2
+            4: 2
+            5: 5
+            6: 1
+            7: 6
+            9: 4
+            11: 13
+            13: 14
+            14: 2
+            15: 4
+            17: 8
+            18: 6
+            19: 10
+            21: 5
+            24: 6
+        PUN_unit_high:
+            50: 43
+        PUN_unit_low:
+            50: 20
+        solar:
+            15: 3
+            18: 3
+            20: 5
+            25: 6
+            27: 2
+        solar_old:
+            2: 2
+            3: 5
+            5: 4
+            6: 3
+            8: 4
+            9: 2
+            10: 3
+        wind:
+            12: 6
+            14: 5
+            15: 2
+            18: 6
+            24: 10
+            27: 8
+        wind_old:
+            4: 6
+            5: 5
+            6: 7
+            7: 10
+            8: 9
+            9: 1
+            10: 3
+            13: 8
+            14: 8
+            15: 12
+            16: 13
+            17: 8
+            18: 7
+            20: 6
+
+
+
+# Springfield Electric
+202:
+    debt_fraction: 0.5
+    cost_of_debt: 0.06
+    cost_of_equity: 0.1
+    starting_debt: 3000000000   # $3 B
+    starting_PPE:   250000000   # $250 M
+    starting_RE:    200000000   # $200 M
+    starting_portfolio:
+        coal: 16
+        conventional_nuclear: 7
+        ngcc: 114
+        ngct: 88
+        PUN_unit_high: 43
+        PUN_unit_low: 20
+        solar: 19
+        solar_old: 23
+        wind: 37
+        wind_old: 103
+    scheduled_retirements:
+    # Format:
+    # unit_type:
+    #   retirement_pd: num_units
+        coal:
+            3: 2
+            4: 1
+            5: 1
+            6: 3
+            8: 3
+            9: 1
+            11: 1
+            12: 2
+            15: 2
+        conventional_nuclear:
+            10: 3
+            22: 2
+            27: 2
+        ngcc:
+            2: 3
+            3: 2
+            4: 4
+            5: 7
+            6: 8
+            8: 4
+            10: 13
+            12: 5
+            13: 4
+            15: 9
+            17: 8
+            18: 8
+            19: 6
+            20: 11
+            22: 13
+            25: 9
+        ngct:
+            2: 2
+            4: 2
+            5: 5
+            6: 1
+            7: 6
+            9: 4
+            11: 13
+            13: 14
+            14: 2
+            15: 4
+            17: 8
+            18: 6
+            19: 10
+            21: 5
+            24: 6
+        PUN_unit_high:
+            50: 43
+        PUN_unit_low:
+            50: 20
+        solar:
+            15: 3
+            18: 3
+            20: 5
+            25: 6
+            27: 2
+        solar_old:
+            2: 2
+            3: 5
+            5: 4
+            6: 3
+            8: 4
+            9: 2
+            10: 3
+        wind:
+            12: 6
+            14: 5
+            15: 2
+            18: 6
+            24: 10
+            27: 8
+        wind_old:
+            4: 6
+            5: 5
+            6: 7
+            7: 10
+            8: 9
+            9: 1
+            10: 3
+            13: 8
+            14: 8
+            15: 12
+            16: 13
+            17: 8
+            18: 7
+            20: 6
+
+
