@@ -160,6 +160,32 @@ class GridModel(Model):
                     )
                     (outpath / existing_file).unlink()
 
+        # Save input data files to the output directory
+        # settings.yml (dump yml contents from memory to file)
+        with open(Path(self.primary_output_data_path) / "settings.yml", "w") as s_file:
+            yaml.dump(self.settings, s_file)
+
+        # inputs/agent_specification.yml (copy file directly)
+        as_fname = self.settings["file_paths"]["agent_specifications_file"]
+        shutil.copyfile(
+            Path(self.args.inputs_path) / as_fname,
+            Path(self.primary_output_data_path) / as_fname,
+        )
+
+        # inputs/demand_data.yml (copy file directly)
+        dd_fname = self.settings["file_paths"]["demand_data_file"]
+        shutil.copyfile(
+            Path(self.args.inputs_path) / dd_fname,
+            Path(self.primary_output_data_path) / dd_fname,
+        )
+
+        # inputs/unit_specs.yml (copy file directly)
+        us_fname = self.settings["file_paths"]["unit_specs_data_file"]
+        shutil.copyfile(
+            Path(self.args.inputs_path) / us_fname,
+            Path(self.primary_output_data_path) / us_fname,
+        )
+
 
     def initialize_database(self):
         # Initialize database for storing and managing all simulation data
