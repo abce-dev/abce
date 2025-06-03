@@ -179,7 +179,7 @@ class GridModel(Model):
             Path(self.primary_output_data_path) / dd_fname,
         )
 
-        # inputs_unit_specs.yml (copy file directly)
+        # inputs/unit_specs.yml (copy file directly)
         us_fname = self.settings["file_paths"]["unit_specs_data_file"]
         shutil.copyfile(
             Path(self.args.inputs_path) / us_fname,
