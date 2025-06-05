@@ -90,6 +90,7 @@ abce_tables = {
         ("starting_debt", "real"),
         ("starting_PPE", "real"),
         ("starting_RE", "real"),
+        ("k", "real"),
     ],
     "unit_specs": [
         ("unit_type", "text", "PRIMARY KEY"),
