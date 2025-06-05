@@ -485,7 +485,7 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
         d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
         c_y = sum(adj_system_portfolios[y][!, :total_derated_capacity])
 
-        k = settings["agent_opt"]["competitor_efficiency_assumption"]   # k < 1
+        k = agent_params[1, :k]
 
         if (c_y / d_y < (1 + prm)) && (y >= current_pd + delay)
             # Compute escalation factor
