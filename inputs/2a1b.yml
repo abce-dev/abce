@@ -17,6 +17,7 @@
     starting_debt:  3000000000   # $3 B
     starting_PPE:   250000000   # $250 M
     starting_RE:    200000000   # $200 M
+    k: 0.95
     starting_portfolio:
         coal: 8
         conventional_nuclear: 4
@@ -94,6 +95,7 @@
     starting_debt:  3000000000   # $3 B
     starting_PPE:   250000000   # $250 M
     starting_RE:    200000000   # $200 M
+    k: 0.95
     starting_portfolio:
         coal: 8
         conventional_nuclear: 4
