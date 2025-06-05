@@ -153,12 +153,13 @@ class GridModel(Model):
                 # If the desired output directory doesn't already exist, create it
                 outpath.mkdir(exist_ok=True, parents=True)
             else:
-                # Otherwise, delete any existing files in the directory
-                for existing_file in outpath.iterdir():
-                    logging.debug(
-                        f"Deleting file {existing_file} from the output directory"
-                    )
-                    (outpath / existing_file).unlink()
+                # Otherwise, delete any existing files and subdirectories 
+                # in the directory
+                for root, dirs, files in os.walk(outpath, topdown=False):
+                    for name in files:
+                        (Path(root) / name).unlink()
+                    for name in dirs:
+                        (Path(root) / name).rmdir()
 
         # Save input data files to the output directory
         # settings.yml (dump yml contents from memory to file)
