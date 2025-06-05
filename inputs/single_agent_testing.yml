@@ -13,6 +13,7 @@
     starting_debt: 7976000
     starting_PPE:  1692000
     starting_RE: 1000000000
+    k: 0.95
     starting_portfolio:
         coal: 1
         ngcc: 100
