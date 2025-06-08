@@ -11,6 +11,7 @@
     starting_debt: 7226000000
     starting_PPE:  1692000000
     starting_RE: 1110000000
+    k: 0.95
     starting_portfolio:
         coal: 9
         ngcc: 27
@@ -53,6 +54,7 @@
     starting_debt: 3300000000
     starting_PPE:  3400000000
     starting_RE: 1360000000
+    k: 0.95
     starting_portfolio:
         coal: 8
         ngcc: 39
@@ -99,6 +101,7 @@
     starting_debt: 3000000000
     starting_PPE:  1000000000
     starting_RE: 814000000
+    k: 0.95
     starting_portfolio:
         coal: 5
         ngcc: 17
@@ -130,6 +133,7 @@
     starting_debt: 200000000
     starting_PPE:   90000000
     starting_RE: 600000000
+    k: 0.95
     starting_portfolio:
         wind: 5
         wind_old: 25
@@ -166,6 +170,7 @@
     starting_debt: 500000000
     starting_PPE:  200000000
     starting_RE: 1200000000
+    k: 0.95
     starting_portfolio:
         ngcc: 20
         ngct: 30
@@ -207,6 +212,7 @@
     starting_debt:  3000000000
     starting_PPE:    600000000
     starting_RE: 1000000000
+    k: 0.95
     starting_portfolio:
         coal: 9
         ngcc: 3
@@ -240,6 +246,7 @@
     starting_debt:  10000000
     starting_PPE: 90000000
     starting_RE: 40000000
+    k: 0.95
     starting_portfolio:
         solar: 6
     scheduled_retirements:
