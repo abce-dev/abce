@@ -182,21 +182,27 @@ function compute_retained_earnings(pf, current_year, agent_id=nothing, db=nothin
         #   which always starts with 0 RE
         seed_RE = 0
     else
-        if current_year == 0
-            # If the current year is year 0, the starting RE value is drawn
-            #   from the agent_params table
-            seed_RE = DBInterface.execute(db, "SELECT starting_RE FROM agent_params WHERE agent_id = $agent_id") |> DataFrame
-            seed_RE = seed_RE[1, :starting_RE]
+        # Try extracting last year's RE from the realized FS table
+        last_year = current_year - 1
+        seed_RE = DBInterface.execute(db, "SELECT retained_earnings FROM realized_agent_fss WHERE agent_id = $agent_id AND base_pd = $last_year") |> DataFrame
+
+        # If this dataframe is empty, fall back to other value sources
+        if size(seed_RE)[1] == 0
+            if (current_year == 0) || (current_year == 1)
+                # If this is year 0 or 1, use the agent's specified starting_RE value
+                seed_RE = DBInterface.execute(db, "SELECT starting_RE FROM agent_params WHERE agent_id = $agent_id") |> DataFrame
+                seed_RE = seed_RE[1, :starting_RE]
+            else
+                # If all else fails, fall back on last year's projected RE
+                seed_RE = DBInterface.execute(db, "SELECT retained_earnings FROM forecasted_agent_fss WHERE agent_id = $agent_id AND base_pd = $last_year AND projected_pd = $last_year") |> DataFrame
+            end
         else
-            # If the current year is not 0, the starting RE value is drawn
-            #   from last year's portfolio forecast
-            # TODO: implement actual realized financial statements for the
-            #   agents
-            last_year = current_year-1
-            seed_RE = DBInterface.execute(db, "SELECT retained_earnings FROM forecasted_agent_fss WHERE agent_id = $agent_id AND base_pd = $last_year AND projected_pd = $last_year") |> DataFrame
+            # If this dataframe is not empty, use the found value
             seed_RE = seed_RE[1, :retained_earnings]
         end
+
     end
+
 
    # Propagate the running total with annual contribution from FCF and deduction of principal payment
     pf[1, :retained_earnings] = seed_RE + pf[1, :FCF] + pf[1, :principal_payment]

@@ -2761,6 +2761,9 @@ function compute_scheduled_financing_factors(db, agent_fs, agent_id, current_pd)
         Symbol("SUM(depreciation)") => :depreciation,
     )
 
+    # Replace all instances of 'missing' and NaN with 0.0
+    agent_fs = coalesce.(agent_fs, 0.0)
+
     return agent_fs
 end
 
