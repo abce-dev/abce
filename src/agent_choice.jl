@@ -69,6 +69,70 @@ function get_raw_db_data(db, CLI_args)
 end
 
 
+function compute_last_year_results(db, settings, CLI_args, agent_params)
+    @info "Computing realized financial results for last year..."
+    id = CLI_args["agent_id"]
+    y = CLI_args["current_pd"] - 1
+    unit_fin_results = DBInterface.execute(db, "SELECT * FROM annual_dispatch_unit_summary WHERE period = $y") |> DataFrame
+    pf = DBInterface.execute(db, "SELECT unit_type, COUNT(unit_type) FROM assets WHERE agent_id = $id AND completion_pd <= $y AND retirement_pd > $y AND cancellation_pd > $y GROUP BY unit_type") |> DataFrame
+    pf = rename(pf, "COUNT(unit_type)" => "num_units")
+
+    pf_res = innerjoin(pf, unit_fin_results, on = "unit_type")
+
+    ufs = select(pf_res, ["unit_type", "num_units", "revenue", "VOM", "fuel_cost", "FOM", "carbon_tax", "tax_credits"])
+    for col in filter!(e -> !(e in ["unit_type", "num_units"]), names(ufs))
+        transform!(
+            ufs, 
+            [col, "num_units"] =>
+            ((d, num_units) -> d .* num_units)
+            => col
+        )
+    end
+
+    # Ensure all costs are negative numbers
+    for col in ["VOM", "FOM", "fuel_cost", "carbon_tax"]
+        transform!(
+            ufs,
+            [col] =>
+            (c -> -1 .* abs.(c))
+            => col
+        )
+    end
+
+    # Sum over all unit types to determine total operational results
+    revtot = sum(ufs[!, "revenue"])
+    VOMtot = sum(ufs[!, "VOM"])
+    fctot = sum(ufs[!, "fuel_cost"])
+    FOMtot = sum(ufs[!, "FOM"])
+    ctaxtot = sum(ufs[!, "carbon_tax"])
+    tctot = sum(ufs[!, "tax_credits"])
+
+    push!(ufs, ["total" 9999 revtot VOMtot fctot FOMtot ctaxtot tctot])
+
+    fs = filter("unit_type" => u -> u == "total", ufs)
+
+    fs[!, "base_pd"] .= CLI_args["current_pd"] - 1
+    fs[!, "projected_pd"] .= CLI_args["current_pd"] - 1
+
+    select!(fs, ["base_pd", "projected_pd", "revenue", "VOM", "fuel_cost", "FOM", "carbon_tax", "tax_credits"])
+
+    for col in names(fs)
+        rename!(fs, col => Symbol(col))
+    end
+
+    # Add in scheduled financing factors: depreciation, interest payments, and capex
+    fs = ABCEfunctions.compute_scheduled_financing_factors(db, fs, CLI_args["agent_id"], y)
+
+    # Compute accounting line items
+    fs = ABCEfunctions.compute_accounting_line_items(db, y, settings, fs, agent_params, CLI_args["agent_id"])
+    fs = ABCEfunctions.compute_credit_indicator_scores(settings, fs)
+
+    ABCEfunctions.save_agent_fs!(fs, CLI_args["agent_id"], db, "realized")
+
+
+end
+
+
 function process_results(settings, CLI_args, final_model, final_mode, db, PA_uids, unit_specs)
     # Ensure model results data is valid and of correct type
     all_results = ABCEfunctions.finalize_results_dataframe(final_model, final_mode, PA_uids)
@@ -131,6 +195,11 @@ function run_agent_choice()
 
     # Read in some raw data from the database
     agent_params, unit_specs = get_raw_db_data(db, CLI_args)
+
+    # Set last year's realized financial results
+    if CLI_args["current_pd"] != 0
+        compute_last_year_results(db, settings, CLI_args, agent_params)
+    end
 
     # Retrieve a list of the agent's currently-operating assets, grouped by
     #   type and mandatory retirement date
