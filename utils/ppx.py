@@ -8,7 +8,8 @@ with open("ppx_settings.yml", "r") as setfile:
     settings = yaml.load(setfile, Loader=yaml.FullLoader)
 
 p_runs = settings["runs"].copy()
-p_runs.remove(settings["baseline"])
+if "baseline" in list(settings.keys()):
+    p_runs.remove(settings["baseline"])
 
 
 def fmt_dollarscents(x):
@@ -51,10 +52,11 @@ def summarize_annual_dispatch(cons):
     wa_lambda_D = wa_lambda.copy()
     ENS_D = ENS.copy()
 
-    for run in p_runs:
-        rname = f"{run}_D"
-        wa_lambda_D[rname] = wa_lambda_D[run] / wa_lambda_D[settings["baseline"]]
-        ENS_D[rname] = ENS_D[run] / ENS_D[settings["baseline"]]
+    if "baseline" in list(settings.keys()):
+        for run in p_runs:
+            rname = f"{run}_D"
+            wa_lambda_D[rname] = wa_lambda_D[run] / wa_lambda_D[settings["baseline"]]
+            ENS_D[rname] = ENS_D[run] / ENS_D[settings["baseline"]]
 
     L_formats = {}
     E_formats = {}
@@ -65,6 +67,9 @@ def summarize_annual_dispatch(cons):
         rname = f"{run}_D"
         L_formats[rname] = fmt_3dec
         E_formats[rname] = fmt_3dec
+
+    print(wa_lambda_D)
+    print(ENS_D)
 
     for col in list(wa_lambda_D.columns):
         wa_lambda_D[col] = wa_lambda_D[col].apply(L_formats[col])
@@ -80,7 +85,6 @@ def summarize_annual_dispatch(cons):
 
 
 def summarize_agent_decisions(cons):
-
     for run in settings["runs"]:
         con = cons[run]
         decs = pd.read_sql_query("SELECT * FROM agent_decisions", con)
@@ -198,7 +202,7 @@ def summarize_agent_fss(cons):
             all_fss = fs
 
     # Filter out distant years--not needed for diagnostics
-    all_fss = all_fss[all_fss["delta_pd"] < 8].reset_index(drop=True)
+    all_fss = all_fss[all_fss["delta_pd"] < 14].reset_index(drop=True)
     all_fss = all_fss[["run", "agent_id", "base_pd", "projected_pd", "revenue", "FCF", "moodys_score"]]
 
     fs_results = {}
@@ -217,9 +221,7 @@ def summarize_agent_fss(cons):
                 aggfunc = "sum",
             )
 
-            print(fs_results[dname])
             fs_results[dname] = fs_results[dname].rename(index=runs_rev)
-            print(fs_results[dname])
 
     return fs_results
 
@@ -251,6 +253,7 @@ def run():
     cons = {}
     for fname in settings["runs"]:
         full_fname = Path(settings["root_dir"]) / f"{settings['common_prefix']}{fname}" / "abce_db.db"
+        print(full_fname)
         cons[fname] = sqlite3.connect(full_fname)
 
     # Invoke all processing functions

@@ -1,11 +1,18 @@
 root_dir: "/filespace/k/kebiegel/abce/outputs/"
-common_prefix: "2a1b_10p_"
-groupname: "2a1b_k"
+common_prefix: "cost_of_debt_"
+groupname: "COD_all"
 runs:
-  - "baseline"
-  - "202_k_0.75"
-  - "202_k_0.5"
+  - "0.02__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.03__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.04__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.05__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.06__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.07__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.08__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.09__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.1__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.11__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "0.12__starting_debt_1.0__starting_RE_1.0__k_0.95"
 agents:
   - 201
   - 202
-baseline: "baseline"

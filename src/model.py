@@ -650,9 +650,11 @@ class GridModel(Model):
             # Set up the command to run dispatch.jl in annual exact mode
             ABCE_ENV = Path(os.environ["ABCE_ENV"])
             annual_disp_script_path = Path(os.environ["ABCE_DIR"]) / "src" / "annual_dispatch.jl"
+            
             dispatch_cmd = (
                 f"julia --project={ABCE_ENV} {annual_disp_script_path} " 
-                + f"--current_pd={self.current_pd}"
+                + f"--current_pd={self.current_pd} "
+                + f"--settings_file={self.args.settings_file} "
             )
 
         # Run the dispatch simulation
