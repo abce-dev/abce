@@ -1142,15 +1142,8 @@ function forecast_subproject_operations(
     fs_copy,
 )
     mode = subproject["project_type"]
-    hist_wt = settings["dispatch"]["hist_wt"]
     data_to_get =
         ["generation", "revenue", "VOM", "fuel_cost", "FOM", "carbon_tax"]
-
-    # Get historical dispatch results for this unit type
-    historical_dispatch_results = filter(
-        :unit_type => unit_type -> unit_type == subproject["unit_type"],
-        historical_dispatch_results,
-    )
 
     # Get projected dispatch results for this unit type
     ABCE_dispatch_results = filter(
@@ -1210,27 +1203,8 @@ function forecast_subproject_operations(
                 end
             end
 
-            # Get the corresponding cumulative historical estimate from the 
-            #   aggregated dispatch histories
-            if size(historical_dispatch_results)[1] > 0
-                historical_data_value = sum(
-                    historical_dispatch_results[
-                        !,
-                        Symbol(string("wtd_", data_type)),
-                    ],
-                )
-                hist_wt = settings["dispatch"]["hist_wt"]
-            else
-                # If this unit type does not appear in the historical 
-                #   results, rely only on the ABCE dispatch forecast
-                historical_data_value = 0
-                hist_wt = 0
-            end
-
             # Save the signed value into the financial statement
-            fs_copy[i, Symbol(data_type)] =
-                sign * ABCE_data_value * (1 - hist_wt) +
-                sign * historical_data_value * (hist_wt)
+            fs_copy[i, Symbol(data_type)] = sign * ABCE_data_value
         end
 
     end
