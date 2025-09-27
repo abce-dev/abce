@@ -14,6 +14,11 @@ function get_CL_args()
         required = true
         arg_type = Int
 
+        "--ABCE_dir"
+        help = "absolute path to the top-level ABCE directory"
+        required = false
+        default = ENV["ABCE_DIR"]
+
         "--settings_file"
         help = "absolute path to the settings file"
         required = false
@@ -43,10 +48,10 @@ function get_settings(CL_args)
     return settings
 end
 
-function get_db(settings)
+function get_db(CL_args, settings)
     # Load database
     db_file = joinpath(
-        ENV["ABCE_DIR"], 
+        CL_args["ABCE_dir"], 
         "outputs",
         settings["simulation"]["scenario_name"], 
         settings["file_paths"]["db_file"],
@@ -132,7 +137,7 @@ function run_true_annual_dispatch()
     @info "Setting up data..."
     CL_args = get_CL_args()
     settings = get_settings(CL_args)
-    db = get_db(settings)
+    db = get_db(CL_args, settings)
     unit_specs = get_unit_specs(db)
     total_demand = ABCEfunctions.get_demand_forecast(db, CL_args["current_pd"], 1, settings)
     system_portfolio_dict = get_year_portfolio(db, CL_args["current_pd"], unit_specs)
