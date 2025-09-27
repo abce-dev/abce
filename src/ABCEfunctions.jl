@@ -728,9 +728,6 @@ function create_PA_subprojects(
     #   subprojects for this project alternative
     subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
 
-    # Retrieve historical dispatch results data
-    historical_dispatch_results = average_historical_dispatch_results(settings, db)
-
     for subproject in subprojects
         # Retrieve unit type data for convenience
         unit_type_data =
@@ -749,7 +746,6 @@ function create_PA_subprojects(
             agent_id,
             agent_params,
             dispatch_results,
-            historical_dispatch_results,
         )
 
     end
@@ -818,7 +814,6 @@ function forecast_subproject_financials(
     agent_id,
     agent_params,
     dispatch_results,
-    historical_dispatch_results,
 )
     # Create a blank DataFrame for the subproject's financial statement
     subproject_fs = DataFrame(
@@ -890,7 +885,6 @@ function forecast_subproject_financials(
         subproject,
         unit_type_data,
         dispatch_results,
-        historical_dispatch_results,
         deepcopy(subproject_fs),
     )
 
@@ -1138,7 +1132,6 @@ function forecast_subproject_operations(
     subproject,
     unit_type_data,
     dispatch_results,
-    historical_dispatch_results,
     fs_copy,
 )
     mode = subproject["project_type"]
@@ -1294,46 +1287,6 @@ function create_PA_aggregated_fs(subprojects)
     end
 
     return PA_aggregated_fs
-end
-
-
-function average_historical_dispatch_results(settings, db)
-    historical_dispatch_results =
-        DBInterface.execute(db, "SELECT * FROM annual_dispatch_unit_summary") |>
-        DataFrame
-
-    if size(historical_dispatch_results)[1] != 0
-        # Get a list of all unique years in the dataframe
-        years = unique(historical_dispatch_results, :period)[!, :period]
-
-        hist_decay = settings["dispatch"]["hist_decay"]
-
-        # Compute scaling factor to normalize to 1
-        c = 1 / sum(1 / (1 + hist_decay)^k for k in years)
-
-        # Add a column with the diminishing historical weighting factor
-        transform!(
-            historical_dispatch_results,
-            [:period] =>
-                ((pd) -> c ./ (1 + hist_decay) .^ pd) => :hist_wt_coeffs,
-        )
-
-        # Weight the data columns
-        data_to_weight =
-            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "carbon_tax"]
-
-        for data_type in data_to_weight
-            transform!(
-                historical_dispatch_results,
-                [Symbol(data_type), :hist_wt_coeffs] =>
-                    ((rev, wt) -> rev .* wt) =>
-                        Symbol(string("wtd_", data_type)),
-            )
-        end
-    end
-
-    return historical_dispatch_results
-
 end
 
 
