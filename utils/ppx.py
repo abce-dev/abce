@@ -68,9 +68,6 @@ def summarize_annual_dispatch(cons):
         L_formats[rname] = fmt_3dec
         E_formats[rname] = fmt_3dec
 
-    print(wa_lambda_D)
-    print(ENS_D)
-
     for col in list(wa_lambda_D.columns):
         wa_lambda_D[col] = wa_lambda_D[col].apply(L_formats[col])
     for col in list(ENS_D.columns):
