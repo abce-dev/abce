@@ -81,7 +81,8 @@ file_paths:
   db_file: "abce_db.db"
   demand_data_file: "demand_data_baseline_70y.csv"
 #  agent_specifications_file: "single_agent_testing.yml"
-  agent_specifications_file: "agent_specifications.yml"
+#  agent_specifications_file: "agent_specifications.yml"
+  agent_specifications_file: "2a1b.yml"
   output_file: "outputs.xlsx"
   output_logging_dir: "/groupspace/cnerg/users/kebiegel/abce_outputs"
   timeseries_data_dir: "ts_data"
@@ -120,8 +121,6 @@ dispatch:
   gamma_reg: .8
   gamma_spin: .8
   gamma_nspin: 0.2
-  hist_wt: 0.4  # Weighting of historical versus projected data
-  hist_decay: 0.5   # Decay factor for each historical data year
 
 # Settings for agent behavior optimization
 agent_opt:
@@ -140,7 +139,6 @@ agent_opt:
   fcf_debt_floor: 0.16   # weighted sum limit
   re_debt_floor: 0.115   # weighted sum limit
   icr_solo_floor: 0.0   # individual
-  competitor_efficiency_assumption: 0.95   # k < 1.0 (sensitive parameter!)
 
 financing:
   default_debt_term: 30
