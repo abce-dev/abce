@@ -1,0 +1,31 @@
+# This input file encodes the UltraSimplified (US) test case:
+# 
+# System composition:
+#   - 1 active agent
+#   - 1 asset type
+# 
+#  This test case is intended to be used with the following other settings and
+#     files:
+#   - 1000 MW peak annual demand
+#   - constant hourly load timeseries file
+#   - 1 year total simulation duration
+
+
+# AmoebaCorp
+201:
+    debt_fraction: 0.5
+    cost_of_debt: 0.06
+    cost_of_equity: 0.1
+    starting_debt:  100000000   # $100 M
+    starting_PPE:   100000000   # $100 M
+    starting_RE:    100000000   # $100 M
+    k: 0.85
+    starting_portfolio:
+        ngcc: 8
+    scheduled_retirements:
+    # Format:
+    # unit_type:
+    #   retirement_pd: num_units
+        ngcc:
+            100: 8
+
