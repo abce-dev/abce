@@ -139,14 +139,17 @@ def summarize_agent_decisions(cons):
 
     xtr_exec = xtr_now.copy()
     xtr_exec = xtr_exec[xtr_exec["units_to_execute"] != 0]
-    xtr_exec_p = pd.pivot_table(
-        xtr_exec,
-        values = "units_to_execute",
-        index = ["base_pd", "unit_type"],
-        columns = ["run", "agent_id"],
-        aggfunc = "sum",
-    )[settings["runs"]]
-    xtr_exec_p = xtr_exec_p.fillna(0)
+    if len(xtr_exec) > 0:
+        xtr_exec_p = pd.pivot_table(
+            xtr_exec,
+            values = "units_to_execute",
+            index = ["base_pd", "unit_type"],
+            columns = ["run", "agent_id"],
+            aggfunc = "sum",
+        )[settings["runs"]]
+        xtr_exec_p = xtr_exec_p.fillna(0)
+    else:
+        xtr_exec_p = None
 
     ret_pivot = pd.pivot_table(
         ret,
@@ -157,13 +160,16 @@ def summarize_agent_decisions(cons):
     )[settings["runs"]]
 
     ret_exec = ret[ret["units_to_execute"] != 0]
-    ret_exec_p = pd.pivot_table(
-        ret_exec,
-        values = "units_to_execute",
-        index = ["base_pd", "unit_type", "ret_pd", "lag"],
-        columns = ["run", "agent_id"],
-        aggfunc = "sum"
-    )[settings["runs"]]
+    if len(ret_exec) > 0:
+        ret_exec_p = pd.pivot_table(
+            ret_exec,
+            values = "units_to_execute",
+            index = ["base_pd", "unit_type", "ret_pd", "lag"],
+            columns = ["run", "agent_id"],
+            aggfunc = "sum"
+        )[settings["runs"]]
+    else:
+        ret_exec_p = None
 
     decisions = {
         "conditions": conditions_pivot,
@@ -229,20 +235,38 @@ def write_to_excel(everything):
         Path("/filespace/k/kebiegel/abce/utils") / f"{settings['groupname']}.xlsx"
     )
 
+    names = {
+        "wa_lambda": "Wtd Avg Lambda",
+        "ENS": "Energy Not Served",
+        "conditions": "Decision conditions",
+        "xtr_pivot": "New xtr pivot",
+        "xtr_exec_pivot": "New xtr executed",
+        "ret_pivot": "Retirement pivot",
+        "ret_exec_pivot": "Retirements executed",
+        "201_revenue": "201 revenue",
+        "201_FCF": "201 FCF",
+        "201_moodys_score": "201 score",
+        "202_revenue": "202 revenue",
+        "202_FCF": "202 FCF",
+        "202_moodys_score": "202 score",
+    }
+
     with xlsxwriter as writer:
-        everything["wa_lambda"].to_excel(writer, sheet_name = "Wtd Avg Lambda")
-        everything["ENS"].to_excel(writer, sheet_name = "Energy Not Served")
-        everything["conditions"].to_excel(writer, sheet_name = "Decision conditions")
-        everything["xtr_pivot"].to_excel(writer, sheet_name = "New xtr pivot")
-        everything["xtr_exec_pivot"].to_excel(writer, sheet_name = "New xtr L0 pivot")
-        everything["ret_pivot"].to_excel(writer, sheet_name = "Retirement pivot")
-        everything["ret_exec_pivot"].to_excel(writer, sheet_name = "Retirements executed")
-        everything["201_revenue"].to_excel(writer, sheet_name = "201 revenue")
-        everything["201_FCF"].to_excel(writer, sheet_name = "201 FCF")
-        everything["201_moodys_score"].to_excel(writer, sheet_name = "201 score")
-        everything["202_revenue"].to_excel(writer, sheet_name = "202 revenue")
-        everything["202_FCF"].to_excel(writer, sheet_name = "202 FCF")
-        everything["202_moodys_score"].to_excel(writer, sheet_name = "202 score")
+        for key in everything.keys():
+            everything[key].to_excel(writer, sheet_name = names[key])
+#        everything["wa_lambda"].to_excel(writer, sheet_name = "Wtd Avg Lambda")
+#        everything["ENS"].to_excel(writer, sheet_name = "Energy Not Served")
+#        everything["conditions"].to_excel(writer, sheet_name = "Decision conditions")
+#        everything["xtr_pivot"].to_excel(writer, sheet_name = "New xtr pivot")
+#        everything["xtr_exec_pivot"].to_excel(writer, sheet_name = "New xtr L0 pivot")
+#        everything["ret_pivot"].to_excel(writer, sheet_name = "Retirement pivot")
+#        everything["ret_exec_pivot"].to_excel(writer, sheet_name = "Retirements executed")
+#        everything["201_revenue"].to_excel(writer, sheet_name = "201 revenue")
+#        everything["201_FCF"].to_excel(writer, sheet_name = "201 FCF")
+#        everything["201_moodys_score"].to_excel(writer, sheet_name = "201 score")
+#        everything["202_revenue"].to_excel(writer, sheet_name = "202 revenue")
+#        everything["202_FCF"].to_excel(writer, sheet_name = "202 FCF")
+#        everything["202_moodys_score"].to_excel(writer, sheet_name = "202 score")
 
 
 
@@ -264,16 +288,20 @@ def run():
                   "ENS": dispatch_results["ENS"],
                   "conditions": decision_results["conditions"],
                   "xtr_pivot": decision_results["xtr_pivot"],
-                  "xtr_exec_pivot": decision_results["xtr_exec_pivot"],
                   "ret_pivot": decision_results["ret_pivot"],
-                  "ret_exec_pivot": decision_results["ret_exec_pivot"],
-                  "201_revenue": fs_results["201_revenue"],
-                  "201_FCF": fs_results["201_FCF"],
-                  "201_moodys_score": fs_results["201_moodys_score"],
-                  "202_revenue": fs_results["202_revenue"],
-                  "202_FCF": fs_results["202_FCF"],
-                  "202_moodys_score": fs_results["202_moodys_score"],
                  }
+
+    if decision_results["xtr_exec_pivot"] is not None:
+        everything["xtr_exec_pivot"] = decision_results["xtr_exec_pivot"]
+
+    if decision_results["ret_exec_pivot"] is not None:
+        everything["ret_exec_pivot"] = decision_results["ret_exec_pivot"]
+
+    for agent in settings["agents"]:
+        everything[f"{agent}_revenue"] = fs_results[f"{agent}_revenue"]
+        everything[f"{agent}_FCF"] = fs_results[f"{agent}_FCF"]
+        everything[f"{agent}_moodys_score"] = fs_results[f"{agent}_moodys_score"]
+
     write_to_excel(everything)
 
 
