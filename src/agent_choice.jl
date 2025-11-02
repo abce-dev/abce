@@ -169,18 +169,6 @@ function save_intermediate_outputs(settings, CLI_args, adj_system_portfolios, lo
     )
     CSV.write(filename, pfs)
 
-    # Save all agents' long econ results to the cnerg groupspace
-    za = CLI_args["current_pd"]
-    zb = CLI_args["agent_id"]
-#    CSV.write(
-#        joinpath(
-#            settings["file_paths"]["output_logging_dir"],
-#            settings["simulation"]["scenario_name"],
-#            string("agent_", zb, "_pd_", za, "_long_econ_results.csv"),
-#        ),
-#        long_econ_results,
-#    )
-
 end
 
 
@@ -292,7 +280,6 @@ function run_agent_choice()
         CLI_args["current_pd"],
         C2N_specs,
         dispatch_results,
-        CLI_args["verbosity"],
     )
 
     # Update the agent's baseline projected financial statements, to use in

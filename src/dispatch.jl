@@ -55,6 +55,7 @@ function execute_dispatch_economic_projection(
     )
 
     long_econ_results, dispatch_results = postprocess_results(
+        CLI_args,
         settings,
         all_grc_results,
         all_price_results,
@@ -1471,6 +1472,7 @@ end
 
 
 function postprocess_results(
+    CLI_args,
     settings,
     all_grc_results,
     all_prices,
@@ -1509,6 +1511,42 @@ function postprocess_results(
     dispatch_results =
         summarize_dispatch_results(settings, unit_specs, long_econ_results)
 
+    # If file_logging_level is set to 1, log LER and dispres to file
+    if settings["simulation"]["file_logging_level"] == 1
+        @info "Logging dispatch results to file..."
+
+        if haskey(CLI_args, "agent_id")
+            id = string("agent_", CLI_args["agent_id"], "_")
+        else
+            id = "true_annual_dispatch_"
+        end
+
+        # Reduce the size of the LER file
+        sLER = deepcopy(filter(:y => y -> y <= current_pd + 8, long_econ_results))
+        sLER = sLER[!, [:y, :d, :h, :unit_type, :gen, :reg, :spin, :nspin, :commit, :su, :sd, :lambda, :reg_rmp, :spin_rmp, :nspin_rmp, :Probability, :capacity, :VOM, :FC_per_MWh, :carbon_tax_per_MWh, :tax_credits_per_MWh, :num_units, :annualized_gen_per_unit, :annualized_reg_per_unit, :annualized_spin_per_unit, :annualized_nspin_per_unit, :annualized_gen_rev_per_unit, :annualized_reg_rev_per_unit, :annualized_spin_rev_per_unit, :annualized_nspin_rev_per_unit, :annualized_reserves_rev_per_unit, :annualized_rev_per_unit]]
+
+        LER_filename = string("LER__", id, "basepd_", current_pd, ".csv")
+        CSV.write(
+            joinpath(
+                settings["file_paths"]["output_logging_dir"],
+                settings["simulation"]["scenario_name"],
+                LER_filename,
+            ),
+            sLER,
+        )
+
+        dispres_filename = string("dispatch_results__", id, "basepd_", current_pd, ".csv")
+        CSV.write(
+            joinpath(
+                settings["file_paths"]["output_logging_dir"],
+                settings["simulation"]["scenario_name"],
+                dispres_filename,
+            ),
+            dispatch_results,
+        )
+    end
+
+
     return long_econ_results, dispatch_results
 end
 
@@ -1545,6 +1583,7 @@ function save_annual_dispatch_unit_summary(db, current_pd, dispatch_results)
             row,
         )
     end
+
 end
 
 function save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)

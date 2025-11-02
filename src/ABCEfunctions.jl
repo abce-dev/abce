@@ -329,7 +329,7 @@ function project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
     prev_real_demand = last(visible_demand[!, :real_demand])
     for i = (prev_pd + 1):fc_pd
         next_real_demand =
-            (prev_real_demand * (1 + term_demand_gr)^(i - prev_pd - 1))
+            (prev_real_demand * (1 + term_demand_gr)^(i - prev_pd))
         push!(total_demand, [i, next_real_demand])
     end
     return total_demand
@@ -577,7 +577,6 @@ function set_up_project_alternatives(
     current_pd,
     C2N_specs,
     dispatch_results,
-    verbosity,
 )
     PA_summaries = create_PA_summaries(settings, unit_specs, asset_counts)
     PA_fs_dict = Dict()
@@ -604,7 +603,7 @@ function set_up_project_alternatives(
         #   based on its subprojects
         PA_fs_dict[PA.uid] = create_PA_aggregated_fs(PA_subprojects[PA.uid])
 
-        # Save raw project fs results, if verbose outputs are enabled
+        # Save raw project fs results, if file_logging_level is set to 1
         if settings["simulation"]["file_logging_level"] > 0
             CSV.write(
                 joinpath(
@@ -728,9 +727,6 @@ function create_PA_subprojects(
     #   subprojects for this project alternative
     subprojects = initialize_subprojects(unit_specs, PA, fc_pd)
 
-    # Retrieve historical dispatch results data
-    historical_dispatch_results = average_historical_dispatch_results(settings, db)
-
     for subproject in subprojects
         # Retrieve unit type data for convenience
         unit_type_data =
@@ -749,7 +745,6 @@ function create_PA_subprojects(
             agent_id,
             agent_params,
             dispatch_results,
-            historical_dispatch_results,
         )
 
     end
@@ -818,7 +813,6 @@ function forecast_subproject_financials(
     agent_id,
     agent_params,
     dispatch_results,
-    historical_dispatch_results,
 )
     # Create a blank DataFrame for the subproject's financial statement
     subproject_fs = DataFrame(
@@ -890,7 +884,6 @@ function forecast_subproject_financials(
         subproject,
         unit_type_data,
         dispatch_results,
-        historical_dispatch_results,
         deepcopy(subproject_fs),
     )
 
@@ -1138,19 +1131,11 @@ function forecast_subproject_operations(
     subproject,
     unit_type_data,
     dispatch_results,
-    historical_dispatch_results,
     fs_copy,
 )
     mode = subproject["project_type"]
-    hist_wt = settings["dispatch"]["hist_wt"]
     data_to_get =
         ["generation", "revenue", "VOM", "fuel_cost", "FOM", "carbon_tax"]
-
-    # Get historical dispatch results for this unit type
-    historical_dispatch_results = filter(
-        :unit_type => unit_type -> unit_type == subproject["unit_type"],
-        historical_dispatch_results,
-    )
 
     # Get projected dispatch results for this unit type
     ABCE_dispatch_results = filter(
@@ -1210,27 +1195,8 @@ function forecast_subproject_operations(
                 end
             end
 
-            # Get the corresponding cumulative historical estimate from the 
-            #   aggregated dispatch histories
-            if size(historical_dispatch_results)[1] > 0
-                historical_data_value = sum(
-                    historical_dispatch_results[
-                        !,
-                        Symbol(string("wtd_", data_type)),
-                    ],
-                )
-                hist_wt = settings["dispatch"]["hist_wt"]
-            else
-                # If this unit type does not appear in the historical 
-                #   results, rely only on the ABCE dispatch forecast
-                historical_data_value = 0
-                hist_wt = 0
-            end
-
             # Save the signed value into the financial statement
-            fs_copy[i, Symbol(data_type)] =
-                sign * ABCE_data_value * (1 - hist_wt) +
-                sign * historical_data_value * (hist_wt)
+            fs_copy[i, Symbol(data_type)] = sign * ABCE_data_value
         end
 
     end
@@ -1320,46 +1286,6 @@ function create_PA_aggregated_fs(subprojects)
     end
 
     return PA_aggregated_fs
-end
-
-
-function average_historical_dispatch_results(settings, db)
-    historical_dispatch_results =
-        DBInterface.execute(db, "SELECT * FROM annual_dispatch_unit_summary") |>
-        DataFrame
-
-    if size(historical_dispatch_results)[1] != 0
-        # Get a list of all unique years in the dataframe
-        years = unique(historical_dispatch_results, :period)[!, :period]
-
-        hist_decay = settings["dispatch"]["hist_decay"]
-
-        # Compute scaling factor to normalize to 1
-        c = 1 / sum(1 / (1 + hist_decay)^k for k in years)
-
-        # Add a column with the diminishing historical weighting factor
-        transform!(
-            historical_dispatch_results,
-            [:period] =>
-                ((pd) -> c ./ (1 + hist_decay) .^ pd) => :hist_wt_coeffs,
-        )
-
-        # Weight the data columns
-        data_to_weight =
-            ["generation", "revenue", "VOM", "fuel_cost", "FOM", "carbon_tax"]
-
-        for data_type in data_to_weight
-            transform!(
-                historical_dispatch_results,
-                [Symbol(data_type), :hist_wt_coeffs] =>
-                    ((rev, wt) -> rev .* wt) =>
-                        Symbol(string("wtd_", data_type)),
-            )
-        end
-    end
-
-    return historical_dispatch_results
-
 end
 
 
@@ -1554,7 +1480,6 @@ end
 
 function compute_marginal_PA_contributions(
         settings,
-        verbosity,
         PA_summaries,
         PA_fs_dict,
         agent_id,
@@ -1583,7 +1508,7 @@ function compute_marginal_PA_contributions(
         end
     end
 
-    # Record marginal contributions to csv if verbosity is set to max
+    # Record marginal contributions to csv if file_logging_level is set to 1
     if settings["simulation"]["file_logging_level"] > 0
         # Write marg_debt to file
         CSV.write(
@@ -2041,7 +1966,6 @@ function set_up_model(
     # Compute marginal cash flow/income statement contributions from all PAs
     marg_debt, marg_int, marg_FCF, marg_RE = compute_marginal_PA_contributions(
         settings,
-        CLI_args["verbosity"],
         PA_summaries,
         PA_fs_dict,
         agent_id,
