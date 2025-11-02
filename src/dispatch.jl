@@ -1521,6 +1521,10 @@ function postprocess_results(
             id = "true_annual_dispatch_"
         end
 
+        # Reduce the size of the LER file
+        sLER = deepcopy(filter(:y => y -> y <= current_pd + 8, long_econ_results))
+        sLER = sLER[!, [:y, :d, :h, :unit_type, :gen, :reg, :spin, :nspin, :commit, :su, :sd, :lambda, :reg_rmp, :spin_rmp, :nspin_rmp, :Probability, :capacity, :VOM, :FC_per_MWh, :carbon_tax_per_MWh, :tax_credits_per_MWh, :num_units, :annualized_gen_per_unit, :annualized_reg_per_unit, :annualized_spin_per_unit, :annualized_nspin_per_unit, :annualized_gen_rev_per_unit, :annualized_reg_rev_per_unit, :annualized_spin_rev_per_unit, :annualized_nspin_rev_per_unit, :annualized_reserves_rev_per_unit, :annualized_rev_per_unit]]
+
         LER_filename = string("LER__", id, "basepd_", current_pd, ".csv")
         CSV.write(
             joinpath(
@@ -1528,7 +1532,7 @@ function postprocess_results(
                 settings["simulation"]["scenario_name"],
                 LER_filename,
             ),
-            long_econ_results,
+            sLER,
         )
 
         dispres_filename = string("dispatch_results__", id, "basepd_", current_pd, ".csv")
