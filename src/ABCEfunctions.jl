@@ -329,7 +329,7 @@ function project_demand_exp_termrate(visible_demand, fc_pd, term_demand_gr)
     prev_real_demand = last(visible_demand[!, :real_demand])
     for i = (prev_pd + 1):fc_pd
         next_real_demand =
-            (prev_real_demand * (1 + term_demand_gr)^(i - prev_pd - 1))
+            (prev_real_demand * (1 + term_demand_gr)^(i - prev_pd))
         push!(total_demand, [i, next_real_demand])
     end
     return total_demand
