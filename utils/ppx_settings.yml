@@ -1,18 +1,7 @@
 root_dir: "/filespace/k/kebiegel/abce/outputs/"
-common_prefix: "cost_of_debt_"
-groupname: "COD_all"
+common_prefix: ""
+groupname: "fakeunits_comp"
 runs:
-  - "0.02__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.03__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.04__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.05__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.06__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.07__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.08__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.09__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.1__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.11__starting_debt_1.0__starting_RE_1.0__k_0.95"
-  - "0.12__starting_debt_1.0__starting_RE_1.0__k_0.95"
+  - "fake_units_diagnostic"
 agents:
   - 201
-  - 202

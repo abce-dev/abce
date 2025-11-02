@@ -139,6 +139,7 @@ def summarize_agent_decisions(cons):
 
     xtr_exec = xtr_now.copy()
     xtr_exec = xtr_exec[xtr_exec["units_to_execute"] != 0]
+    print(xtr_exec)
     if len(xtr_exec) > 0:
         xtr_exec_p = pd.pivot_table(
             xtr_exec,
