@@ -145,12 +145,3 @@ financing:
   depreciation_horizon: 20
   starting_instrument_id: 1000
 
-# Filenames and settings for ALEAF
-ALEAF:
-  ALEAF_master_settings_file: "ALEAF_Master.xlsx"
-  ALEAF_model_type: "LC_GEP"
-  ALEAF_region: "ERCOT"
-  ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
-  ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
-  ALEAF_data_file: "ALEAF_settings.yml"
-
