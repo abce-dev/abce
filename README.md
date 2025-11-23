@@ -10,14 +10,11 @@ ABCE is a module to perform agent-based capacity expansion (CE) modeling for ele
 * [Installation](#installation)
   - [Linux / MacOS / Windows Subsystem for Linux](#linux--macos--windows-subsystem-for-linux)
   - [Windows 10](#windows-10)
-  - [Optional, Argonne only: installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf)
   - [Optional: installing with CPLEX](#optional-installing-with-cplex)
 * [Usage](#usage)
   - [Running ABCE](#running-abce)
   - [Input files](#input-files)
   - [Outputs](#outputs)
-* [Contributing](#contributing)
-* [Testing](#testing)
 * [License](#license)
 
 ## Installation
@@ -28,33 +25,25 @@ ABCE is a module to perform agent-based capacity expansion (CE) modeling for ele
 
     `git clone https://github.com/abce-dev/abce`
 
-2. If using A-LEAF, see the optional [Installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf) section below. Currently, only users with Argonne gitlab credentials can use A-LEAF, but a public release is coming soon!
+2. If using CPLEX, see the optional [Installing with CPLEX](#optional-installing-with-cplex) section below
 
-3. If using CPLEX, see the optional [Installing with CPLEX](#optional-installing-with-cplex) section below
-
-4. Inside your local `abce` directory, run the installation script with:
+3. Inside your local `abce` directory, run the installation script with:
 
    `bash ./install.sh`
 
-5. When prompted for the A-LEAF repository, do one of the following:
+4. Wait for the installation script to run to completion. Review any errors/issues printed for your reference at the end of execution.
 
-   * Enter the absolute path to the directory where you cloned A-LEAF, or
+5. Restart your terminal session, or re-source your `.bashrc` file.
 
-   * Press Enter without entering any text, if not using A-LEAF
-
-6. Wait for the installation script to run to completion. Review any errors/issues printed for your reference at the end of execution.
-
-7. Restart your terminal session, or re-source your `.bashrc` file.
-
-8. If using Conda to manage environments, activate the ABCE conda environment with:
+6. If using Conda to manage environments, activate the ABCE conda environment with:
 
    `conda activate abce_env`
 
-9. Rerun the installation script to complete the environment setup:
+7. Rerun the installation script to complete the environment setup:
 
    `bash ./install.sh`
 
-10. Test the installation using one of the examples:
+8. Test the installation using one of the examples:
 
    `cd examples/single_agent_example`
 
@@ -64,7 +53,7 @@ ABCE is a module to perform agent-based capacity expansion (CE) modeling for ele
 
    `python ../../run.py --settings_file=./settings.yml --inputs_path=.`
 
-11. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file from within the `abce/env` directory.
+9. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file from within the `abce/env` directory.
 
    `julia make_sysimage.jl`
 
@@ -75,25 +64,23 @@ ABCE is a module to perform agent-based capacity expansion (CE) modeling for ele
 
 2. Download and install [Julia 1.8](https://julialang.org/downloads/). Check the box in the installer to add Julia to the PATH.
 
-3. If using A-LEAF, see the optional [Installing with A-LEAF](#optional--argonne-only-installing-with-a-leaf) section below. Currently, only users with Argonne gitlab credentials can use A-LEAF, but a public release is coming soon!
+3. If using CPLEX, see the optional [Installing with CPLEX](#optional-installing-with-cplex) section below
 
-4. If using CPLEX, see the optional [Installing with CPLEX](#optional-installing-with-cplex) section below
-
-5. Using the Anaconda Powershell, clone this repo to your local machine:
+4. Using the Anaconda Powershell, clone this repo to your local machine:
 
    `git clone https://github.com/abce-dev/abce`
 
-6. Create the local conda environment:
+5. Create the local conda environment:
 
    `conda env create -f .\environment_win.yml`
 
-7. Activate the `abce_anv` conda environment:
+6. Activate the `abce_anv` conda environment:
 
    `conda activate abce_env`
 
-8. Set the `ABCE_DIR` environment variable to the absolute path to your `abce` repo (e.g. `C:\Users\myname\abce`)
+7. Set the `ABCE_DIR` environment variable to the absolute path to your `abce` repo (e.g. `C:\Users\myname\abce`)
 
-9. Test the installation using one of the examples:
+8. Test the installation using one of the examples:
 
    `cd examples\single_agent_example`
 
@@ -103,29 +90,9 @@ ABCE is a module to perform agent-based capacity expansion (CE) modeling for ele
 
    `python ..\..\run.py --settings_file=.\settings.yml --inputs_path=.`
 
-10. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file from within the `abce\env` directory.
+9. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file from within the `abce\env` directory.
 
    `julia make_sysimage.jl`
-
-### Optional / Argonne only: installing with A-LEAF
-
-1. Clone the ABCE A-LEAF repo:
-
-   `git clone git-out.gss.anl.gov/kbiegel/kb_aleaf`
-
-2. Inside the A-LEAF directory, run the A-LEAF environment setup script:
-
-   `julia make_julia_environment.jl`
-
-3. Test the A-LEAF install by running the following within your A-LEAF directory:
-
-   `julia execute_ALEAF.jl`
-
-4. Once the previous command runs to completion without failing, generate a precompiled Julia sysimage file with:
-
-   `julia make_sysimage.jl`
-
-5. Set the `ALEAF_DIR` environment variable to the absolute path to your A-LEAF repo
 
 ### Optional: installing with CPLEX
 
@@ -225,14 +192,6 @@ ABCE also outputs plots of the evolution of the overall system portfolio and the
 
 ### Use ABCE with `watts`
 The[ Workflow and Template Toolkit for Simulations (`watts`)](https://github.com/watts-dev/watts) has a plugin for ABCE. Please see the `watts` documentation for usage. This workflow tool is useful for conducting sensitivity analyses and other experiments with ABCE.
-
-## Testing
-
-### Julia Unit Tests
-
-Julia tests may be run with the following command from within the `test/` directory:
-
-`bash run_julia_tests.sh`
 
 
 ## License
