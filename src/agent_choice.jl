@@ -21,9 +21,7 @@ using Logging, JuMP, LinearAlgebra, DataFrames, CSV, YAML, SQLite, ArgParse
 # Include local ABCE functions modules
 include("ABCEfunctions.jl")
 include("dispatch.jl")
-include("C2N_projects.jl")
-using .ABCEfunctions, .Dispatch, .C2N
-
+using .ABCEfunctions, .Dispatch
 
 
 function set_up_run(CLI_args)
@@ -42,18 +40,11 @@ function set_up_run(CLI_args)
         settings["simulation"]["scenario_name"],
         settings["file_paths"]["db_file"],
     )
-    C2N_specs_file = joinpath(
-        CLI_args["inputs_path"],
-        "C2N_project_definitions.yml",
-    )
 
     # Load the database
     db = ABCEfunctions.load_db(db_file)
 
-    # Load C2N specs data
-    C2N_specs = YAML.load_file(C2N_specs_file)
-
-    return settings, db, C2N_specs
+    return settings, db
 end
 
 
@@ -179,7 +170,7 @@ function run_agent_choice()
     CLI_args = ABCEfunctions.get_CL_args()
 
     # Read in data and the database from file
-    settings, db, C2N_specs = set_up_run(CLI_args)
+    settings, db = set_up_run(CLI_args)
 
     # Read in some raw data from the database
     agent_params, unit_specs = get_raw_db_data(db, CLI_args)
@@ -278,7 +269,6 @@ function run_agent_choice()
         agent_params,
         db,
         CLI_args["current_pd"],
-        C2N_specs,
         dispatch_results,
     )
 
