@@ -104,22 +104,6 @@ function get_system_portfolios(db, settings, start_year, unit_specs)
 end
 
 
-function fill_portfolios_missing_units(system_portfolios, unit_specs)
-    # Ensure that at least 1 unit of every type in unit_specs is represented in
-    #   every year of the system portfolio, by adding 1 instance of missing
-    #   unit types.
-    for y = minimum(keys(system_portfolios)):maximum(keys(system_portfolios))
-        for unit_type in unit_specs[!, :unit_type]
-            if !in(unit_type, system_portfolios[y][!, :unit_type])
-                push!(system_portfolios[y], (unit_type, 1))
-            end
-        end
-    end
-
-    return system_portfolios
-end
-
-
 function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd, downselection_mode)
     if (settings["dispatch"]["downselection"] == "exact") || (downselection_mode == "exact")
         num_days = 365

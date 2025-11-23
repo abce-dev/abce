@@ -213,11 +213,11 @@ function run_agent_choice()
         unit_specs,
     )
 
-    adj_system_portfolios = ABCEfunctions.fill_portfolios_missing_units(
-        CLI_args["current_pd"],
-        deepcopy(system_portfolios),
-        unit_specs,
-    )
+#    adj_system_portfolios = ABCEfunctions.fill_portfolios_missing_units(
+#        CLI_args["current_pd"],
+#        deepcopy(system_portfolios),
+#        unit_specs,
+#    )
 
     # Retrieve the year-by-year projected portfolio for the current agent
     agent_portfolios = ABCEfunctions.get_portfolio_forecast(
