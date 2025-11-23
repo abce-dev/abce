@@ -2659,10 +2659,7 @@ end
 function compute_credit_indicator_scores(settings, agent_fs)
     # Credit ratings indicators
     # Compute retained earnings-to-debt metric column
-    rcdr_target = settings["agent_opt"]["re_debt_floor"] + settings["agent_opt"]["rcdr_target_delta"]
     transform!(agent_fs, [:remaining_debt_principal, :retained_earnings] => ((debt, re) -> re ./ debt) => :RE_debt_ratio)
-
-    # Use excess RE over the amount needed to reach the target ratio to subsidize FCF
 
     # Compute effective FCF: if FCF is zero but RE is greater than zero, use RE in place of FCF
 
