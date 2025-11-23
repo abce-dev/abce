@@ -4,7 +4,6 @@ simulation:
   num_steps: 1
   file_logging_level: 0  # 0: no additional csvs saved; 1: all additional csvs saved
                          # caution! enabling file logging with 365 repdays can require 200GB+ of storage
-  annual_dispatch_engine: ABCE
   C2N_assumption: baseline
 
 scenario:
@@ -144,13 +143,4 @@ financing:
   default_debt_term: 30
   depreciation_horizon: 20
   starting_instrument_id: 1000
-
-# Filenames and settings for ALEAF
-ALEAF:
-  ALEAF_master_settings_file: "ALEAF_Master.xlsx"
-  ALEAF_model_type: "LC_GEP"
-  ALEAF_region: "ERCOT"
-  ALEAF_model_settings_file: "ALEAF_Master_LC_GEP.xlsx"
-  ALEAF_portfolio_file: "ALEAF_ERCOT.xlsx"
-  ALEAF_data_file: "ALEAF_settings.yml"
 

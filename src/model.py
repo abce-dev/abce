@@ -61,10 +61,6 @@ class GridModel(Model):
         if self.args.verbosity > 2:
             self.ensure_tmp_dir_exists()
 
-        # If running A-LEAF, set up any necessary file paths
-        if self.settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
-            self.set_ALEAF_file_paths()
-
         # Define the agent schedule, using randomly-ordered agent activation
         self.schedule = RandomActivation(self)
 
@@ -213,19 +209,6 @@ class GridModel(Model):
         with open(logo_file, "r") as logo:
             for line in logo.read().splitlines():
                 logging.log(self.settings["constants"]["vis_lvl"], line)
-
-    def set_ALEAF_file_paths(self):
-        """Set up all absolute paths to ALEAF and its input files, and
-        save them as member data.
-        """
-        # Set path to ALEAF outputs
-        self.ALEAF_output_data_path = Path(
-            Path(os.environ["ALEAF_DIR"])
-            / "output"
-            / self.settings["ALEAF"]["ALEAF_model_type"]
-            / self.settings["ALEAF"]["ALEAF_region"]
-            / f"scenario_1_{self.settings['simulation']['scenario_name']}"
-        )
 
     def add_unit_specs_to_db(self):
         """
@@ -612,65 +595,24 @@ class GridModel(Model):
             logging.log(self.settings["constants"]["vis_lvl"], "\n")
             user_response = input("Press Enter to continue: ")
 
-        dispatch_engine = self.settings["simulation"]["annual_dispatch_engine"]
-
-        if dispatch_engine in ["ALEAF", "aleaf", "A-LEAF", "a-leaf"]:
-            # Re-load the baseline A-LEAF data
-            ALEAF_data = idm.load_data(
-                Path(self.args.inputs_path)
-                / self.settings["ALEAF"]["ALEAF_data_file"]
-            )
-
-            # Generate all three A-LEAF input files and save them to the
-            #   appropriate subdirectories in the A-LEAF top-level directory
-            idm.create_ALEAF_files(
-                self.settings,
-                ALEAF_data,
-                self.unit_specs,
-                self.db,
-                self.current_pd,
-            )
-
-            # Set up the command to execute ALEAF
-            logging.log(
-                self.settings["constants"]["vis_lvl"], "Running A-LEAF..."
-            )
-            run_script_path = Path(os.environ["ALEAF_DIR"]) / "execute_ALEAF.jl"
-            ALEAF_env_path = Path(os.environ["ALEAF_DIR"]) / "."
-            ALEAF_sysimage_path = (
-                Path(os.environ["ALEAF_DIR"]) / "aleafSysimage.so"
-            )
-            dispatch_cmd = (
-                f"julia --project={ALEAF_env_path} "
-                + f"-J {ALEAF_sysimage_path} {run_script_path} "
-                + f"{self.settings['ALEAF']['ALEAF_abs_path']}"
-            )
-
-        elif dispatch_engine in ["ABCE", "abce"]:
-            # Set up the command to run dispatch.jl in annual exact mode
-            ABCE_ENV = Path(os.environ["ABCE_ENV"])
-            annual_disp_script_path = Path(self.settings["file_paths"]["ABCE_abs_path"]) / "src" / "annual_dispatch.jl"
+        # Set up the command to run dispatch.jl in annual exact mode
+        ABCE_ENV = Path(os.environ["ABCE_ENV"])
+        annual_disp_script_path = Path(self.settings["file_paths"]["ABCE_abs_path"]) / "src" / "annual_dispatch.jl"
             
-            dispatch_cmd = (
-                f"julia --project={ABCE_ENV} {annual_disp_script_path} " 
-                + f"--ABCE_dir={self.settings['file_paths']['ABCE_abs_path']} "
-                + f"--current_pd={self.current_pd} "
-                + f"--settings_file={self.args.settings_file} "
-            )
+        dispatch_cmd = (
+            f"julia --project={ABCE_ENV} {annual_disp_script_path} " 
+            + f"--ABCE_dir={self.settings['file_paths']['ABCE_abs_path']} "
+            + f"--current_pd={self.current_pd} "
+            + f"--settings_file={self.args.settings_file} "
+        )
 
         # Run the dispatch simulation
-        if dispatch_engine not in ["none", "None"]:
-            if self.args.verbosity < 2:
-                sp = subprocess.check_call(
-                    dispatch_cmd, shell=True, stdout=open(os.devnull, "wb")
-                )
-            else:
-                sp = subprocess.check_call(dispatch_cmd, shell=True)
-
-        # Save data to its final destination, if needed
-        if dispatch_engine in ["ALEAF", "aleaf", "A-LEAF", "a-leaf"]:
-            self.save_ALEAF_outputs()
-            self.process_ALEAF_dispatch_results()
+        if self.args.verbosity < 2:
+            sp = subprocess.check_call(
+                dispatch_cmd, shell=True, stdout=open(os.devnull, "wb")
+            )
+        else:
+            sp = subprocess.check_call(dispatch_cmd, shell=True)
 
 
     def display_step_header(self):
@@ -1104,79 +1046,4 @@ class GridModel(Model):
         self.db.cursor().execute("DELETE FROM WIP_updates")
         self.db.cursor().execute("DELETE FROM asset_updates")
         self.db.commit()
-
-
-    def save_ALEAF_outputs(self):
-        # Copy all ALEAF output files to the output directory, with
-        #   scenario and step-specific names
-        files_to_save = [
-            "dispatch_summary_OP",
-            "expansion_result",
-            "system_summary_OP",
-            "system_tech_summary_OP",
-        ]
-        for outfile in files_to_save:
-            old_filename = (
-                f"{self.settings['simulation']['scenario_name']}"
-                + f"__{outfile}.csv"
-            )
-            old_filepath = Path(self.ALEAF_output_data_path) / old_filename
-            new_filename = (
-                f"{self.settings['simulation']['scenario_name']}"
-                + f"__{outfile}__step_{self.current_pd}.csv"
-            )
-            new_filepath = Path(self.primary_output_data_path) / new_filename
-            shutil.copy2(old_filepath, new_filepath)
-
-
-    def process_ALEAF_dispatch_results(self):
-        # Find and load the ALEAF dispatch file corresponding to the current
-        #   simulation period
-        fname_pattern = f"dispatch_summary_OP__step_{self.current_pd}"
-        ALEAF_dsp_file = None
-        for fname in os.listdir(Path(self.primary_output_data_path)):
-            if (
-                "dispatch" in fname
-                and "OP" in fname
-                and f"{self.current_pd}" in fname
-            ):
-                ALEAF_dsp_file = Path(self.primary_output_data_path) / fname
-
-        # Get the number of units which are currently operational (needed for
-        #   scaling dispatch results to a per-unit basis)
-        sql_query = (
-            f"SELECT unit_type, COUNT(unit_type) FROM assets "
-            + f"WHERE completion_pd <= {self.current_pd} "
-            + f"AND retirement_pd > {self.current_pd} "
-            + f"AND cancellation_pd > {self.current_pd} "
-            + f"GROUP BY unit_type"
-        )
-        num_units = pd.read_sql_query(
-            sql_query, self.db, index_col="unit_type"
-        ).rename(columns={"COUNT(unit_type)": "num_units"})
-
-        # Postprocess ALEAF dispatch results
-        ALEAF_dsp_results = dsp.postprocess_dispatch(
-            ALEAF_dsp_file, num_units, self.unit_specs
-        )
-        ALEAF_dsp_results["period"] = self.current_pd
-        ALEAF_dsp_results = ALEAF_dsp_results.reset_index().rename(
-            columns={"index": "unit_type"}
-        )
-
-        # Get list of column names for ordering
-        cursor = self.db.cursor().execute(
-            "SELECT * FROM annual_dispatch_unit_summary"
-        )
-        col_names = [description[0] for description in cursor.description]
-
-        # Reorder ALEAF_dsp_results to match database
-        ALEAF_dsp_results = ALEAF_dsp_results[col_names]
-
-        logging.debug(ALEAF_dsp_results)
-
-        ALEAF_dsp_results.to_sql(
-            "ALEAF_dispatch_results", self.db, if_exists="append", index=False
-        )
-
 

@@ -43,19 +43,6 @@ def set_up_local_paths(settings):
     # Set the path for ABCE files to the directory where run.py is saved
     settings["file_paths"]["ABCE_abs_path"] = Path(__file__).parent
 
-    if settings["simulation"]["annual_dispatch_engine"] == "ALEAF":
-        # Try to locate an environment variable to specify where A-LEAF is located
-        try:
-            settings["ALEAF"]["ALEAF_abs_path"] = Path(os.environ["ALEAF_DIR"])
-        except KeyError:
-            msg = (
-                "The environment variable ALEAF_abs_path does not appear "
-                + "to be set. Please make sure it points to the correct "
-                + "directory."
-            )
-            logging.error(msg)
-            raise
-
     return settings
 
 

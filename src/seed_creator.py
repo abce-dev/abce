@@ -20,7 +20,6 @@ import sqlite3
 import os
 import sys
 import logging
-import pandas as pd
 
 # Database Specification:
 abce_tables = {

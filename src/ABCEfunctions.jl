@@ -99,22 +99,8 @@ end
 
 function set_up_local_paths(settings, abce_abs_path)
     settings["file_paths"]["ABCE_abs_path"] = abce_abs_path
-    if settings["simulation"]["annual_dispatch_engine"] == "ALEAF"
-        try
-            settings["file_paths"]["ALEAF_abs_path"] = ENV["ALEAF_DIR"]
-        catch LoadError
-            @error string(
-                "The environment variable ALEAF_abs_path does not ",
-                "appear to be set. Please make sure it points to ",
-                "the correct directory.",
-            )
-        end
-    else
-        settings["file_paths"]["ALEAF_abs_path"] = "NULL_PATH"
-    end
 
     return settings
-
 end
 
 

@@ -30,13 +30,11 @@ JULIA_MAKE_FILE="env/make_julia_environment.jl"
 JULIA_URL="https://julialang-s3.julialang.org/bin/linux/x64/1.8/julia-1.8.2-linux-x86_64.tar.gz"
 
 # Check for command-line arguments
-#   -a: pre-specify the ALEAF_DIR absolute path as a command-line argument
 #   -n: ignore conda for package management (1=force ignore conda)
 #   -f: auto-agree to any yes/no user prompts
 while getopts a:nf flag
 do
     case "${flag}" in
-        a) aleaf_dir=${OPTARG};;
         n) no_conda=1;;
         f) force=1;;
     esac
@@ -51,18 +49,6 @@ abce_dir=$( dirname -- $( readlink -f -- "$0"; ) )
 echo "\$ABCE_DIR will be set to $abce_dir"
 export ABCE_DIR=$abce_dir
 export ABCE_ENV="$ABCE_DIR/env"
-
-# Set up ALEAF_DIR
-# If specified by a command-line argument, don't prompt the user for the
-#   ALEAF_DIR location. The empty string "" is a valid command-line value
-#   for this directory.
-if [[ ! -n ${aleaf_dir+x} ]]; then
-    # If not specified in the command line, request a value from the user
-    echo "Please enter the absolute path to the top level of the ALEAF source directory."
-    echo "If you do not have ALEAF installed, press Enter to leave this variable empty."
-    read aleaf_dir
-fi
-echo "\$ALEAF_DIR will be set to $aleaf_dir"
 
 
 #################################################################
@@ -201,7 +187,6 @@ echo "# ABCE configuration" >> "${RC_FILE}"
 echo "#   Delete this block to remove undesired side effects (e.g. Julia version update)" >> "${RC_FILE}"
 echo "#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - " >> "${RC_FILE}"
 echo "export ABCE_DIR=$abce_dir" >> "${RC_FILE}"
-echo "export ALEAF_DIR=$aleaf_dir" >> "${RC_FILE}"
 echo "export ABCE_ENV=$abce_dir/env" >> "${RC_FILE}"
 
 # Ensure that julia-1.8.2 is added to the $PATH such that the `julia` command
@@ -234,7 +219,7 @@ if [[ -z $( which cplex ) ]]; then
     echo "Either CPLEX is not installed, or you haven't added the location of the 'cplex' binary to the path."
     echo "If you can't install CPLEX, be sure to change the 'solver' setting in settings.yml to a different solver (recommended alternative: 'HiGHS')."
 elif [[ -z $( echo $( which cplex) | grep -E "201" ) ]]; then
-    echo "ABCE and A-LEAF require CPLEX 20.1, but it appears that you have a different version installed."
+    echo "ABCE requires CPLEX 20.1, but it appears that you have a different version installed."
     echo "If you can't install CPLEX 20.1, be sure to change the 'solver' setting in settings.yml to a different solver (recommended alternative: 'HiGHS')."
 else
     echo "CPLEX 20.1 found on the path."
