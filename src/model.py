@@ -595,8 +595,6 @@ class GridModel(Model):
             logging.log(self.settings["constants"]["vis_lvl"], "\n")
             user_response = input("Press Enter to continue: ")
 
-        dispatch_engine = self.settings["simulation"]["annual_dispatch_engine"]
-
         # Set up the command to run dispatch.jl in annual exact mode
         ABCE_ENV = Path(os.environ["ABCE_ENV"])
         annual_disp_script_path = Path(self.settings["file_paths"]["ABCE_abs_path"]) / "src" / "annual_dispatch.jl"
