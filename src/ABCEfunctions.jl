@@ -19,15 +19,8 @@ module ABCEfunctions
 using ArgParse, CPLEX,
     Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS, Statistics
 
-# Use CPLEX if available
-#function __init__()
-#    @require CPLEX = "a076750e-1247-5638-91d2-ce28b192dca0" @eval using CPLEX
-#end
-
 include("./dispatch.jl")
 using .Dispatch
-include("./C2N_projects.jl")
-using .C2N
 include("./income_statement.jl")
 using .ISpf
 
@@ -101,39 +94,6 @@ function set_up_local_paths(settings, abce_abs_path)
     settings["file_paths"]["ABCE_abs_path"] = abce_abs_path
 
     return settings
-end
-
-
-function validate_project_data(db, settings, unit_specs, C2N_specs)
-    for unit_type in unit_specs[!, :unit_type]
-        if occursin("C2N", unit_type)
-            unit_type_data =
-                filter(:unit_type => x -> x == unit_type, unit_specs)[1, :]
-
-            # Dummy data for schedule retrieval
-            lag = 0
-            fc_pd = 70
-            current_pd = 0
-
-            capex_tl, activity_schedule = project_C2N_capex(
-                db,
-                settings,
-                unit_type_data,
-                lag,
-                fc_pd,
-                current_pd,
-                C2N_specs,
-            )
-
-            unit_specs[
-                (unit_specs.unit_type .== unit_type),
-                :construction_duration,
-            ] .= size(capex_tl)[1]
-        end
-    end
-
-    return unit_specs
-
 end
 
 
@@ -561,7 +521,6 @@ function set_up_project_alternatives(
     agent_params,
     db,
     current_pd,
-    C2N_specs,
     dispatch_results,
 )
     PA_summaries = create_PA_summaries(settings, unit_specs, asset_counts)
@@ -579,7 +538,6 @@ function set_up_project_alternatives(
             PA,
             fc_pd,
             current_pd,
-            C2N_specs,
             agent_id,
             agent_params,
             dispatch_results,
@@ -704,7 +662,6 @@ function create_PA_subprojects(
     PA,
     fc_pd,
     current_pd,
-    C2N_specs,
     agent_id,
     agent_params,
     dispatch_results,
@@ -727,7 +684,6 @@ function create_PA_subprojects(
             subproject,
             fc_pd,
             current_pd,
-            C2N_specs,
             agent_id,
             agent_params,
             dispatch_results,
@@ -795,7 +751,6 @@ function forecast_subproject_financials(
     subproject,
     fc_pd,
     current_pd,
-    C2N_specs,
     agent_id,
     agent_params,
     dispatch_results,
@@ -836,7 +791,6 @@ function forecast_subproject_financials(
             unit_type_data,
             subproject,
             current_pd,
-            C2N_specs,
             deepcopy(subproject_fs),
         )
 
@@ -896,7 +850,6 @@ function forecast_capex(
     unit_type_data,
     subproject,
     current_pd,
-    C2N_specs,
     fs_copy,
 )
     capex_per_pd = (
@@ -915,64 +868,6 @@ function forecast_capex(
     fs_copy[!, :capex] = vcat(head_zeros, capex_timeline, tail_zeros)
 
     return fs_copy
-end
-
-
-function project_C2N_capex(
-    db,
-    settings,
-    unit_type_data,
-    lag,
-    fc_pd,
-    current_pd,
-    C2N_specs,
-)
-    assumption = settings["simulation"]["C2N_assumption"]
-    # Set the project parameters
-    if occursin("C2N0", unit_type_data[:unit_type])
-        conversion_type = "greenfield"
-        if occursin("PWR", unit_type_data[:unit_type])
-            rxtr_type = "PWR"
-        elseif occursin("HTGR", unit_type_data[:unit_type])
-            rxtr_type = "HTGR"
-        else
-            rxtr_type = "SFR"
-        end
-
-        data = deepcopy(C2N_specs[conversion_type][rxtr_type])
-
-    else
-        if occursin("C2N1", unit_type_data[:unit_type])
-            conversion_type = "electrical"
-            rxtr_type = "PWR"
-        elseif occursin("C2N2", unit_type_data[:unit_type])
-            conversion_type = "steam_noTES"
-            rxtr_type = "HTGR"
-        else
-            conversion_type = "steam_TES"
-            rxtr_type = "SFR"
-        end
-        data = deepcopy(C2N_specs[conversion_type][assumption])
-    end
-
-    # Scale cost component data to match unit type specification data
-    for key in keys(data)
-        data[key]["cost_rem"] = data[key]["cost_rem"] * unit_type_data[:overnight_capital_cost]
-    end
-
-    # Develop the C2N capex profile
-    capex_tl, activity_schedule = C2N.create_C2N_capex_timeline(
-        db,
-        conversion_type,
-        rxtr_type,
-        current_pd,
-        lag,
-        fc_pd,
-        data,
-        unit_type_data,
-    )
-
-    return capex_tl, activity_schedule
 end
 
 
