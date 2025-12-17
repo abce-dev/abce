@@ -128,7 +128,14 @@ function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd, downselection_
         num_repdays=num_days
     )
 
-    return ts_data
+    repdays_data = set_up_repdays_data(
+        ts_data_dir,
+        current_pd,
+        fc_pd,
+        num_repdays=num_days
+    )
+
+    return ts_data, repdays_data
 end
 
 
@@ -165,7 +172,7 @@ function handle_annual_dispatch(
         @info "\n\nDISPATCH SIMULATION: YEAR $y"
 
         # Set up the timeseries data for this year
-        ts_data = set_up_ts_data(
+        ts_data, repdays_data = set_up_ts_data(
             settings,
             ts_data_dir,
             CLI_args["current_pd"],
@@ -173,7 +180,7 @@ function handle_annual_dispatch(
             downselection_mode
         )
 
-        y_repdays = deepcopy(ts_data[:repdays_data])
+        y_repdays = deepcopy(repdays_data)
         y_repdays[!, :y] .= y
 
         if all_repdays == nothing
@@ -239,6 +246,21 @@ function load_ts_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
     nspin_data = 
         CSV.read(joinpath(ts_file_dir, "timeseries_nspin_hourly.csv"), DataFrame)
 
+    ts_data = Dict(
+        :load_data => load_data,
+        :wind_data => wind_data,
+        :solar_data => solar_data,
+        :reg_data => reg_data,
+        :spin_data => spin_data,
+        :nspin_data => nspin_data,
+#        :repdays_data => repdays_data,
+    )
+
+    return ts_data
+end
+
+
+function set_up_repdays_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
     if num_repdays == nothing
         repdays_data = nothing
     elseif num_repdays == 365
@@ -265,18 +287,11 @@ function load_ts_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
         )
     end
 
-    ts_data = Dict(
-        :load_data => load_data,
-        :wind_data => wind_data,
-        :solar_data => solar_data,
-        :reg_data => reg_data,
-        :spin_data => spin_data,
-        :nspin_data => nspin_data,
-        :repdays_data => repdays_data,
-    )
 
-    return ts_data
+
+    return repdays_data
 end
+
 
 function set_up_grc_results_df()
     all_grc_results = DataFrame(
