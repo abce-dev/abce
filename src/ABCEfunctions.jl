@@ -381,32 +381,6 @@ function get_demand_forecast(db, pd, fc_pd, settings)
 end
 
 
-function fill_portfolios_missing_units(current_pd, system_portfolios, unit_specs)
-    # Ensure that at least 1 unit of every available type in unit_specs is
-    #   represented in every year of the system portfolio, by adding 1 instance
-    #   of each missing unit type.
-    # Units are only added starting at the earliest year in which construction
-    #   of such a unit could have been completed.
-
-    # Retrieve only the necessary unit_specs columns
-    brief_unit_specs = unit_specs[!, [:unit_type, :capacity, :capacity_factor]]
-
-    for y = minimum(keys(system_portfolios)):maximum(keys(system_portfolios))
-        for unit_type_specs in eachrow(unit_specs)
-            if !in(unit_type_specs.unit_type, system_portfolios[y][!, :unit_type])
-                if y - current_pd >= unit_type_specs.construction_duration
-                    # Target dataframe columns:
-                    # unit_type, num_units, real, auto_expansion, capacity, capacity_factor, total_capacity
-                    push!(system_portfolios[y], (unit_type_specs.unit_type, 1, 0, 0, unit_type_specs.capacity, unit_type_specs.capacity_factor, unit_type_specs.capacity))
-                end
-            end
-        end
-    end
-
-    return system_portfolios
-end
-
-
 function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_portfolios, agent_params, current_pd, settings, demand_forecast)
     end_year = (current_pd + convert(Int64, settings["dispatch"]["num_dispatch_years"]) - 1)
 
