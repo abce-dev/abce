@@ -161,8 +161,6 @@ The input files required to run ABCE are as follows:
 
    * `agent_specifications.yml`: definitions for the agents: financial parameters, starting portfolios by unit type, and mandatory retirement dates for owned units
 
-   * `C2N_project_definitions.yml`: contains project activity cost and schedule information for coal-to-nuclear projects
-
    * `demand_data.csv`: normalized peak demand levels per simulated year (used to scale the `peak_demand` parameter)
 
    * `unit_specs.yml`: construction and operations cost and parameter data for all possible unit types in the model

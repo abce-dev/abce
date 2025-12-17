@@ -142,7 +142,7 @@ function run_true_annual_dispatch()
     total_demand = ABCEfunctions.get_demand_forecast(db, CL_args["current_pd"], 1, settings)
     system_portfolio_dict = get_year_portfolio(db, CL_args["current_pd"], unit_specs)
 
-    @info "Running the year-long dispatch simulation (this may take a little while)..."
+    @info "Running the year-long dispatch simulation..."
     # Run the year's UC/ED problem
     long_econ_results, dispatch_results = Dispatch.execute_dispatch_economic_projection(
         CL_args,
