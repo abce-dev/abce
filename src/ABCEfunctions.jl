@@ -381,7 +381,7 @@ function get_demand_forecast(db, pd, fc_pd, settings)
 end
 
 
-function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_portfolios, agent_params, current_pd, settings, demand_forecast)
+function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_portfolios, agent_params, current_pd, settings, demand_forecast, unit_specs)
     end_year = (current_pd + convert(Int64, settings["dispatch"]["num_dispatch_years"]) - 1)
 
     prm = DBInterface.execute(
@@ -391,7 +391,7 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
     prm = prm[1, :value]
 
     # Shortest possible construction period
-    delay = 3
+    delay = minimum(unit_specs[!, :construction_duration])
 
     for y = current_pd:end_year
         apf = select(agent_portfolios[y], [:unit_type, :total_capacity])

@@ -229,6 +229,7 @@ function run_agent_choice()
         CLI_args["current_pd"],
         settings,
         demand_forecast,
+        unit_specs,
     )
 
 
