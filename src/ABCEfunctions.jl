@@ -422,21 +422,23 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
         k = agent_params[1, :k]
 
         if (c_y / d_y < (1 + prm)) && (y >= current_pd + delay)
-            # Compute escalation factor
-            esc = (1 + prm) * d_y / c_y
-
             # Allow determination of % of year y's capacity attributable to
             #    unit types with auto-expansion enabled
             ae_y = filter(:auto_expansion => auto -> auto == 1.0, adj_system_portfolios[y])
             ae_c_y = sum(ae_y[!, :total_derated_capacity])
+
+            # Compute escalation factor: autoexpandable unit types need to 
+            #   make up capacity deficit such that esc * ae_c_y / d_y = prm
+            #   (ae_c_y <= c_y because ae is a subset of unit_types)
+            esc = prm * d_y / ae_c_y
 
             # Escalate derated capacities owned by balance-of-market to meet PRM,
             #   based on the year's derated capacity mix
             transform!(
                 adj_system_portfolios[y],
                 [:total_derated_capacity, :agent_cap_frac, :auto_expansion] 
-                    => ((c_iy, acap, auto) 
-                        -> c_iy .+ auto .* ((1 .- acap) .* (c_iy ./ ae_c_y) .* (d_y .* esc .- c_y)))
+                    => ((c_iy, acap, auto)
+                        -> c_iy .+ auto .* c_iy .* esc .* (1 .- acap))
                     => :total_esc_der_capacity
             )
             println(adj_system_portfolios[y])
