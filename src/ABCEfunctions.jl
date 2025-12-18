@@ -409,7 +409,7 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
 
         if (c_y / d_y < (1 + prm)) && (y >= current_pd + delay)
             # Compute escalation factor
-            esc = 1 + prm * d_y / c_y
+            esc = (1 + prm) * d_y / c_y
 
             ae_y = filter(:auto_expansion => auto -> auto == 1.0, adj_system_portfolios[y])
             ae_c_y = sum(ae_y[!, :total_derated_capacity])
