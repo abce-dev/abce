@@ -381,8 +381,8 @@ function get_demand_forecast(db, pd, fc_pd, settings)
 end
 
 
-function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_portfolios, agent_params, current_pd, settings, demand_forecast, unit_specs)
-    end_year = (current_pd + convert(Int64, settings["dispatch"]["num_dispatch_years"]) - 1)
+function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_portfolios, k, current_pd, num_dispatch_years, demand_forecast, unit_specs)
+    end_year = (current_pd + convert(Int64, num_dispatch_years) - 1)
 
     prm = DBInterface.execute(
        db,
@@ -419,8 +419,6 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
         d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
         c_y = sum(adj_system_portfolios[y][!, :total_derated_capacity])
 
-        k = agent_params[1, :k]
-
         if (c_y / d_y < (1 + prm)) && (y >= current_pd + delay)
             # Allow determination of % of year y's capacity attributable to
             #    unit types with auto-expansion enabled
@@ -438,7 +436,7 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
                 adj_system_portfolios[y],
                 [:total_derated_capacity, :agent_cap_frac, :auto_expansion] 
                     => ((c_iy, acap, auto)
-                        -> c_iy .+ auto .* c_iy .* esc .* (1 .- acap))
+                        -> c_iy .+ auto .* c_iy .* esc .* (1 .- acap) .* k)
                     => :total_esc_der_capacity
             )
             println(adj_system_portfolios[y])

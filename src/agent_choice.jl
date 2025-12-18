@@ -225,9 +225,9 @@ function run_agent_choice()
         db,
         system_portfolios,
         agent_portfolios,
-        agent_params,
+        agent_params[1, :k],
         CLI_args["current_pd"],
-        settings,
+        settings["dispatch"]["num_dispatch_years"],
         demand_forecast,
         unit_specs,
     )
