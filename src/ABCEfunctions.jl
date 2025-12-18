@@ -399,8 +399,22 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
 
         adj_system_portfolios[y] = coalesce.(outerjoin(adj_system_portfolios[y], apf, on = :unit_type), 0)
 
-        transform!(adj_system_portfolios[y], [:total_capacity, :capacity_factor] => ((cap, cf) -> cap .* cf) => :total_derated_capacity)
-        transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((total_cap, agent_cap) -> (total_cap) ./ total_cap) => :my)
+        # Calculate derated capacity for each unit type via CF
+        transform!(
+            adj_system_portfolios[y],
+            [:total_capacity, :capacity_factor] 
+                => ((cap, cf) -> cap .* cf)
+                => :total_derated_capacity
+        )
+
+        # Determine the percentage of unit type capacity owned by the
+        #   current agent
+        transform!(
+            adj_system_portfolios[y],
+            [:total_capacity, :agent_total_capacity]
+                => ((total_cap, agent_cap) -> (agent_cap) ./ total_cap)
+                => :agent_cap_frac
+        )
 
         d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
         c_y = sum(adj_system_portfolios[y][!, :total_derated_capacity])
@@ -411,17 +425,40 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
             # Compute escalation factor
             esc = (1 + prm) * d_y / c_y
 
+            # Allow determination of % of year y's capacity attributable to
+            #    unit types with auto-expansion enabled
             ae_y = filter(:auto_expansion => auto -> auto == 1.0, adj_system_portfolios[y])
             ae_c_y = sum(ae_y[!, :total_derated_capacity])
 
-            transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :auto_expansion] => ((c_iy, my, cf, auto) -> c_iy .+ auto .* (my .* (c_iy ./ ae_c_y) .* (d_y .* esc .- c_y))) => :total_esc_der_capacity)
+            # Escalate derated capacities owned by balance-of-market to meet PRM,
+            #   based on the year's derated capacity mix
+            transform!(
+                adj_system_portfolios[y],
+                [:total_derated_capacity, :agent_cap_frac, :auto_expansion] 
+                    => ((c_iy, acap, auto) 
+                        -> c_iy .+ auto .* ((1 .- acap) .* (c_iy ./ ae_c_y) .* (d_y .* esc .- c_y)))
+                    => :total_esc_der_capacity
+            )
+            println(adj_system_portfolios[y])
         else
             adj_system_portfolios[y][!, :total_esc_der_capacity] .= adj_system_portfolios[y][!, :total_derated_capacity]
         end
 
-        transform!(adj_system_portfolios[y], [:total_esc_der_capacity, :capacity_factor] => ((c_iy, cf) -> c_iy ./ cf) => :total_esc_capacity)
+        # Convert escalate derated capacity back into nameplate capacity via CF
+        transform!(
+            adj_system_portfolios[y],
+            [:total_esc_der_capacity, :capacity_factor] 
+                => ((c_iy, cf) -> c_iy ./ cf) 
+                => :total_esc_capacity
+        )
 
-        transform!(adj_system_portfolios[y], [:total_esc_capacity, :capacity] => ((total_esc_cap, cap) -> ceil.(total_esc_cap ./cap)) => :esc_num_units)
+        # Convert the escalated total nameplate capacities to unit counts
+        transform!(
+            adj_system_portfolios[y],
+            [:total_esc_capacity, :capacity] 
+                => ((total_esc_cap, cap) -> ceil.(total_esc_cap ./cap))
+                => :esc_num_units
+        )
 
     end
 
