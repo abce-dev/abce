@@ -439,7 +439,6 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
                         -> c_iy .+ auto .* c_iy .* esc .* (1 .- acap) .* k)
                     => :total_esc_der_capacity
             )
-            println(adj_system_portfolios[y])
         else
             adj_system_portfolios[y][!, :total_esc_der_capacity] .= adj_system_portfolios[y][!, :total_derated_capacity]
         end
