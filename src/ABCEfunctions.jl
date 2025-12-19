@@ -381,34 +381,8 @@ function get_demand_forecast(db, pd, fc_pd, settings)
 end
 
 
-function fill_portfolios_missing_units(current_pd, system_portfolios, unit_specs)
-    # Ensure that at least 1 unit of every available type in unit_specs is
-    #   represented in every year of the system portfolio, by adding 1 instance
-    #   of each missing unit type.
-    # Units are only added starting at the earliest year in which construction
-    #   of such a unit could have been completed.
-
-    # Retrieve only the necessary unit_specs columns
-    brief_unit_specs = unit_specs[!, [:unit_type, :capacity, :capacity_factor]]
-
-    for y = minimum(keys(system_portfolios)):maximum(keys(system_portfolios))
-        for unit_type_specs in eachrow(unit_specs)
-            if !in(unit_type_specs.unit_type, system_portfolios[y][!, :unit_type])
-                if y - current_pd >= unit_type_specs.construction_duration
-                    # Target dataframe columns:
-                    # unit_type, num_units, real, auto_expansion, capacity, capacity_factor, total_capacity
-                    push!(system_portfolios[y], (unit_type_specs.unit_type, 1, 0, 0, unit_type_specs.capacity, unit_type_specs.capacity_factor, unit_type_specs.capacity))
-                end
-            end
-        end
-    end
-
-    return system_portfolios
-end
-
-
-function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_portfolios, agent_params, current_pd, settings, demand_forecast)
-    end_year = (current_pd + convert(Int64, settings["dispatch"]["num_dispatch_years"]) - 1)
+function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_portfolios, k, current_pd, num_dispatch_years, demand_forecast, unit_specs)
+    end_year = (current_pd + convert(Int64, num_dispatch_years) - 1)
 
     prm = DBInterface.execute(
        db,
@@ -417,7 +391,7 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
     prm = prm[1, :value]
 
     # Shortest possible construction period
-    delay = 3
+    delay = minimum(unit_specs[!, :construction_duration])
 
     for y = current_pd:end_year
         apf = select(agent_portfolios[y], [:unit_type, :total_capacity])
@@ -425,36 +399,65 @@ function forecast_balance_of_market_investment(db, adj_system_portfolios, agent_
 
         adj_system_portfolios[y] = coalesce.(outerjoin(adj_system_portfolios[y], apf, on = :unit_type), 0)
 
-        transform!(adj_system_portfolios[y], [:total_capacity, :capacity_factor] => ((cap, cf) -> cap .* cf) => :total_derated_capacity)
-        transform!(adj_system_portfolios[y], [:total_capacity, :agent_total_capacity] => ((total_cap, agent_cap) -> (total_cap) ./ total_cap) => :my)
+        # Calculate derated capacity for each unit type via CF
+        transform!(
+            adj_system_portfolios[y],
+            [:total_capacity, :capacity_factor] 
+                => ((cap, cf) -> cap .* cf)
+                => :total_derated_capacity
+        )
+
+        # Determine the percentage of unit type capacity owned by the
+        #   current agent
+        transform!(
+            adj_system_portfolios[y],
+            [:total_capacity, :agent_total_capacity]
+                => ((total_cap, agent_cap) -> (agent_cap) ./ total_cap)
+                => :agent_cap_frac
+        )
 
         d_y = filter(:period => x -> x == y, demand_forecast)[1, :total_demand]
         c_y = sum(adj_system_portfolios[y][!, :total_derated_capacity])
 
-        k = agent_params[1, :k]
-
         if (c_y / d_y < (1 + prm)) && (y >= current_pd + delay)
-            # Compute escalation factor
-            # Linearly increases to cover the difference between cy/dy and prm,
-            #   starting at (b)% of the difference and increasing to the
-            #   full difference over (n) years
-            n = 4
-            b = 0.5
-            j = min(n, y - delay - current_pd)
-            s = b + (1 - b) / n * j
-            esc = c_y / d_y + ((1 + prm) - c_y / d_y) * s * k
-
+            # Allow determination of % of year y's capacity attributable to
+            #    unit types with auto-expansion enabled
             ae_y = filter(:auto_expansion => auto -> auto == 1.0, adj_system_portfolios[y])
             ae_c_y = sum(ae_y[!, :total_derated_capacity])
 
-            transform!(adj_system_portfolios[y], [:total_derated_capacity, :my, :capacity_factor, :auto_expansion] => ((c_iy, my, cf, auto) -> c_iy .+ auto .* (my .* (c_iy ./ ae_c_y) .* (d_y .* esc .- c_y))) => :total_esc_der_capacity)
+            # Compute escalation factor: autoexpandable unit types need to 
+            #   make up capacity deficit such that esc * ae_c_y / d_y = prm
+            #   (ae_c_y <= c_y because ae is a subset of unit_types)
+            esc = prm * d_y / ae_c_y
+
+            # Escalate derated capacities owned by balance-of-market to meet PRM,
+            #   based on the year's derated capacity mix
+            transform!(
+                adj_system_portfolios[y],
+                [:total_derated_capacity, :agent_cap_frac, :auto_expansion] 
+                    => ((c_iy, acap, auto)
+                        -> c_iy .+ auto .* c_iy .* esc .* (1 .- acap) .* k)
+                    => :total_esc_der_capacity
+            )
         else
             adj_system_portfolios[y][!, :total_esc_der_capacity] .= adj_system_portfolios[y][!, :total_derated_capacity]
         end
 
-        transform!(adj_system_portfolios[y], [:total_esc_der_capacity, :capacity_factor] => ((c_iy, cf) -> c_iy ./ cf) => :total_esc_capacity)
+        # Convert escalate derated capacity back into nameplate capacity via CF
+        transform!(
+            adj_system_portfolios[y],
+            [:total_esc_der_capacity, :capacity_factor] 
+                => ((c_iy, cf) -> c_iy ./ cf) 
+                => :total_esc_capacity
+        )
 
-        transform!(adj_system_portfolios[y], [:total_esc_capacity, :capacity] => ((total_esc_cap, cap) -> ceil.(total_esc_cap ./cap)) => :esc_num_units)
+        # Convert the escalated total nameplate capacities to unit counts
+        transform!(
+            adj_system_portfolios[y],
+            [:total_esc_capacity, :capacity] 
+                => ((total_esc_cap, cap) -> ceil.(total_esc_cap ./cap))
+                => :esc_num_units
+        )
 
     end
 
