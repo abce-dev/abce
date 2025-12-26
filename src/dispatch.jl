@@ -48,6 +48,16 @@ function execute_dispatch_economic_projection(
         downselection_mode=downselection_mode
     )
 
+    if run_mode == "forecast"
+        all_grc_results, system_portfolios = forecast_dispatch_novel_units(
+            settings,
+            unit_specs,
+            all_grc_results,
+            all_price_results,
+            system_portfolios,
+        )
+    end
+
     long_econ_results, dispatch_results = postprocess_results(
         CLI_args,
         settings,
@@ -1477,6 +1487,103 @@ function summarize_dispatch_results(settings, unit_specs, long_econ_results)
     rename!(dispatch_results, :variable => :dispatch_result, :value => :qty)
 
     return dispatch_results
+end
+
+
+function forecast_dispatch_novel_units(
+    settings,
+    unit_specs,
+    all_grc_results,
+    all_price_results,
+    system_portfolios,
+)
+    supplemented_grc = deepcopy(all_grc_results)
+    px = deepcopy(all_price_results)
+    allowed = settings["scenario"]["allowed_xtr_types"]
+
+    for t in unique(all_grc_results[!, :y])
+        year_grc_data = filter(:y => y -> y == t, supplemented_grc)
+        year_px_data = filter(:y => y -> y == t, px)
+
+        for unit_type in allowed
+            if !in(unit_type, unique(year_grc_data[!, :unit_type]))
+                udata = filter(:unit_type => u -> u == unit_type, unit_specs)
+                uMC = udata[1, :FC_per_MWh] + udata[1, :VOM]
+
+                # Assumption: novel units dispatch at max PL * (1-CF) whenever
+                #   they screen in to the market clearing price
+                ugen = udata[1, :capacity] * udata[1, :capacity_factor]
+
+                # Create a column in the prices df containing the generation
+                #    curve of the unit type
+                transform!(
+                    year_px_data,
+                    [:lambda]
+                        => ((lambda) -> ifelse.((lambda .>= uMC), ugen, 0))
+                        => Symbol(unit_type)
+                )
+
+                # Add 1 dummy unit of this type to the system portfolio
+                unit_pf_row = [
+                    unit_type,
+                    1,           # num_units
+                    0.0,         # real
+                    0.0,         # autoexpansion
+                    udata[1, :capacity],
+                    udata[1, :capacity_factor],
+                    udata[1, :capacity],          # total capacity (1 x cap)
+                    0.0,         # agent_total_capacity
+                    ugen,        # total_derated_capacity
+                    0.0,         # agent_cap_frac
+                    ugen,        # total_esc_der_cap
+                    udata[1, :capacity],   # total_esc_cap
+                    1,           # esc_num_units
+                ]
+                push!(system_portfolios[t], unit_pf_row)
+            end
+        end
+
+        # Select relevant columns from prices df and reshape to match grc
+        novel_types = setdiff(
+                          names(year_px_data),
+                          ["y", "d", "h", "lambda", "reg_rmp", "spin_rmp", "nspin_rmp"],
+                      )
+
+        year_supp_grc = stack(
+            year_px_data,
+            novel_types
+        )
+
+        # Convert column names to match grc format
+        year_supp_grc = rename(year_supp_grc, :variable => :unit_type)
+        year_supp_grc = rename(year_supp_grc, :value => :gen)
+
+        # Remove unneeded price columns
+        year_supp_grc = select(year_supp_grc, Not([:lambda, :reg_rmp, :spin_rmp, :nspin_rmp]))
+
+        # Fill out other grc columns
+        year_supp_grc[!, :reg] .= 0.0
+        year_supp_grc[!, :spin] .= 0.0
+        year_supp_grc[!, :nspin] .= 0.0
+
+        # commitment
+        transform!(
+            year_supp_grc,
+            [:gen]
+                => ((gen) -> ifelse.((gen .> 0.0), 1, 0))
+                => :commit
+        )
+
+        year_supp_grc[!, :su] .= 0
+        year_supp_grc[!, :sd] .= 0
+
+        supplemented_grc = vcat(supplemented_grc, year_supp_grc)
+
+    end
+
+
+    return supplemented_grc, system_portfolios
+
 end
 
 

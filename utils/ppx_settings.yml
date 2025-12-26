@@ -1,7 +1,8 @@
 root_dir: "/filespace/k/kebiegel/abce/outputs/"
 common_prefix: ""
-groupname: "fakeunits_comp"
+groupname: "baseline"
 runs:
-  - "fake_units_diagnostic"
+  - "baseline"
 agents:
   - 201
+  - 202
