@@ -1650,16 +1650,6 @@ function postprocess_results(
             ),
             sLER,
         )
-
-        dispres_filename = string("dispatch_results__", id, "basepd_", current_pd, ".csv")
-        CSV.write(
-            joinpath(
-                settings["file_paths"]["output_logging_dir"],
-                settings["simulation"]["scenario_name"],
-                dispres_filename,
-            ),
-            dispatch_results,
-        )
     end
 
 
