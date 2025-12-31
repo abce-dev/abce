@@ -1904,15 +1904,15 @@ function set_up_model(
 
     # Set relative valuation-vs-credit metrics priority, depending on current
     #   credit grade
-    profit_lamda = settings["agent_opt"]["profit_lamda"] / 1e9 * cr_adj
-    credit_rating_lamda = settings["agent_opt"]["credit_rating_lamda"] / cr_adj
+    profit_lambda = settings["agent_opt"]["profit_lambda"] / 1e9 * cr_adj
+    credit_rating_lambda = settings["agent_opt"]["credit_rating_lambda"] / cr_adj
 
     @objective(
         m,
         Max,
         (
-            profit_lamda * (transpose(u) * PA_summaries[!, :NPV]) +
-            credit_rating_lamda / (0.1 + 0.2 + 0.1) * (
+            profit_lambda * (transpose(u) * PA_summaries[!, :NPV]) +
+            credit_rating_lambda / (0.1 + 0.2 + 0.1) * (
                 0.1 * sum(agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])) for i=1:fin_metric_horizon)
                 + 0.2 * sum((agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
                 + 0.1 * sum((agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_RE[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
