@@ -1659,9 +1659,64 @@ end
 
 function finalize_annual_dispatch_results(db, current_pd, long_econ_results, dispatch_results)
     #save_annual_dispatch_summary(db, current_pd, long_econ_results)
-    #save_annual_dispatch_hourly_results(db, current_pd, long_econ_results)
+    save_annual_dispatch_hourly_results(db, current_pd, long_econ_results)
     save_annual_dispatch_unit_summary(db, current_pd, dispatch_results)
-    #save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
+    save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
+end
+
+
+function save_annual_dispatch_hourly_results(db, current_pd, long_econ_results)
+    # Get columns of interest from LER
+    results = deepcopy(
+        long_econ_results[:, [:y, :d, :h, :unit_type, :lambda, :reg_rmp, :spin_rmp, :nspin_rmp]]
+    )
+
+    # Remove duplicates and delete unit_type column
+    long_econ_results = filter(
+        :unit_type => ut -> ut == "wind",
+        long_econ_results,
+    )
+
+    long_econ_results = select(long_econ_results, Not([:unit_type]))
+
+    # Rename the columns to match the DB standard
+    rename!(
+        results,
+        :y => :period,
+        :d => :day,
+        :h => :hour,
+        :reg_rmp => :reg_price,
+        :spin_rmp => :spin_price,
+        :nspin_rmp => :nspin_price,
+    )
+
+    stmt = DBInterface.prepare(
+        db,
+        """INSERT INTO annual_dispatch_hourly_results VALUES (:period, :day, :hour, :demand, :reg_demand, :spin_demand, :nspin_demand, :lambda, :reg_price, :spin_price, :nspin_price, :ENS, :RNS, :SNS, :NSNS)"""
+    )
+
+    zeroes = results[!, :period] .* 0
+
+    DBInterface.executemany(
+        stmt,
+        (period = results[!, :period],
+         day = results[!, :day],
+         hour = results[!, :hour],
+         demand = zeroes,
+         reg_demand = zeroes,
+         spin_demand = zeroes,
+         nspin_demand = zeroes,
+         lambda = results[!, :lambda],
+         reg_price = results[!, :reg_price],
+         spin_price = results[!, :spin_price],
+         nspin_price = results[!, :nspin_price],
+         ENS = zeroes,
+         RNS = zeroes,
+         SNS = zeroes,
+         NSNS = zeroes,
+        )
+    )
+
 end
 
 
@@ -1691,6 +1746,7 @@ function save_annual_dispatch_unit_summary(db, current_pd, dispatch_results)
     end
 
 end
+
 
 function save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
     # Get columns of interest
