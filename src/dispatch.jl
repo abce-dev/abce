@@ -1684,8 +1684,9 @@ function save_annual_dispatch_hourly_results(db, current_pd, long_econ_results, 
     )
 
     # Remove duplicates and delete unit_type column
+    filter_type = unique(results[!, :unit_type])[1]
     results = filter(
-        :unit_type => ut -> ut == "wind",
+        :unit_type => ut -> ut == filter_type,
         long_econ_results,
     )
 
