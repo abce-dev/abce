@@ -307,7 +307,7 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
         handles[::-1],
         labels[::-1],
         loc="center left",
-         bbox_to_anchor=(1.0, 0.5),
+        bbox_to_anchor=(1.0, 0.5),
     )
 
     # Save the figure
