@@ -51,7 +51,7 @@ def get_cli_args():
     parser.add_argument(
         "--dir",
         type=str,
-        required=True
+        required=True,
     )
 
     parser.add_argument(
@@ -192,7 +192,10 @@ def get_portfolio_profile(db, agent_id, unit_specs, settings):
         portfolios["num_units"] * portfolios["capacity"]
     )
     portfolios = pd.pivot_table(
-        portfolios, values="total_capacity", index="year", columns=["unit_type"]
+        portfolios,
+        values="total_capacity",
+        index="year",
+        columns=["unit_type"],
     )
 
     return portfolios
@@ -300,7 +303,12 @@ def plot_portfolio_profile(settings, agent_id, portfolio):
 
     # Add the legend
     handles, labels = ax.get_legend_handles_labels()
-    plt.legend(handles[::-1], labels[::-1], loc="center left", bbox_to_anchor=(1.0, 0.5))
+    plt.legend(
+        handles[::-1],
+        labels[::-1],
+        loc="center left",
+         bbox_to_anchor=(1.0, 0.5),
+    )
 
     # Save the figure
     if settings is not None:
@@ -345,10 +353,17 @@ def write_raw_db_to_excel(settings, db):
 
             # Write table data to excel tab
             try:
-                table_data.to_excel(writer, sheet_name=table, engine="openpyxl")
+                table_data.to_excel(
+                    writer,
+                    sheet_name=table,
+                    engine="openpyxl",
+                    index=False,
+                )
             except:
-                logging.info(f"Unable to save table {table} to excel, likely due to excessive length.")
-
+                logging.info(
+                    f"Unable to save table {table} to excel. " +
+                    "This may be due to excessive length or another problem."
+                )
 
 
 if __name__ == "__main__":
