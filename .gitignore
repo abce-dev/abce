@@ -4,6 +4,7 @@
 **/outputs/
 **/scenario_reduction_tmp/
 **/tmp/
+**/utils/
 .github/workflows/inactive
 inputs/backup_calcs
 test/norun
@@ -28,3 +29,6 @@ precompile.jl
 *cplex*
 **/*repDays*.csv
 *logfile*
+core
+**/inputs/*test*
+**/inputs/*_p.*

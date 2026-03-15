@@ -195,7 +195,7 @@ def run_model():
     for i in range(settings["simulation"]["num_steps"]):
         abce_model.step(demo=args.demo)
 
-    ppx.postprocess_results(args, abce_model, settings)
+    ppx.postprocess_results(args, abce_model.db, settings)
 
 
 class ABCEFormatter(logging.Formatter):

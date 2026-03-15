@@ -144,7 +144,7 @@ function run_true_annual_dispatch()
 
     @info "Running the year-long dispatch simulation..."
     # Run the year's UC/ED problem
-    long_econ_results, dispatch_results = Dispatch.execute_dispatch_economic_projection(
+    long_econ_results, dispatch_results, not_served = Dispatch.execute_dispatch_economic_projection(
         CL_args,
         db,
         settings,
@@ -161,7 +161,7 @@ function run_true_annual_dispatch()
     end
 
     # Adjust formatting and save to the database
-    Dispatch.finalize_annual_dispatch_results(db, CL_args["current_pd"], long_econ_results, dispatch_results)
+    Dispatch.finalize_annual_dispatch_results(db, CL_args["current_pd"], long_econ_results, dispatch_results, not_served)
 
     @info "Done!"
 end

@@ -17,7 +17,7 @@
 module ABCEfunctions
 
 using ArgParse, CPLEX,
-    Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS, Statistics
+    Requires, SQLite, DataFrames, CSV, JuMP, GLPK, Cbc, Logging, Tables, HiGHS, Statistics, MathOptInterface
 
 include("./dispatch.jl")
 using .Dispatch
@@ -1351,10 +1351,13 @@ function add_constraint_shortage_protection(
             transform!(agent_pf, [:num_units, :capacity, :capacity_factor] => ((num, cap, cf) -> num .* cap .* cf) => :total_derated_cap)
             agent_year_derated_cap = sum(agent_pf[!, :total_derated_cap])
 
+            cname = string("shortage_protection_y", i)
+
             @constraint(
                 m,
                 transpose(m[:u] .* PA_summaries[:, :current]) * marg_derated_cap[:, i] >=
-                agent_year_derated_cap * margin
+                agent_year_derated_cap * margin,
+                base_name = cname,
             )
         end
     end
@@ -1474,6 +1477,7 @@ function add_constraint_FM_floors(
             )
             for i=1:settings["agent_opt"]["fin_metric_horizon"]
         ) / settings["agent_opt"]["fin_metric_horizon"] >= 0,
+        base_name = "FCDR_RCDR",
     )
 
     # Limit the average ICR value over the horizon to its floor
@@ -1483,7 +1487,8 @@ function add_constraint_FM_floors(
             agent_fs[i, :FCF] / 1e9 + sum(m[:u] .* marg_FCF[:, i])
                 + (1 - ICR_solo_floor) * (-1) * (agent_fs[i, :interest_payment] / 1e9 + sum(m[:u] .* marg_int[:, i]))
             for i = 1:settings["agent_opt"]["fin_metric_horizon"]
-        ) >= 0
+        ) >= 0,
+        base_name = "ICR",
     )
 
     return m
@@ -1502,11 +1507,13 @@ function add_constraint_max_new_capacity(
 
     for i = 1:size(PA_summaries)[1]
         if PA_summaries[i, :project_type] == "new_xtr"
+            cname = string(PA_summaries[i, :unit_type], "_new_xtr_L", PA_summaries[i, :lag])
             @constraint(
                 m,
                 m[:u][i] .* exp_PA_summaries[i, :capacity] .<=
                 convert(Int64, exp_PA_summaries[i, :allowed]) .*
-                max_type_newcap
+                max_type_newcap,
+                base_name = cname,
             )
         end
     end
@@ -1530,21 +1537,27 @@ function add_constraint_max_retirements(
         if PA_summaries[i, :project_type] == "retirement"
             unit_type = PA_summaries[i, :unit_type]
             ret_pd = PA_summaries[i, :ret_pd]
+
             asset_count = filter(
                 [:unit_type, :retirement_pd] =>
                     (x, y) -> x == unit_type && y == ret_pd,
                 asset_counts,
-            )[
-                1,
-                :count,
-            ]
+            )[1, :count]
+
             max_retirement = (
                 convert(Int64, PA_summaries[i, :allowed]) .* min(
                     asset_count,
                     max_type_rets,
                 )
             )
-            @constraint(m, m[:u][i] .<= max_retirement)
+
+            cname = string(unit_type, "_retlimit_", ret_pd, "-", PA_summaries[i, :lag])
+
+            @constraint(
+                m,
+                m[:u][i] .<= max_retirement,
+                base_name = cname,
+            )
         end
     end
 
@@ -1597,7 +1610,8 @@ function add_constraint_retireable_asset_limit(
         @constraint(
             m,
             sum(ret_summation_matrix[i, :] .* m[:u]) <=
-            retireable_asset_counts[i, :count]
+            retireable_asset_counts[i, :count],
+            base_name = "retlimit_exist_$i"
         )
     end
 
@@ -1737,12 +1751,14 @@ function add_constraint_retirement_scheduling_limit(
         for i = 1:max_horizon
             @constraint(
                 m,
-                sum(transpose(m[:u]) * type_PA_rets[:, i]) <= type_ops[i, :num_units]
+                sum(transpose(m[:u]) * type_PA_rets[:, i]) <= type_ops[i, :num_units],
+                base_name = string(unit_type, "_retlimit_ops_y", i),
             )
 
             @constraint(
                 m,
-                sum(transpose(m[:u]) * type_PA_rets[:, i]) <= settings["agent_opt"]["max_type_rets_per_pd"]
+                sum(transpose(m[:u]) * type_PA_rets[:, i]) <= settings["agent_opt"]["max_type_rets_per_pd"],
+                base_name = string(unit_type, "_retlimit_global_y", i),
             )
 
             # The following set of three constraints are collectively
@@ -1754,17 +1770,20 @@ function add_constraint_retirement_scheduling_limit(
 
             @constraint(
                 m,
-                m[:z][z_count, i] >= type_rets[i, :num_units]
+                m[:z][z_count, i] >= type_rets[i, :num_units],
+                base_name = string("retlimit_z1_", unit_type, i),
             )
 
             @constraint(
                 m,
-                m[:z][z_count, i] >= sum(transpose(m[:u]) * type_PA_rets[:, i])
+                m[:z][z_count, i] >= sum(transpose(m[:u]) * type_PA_rets[:, i]),
+                base_name = string("retlimit_z2_", unit_type, i),
             )
 
             @constraint(
                 m,
-                sum(m[:z][z_count, j] for j=1:i) <= type_ops[1, :num_units]
+                sum(m[:z][z_count, j] for j=1:i) <= type_ops[1, :num_units],
+                base_name = string("retlimit_z3_", unit_type, i),
             )
 
         end
@@ -1904,15 +1923,15 @@ function set_up_model(
 
     # Set relative valuation-vs-credit metrics priority, depending on current
     #   credit grade
-    profit_lamda = settings["agent_opt"]["profit_lamda"] / 1e9 * cr_adj
-    credit_rating_lamda = settings["agent_opt"]["credit_rating_lamda"] / cr_adj
+    profit_lambda = settings["agent_opt"]["profit_lambda"] / 1e9 * cr_adj
+    credit_rating_lambda = settings["agent_opt"]["credit_rating_lambda"] / cr_adj
 
     @objective(
         m,
         Max,
         (
-            profit_lamda * (transpose(u) * PA_summaries[!, :NPV]) +
-            credit_rating_lamda / (0.1 + 0.2 + 0.1) * (
+            profit_lambda * (transpose(u) * PA_summaries[!, :NPV]) +
+            credit_rating_lambda / (0.1 + 0.2 + 0.1) * (
                 0.1 * sum(agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i]) + (agent_fs[i, :interest_payment] / 1e9 + sum(u .* marg_int[:, i])) for i=1:fin_metric_horizon)
                 + 0.2 * sum((agent_fs[i, :FCF] / 1e9 + sum(u .* marg_FCF[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
                 + 0.1 * sum((agent_fs[i, :retained_earnings] / 1e9 + sum(u .* marg_RE[:, i])) - (agent_fs[i, :remaining_debt_principal] / 1e9 + sum(u .* marg_debt[:, i])) for i=1:fin_metric_horizon)
@@ -1926,23 +1945,37 @@ function set_up_model(
 end
 
 
-function solve_model(m, verbosity, threshold=1e-8)
-    optimize!(m)
+function save_constraint_data(db, m, agent_id, pd)
+    cons_data = DataFrame(
+        agent_id = Int64[],
+        pd = Int64[],
+        name = String[],
+        equation = String[],
+        primal_value = Float64[],
+        dual_value = Float64[],
+    )
 
-    if verbosity >= 3
-        if string(termination_status.(m)) == "OPTIMAL"
-            for (F, S) in list_of_constraint_types(m)
-                for con in all_constraints(m, F, S)
-                    println(con)
-                    println(JuMP.value(con))
-                 end
+    for (F, S) in list_of_constraint_types(m)
+        for con in all_constraints(m, F, S)
+            if (F != VariableRef)
+                # Get separate name and equation info
+                con_eq = JuMP.constraint_string(MIME("text/plain"), con)
+                if occursin(JuMP.name(con), con_eq)
+                    lname = JuMP.name(con) * " : "
+                    con_eq = replace(con_eq, lname => "")
+                end
+
+                con_data = [agent_id, pd, JuMP.name(con), con_eq, JuMP.value(con), JuMP.dual(con)]
+                DBInterface.execute(
+                    db,
+                    "INSERT INTO constraint_status VALUES (?, ?, ?, ?, ?, ?)",
+                    con_data,
+                )
             end
         end
     end
 
-    return m
 end
-
 
 
 ### Postprocessing
@@ -2719,16 +2752,24 @@ function save_agent_fs!(fs, agent_id, db, mode)
 
 end
 
-function save_agent_decisions(db, current_pd, agent_id, decision_df)
+function save_agent_decisions(db, current_pd, agent_id, decision_df; mode="integral")
     decision_df[!, :agent_id] .= agent_id
     decision_df[!, :base_pd] .= current_pd
+
+    if mode == "integral"
+        table = "agent_decisions"
+    else
+        table = "agent_decisions_relax"
+    end
+
     cols_to_ignore = [:uid, :current]
     select!(decision_df, [:agent_id, :base_pd], Not(vcat([:agent_id], cols_to_ignore)))
+
     for row in Tuple.(eachrow(decision_df))
         DBInterface.execute(
             db,
             string(
-                "INSERT INTO agent_decisions ",
+                "INSERT INTO $table ",
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             ),
             row,

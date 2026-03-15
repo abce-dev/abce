@@ -1,13 +1,13 @@
 simulation:
-  scenario_name: "baseline"
+  scenario_name: "2a_10p_2a1b_baseline"
   solver: "CPLEX"
-  num_steps: 1
-  file_logging_level: 0  # 0: no additional csvs saved; 1: all additional csvs saved
+  num_steps: 10
+  file_logging_level: 1  # 0: no additional csvs saved; 1: all additional csvs saved
                          # caution! enabling file logging with 365 repdays can require 200GB+ of storage
   C2N_assumption: baseline
 
 scenario:
-  peak_demand: 80000
+  peak_demand: 78000
   policies:
     CTAX:
       enabled: False
@@ -35,6 +35,7 @@ scenario:
       enabled: True
       eligibility:
         unit_type:
+          - advanced_nuclear
           - PWR_C2N0_single
           - PWR_C2N1_single
           - HTGR_C2N0_single
@@ -71,6 +72,7 @@ constants:
   time_before_start: -1
   distant_time: 9999
   big_number: 999999
+  hours_per_year: 8760
   MW2kW: 1000   # converts MW to kW
 
 # File paths and filenames
@@ -78,11 +80,11 @@ file_paths:
   ABCE_sysimage_file: "abceSysimage.so"
   db_file: "abce_db.db"
   demand_data_file: "demand_data_baseline_70y.csv"
-#  agent_specifications_file: "single_agent_testing.yml"
-#  agent_specifications_file: "agent_specifications.yml"
+#  agent_specifications_file: "2a_identical.yml"
   agent_specifications_file: "2a1b.yml"
   output_file: "outputs.xlsx"
-  output_logging_dir: "/groupspace/cnerg/users/kebiegel/abce_outputs"
+#  output_logging_dir: "/groupspace/cnerg/users/kebiegel/abce_outputs"
+  output_logging_dir: "/filespace/k/kebiegel/abce/outputs"
   timeseries_data_dir: "ts_data"
   unit_specs_data_file: "unit_specs.yml"
   logo: "abce.txt"
@@ -98,6 +100,7 @@ system:
 
 # Settings for demand projections
 demand:
+  total_forecast_horizon: 10   # Number of periods in the complete forecast horizon
   demand_visibility_horizon: 5
   demand_projection_mode: exp_termrate     # flat, exp_fitted, or exp_termrate
   demand_projection_window: 5 # Total number of periods used to project demand
@@ -118,25 +121,31 @@ dispatch:
   gamma_reg: .8
   gamma_spin: .8
   gamma_nspin: 0.2
+  hist_wt: 0.4  # Weighting of historical versus projected data
+  hist_decay: 0.5   # Decay factor for each historical data year
 
 # Settings for agent behavior optimization
 agent_opt:
   num_future_periods_considered: 2    # Number of periods for which to consider future projects
-  max_type_rets_per_pd: 3
-  max_type_newcap_per_pd: 1100
+  max_type_rets_per_pd: 5
+  max_type_newcap_per_pd: 5000
   shortage_protection_period: 8
   cap_decrease_threshold: 1.0
   cap_decrease_margin: -0.08
   cap_maintain_margin: -0.03
-  profit_lambda: 1.0          # Note: only the ratio between the lambdas matters
-  credit_rating_lambda: 1.0
+  profit_lamda: 1.0          # Note: only the ratio between the lamdas matters
+  credit_rating_lamda: 1.0
   fin_metric_horizon: 4
+  rcdr_target_delta: 0.005
+  icr_floor: 3.5   # weighted sum limit
   fcf_debt_floor: 0.16   # weighted sum limit
   re_debt_floor: 0.115   # weighted sum limit
   icr_solo_floor: 0.0   # individual
+  competitor_efficiency_assumption: 0.95   # k < 1.0 (sensitive parameter!)
 
 financing:
   default_debt_term: 30
   depreciation_horizon: 20
   starting_instrument_id: 1000
+
 

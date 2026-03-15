@@ -37,7 +37,7 @@ function execute_dispatch_economic_projection(
         " years...",
     )
 
-    all_repdays, all_grc_results, all_price_results = handle_annual_dispatch(
+    all_repdays, all_grc_results, all_price_results, not_served = handle_annual_dispatch(
         db,
         settings,
         CLI_args,
@@ -70,7 +70,7 @@ function execute_dispatch_economic_projection(
         fc_pd,
     )
 
-    return long_econ_results, dispatch_results
+    return long_econ_results, dispatch_results, not_served
 end
 
 
@@ -168,6 +168,7 @@ function handle_annual_dispatch(
 
     all_grc_results = set_up_grc_results_df()
     all_prices = set_up_prices_df()
+    not_served = nothing
 
     if run_mode == "forecast"
         num_years = settings["dispatch"]["num_dispatch_years"]
@@ -230,13 +231,15 @@ function handle_annual_dispatch(
                 CLI_args["current_pd"],
                 results[:summary_statistics]
             )
+
+            not_served = results[:not_served]
         end
 
         @debug "DISPATCH SIMULATION: YEAR $y COMPLETE."
 
     end
 
-    return all_repdays, all_grc_results, all_prices
+    return all_repdays, all_grc_results, all_prices, not_served
 
 end
 
@@ -1004,7 +1007,6 @@ function run_annual_dispatch(
         # Set up default return values if the dispatch year is infeasible
         new_grc_results = nothing
         new_prices = nothing
-        summary_statistics = nothing
 
         # Save the generation and commitment results from the integral problem
         new_grc_results = assemble_grc_results(y, gen_qty, r, sr, nsr, c, su, sd, portfolio_specs)
@@ -1148,14 +1150,24 @@ function run_annual_dispatch(
     end
 
     if run_mode == "current"
+        # Calculate summary statistics for the real dispatch year
         summary_statistics = calculate_summary_statistics(new_grc_results, new_prices, ens, rns, sns, nsns)
+
+        # Collate and return X-not-served results
+        not_served = select(deepcopy(new_prices), [:y, :d, :h])
+        not_served[!, :ENS] = vec(reshape(ens, (:, 1)))
+        not_served[!, :RNS] = vec(reshape(rns, (:, 1)))
+        not_served[!, :SNS] = vec(reshape(sns, (:, 1)))
+        not_served[!, :NSNS] = vec(reshape(nsns, (:, 1)))
     else
         summary_statistics = nothing
+        not_served = nothing
     end
 
     results = Dict(
         :new_grc_results => new_grc_results,
         :new_prices => new_prices,
+        :not_served => not_served,
         :summary_statistics => summary_statistics
     )
 
@@ -1650,16 +1662,6 @@ function postprocess_results(
             ),
             sLER,
         )
-
-        dispres_filename = string("dispatch_results__", id, "basepd_", current_pd, ".csv")
-        CSV.write(
-            joinpath(
-                settings["file_paths"]["output_logging_dir"],
-                settings["simulation"]["scenario_name"],
-                dispres_filename,
-            ),
-            dispatch_results,
-        )
     end
 
 
@@ -1667,11 +1669,61 @@ function postprocess_results(
 end
 
 
-function finalize_annual_dispatch_results(db, current_pd, long_econ_results, dispatch_results)
+function finalize_annual_dispatch_results(db, current_pd, long_econ_results, dispatch_results, not_served)
     #save_annual_dispatch_summary(db, current_pd, long_econ_results)
-    #save_annual_dispatch_hourly_results(db, current_pd, long_econ_results)
+    save_annual_dispatch_hourly_results(db, current_pd, long_econ_results, not_served)
     save_annual_dispatch_unit_summary(db, current_pd, dispatch_results)
-    #save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
+    save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
+end
+
+
+function save_annual_dispatch_hourly_results(db, current_pd, long_econ_results, not_served)
+    # Get columns of interest from LER
+    results = deepcopy(
+        long_econ_results[:, [:y, :d, :h, :unit_type, :lambda, :reg_rmp, :spin_rmp, :nspin_rmp]]
+    )
+
+    # Remove duplicates and delete unit_type column
+    filter_type = unique(results[!, :unit_type])[1]
+    results = filter(
+        :unit_type => ut -> ut == filter_type,
+        long_econ_results,
+    )
+
+    results = select(results, Not([:unit_type]))    
+
+    # Rename the columns to match the DB standard
+    rename!(
+        results,
+        :y => :period,
+        :d => :day,
+        :h => :hour,
+        :reg_rmp => :reg_price,
+        :spin_rmp => :spin_price,
+        :nspin_rmp => :nspin_price,
+    )
+
+    stmt = DBInterface.prepare(
+        db,
+        """INSERT INTO annual_dispatch_hourly_results VALUES (:period, :day, :hour, :lambda, :reg_price, :spin_price, :nspin_price, :ENS, :RNS, :SNS, :NSNS)"""
+    )
+
+    DBInterface.executemany(
+        stmt,
+        (period = results[!, :period],
+         day = results[!, :day],
+         hour = results[!, :hour],
+         lambda = results[!, :lambda],
+         reg_price = results[!, :reg_price],
+         spin_price = results[!, :spin_price],
+         nspin_price = results[!, :nspin_price],
+         ENS = not_served[!, :ENS],
+         RNS = not_served[!, :RNS],
+         SNS = not_served[!, :SNS],
+         NSNS = not_served[!, :NSNS],
+        )
+    )
+
 end
 
 
@@ -1701,6 +1753,7 @@ function save_annual_dispatch_unit_summary(db, current_pd, dispatch_results)
     end
 
 end
+
 
 function save_annual_dispatch_hourly_unit_results(db, current_pd, long_econ_results)
     # Get columns of interest

@@ -255,20 +255,6 @@ def write_to_excel(everything):
     with xlsxwriter as writer:
         for key in everything.keys():
             everything[key].to_excel(writer, sheet_name = names[key])
-#        everything["wa_lambda"].to_excel(writer, sheet_name = "Wtd Avg Lambda")
-#        everything["ENS"].to_excel(writer, sheet_name = "Energy Not Served")
-#        everything["conditions"].to_excel(writer, sheet_name = "Decision conditions")
-#        everything["xtr_pivot"].to_excel(writer, sheet_name = "New xtr pivot")
-#        everything["xtr_exec_pivot"].to_excel(writer, sheet_name = "New xtr L0 pivot")
-#        everything["ret_pivot"].to_excel(writer, sheet_name = "Retirement pivot")
-#        everything["ret_exec_pivot"].to_excel(writer, sheet_name = "Retirements executed")
-#        everything["201_revenue"].to_excel(writer, sheet_name = "201 revenue")
-#        everything["201_FCF"].to_excel(writer, sheet_name = "201 FCF")
-#        everything["201_moodys_score"].to_excel(writer, sheet_name = "201 score")
-#        everything["202_revenue"].to_excel(writer, sheet_name = "202 revenue")
-#        everything["202_FCF"].to_excel(writer, sheet_name = "202 FCF")
-#        everything["202_moodys_score"].to_excel(writer, sheet_name = "202 score")
-
 
 
 def run():

@@ -263,6 +263,36 @@ abce_tables = {
         ("units_to_execute", "integer"),
         ("mode", "text"),
     ],
+
+    "agent_decisions_relax": [
+        ("agent_id", "integer", "PRIMARY KEY"),
+        ("base_pd", "integer"),
+        ("unit_type", "text"),
+        ("project_type", "text"),
+        ("lag", "integer"),
+        ("ret_pd", "integer"),
+        ("NPV", "real"),
+        ("allowed", "text"),
+        ("units_to_execute", "real"),
+        ("mode", "text"),
+    ],
+
+    "constraint_status": [
+        ("agent_id", "integer"),
+        ("pd", "integer"),
+        ("name", "text"),
+        ("equation", "text"),
+        ("primal_value", "real"),
+        ("dual_value", "real"),
+    ],
+
+    "objective_values": [
+        ("agent_id", "integer", "PRIMARY KEY"),
+        ("pd", "integer"),
+        ("integral_problem", "real"),
+        ("relaxed_problem", "real"),
+    ],
+
     "annual_dispatch_summary": [
         ("period", "integer", "PRIMARY KEY"),
         ("wa_lambda", "real"),
@@ -278,10 +308,6 @@ abce_tables = {
         ("period", "integer"),
         ("day", "integer"),
         ("hour", "integer"),
-        ("demand", "real"),
-        ("reg_demand", "real"),
-        ("spin_demand", "real"),
-        ("nspin_demand", "real"),
         ("lambda", "real"),
         ("reg_price", "real"),
         ("spin_price", "real"),

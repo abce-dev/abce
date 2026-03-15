@@ -43,43 +43,57 @@ unit_type_colors = {
     "PUN units (higher VOM)": "#bbbbbb"
 }
 
-
-def write_raw_db_to_excel(settings, db, tag=None):
-    # Get the names of all database tables
-    db_tables = pd.read_sql_query(
-        "SELECT name FROM sqlite_master WHERE type='table';", db
+#=================
+# Setup functions
+#=================
+def get_cli_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dir",
+        type=str,
+        required=True,
     )
 
-    if settings is not None:
-        # Set up the path to the ultimate outputs directory
-        out_file = Path(
-            Path.cwd()
-            / "outputs"
-            / settings["simulation"]["scenario_name"]
-            / f"{settings['simulation']['scenario_name']}__{settings['file_paths']['output_file']}"
-        )
-    else:
-        out_file = Path(os.getenv("ABCE_DIR")) / "imgs" / tag / f"{tag}_outputs.xlsx"
+    parser.add_argument(
+        "--default",
+        "-d",
+        action="store_true",
+    )
 
-    # Write each table to a tab in the excel sheet
-    with pd.ExcelWriter(out_file) as writer:
-        for i in range(len(db_tables)):
-            # Get table name
-            table = db_tables.loc[i, "name"]
-
-            # Get table data
-            table_data = pd.read_sql_query(f"SELECT * FROM {table}", db)
-
-            # Write table data to excel tab
-            try:
-                table_data.to_excel(writer, sheet_name=table, engine="openpyxl")
-            except:
-                logging.info(f"Unable to save table {table} to excel, likely due to excessive length.")
+    args = parser.parse_args()
+    args.no_plots = False
+    return args
 
 
-###############################################################################
-# Functions for postprocessing and plotting
-###############################################################################
+def get_db(args):
+    db_file = Path(args.dir) / "abce_db.db"
+    db = sqlite3.connect(db_file)
+
+    return db_file, db
+
+
+#======================
+# Processing functions
+#======================
+def postprocess_results(args, db, settings):
+    logging.info("Postprocessing results...")
+
+    # Save the raw database as an Excel format for easier viewing and manual
+    #   postprocessing/debugging
+    write_raw_db_to_excel(settings, db)
+
+    # Get a list of all agent ids
+    agent_list = get_agent_list(db)
+
+    # Get an subset of unit_specs columns
+    unit_specs = get_unit_specs(db)
+
+    # Plot portfolio evolution for all agents, plus the overall system
+    if not args.no_plots:
+        for agent_id in agent_list + [None]:
+            plot_portfolios(db, settings, unit_specs, agent_id)
+
+    logging.info("Postprocessing complete.")
 
 
 def get_agent_list(db):
@@ -98,6 +112,23 @@ def get_unit_specs(db):
     ]
 
     return unit_specs
+
+
+def plot_portfolios(db, settings, unit_specs, agent_id):
+    if agent_id == None:
+        msg = "total system portfolio"
+    else:
+        msg = f"agent {agent_id}'s portfolio"
+
+    logging.debug(f"Procesing data for {msg}...")
+    portfolio_profile = get_portfolio_profile(
+        db, agent_id, unit_specs, settings,
+    )
+
+    portfolio_profile = organize_portfolio_profile(portfolio_profile)
+
+    plot_portfolio_profile(settings, agent_id, portfolio_profile)
+    logging.debug(f"Plot for {msg} saved.")
 
 
 def get_portfolio_profile(db, agent_id, unit_specs, settings):
@@ -161,7 +192,10 @@ def get_portfolio_profile(db, agent_id, unit_specs, settings):
         portfolios["num_units"] * portfolios["capacity"]
     )
     portfolios = pd.pivot_table(
-        portfolios, values="total_capacity", index="year", columns=["unit_type"]
+        portfolios,
+        values="total_capacity",
+        index="year",
+        columns=["unit_type"],
     )
 
     return portfolios
@@ -221,19 +255,21 @@ def organize_portfolio_profile(portfolio_profile):
     return portfolio_profile
 
 
-def plot_portfolio_profile(settings, agent_id, portfolio, tag=None, descriptor=None):
-    # Set up figure titles and filenames
-    if settings is not None:
-        tag = settings["simulation"]["scenario_name"]
-        descriptor = " ".join(tag.split("_"))
+
+#====================
+# Plotting functions
+#====================
+def plot_portfolio_profile(settings, agent_id, portfolio):
+    sname = settings["simulation"]["scenario_name"]
+    readable_name = " ".join(sname.split("_"))
 
     # Set up figure-specific strings according to the agent_id specified
     if agent_id == None:
-        title = f"Total system portfolio evolution\n{descriptor}"
-        filename = f"{tag}_total_system_portfolio_evolution.png"
+        title = f"Total system portfolio evolution\n{readable_name}"
+        filename = f"{sname}_total_system_portfolio_evolution.png"
     else:
-        title = f"Agent {agent_id} portfolio evolution\n{descriptor}"
-        filename = f"{tag}_agent_{agent_id}_portfolio_evolution.png"
+        title = f"Agent {agent_id} portfolio evolution\n{readable_name}"
+        filename = f"{sname}_agent_{agent_id}_portfolio_evolution.png"
 
     # Remove empty data columns
     for column in list(portfolio.columns):
@@ -267,7 +303,12 @@ def plot_portfolio_profile(settings, agent_id, portfolio, tag=None, descriptor=N
 
     # Add the legend
     handles, labels = ax.get_legend_handles_labels()
-    plt.legend(handles[::-1], labels[::-1], loc="center left", bbox_to_anchor=(1.0, 0.5))
+    plt.legend(
+        handles[::-1],
+        labels[::-1],
+        loc="center left",
+        bbox_to_anchor=(1.0, 0.5),
+    )
 
     # Save the figure
     if settings is not None:
@@ -275,94 +316,62 @@ def plot_portfolio_profile(settings, agent_id, portfolio, tag=None, descriptor=N
             Path("outputs", settings["simulation"]["scenario_name"], filename)
         )
     else:
-        target_dir = Path(os.getenv("ABCE_DIR")) / "imgs" / tag
+        target_dir = Path(os.getenv("ABCE_DIR")) / "imgs" / sname
         if not target_dir.is_dir():
             os.makedirs(target_dir)
         fig.get_figure().savefig(target_dir / filename)
 
 
-def plot_portfolios(db, settings, unit_specs, agent_id, tag, descriptor):
-    if agent_id == None:
-        msg = "total system portfolio"
-    else:
-        msg = f"agent {agent_id}'s portfolio"
-
-    logging.debug(f"Procesing data for {msg}...")
-    portfolio_profile = get_portfolio_profile(
-        db, agent_id, unit_specs, settings,
+#================
+# Save functions
+#================
+def write_raw_db_to_excel(settings, db):
+    # Get the names of all database tables
+    db_tables = pd.read_sql_query(
+        "SELECT name FROM sqlite_master WHERE type='table';",
+        db,
     )
 
-    portfolio_profile = organize_portfolio_profile(portfolio_profile)
+    sname = settings["simulation"]["scenario_name"]
 
-    plot_portfolio_profile(settings, agent_id, portfolio_profile, tag, descriptor)
-    logging.debug(f"Plot for {msg} saved.")
-
-
-def postprocess_results(args, abce_model, settings=None, tag=None, descriptor=None):
-    logging.info("Postprocessing results...")
-
-    # Save the raw database as an Excel format for easier viewing and manual
-    #   postprocessing/debugging
-#    if settings is not None:
-    write_raw_db_to_excel(settings, abce_model.db, tag)
-
-    # Get a list of all agent ids
-    agent_list = get_agent_list(abce_model.db)
-
-    # Get an subset of unit_specs columns
-    unit_specs = get_unit_specs(abce_model.db)
-
-    # Plot portfolio evolution for all agents, plus the overall system
-    if not args.no_plots:
-        for agent_id in agent_list + [None]:
-            plot_portfolios(abce_model.db, settings, unit_specs, agent_id, tag, descriptor)
-
-    logging.info("Postprocessing complete.")
-
-
-def cli_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dir",
-        type=str,
-        required=True
+    # Set up the path to the ultimate outputs directory
+    out_file = Path(
+        Path.cwd()
+        / "outputs"
+        / sname
+        / f"{sname}__{settings['file_paths']['output_file']}"
     )
 
-    parser.add_argument(
-        "--default",
-        "-d",
-        action="store_true",
-    )
+    # Write each table to a tab in the excel sheet
+    with pd.ExcelWriter(out_file) as writer:
+        for i in range(len(db_tables)):
+            # Get table name
+            table = db_tables.loc[i, "name"]
 
-    args = parser.parse_args()
-    args.no_plots = False
-    return args
+            # Get table data
+            table_data = pd.read_sql_query(f"SELECT * FROM {table}", db)
 
-
-class Model(object):
-    def __init__(self, db):
-        self.db = db
+            # Write table data to excel tab
+            try:
+                table_data.to_excel(
+                    writer,
+                    sheet_name=table,
+                    engine="openpyxl",
+                    index=False,
+                )
+            except:
+                logging.info(
+                    f"Unable to save table {table} to excel. " +
+                    "This may be due to excessive length or another problem."
+                )
 
 
 if __name__ == "__main__":
-    args = cli_args()
+    args = get_cli_args()
 
     # Open database and create the fake model object
-    db_file = Path(args.dir) / "abce_db.db"
-    print(db_file)
-    db = sqlite3.connect(db_file)
-    m = Model(db)
+    db_file, db = get_db(args)
 
-    # If not default, ask the user for the scenario name to use in
-    #   figure titles
-    descriptor = None
-    if not args.default:
-        descriptor = input("Provide a scenario descriptor to use in the figure titles:\n")
-
-    # Separate out the immediate parent directory name as a tag for filenames
-    # This is the same as the scenario name in a live run of ABCE
-    tag = db_file.parts[-2]
-
-    postprocess_results(args, m, settings=None, tag=tag, descriptor=descriptor)
+    postprocess_results(args, db, settings)
 
 
