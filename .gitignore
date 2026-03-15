@@ -29,3 +29,6 @@ precompile.jl
 *cplex*
 **/*repDays*.csv
 *logfile*
+core
+**/inputs/*test*
+**/inputs/*_p.*
