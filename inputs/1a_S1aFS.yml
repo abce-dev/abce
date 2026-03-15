@@ -1,0 +1,33 @@
+# This input file serves as a base for the Simplified 1-agent Full Spectrum test
+# 
+# System composition:
+#   - 1 agent, which owns an equal number of all possible generation asset types
+#       - with 8 assets per type (excl. C2N), 15600 MW unforced capacity (12400 net of wind and solar)
+# 
+# This file is intended to be used with the following other assumptions/files:
+#   - ts_US_data timeseries files (all quantities constant, no AS)
+#   - 10k starting peak demand
+
+
+# Standard Light & Power
+201:
+    debt_fraction: 0.5
+    cost_of_debt: 0.06
+    cost_of_equity: 0.1
+    starting_debt:  3000000000   # $3 B
+    starting_PPE:   250000000   # $250 M
+    starting_RE:    200000000   # $200 M
+    k: 0.95
+    starting_portfolio:
+        coal: 8
+        conventional_nuclear: 8
+        ngcc: 8
+        ngct: 8
+        PUN_unit_high: 8
+        PUN_unit_low: 8
+        solar: 8
+        solar_old: 8
+        wind: 8
+        wind_old: 8
+        advanced_nuclear: 8
+
