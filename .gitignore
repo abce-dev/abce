@@ -4,6 +4,7 @@
 **/outputs/
 **/scenario_reduction_tmp/
 **/tmp/
+**/utils/
 .github/workflows/inactive
 inputs/backup_calcs
 test/norun
