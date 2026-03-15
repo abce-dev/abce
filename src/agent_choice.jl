@@ -124,26 +124,6 @@ function compute_last_year_results(db, settings, CLI_args, agent_params)
 end
 
 
-function process_results(settings, CLI_args, final_model, final_mode, db, PA_uids, unit_specs)
-    # Ensure model results data is valid and of correct type
-    all_results = ABCEfunctions.finalize_results_dataframe(final_model, final_mode, PA_uids)
-
-    # Display the results
-    ABCEfunctions.display_agent_choice_results(CLI_args, final_model, all_results)
-
-    # Save newly-selected project alternatives happening in the current period
-    #   to the database
-    ABCEfunctions.postprocess_agent_decisions(
-        settings,
-        all_results,
-        unit_specs,
-        db,
-        CLI_args["current_pd"],
-        CLI_args["agent_id"],
-    )
-end
-
-
 function save_intermediate_outputs(settings, CLI_args, adj_system_portfolios, long_econ_results)
     # Save all system portfolio forecasts to the cnerg groupspace
     pfs = deepcopy(adj_system_portfolios[CLI_args["current_pd"]])
@@ -160,6 +140,34 @@ function save_intermediate_outputs(settings, CLI_args, adj_system_portfolios, lo
     )
     CSV.write(filename, pfs)
 
+end
+
+
+function get_model_results(settings, model, realized_mode, PA_uids; mode="integral")
+    # Check solve status of model
+    status = string(termination_status.(model))
+
+    if status == "OPTIMAL"
+        # If the model solved to optimality:
+        if mode == "integral"
+            # Convert the results to type Int64
+            unit_qty = Int64.(round.(value.(model[:u])))
+        else
+            unit_qty = value.(model[:u])
+        end
+        obj_val = objective_value(model)
+    else
+        # If the model did not solve to optimality for any reason
+        #   (infeasibility or error):
+        # The agent does nothing. Return a vector of all zeroes instead.
+        unit_qty = zeros(Int64, size(PA_uids)[1])
+        obj_val = nothing
+    end
+
+    decision_df = hcat(PA_uids, DataFrame(units_to_execute = unit_qty))
+    decision_df[!, :mode] .= realized_mode
+
+    return decision_df, obj_val
 end
 
 
@@ -302,12 +310,12 @@ function run_agent_choice()
 
     # Solve the model
     @info "Solving optimization problem..."
-    m = ABCEfunctions.solve_model(m, CLI_args["verbosity"])
+    optimize!(m)
 
     status = string(termination_status.(m))
     if status == "OPTIMAL"
         final_model = m
-        final_mode = "normal"
+        realized_mode = "normal"
     else
         m_ret = ABCEfunctions.set_up_model(
             settings,
@@ -327,15 +335,49 @@ function run_agent_choice()
             mode="ret_only"
         )
 
-        m_ret = ABCEfunctions.solve_model(m_ret, CLI_args["verbosity"])
+        optimize!(m_ret)
 
         final_model = m_ret
-        final_mode = "ret_only"
+        realized_mode = "ret_only"
     end
 
     # Process the model outputs
     @debug "Postprocessing model results..."
-    process_results(settings, CLI_args, final_model, final_mode, db, PA_uids, unit_specs)
+    decision_df, obj_val = get_model_results(settings, final_model, realized_mode, PA_uids; mode="integral")
+    ABCEfunctions.display_agent_choice_results(CLI_args, final_model, decision_df)
+
+    # Re-solve the model with integrality relaxed
+    undo_relax = relax_integrality(final_model)
+    optimize!(final_model)
+    relax_decision_df, relax_obj_val = get_model_results(settings, final_model, realized_mode, PA_uids; mode="relax")
+
+    # Save the constraint data (including dual values) for the relaxed model
+    ABCEfunctions.save_constraint_data(db, final_model, CLI_args["agent_id"], CLI_args["current_pd"])
+
+    # Display the integral model results
+    ABCEfunctions.display_agent_choice_results(CLI_args, final_model, relax_decision_df)
+
+    # Save newly-selected project alternatives happening in the current period
+    #   to the database
+    ABCEfunctions.postprocess_agent_decisions(
+        settings,
+        decision_df,
+        unit_specs,
+        db,
+        CLI_args["current_pd"],
+        CLI_args["agent_id"],
+    )
+
+    # Save relaxed problem results to DB
+    ABCEfunctions.save_agent_decisions(db, CLI_args["current_pd"], CLI_args["agent_id"], relax_decision_df; mode="relax")
+
+    # Save both problems' final objective values to DB
+    DBInterface.execute(
+        db,
+        "INSERT INTO objective_values VALUES (?, ?, ?, ?)",
+        (CLI_args["agent_id"], CLI_args["current_pd"], obj_val, relax_obj_val),
+    )
+
 end
 
 
