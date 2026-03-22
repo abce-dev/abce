@@ -126,7 +126,7 @@ end
 
 function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd, downselection_mode)
     if (settings["dispatch"]["downselection"] == "exact") || (downselection_mode == "exact")
-        num_days = 365
+        num_days = 366
     else
         num_days = settings["dispatch"]["num_repdays"]
     end
@@ -135,7 +135,6 @@ function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd, downselection_
         ts_data_dir,
         current_pd,
         fc_pd,
-        num_repdays=num_days
     )
 
     repdays_data = set_up_repdays_data(
@@ -144,6 +143,8 @@ function set_up_ts_data(settings, ts_data_dir, current_pd, fc_pd, downselection_
         fc_pd,
         num_repdays=num_days
     )
+
+    ts_data[:repdays_data] = repdays_data
 
     return ts_data, repdays_data
 end
@@ -244,7 +245,7 @@ function handle_annual_dispatch(
 end
 
 
-function load_ts_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
+function load_ts_data(ts_file_dir, base_pd, fc_pd)
     # Load the time-series demand and VRE data into dataframes
     load_data =
         CSV.read(joinpath(ts_file_dir, "timeseries_load_hourly.csv"), DataFrame)
@@ -266,7 +267,6 @@ function load_ts_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
         :reg_data => reg_data,
         :spin_data => spin_data,
         :nspin_data => nspin_data,
-#        :repdays_data => repdays_data,
     )
 
     return ts_data
@@ -276,11 +276,11 @@ end
 function set_up_repdays_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
     if num_repdays == nothing
         repdays_data = nothing
-    elseif num_repdays == 365
+    elseif num_repdays == 366
         repdays_data = CSV.read(
             joinpath(
                 ts_file_dir,
-                "repDays_365.csv",
+                "repDays_366.csv",
             ),
             DataFrame,
         )
@@ -299,8 +299,6 @@ function set_up_repdays_data(ts_file_dir, base_pd, fc_pd; num_repdays=nothing)
             DataFrame
         )
     end
-
-
 
     return repdays_data
 end
@@ -1044,7 +1042,7 @@ function run_annual_dispatch(
         all_sns = nothing
         all_nsns = nothing
 
-        while starting_index < 365
+        while starting_index < 366
             # Take slices of the time-series data
             ending_index = min(starting_index + subpd - 1, size(ts_data[:load_repdays])[2])
             @info "  Simulating dispatch for days $starting_index - $ending_index"
@@ -1274,7 +1272,7 @@ function join_results_data_frames(
 
     # Incorporate repdays probability data
     if settings["dispatch"]["downselection"] == "exact"
-        long_econ_results[!, :Probability] .= 1.0/365
+        long_econ_results[!, :Probability] .= 1.0/366
     else
         long_econ_results = innerjoin(
             long_econ_results,
@@ -1307,7 +1305,7 @@ function compute_per_unit_cash_flows(long_econ_results)
     transform!(
         long_econ_results,
         [:gen, :Probability, :num_units] =>
-            ((gen, prob, num_units) -> gen .* prob .* 365 ./ num_units) =>
+            ((gen, prob, num_units) -> gen .* prob .* 366 ./ num_units) =>
                 :annualized_gen_per_unit,
     )
 
@@ -1315,7 +1313,7 @@ function compute_per_unit_cash_flows(long_econ_results)
     transform!(
         long_econ_results,
         [:reg, :Probability, :num_units] =>
-            ((reg, prob, num_units) -> reg .* prob .* 365 ./ num_units) =>
+            ((reg, prob, num_units) -> reg .* prob .* 366 ./ num_units) =>
                 :annualized_reg_per_unit,
     )
 
@@ -1323,7 +1321,7 @@ function compute_per_unit_cash_flows(long_econ_results)
     transform!(
         long_econ_results,
         [:spin, :Probability, :num_units] =>
-            ((spin, prob, num_units) -> spin .* prob .* 365 ./ num_units) =>
+            ((spin, prob, num_units) -> spin .* prob .* 366 ./ num_units) =>
                 :annualized_spin_per_unit,
     )
 
@@ -1331,7 +1329,7 @@ function compute_per_unit_cash_flows(long_econ_results)
     transform!(
         long_econ_results,
         [:nspin, :Probability, :num_units] =>
-            ((nspin, prob, num_units) -> nspin .* prob .* 365 ./ num_units) =>
+            ((nspin, prob, num_units) -> nspin .* prob .* 366 ./ num_units) =>
                 :annualized_nspin_per_unit,
     )
 
@@ -1339,7 +1337,7 @@ function compute_per_unit_cash_flows(long_econ_results)
     transform!(
         long_econ_results,
         [:gen, :lambda, :Probability, :num_units] =>
-            ((gen, lambda, prob, num_units) -> (gen .* lambda .* prob .* 365 ./ num_units))
+            ((gen, lambda, prob, num_units) -> (gen .* lambda .* prob .* 366 ./ num_units))
                 => :annualized_gen_rev_per_unit,
     )
 
@@ -1348,7 +1346,7 @@ function compute_per_unit_cash_flows(long_econ_results)
         long_econ_results,
         [:reg, :reg_rmp, :Probability, :num_units]
         => ((reg, reg_rmp, prob, num_units)
-        -> (reg .* reg_rmp .* prob .* 365 ./ num_units))
+        -> (reg .* reg_rmp .* prob .* 366 ./ num_units))
         => :annualized_reg_rev_per_unit,
     )
 
@@ -1357,7 +1355,7 @@ function compute_per_unit_cash_flows(long_econ_results)
         long_econ_results,
         [:spin, :spin_rmp, :Probability, :num_units]
         => ((spin, spin_rmp, prob, num_units)
-        -> (spin .* spin_rmp .* prob .* 365 ./ num_units))
+        -> (spin .* spin_rmp .* prob .* 366 ./ num_units))
         => :annualized_spin_rev_per_unit,
     )
 
@@ -1366,7 +1364,7 @@ function compute_per_unit_cash_flows(long_econ_results)
         long_econ_results,
         [:nspin, :nspin_rmp, :Probability, :num_units]
         => ((nspin, nspin_rmp, prob, num_units)
-        -> (nspin .* nspin_rmp .* prob .* 365 ./ num_units))
+        -> (nspin .* nspin_rmp .* prob .* 366 ./ num_units))
         => :annualized_nspin_rev_per_unit,
     )
 
@@ -1394,7 +1392,7 @@ function compute_per_unit_cash_flows(long_econ_results)
         [:gen, :VOM, :Probability, :num_units] =>
             (
                 (gen, VOM, prob, num_units) ->
-                    gen .* VOM .* prob .* 365 ./ num_units
+                    gen .* VOM .* prob .* 366 ./ num_units
             ) => :annualized_VOM_per_unit,
     )
 
@@ -1404,7 +1402,7 @@ function compute_per_unit_cash_flows(long_econ_results)
         [:gen, :FC_per_MWh, :Probability, :num_units] =>
             (
                 (gen, fc, prob, num_units) ->
-                    gen .* fc .* prob .* 365 ./ num_units
+                    gen .* fc .* prob .* 366 ./ num_units
             ) => :annualized_FC_per_unit,
     )
 
@@ -1414,7 +1412,7 @@ function compute_per_unit_cash_flows(long_econ_results)
         [:gen, :carbon_tax_per_MWh, :Probability, :num_units] =>
             (
                 (gen, adj, prob, num_units) ->
-                    gen .* adj .* prob .* 365 ./ num_units
+                    gen .* adj .* prob .* 366 ./ num_units
             ) => :annualized_carbon_tax_per_unit,
     )
 
@@ -1424,7 +1422,7 @@ function compute_per_unit_cash_flows(long_econ_results)
         [:gen, :tax_credits_per_MWh, :Probability, :num_units] =>
             (
                 (gen, tc, prob, num_units) ->
-                    gen .* tc .* prob .* 365 ./ num_units
+                    gen .* tc .* prob .* 366 ./ num_units
             ) => :annualized_tax_credits_per_unit,
     )
 
