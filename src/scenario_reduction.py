@@ -191,7 +191,7 @@ def run_scenario_reduction(**kwargs):
         if num_scenarios in [365, 366]:
             fname = f"repDays_{str(num_scenarios)}.csv"
         else:
-            fname = f"bp_{setting['current_pd']}_fp_{setting['fc_pd']}_repDays{str(num_scenarios)}.csv"
+            fname = f"bp_{setting['current_pd']}_fp_{setting['fc_pd']}_repDays_{str(num_scenarios)}.csv"
         rep_day_input_df.to_csv(
             os.path.join(
                 setting["data_output_path"],
